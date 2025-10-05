@@ -27,9 +27,15 @@ interface ManufacturingData {
 }
 
 export function ManufacturingSpecs({ part }: ManufacturingSpecsProps) {
-  const specs: ManufacturingData = part.manufacturingSpecs 
-    ? JSON.parse(part.manufacturingSpecs) 
-    : {};
+  let specs: ManufacturingData = {};
+  
+  try {
+    if (part.manufacturingSpecs && part.manufacturingSpecs.trim()) {
+      specs = JSON.parse(part.manufacturingSpecs);
+    }
+  } catch (error) {
+    console.error('Failed to parse manufacturing specs:', error);
+  }
 
   if (!specs || Object.keys(specs).length === 0) {
     return (

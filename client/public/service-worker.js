@@ -42,47 +42,73 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+  const url = new URL(event.request.url);
+  const isApiRequest = url.pathname.startsWith('/api/');
+  const isAsset = 
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.endsWith('.jpg') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.webm') ||
+    url.pathname.endsWith('.gltf') ||
+    url.pathname.endsWith('.glb') ||
+    url.pathname.endsWith('.stl');
 
-      return fetch(event.request)
+  if (isApiRequest) {
+    event.respondWith(
+      fetch(event.request)
         .then((response) => {
-          if (!response || response.status !== 200 || response.type === 'error') {
-            return response;
-          }
-
-          const responseToCache = response.clone();
-          
-          const url = new URL(event.request.url);
-          if (
-            url.pathname.startsWith('/api/') ||
-            url.pathname.startsWith('/assets/') ||
-            url.pathname.endsWith('.jpg') ||
-            url.pathname.endsWith('.png') ||
-            url.pathname.endsWith('.webm') ||
-            url.pathname.endsWith('.gltf') ||
-            url.pathname.endsWith('.glb') ||
-            url.pathname.endsWith('.stl')
-          ) {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseToCache);
             });
           }
-
           return response;
         })
         .catch(() => {
-          if (event.request.destination === 'document') {
-            return caches.match(OFFLINE_URL);
-          }
-          return new Response('Offline - content not available', {
-            status: 503,
-            headers: { 'Content-Type': 'text/plain' },
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            return new Response('Offline - content not available', {
+              status: 503,
+              headers: { 'Content-Type': 'application/json' },
+            });
           });
-        });
-    })
-  );
+        })
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(event.request)
+          .then((response) => {
+            if (!response || response.status !== 200 || response.type === 'error') {
+              return response;
+            }
+
+            if (isAsset) {
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+            }
+
+            return response;
+          })
+          .catch(() => {
+            if (event.request.destination === 'document') {
+              return caches.match(OFFLINE_URL);
+            }
+            return new Response('Offline - content not available', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain' },
+            });
+          });
+      })
+    );
+  }
 });

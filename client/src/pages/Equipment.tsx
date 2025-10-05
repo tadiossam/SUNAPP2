@@ -126,7 +126,12 @@ export default function EquipmentPage() {
         ) : filteredEquipment && filteredEquipment.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredEquipment.map((item) => (
-              <Card key={item.id} className="hover-elevate" data-testid={`card-equipment-${item.id}`}>
+              <Card 
+                key={item.id} 
+                className="hover-elevate cursor-pointer" 
+                data-testid={`card-equipment-${item.id}`}
+                onClick={() => setSelectedEquipment(item)}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-lg">{item.model}</CardTitle>
@@ -180,6 +185,284 @@ export default function EquipmentPage() {
           </div>
         )}
       </div>
+
+      <EquipmentDetailDialog 
+        equipment={selectedEquipment}
+        onClose={() => setSelectedEquipment(null)}
+      />
     </div>
+  );
+}
+
+function EquipmentDetailDialog({ 
+  equipment, 
+  onClose 
+}: { 
+  equipment: Equipment | null; 
+  onClose: () => void;
+}) {
+  const { data: maintenanceRecords, isLoading: recordsLoading } = useQuery<MaintenanceRecordWithDetails[]>({
+    queryKey: ["/api/equipment", equipment?.id, "maintenance"],
+    enabled: !!equipment,
+  });
+
+  const { data: operatingReports, isLoading: reportsLoading } = useQuery<OperatingBehaviorReport[]>({
+    queryKey: ["/api/equipment", equipment?.id, "operating-reports"],
+    enabled: !!equipment,
+  });
+
+  const { data: partsUsage } = useQuery<(PartsUsageHistory & { part?: SparePart })[]>({
+    queryKey: ["/api/equipment", equipment?.id, "parts-usage"],
+    enabled: !!equipment,
+  });
+
+  if (!equipment) return null;
+
+  // Calculate statistics
+  const totalMaintenanceCost = maintenanceRecords?.reduce((sum, record) => 
+    sum + (Number(record.cost) || 0), 0
+  ) || 0;
+
+  const totalLaborHours = maintenanceRecords?.reduce((sum, record) => 
+    sum + (Number(record.laborHours) || 0), 0
+  ) || 0;
+
+  const lastMaintenance = maintenanceRecords?.[0];
+  const avgPerformanceRating = operatingReports?.length 
+    ? (operatingReports.reduce((sum, r) => sum + (r.performanceRating || 0), 0) / operatingReports.length).toFixed(1)
+    : "N/A";
+
+  return (
+    <Dialog open={!!equipment} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl">{equipment.model}</DialogTitle>
+          <DialogDescription>
+            {equipment.equipmentType} - {equipment.make}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Equipment Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Equipment Information</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Plate Number</div>
+                <div className="font-mono text-sm">{equipment.plateNo || "N/A"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Serial Number</div>
+                <div className="font-mono text-sm">{equipment.machineSerial || "N/A"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Asset Number</div>
+                <div className="font-mono text-sm">{equipment.assetNo || "N/A"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">New Asset Number</div>
+                <div className="font-mono text-sm">{equipment.newAssetNo || "N/A"}</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Wrench className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{maintenanceRecords?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Maintenance Records</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">${totalMaintenanceCost.toLocaleString()}</div>
+                    <div className="text-sm text-muted-foreground">Total Cost</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{totalLaborHours.toFixed(1)}h</div>
+                    <div className="text-sm text-muted-foreground">Labor Hours</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{avgPerformanceRating}</div>
+                    <div className="text-sm text-muted-foreground">Avg Performance</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Tabs for detailed information */}
+          <Tabs defaultValue="maintenance" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="maintenance">Maintenance History</TabsTrigger>
+              <TabsTrigger value="parts">Parts Used</TabsTrigger>
+              <TabsTrigger value="reports">Operating Reports</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="maintenance" className="space-y-3 mt-4">
+              {recordsLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : maintenanceRecords?.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No maintenance records found
+                </div>
+              ) : (
+                maintenanceRecords?.slice(0, 5).map((record) => (
+                  <Card key={record.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-base">{record.description}</CardTitle>
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {format(new Date(record.maintenanceDate), "MMM dd, yyyy")}
+                            {record.mechanic && ` • ${record.mechanic.fullName}`}
+                          </div>
+                        </div>
+                        <Badge>{record.maintenanceType}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="text-sm">
+                      <div className="grid grid-cols-3 gap-4">
+                        {record.cost && (
+                          <div>
+                            <span className="text-muted-foreground">Cost:</span>
+                            <span className="ml-2 font-medium">${Number(record.cost).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {record.laborHours && (
+                          <div>
+                            <span className="text-muted-foreground">Labor:</span>
+                            <span className="ml-2 font-medium">{record.laborHours}h</span>
+                          </div>
+                        )}
+                        {record.operatingHours && (
+                          <div>
+                            <span className="text-muted-foreground">Hours:</span>
+                            <span className="ml-2 font-medium">{record.operatingHours}h</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="parts" className="space-y-3 mt-4">
+              {partsUsage?.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No parts usage recorded
+                </div>
+              ) : (
+                partsUsage?.slice(0, 8).map((usage) => (
+                  <Card key={usage.id}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Badge>{usage.quantity}x</Badge>
+                          <div>
+                            <div className="font-medium">{usage.part?.partName || "Unknown Part"}</div>
+                            <div className="text-sm text-muted-foreground">{usage.part?.partNumber}</div>
+                          </div>
+                        </div>
+                        {usage.unitCost && (
+                          <div className="text-right">
+                            <div className="font-medium">${Number(usage.unitCost).toFixed(2)}</div>
+                            <div className="text-sm text-muted-foreground">per unit</div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="reports" className="space-y-3 mt-4">
+              {reportsLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : operatingReports?.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No operating reports found
+                </div>
+              ) : (
+                operatingReports?.slice(0, 5).map((report) => (
+                  <Card key={report.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">
+                          {format(new Date(report.reportDate), "MMMM dd, yyyy")}
+                        </CardTitle>
+                        {report.performanceRating && (
+                          <Badge variant={report.performanceRating >= 4 ? "default" : "secondary"}>
+                            {report.performanceRating}/5
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="text-sm">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <span className="text-muted-foreground">Hours:</span>
+                          <span className="ml-2">{report.operatingHours}h</span>
+                        </div>
+                        {report.fuelConsumption && (
+                          <div>
+                            <span className="text-muted-foreground">Fuel:</span>
+                            <span className="ml-2">{report.fuelConsumption}L</span>
+                          </div>
+                        )}
+                        {report.productivity && (
+                          <div>
+                            <span className="text-muted-foreground">Output:</span>
+                            <span className="ml-2">{report.productivity}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -14,7 +14,8 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
 import passport from "passport";
-import { isCEO } from "./auth";
+import { isCEO, isCEOOrAdmin } from "./auth";
+import { sendCEONotification, createNotification } from "./email-service";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -106,11 +107,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Protected: Only CEO can create equipment
-  app.post("/api/equipment", isCEO, async (req, res) => {
+  // Protected: Only CEO/Admin can create equipment
+  app.post("/api/equipment", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertEquipmentSchema.parse(req.body);
       const equipment = await storage.createEquipment(validatedData);
+      
+      // Send email notification if user is admin (CEO gets notified about admin actions)
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created',
+          'equipment',
+          equipment.id,
+          req.user.username,
+          validatedData
+        ));
+      }
+      
       res.status(201).json(equipment);
     } catch (error) {
       console.error("Error creating equipment:", error);
@@ -155,10 +168,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/parts", async (req, res) => {
+  app.post("/api/parts", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertSparePartSchema.parse(req.body);
       const part = await storage.createPart(validatedData);
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created', 'spare_part', part.id, req.user.username, validatedData
+        ));
+      }
+      
       res.status(201).json(part);
     } catch (error) {
       console.error("Error creating part:", error);
@@ -166,13 +186,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/parts/:id", async (req, res) => {
+  app.put("/api/parts/:id", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertSparePartSchema.partial().parse(req.body);
       const part = await storage.updatePart(req.params.id, validatedData);
       if (!part) {
         return res.status(404).json({ error: "Part not found" });
       }
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'spare_part', part.id, req.user.username, validatedData
+        ));
+      }
+      
       res.json(part);
     } catch (error) {
       console.error("Error updating part:", error);
@@ -180,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/parts/:id/model", async (req, res) => {
+  app.put("/api/parts/:id/model", isCEOOrAdmin, async (req, res) => {
     try {
       const { model3dPath } = req.body;
       if (!model3dPath) {
@@ -190,6 +217,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!part) {
         return res.status(404).json({ error: "Part not found" });
       }
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'spare_part', part.id, req.user.username, { model3dPath }
+        ));
+      }
+      
       res.json(part);
     } catch (error) {
       console.error("Error updating part model:", error);
@@ -198,7 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Maintenance information update endpoint
-  app.put("/api/parts/:id/maintenance", async (req, res) => {
+  app.put("/api/parts/:id/maintenance", isCEOOrAdmin, async (req, res) => {
     try {
       const { locationInstructions, requiredTools, installTimeEstimates } = req.body;
       const part = await storage.updatePartMaintenance(req.params.id, {
@@ -209,6 +243,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!part) {
         return res.status(404).json({ error: "Part not found" });
       }
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'spare_part', part.id, req.user.username, 
+          { locationInstructions, requiredTools, installTimeEstimates }
+        ));
+      }
+      
       res.json(part);
     } catch (error) {
       console.error("Error updating maintenance info:", error);
@@ -320,10 +362,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/mechanics", async (req, res) => {
+  app.post("/api/mechanics", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertMechanicSchema.parse(req.body);
       const mechanic = await storage.createMechanic(validatedData);
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created', 'maintenance', mechanic.id, req.user.username, validatedData
+        ));
+      }
+      
       res.status(201).json(mechanic);
     } catch (error) {
       console.error("Error creating mechanic:", error);
@@ -331,12 +380,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/mechanics/:id", async (req, res) => {
+  app.put("/api/mechanics/:id", isCEOOrAdmin, async (req, res) => {
     try {
       const mechanic = await storage.updateMechanic(req.params.id, req.body);
       if (!mechanic) {
         return res.status(404).json({ error: "Mechanic not found" });
       }
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'maintenance', mechanic.id, req.user.username, req.body
+        ));
+      }
+      
       res.json(mechanic);
     } catch (error) {
       console.error("Error updating mechanic:", error);
@@ -368,7 +424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/maintenance", async (req, res) => {
+  app.post("/api/maintenance", isCEOOrAdmin, async (req, res) => {
     try {
       const { partsUsed, ...recordData } = req.body;
       
@@ -385,6 +441,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.addPartsToMaintenance(record.id, validatedParts);
       }
 
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created', 'maintenance', record.id, req.user.username, recordData
+        ));
+      }
+
       res.status(201).json(record);
     } catch (error) {
       console.error("Error creating maintenance record:", error);
@@ -392,12 +454,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/maintenance/:id", async (req, res) => {
+  app.put("/api/maintenance/:id", isCEOOrAdmin, async (req, res) => {
     try {
       const record = await storage.updateMaintenanceRecord(req.params.id, req.body);
       if (!record) {
         return res.status(404).json({ error: "Maintenance record not found" });
       }
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'maintenance', record.id, req.user.username, req.body
+        ));
+      }
+      
       res.json(record);
     } catch (error) {
       console.error("Error updating maintenance record:", error);
@@ -416,7 +485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/maintenance/:maintenanceId/parts", async (req, res) => {
+  app.post("/api/maintenance/:maintenanceId/parts", isCEOOrAdmin, async (req, res) => {
     try {
       const parts = req.body.parts || [];
       const validatedParts = parts.map((part: any) => 
@@ -426,6 +495,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       await storage.addPartsToMaintenance(req.params.maintenanceId, validatedParts);
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created', 'parts_usage', parseInt(req.params.maintenanceId), req.user.username, { parts }
+        ));
+      }
+      
       res.status(201).json({ message: "Parts added successfully" });
     } catch (error) {
       console.error("Error adding parts to maintenance:", error);
@@ -444,10 +520,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/operating-reports", async (req, res) => {
+  app.post("/api/operating-reports", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertOperatingBehaviorReportSchema.parse(req.body);
       const report = await storage.createOperatingReport(validatedData);
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created', 'operating_report', report.id, req.user.username, validatedData
+        ));
+      }
+      
       res.status(201).json(report);
     } catch (error) {
       console.error("Error creating operating report:", error);

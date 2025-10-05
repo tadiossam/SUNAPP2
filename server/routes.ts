@@ -6,6 +6,8 @@ import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
+import passport from "passport";
+import { isCEO } from "./auth";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -22,6 +24,44 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication endpoints
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Authentication error" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.logIn(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "Login error" });
+        }
+        // Don't send password to client
+        const { password, ...userWithoutPassword } = user;
+        return res.json({ user: userWithoutPassword });
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout error" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (req.isAuthenticated()) {
+      const { password, ...userWithoutPassword } = req.user as any;
+      res.json({ user: userWithoutPassword });
+    } else {
+      res.json({ user: null });
+    }
+  });
+
   // Equipment endpoints with server-side search
   app.get("/api/equipment", async (req, res) => {
     try {
@@ -59,7 +99,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/equipment", async (req, res) => {
+  // Protected: Only CEO can create equipment
+  app.post("/api/equipment", isCEO, async (req, res) => {
     try {
       const validatedData = insertEquipmentSchema.parse(req.body);
       const equipment = await storage.createEquipment(validatedData);

@@ -115,6 +115,26 @@ export type InsertEquipmentPartsCompatibility = z.infer<typeof insertEquipmentPa
 export type PartCompatibility = typeof partCompatibility.$inferSelect;
 export type InsertPartCompatibility = z.infer<typeof insertPartCompatibilitySchema>;
 
+// Users table for authentication and authorization
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(), // Hashed password
+  fullName: text("full_name").notNull(),
+  role: text("role").notNull().default("user"), // CEO, admin, user
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for users
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Select types for users
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
 // Extended types with relations
 export type SparePartWithCompatibility = SparePart & {
   compatibleMakes?: string[];

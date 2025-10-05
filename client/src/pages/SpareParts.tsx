@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { ManufacturingSpecs } from "@/components/ManufacturingSpecs";
 import type { SparePart } from "@shared/schema";
 
 export default function SparePartsPage() {
@@ -518,6 +519,10 @@ export default function SparePartsPage() {
                   </div>
                 </>
               )}
+
+              {/* Manufacturing Specifications */}
+              <Separator />
+              <ManufacturingSpecs part={selectedPart} />
 
               {/* Maintenance Information Section */}
               <Separator />

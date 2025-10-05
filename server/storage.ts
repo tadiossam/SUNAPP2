@@ -32,6 +32,8 @@ export interface IStorage {
   createPart(data: InsertSparePart, compatibility?: InsertPartCompatibility[]): Promise<SparePart>;
   updatePart(id: string, data: Partial<InsertSparePart>): Promise<SparePart | undefined>;
   updatePartModel(id: string, model3dPath: string): Promise<SparePart | undefined>;
+  updatePartImages(id: string, imageUrls: string[]): Promise<SparePart | undefined>;
+  addPartImages(id: string, newImageUrls: string[]): Promise<SparePart | undefined>;
   searchParts(params: {
     searchTerm?: string;
     category?: string;
@@ -172,6 +174,30 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .update(spareParts)
       .set({ model3dPath })
+      .where(eq(spareParts.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async updatePartImages(id: string, imageUrls: string[]): Promise<SparePart | undefined> {
+    const [result] = await db
+      .update(spareParts)
+      .set({ imageUrls })
+      .where(eq(spareParts.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async addPartImages(id: string, newImageUrls: string[]): Promise<SparePart | undefined> {
+    const part = await this.getPartById(id);
+    if (!part) return undefined;
+    
+    const existingUrls = part.imageUrls || [];
+    const updatedUrls = [...existingUrls, ...newImageUrls];
+    
+    const [result] = await db
+      .update(spareParts)
+      .set({ imageUrls: updatedUrls })
       .where(eq(spareParts.id, id))
       .returning();
     return result || undefined;

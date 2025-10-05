@@ -2,6 +2,24 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertEquipmentSchema, insertSparePartSchema } from "@shared/schema";
+import multer from "multer";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { nanoid } from "nanoid";
+
+// Configure multer for memory storage
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (_req, file, cb) => {
+    // Accept images and videos
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Equipment endpoints with server-side search
@@ -128,6 +146,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating part model:", error);
       res.status(500).json({ error: "Failed to update part model" });
+    }
+  });
+
+  // Image upload endpoint for parts
+  app.post("/api/parts/:id/images", upload.array('images', 10), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No files uploaded" });
+      }
+
+      // Get the public object storage path
+      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
+      if (!publicPath) {
+        return res.status(500).json({ error: "Object storage not configured" });
+      }
+
+      // Save files to object storage
+      const imageUrls: string[] = [];
+      await mkdir(join(publicPath, 'parts'), { recursive: true });
+
+      for (const file of files) {
+        const ext = file.originalname.split('.').pop();
+        const filename = `${nanoid()}.${ext}`;
+        const filePath = join(publicPath, 'parts', filename);
+        
+        await writeFile(filePath, file.buffer);
+        imageUrls.push(`/public/parts/${filename}`);
+      }
+
+      // Update part with new image URLs
+      const part = await storage.addPartImages(req.params.id, imageUrls);
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      res.json(part);
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      res.status(500).json({ error: "Failed to upload images" });
     }
   });
 

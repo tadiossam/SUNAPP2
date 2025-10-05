@@ -472,38 +472,6 @@ export default function SparePartsPage() {
                 )}
               </div>
 
-              {(selectedPart.compatibleMakes || selectedPart.compatibleModels) && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <h4 className="font-semibold">Compatibility</h4>
-                    {selectedPart.compatibleMakes && selectedPart.compatibleMakes.length > 0 && (
-                      <div>
-                        <span className="text-sm text-muted-foreground">Makes:</span>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {selectedPart.compatibleMakes.map((make, idx) => (
-                            <Badge key={idx} variant="secondary">
-                              {make}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {selectedPart.compatibleModels && selectedPart.compatibleModels.length > 0 && (
-                      <div>
-                        <span className="text-sm text-muted-foreground">Models:</span>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {selectedPart.compatibleModels.map((model, idx) => (
-                            <Badge key={idx} variant="outline">
-                              {model}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
 
               {selectedPart.model3dPath && (
                 <>

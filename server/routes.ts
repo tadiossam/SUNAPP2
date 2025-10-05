@@ -1,7 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertEquipmentSchema, insertSparePartSchema } from "@shared/schema";
+import { 
+  insertEquipmentSchema, 
+  insertSparePartSchema,
+  insertMechanicSchema,
+  insertMaintenanceRecordSchema,
+  insertPartsUsageHistorySchema,
+  insertOperatingBehaviorReportSchema,
+} from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
@@ -285,6 +292,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error uploading images:", error);
       res.status(500).json({ error: "Failed to upload images" });
+    }
+  });
+
+  // Maintenance History endpoints
+  // Mechanics
+  app.get("/api/mechanics", async (req, res) => {
+    try {
+      const mechanics = await storage.getAllMechanics();
+      res.json(mechanics);
+    } catch (error) {
+      console.error("Error fetching mechanics:", error);
+      res.status(500).json({ error: "Failed to fetch mechanics" });
+    }
+  });
+
+  app.get("/api/mechanics/:id", async (req, res) => {
+    try {
+      const mechanic = await storage.getMechanicById(req.params.id);
+      if (!mechanic) {
+        return res.status(404).json({ error: "Mechanic not found" });
+      }
+      res.json(mechanic);
+    } catch (error) {
+      console.error("Error fetching mechanic:", error);
+      res.status(500).json({ error: "Failed to fetch mechanic" });
+    }
+  });
+
+  app.post("/api/mechanics", async (req, res) => {
+    try {
+      const validatedData = insertMechanicSchema.parse(req.body);
+      const mechanic = await storage.createMechanic(validatedData);
+      res.status(201).json(mechanic);
+    } catch (error) {
+      console.error("Error creating mechanic:", error);
+      res.status(400).json({ error: "Invalid mechanic data" });
+    }
+  });
+
+  app.put("/api/mechanics/:id", async (req, res) => {
+    try {
+      const mechanic = await storage.updateMechanic(req.params.id, req.body);
+      if (!mechanic) {
+        return res.status(404).json({ error: "Mechanic not found" });
+      }
+      res.json(mechanic);
+    } catch (error) {
+      console.error("Error updating mechanic:", error);
+      res.status(400).json({ error: "Failed to update mechanic" });
+    }
+  });
+
+  // Maintenance Records
+  app.get("/api/equipment/:equipmentId/maintenance", async (req, res) => {
+    try {
+      const records = await storage.getMaintenanceRecordsByEquipment(req.params.equipmentId);
+      res.json(records);
+    } catch (error) {
+      console.error("Error fetching maintenance records:", error);
+      res.status(500).json({ error: "Failed to fetch maintenance records" });
+    }
+  });
+
+  app.get("/api/maintenance/:id", async (req, res) => {
+    try {
+      const record = await storage.getMaintenanceRecordById(req.params.id);
+      if (!record) {
+        return res.status(404).json({ error: "Maintenance record not found" });
+      }
+      res.json(record);
+    } catch (error) {
+      console.error("Error fetching maintenance record:", error);
+      res.status(500).json({ error: "Failed to fetch maintenance record" });
+    }
+  });
+
+  app.post("/api/maintenance", async (req, res) => {
+    try {
+      const { partsUsed, ...recordData } = req.body;
+      
+      // Validate maintenance record data
+      const validatedRecord = insertMaintenanceRecordSchema.parse(recordData);
+      const record = await storage.createMaintenanceRecord(validatedRecord);
+
+      // Add parts if provided
+      if (partsUsed && Array.isArray(partsUsed) && partsUsed.length > 0) {
+        const validatedParts = partsUsed.map((part: any) => ({
+          ...part,
+          maintenanceRecordId: record.id,
+        }));
+        await storage.addPartsToMaintenance(record.id, validatedParts);
+      }
+
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating maintenance record:", error);
+      res.status(400).json({ error: "Invalid maintenance record data" });
+    }
+  });
+
+  app.put("/api/maintenance/:id", async (req, res) => {
+    try {
+      const record = await storage.updateMaintenanceRecord(req.params.id, req.body);
+      if (!record) {
+        return res.status(404).json({ error: "Maintenance record not found" });
+      }
+      res.json(record);
+    } catch (error) {
+      console.error("Error updating maintenance record:", error);
+      res.status(400).json({ error: "Failed to update maintenance record" });
+    }
+  });
+
+  // Parts Usage History
+  app.get("/api/equipment/:equipmentId/parts-usage", async (req, res) => {
+    try {
+      const partsUsage = await storage.getPartsUsageByEquipment(req.params.equipmentId);
+      res.json(partsUsage);
+    } catch (error) {
+      console.error("Error fetching parts usage:", error);
+      res.status(500).json({ error: "Failed to fetch parts usage" });
+    }
+  });
+
+  app.post("/api/maintenance/:maintenanceId/parts", async (req, res) => {
+    try {
+      const parts = req.body.parts || [];
+      const validatedParts = parts.map((part: any) => 
+        insertPartsUsageHistorySchema.parse({
+          ...part,
+          maintenanceRecordId: req.params.maintenanceId,
+        })
+      );
+      await storage.addPartsToMaintenance(req.params.maintenanceId, validatedParts);
+      res.status(201).json({ message: "Parts added successfully" });
+    } catch (error) {
+      console.error("Error adding parts to maintenance:", error);
+      res.status(400).json({ error: "Invalid parts data" });
+    }
+  });
+
+  // Operating Behavior Reports
+  app.get("/api/equipment/:equipmentId/operating-reports", async (req, res) => {
+    try {
+      const reports = await storage.getOperatingReportsByEquipment(req.params.equipmentId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching operating reports:", error);
+      res.status(500).json({ error: "Failed to fetch operating reports" });
+    }
+  });
+
+  app.post("/api/operating-reports", async (req, res) => {
+    try {
+      const validatedData = insertOperatingBehaviorReportSchema.parse(req.body);
+      const report = await storage.createOperatingReport(validatedData);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error creating operating report:", error);
+      res.status(400).json({ error: "Invalid operating report data" });
     }
   });
 

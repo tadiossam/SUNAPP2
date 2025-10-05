@@ -2,15 +2,28 @@ import {
   equipment,
   spareParts,
   partCompatibility,
+  mechanics,
+  maintenanceRecords,
+  partsUsageHistory,
+  operatingBehaviorReports,
   type Equipment,
   type InsertEquipment,
   type SparePart,
   type InsertSparePart,
   type SparePartWithCompatibility,
   type InsertPartCompatibility,
+  type Mechanic,
+  type InsertMechanic,
+  type MaintenanceRecord,
+  type InsertMaintenanceRecord,
+  type MaintenanceRecordWithDetails,
+  type PartsUsageHistory,
+  type InsertPartsUsageHistory,
+  type OperatingBehaviorReport,
+  type InsertOperatingBehaviorReport,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, and, sql } from "drizzle-orm";
+import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Equipment operations
@@ -51,6 +64,27 @@ export interface IStorage {
   // Compatibility operations
   addPartCompatibility(partId: string, make: string, model?: string): Promise<void>;
   getPartCompatibility(partId: string): Promise<{ makes: string[]; models: string[] }>;
+
+  // Maintenance operations
+  // Mechanics
+  getAllMechanics(): Promise<Mechanic[]>;
+  getMechanicById(id: string): Promise<Mechanic | undefined>;
+  createMechanic(data: InsertMechanic): Promise<Mechanic>;
+  updateMechanic(id: string, data: Partial<InsertMechanic>): Promise<Mechanic | undefined>;
+
+  // Maintenance Records
+  getMaintenanceRecordsByEquipment(equipmentId: string): Promise<MaintenanceRecordWithDetails[]>;
+  getMaintenanceRecordById(id: string): Promise<MaintenanceRecordWithDetails | undefined>;
+  createMaintenanceRecord(data: InsertMaintenanceRecord): Promise<MaintenanceRecord>;
+  updateMaintenanceRecord(id: string, data: Partial<InsertMaintenanceRecord>): Promise<MaintenanceRecord | undefined>;
+
+  // Parts Usage History
+  addPartsToMaintenance(maintenanceId: string, parts: InsertPartsUsageHistory[]): Promise<void>;
+  getPartsUsageByEquipment(equipmentId: string): Promise<(PartsUsageHistory & { part?: SparePart })[]>;
+
+  // Operating Behavior Reports
+  getOperatingReportsByEquipment(equipmentId: string): Promise<OperatingBehaviorReport[]>;
+  createOperatingReport(data: InsertOperatingBehaviorReport): Promise<OperatingBehaviorReport>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -284,10 +318,174 @@ export class DatabaseStorage implements IStorage {
       .from(partCompatibility)
       .where(eq(partCompatibility.partId, partId));
 
-    const makes = [...new Set(compatibility.map((c) => c.make))];
-    const models = [...new Set(compatibility.filter((c) => c.model).map((c) => c.model!))];
+    const makes = Array.from(new Set(compatibility.map((c) => c.make)));
+    const models = Array.from(new Set(compatibility.filter((c) => c.model).map((c) => c.model!)));
 
     return { makes, models };
+  }
+
+  // Maintenance operations implementation
+  // Mechanics
+  async getAllMechanics(): Promise<Mechanic[]> {
+    return await db.select().from(mechanics).where(eq(mechanics.isActive, true));
+  }
+
+  async getMechanicById(id: string): Promise<Mechanic | undefined> {
+    const [result] = await db.select().from(mechanics).where(eq(mechanics.id, id));
+    return result || undefined;
+  }
+
+  async createMechanic(data: InsertMechanic): Promise<Mechanic> {
+    const [result] = await db.insert(mechanics).values(data).returning();
+    return result;
+  }
+
+  async updateMechanic(id: string, data: Partial<InsertMechanic>): Promise<Mechanic | undefined> {
+    const [result] = await db
+      .update(mechanics)
+      .set(data)
+      .where(eq(mechanics.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  // Maintenance Records
+  async getMaintenanceRecordsByEquipment(equipmentId: string): Promise<MaintenanceRecordWithDetails[]> {
+    const records = await db
+      .select()
+      .from(maintenanceRecords)
+      .where(eq(maintenanceRecords.equipmentId, equipmentId))
+      .orderBy(desc(maintenanceRecords.maintenanceDate));
+
+    // Enrich with mechanic and parts used
+    const enriched = await Promise.all(
+      records.map(async (record) => {
+        const mechanic = record.mechanicId
+          ? await this.getMechanicById(record.mechanicId)
+          : undefined;
+
+        const partsUsed = await db
+          .select()
+          .from(partsUsageHistory)
+          .where(eq(partsUsageHistory.maintenanceRecordId, record.id));
+
+        const enrichedParts = await Promise.all(
+          partsUsed.map(async (usage) => {
+            const [part] = await db
+              .select()
+              .from(spareParts)
+              .where(eq(spareParts.id, usage.partId));
+            return { ...usage, part };
+          })
+        );
+
+        return {
+          ...record,
+          mechanic,
+          partsUsed: enrichedParts,
+        };
+      })
+    );
+
+    return enriched;
+  }
+
+  async getMaintenanceRecordById(id: string): Promise<MaintenanceRecordWithDetails | undefined> {
+    const [record] = await db
+      .select()
+      .from(maintenanceRecords)
+      .where(eq(maintenanceRecords.id, id));
+
+    if (!record) return undefined;
+
+    const mechanic = record.mechanicId
+      ? await this.getMechanicById(record.mechanicId)
+      : undefined;
+
+    const partsUsed = await db
+      .select()
+      .from(partsUsageHistory)
+      .where(eq(partsUsageHistory.maintenanceRecordId, record.id));
+
+    const enrichedParts = await Promise.all(
+      partsUsed.map(async (usage) => {
+        const [part] = await db
+          .select()
+          .from(spareParts)
+          .where(eq(spareParts.id, usage.partId));
+        return { ...usage, part };
+      })
+    );
+
+    return {
+      ...record,
+      mechanic,
+      partsUsed: enrichedParts,
+    };
+  }
+
+  async createMaintenanceRecord(data: InsertMaintenanceRecord): Promise<MaintenanceRecord> {
+    const [result] = await db.insert(maintenanceRecords).values(data).returning();
+    return result;
+  }
+
+  async updateMaintenanceRecord(
+    id: string,
+    data: Partial<InsertMaintenanceRecord>
+  ): Promise<MaintenanceRecord | undefined> {
+    const [result] = await db
+      .update(maintenanceRecords)
+      .set(data)
+      .where(eq(maintenanceRecords.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  // Parts Usage History
+  async addPartsToMaintenance(maintenanceId: string, parts: InsertPartsUsageHistory[]): Promise<void> {
+    if (parts.length > 0) {
+      await db.insert(partsUsageHistory).values(parts);
+    }
+  }
+
+  async getPartsUsageByEquipment(equipmentId: string): Promise<(PartsUsageHistory & { part?: SparePart })[]> {
+    const records = await db
+      .select()
+      .from(maintenanceRecords)
+      .where(eq(maintenanceRecords.equipmentId, equipmentId));
+
+    const allParts: (PartsUsageHistory & { part?: SparePart })[] = [];
+
+    for (const record of records) {
+      const partsUsed = await db
+        .select()
+        .from(partsUsageHistory)
+        .where(eq(partsUsageHistory.maintenanceRecordId, record.id));
+
+      for (const usage of partsUsed) {
+        const [part] = await db
+          .select()
+          .from(spareParts)
+          .where(eq(spareParts.id, usage.partId));
+        allParts.push({ ...usage, part });
+      }
+    }
+
+    return allParts;
+  }
+
+  // Operating Behavior Reports
+  async getOperatingReportsByEquipment(equipmentId: string): Promise<OperatingBehaviorReport[]> {
+    return await db
+      .select()
+      .from(operatingBehaviorReports)
+      .where(eq(operatingBehaviorReports.equipmentId, equipmentId))
+      .orderBy(desc(operatingBehaviorReports.reportDate));
+  }
+
+  async createOperatingReport(data: InsertOperatingBehaviorReport): Promise<OperatingBehaviorReport> {
+    const [result] = await db.insert(operatingBehaviorReports).values(data).returning();
+    return result;
   }
 }
 

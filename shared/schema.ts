@@ -125,8 +125,118 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Mechanics/Technicians table
+export const mechanics = pgTable("mechanics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fullName: text("full_name").notNull(),
+  specialty: text("specialty"), // Engine, Hydraulic, Electrical, etc.
+  phoneNumber: text("phone_number"),
+  email: text("email"),
+  employeeId: text("employee_id"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Maintenance Records table
+export const maintenanceRecords = pgTable("maintenance_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
+  mechanicId: varchar("mechanic_id").references(() => mechanics.id),
+  maintenanceType: text("maintenance_type").notNull(), // Routine, Repair, Emergency, Inspection
+  description: text("description").notNull(),
+  operatingHours: integer("operating_hours"), // Machine hours at time of maintenance
+  laborHours: decimal("labor_hours", { precision: 5, scale: 2 }), // Hours spent on maintenance
+  cost: decimal("cost", { precision: 10, scale: 2 }), // Total maintenance cost
+  status: text("status").notNull().default("completed"), // scheduled, in_progress, completed
+  maintenanceDate: timestamp("maintenance_date").notNull(),
+  completedDate: timestamp("completed_date"),
+  notes: text("notes"), // Additional observations
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Parts usage history - tracks parts used during maintenance
+export const partsUsageHistory = pgTable("parts_usage_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  maintenanceRecordId: varchar("maintenance_record_id").notNull().references(() => maintenanceRecords.id, { onDelete: "cascade" }),
+  partId: varchar("part_id").notNull().references(() => spareParts.id),
+  quantity: integer("quantity").notNull().default(1),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }),
+  notes: text("notes"), // Condition, replacement reason, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Operating behavior reports
+export const operatingBehaviorReports = pgTable("operating_behavior_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
+  reportDate: timestamp("report_date").notNull(),
+  operatingHours: integer("operating_hours").notNull(), // Total hours at time of report
+  fuelConsumption: decimal("fuel_consumption", { precision: 10, scale: 2 }), // Liters/gallons
+  productivity: text("productivity"), // Performance metrics
+  issuesReported: text("issues_reported"), // Any problems noted
+  operatorNotes: text("operator_notes"),
+  performanceRating: integer("performance_rating"), // 1-5 scale
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations for maintenance system
+export const mechanicsRelations = relations(mechanics, ({ many }) => ({
+  maintenanceRecords: many(maintenanceRecords),
+}));
+
+export const maintenanceRecordsRelations = relations(maintenanceRecords, ({ one, many }) => ({
+  equipment: one(equipment, {
+    fields: [maintenanceRecords.equipmentId],
+    references: [equipment.id],
+  }),
+  mechanic: one(mechanics, {
+    fields: [maintenanceRecords.mechanicId],
+    references: [mechanics.id],
+  }),
+  partsUsed: many(partsUsageHistory),
+}));
+
+export const partsUsageHistoryRelations = relations(partsUsageHistory, ({ one }) => ({
+  maintenanceRecord: one(maintenanceRecords, {
+    fields: [partsUsageHistory.maintenanceRecordId],
+    references: [maintenanceRecords.id],
+  }),
+  part: one(spareParts, {
+    fields: [partsUsageHistory.partId],
+    references: [spareParts.id],
+  }),
+}));
+
+export const operatingBehaviorReportsRelations = relations(operatingBehaviorReports, ({ one }) => ({
+  equipment: one(equipment, {
+    fields: [operatingBehaviorReports.equipmentId],
+    references: [equipment.id],
+  }),
+}));
+
 // Insert schemas for users
 export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Insert schemas for maintenance system
+export const insertMechanicSchema = createInsertSchema(mechanics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMaintenanceRecordSchema = createInsertSchema(maintenanceRecords).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPartsUsageHistorySchema = createInsertSchema(partsUsageHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOperatingBehaviorReportSchema = createInsertSchema(operatingBehaviorReports).omit({
   id: true,
   createdAt: true,
 });
@@ -135,8 +245,28 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+// Select types for maintenance system
+export type Mechanic = typeof mechanics.$inferSelect;
+export type InsertMechanic = z.infer<typeof insertMechanicSchema>;
+export type MaintenanceRecord = typeof maintenanceRecords.$inferSelect;
+export type InsertMaintenanceRecord = z.infer<typeof insertMaintenanceRecordSchema>;
+export type PartsUsageHistory = typeof partsUsageHistory.$inferSelect;
+export type InsertPartsUsageHistory = z.infer<typeof insertPartsUsageHistorySchema>;
+export type OperatingBehaviorReport = typeof operatingBehaviorReports.$inferSelect;
+export type InsertOperatingBehaviorReport = z.infer<typeof insertOperatingBehaviorReportSchema>;
+
 // Extended types with relations
 export type SparePartWithCompatibility = SparePart & {
   compatibleMakes?: string[];
   compatibleModels?: string[];
+};
+
+export type MaintenanceRecordWithDetails = MaintenanceRecord & {
+  mechanic?: Mechanic;
+  partsUsed?: (PartsUsageHistory & { part?: SparePart })[];
+};
+
+export type EquipmentWithMaintenanceHistory = Equipment & {
+  maintenanceRecords?: MaintenanceRecordWithDetails[];
+  operatingReports?: OperatingBehaviorReport[];
 };

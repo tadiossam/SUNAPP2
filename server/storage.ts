@@ -34,6 +34,12 @@ export interface IStorage {
   updatePartModel(id: string, model3dPath: string): Promise<SparePart | undefined>;
   updatePartImages(id: string, imageUrls: string[]): Promise<SparePart | undefined>;
   addPartImages(id: string, newImageUrls: string[]): Promise<SparePart | undefined>;
+  updatePartMaintenance(id: string, data: {
+    locationInstructions?: string;
+    tutorialVideoUrl?: string;
+    requiredTools?: string[];
+    installTimeEstimates?: string;
+  }): Promise<SparePart | undefined>;
   searchParts(params: {
     searchTerm?: string;
     category?: string;
@@ -198,6 +204,20 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .update(spareParts)
       .set({ imageUrls: updatedUrls })
+      .where(eq(spareParts.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async updatePartMaintenance(id: string, data: {
+    locationInstructions?: string;
+    tutorialVideoUrl?: string;
+    requiredTools?: string[];
+    installTimeEstimates?: string;
+  }): Promise<SparePart | undefined> {
+    const [result] = await db
+      .update(spareParts)
+      .set(data)
       .where(eq(spareParts.id, id))
       .returning();
     return result || undefined;

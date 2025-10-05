@@ -149,6 +149,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Maintenance information update endpoint
+  app.put("/api/parts/:id/maintenance", async (req, res) => {
+    try {
+      const { locationInstructions, requiredTools, installTimeEstimates } = req.body;
+      const part = await storage.updatePartMaintenance(req.params.id, {
+        locationInstructions,
+        requiredTools,
+        installTimeEstimates,
+      });
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+      res.json(part);
+    } catch (error) {
+      console.error("Error updating maintenance info:", error);
+      res.status(500).json({ error: "Failed to update maintenance information" });
+    }
+  });
+
+  // Tutorial video upload endpoint
+  app.post("/api/parts/:id/tutorial", upload.single('video'), async (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ error: "No video file uploaded" });
+      }
+
+      // Get the public object storage path
+      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
+      if (!publicPath) {
+        return res.status(500).json({ error: "Object storage not configured" });
+      }
+
+      // Save video to object storage
+      await mkdir(join(publicPath, 'tutorials'), { recursive: true });
+      const ext = file.originalname.split('.').pop();
+      const filename = `${nanoid()}.${ext}`;
+      const filePath = join(publicPath, 'tutorials', filename);
+      
+      await writeFile(filePath, file.buffer);
+      const videoUrl = `/public/tutorials/${filename}`;
+
+      // Update part with tutorial video URL
+      const part = await storage.updatePartMaintenance(req.params.id, {
+        tutorialVideoUrl: videoUrl,
+      });
+      
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      res.json(part);
+    } catch (error) {
+      console.error("Error uploading tutorial video:", error);
+      res.status(500).json({ error: "Failed to upload tutorial video" });
+    }
+  });
+
   // Image upload endpoint for parts
   app.post("/api/parts/:id/images", upload.array('images', 10), async (req, res) => {
     try {

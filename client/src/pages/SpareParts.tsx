@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Package, Eye, AlertCircle, Upload, Image as ImageIcon } from "lucide-react";
+import { Search, Package, Eye, AlertCircle, Upload, Image as ImageIcon, MapPin, Wrench, Clock, Video, Edit } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -31,7 +31,14 @@ export default function SparePartsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [editingMaintenance, setEditingMaintenance] = useState(false);
+  const [maintenanceForm, setMaintenanceForm] = useState({
+    locationInstructions: "",
+    requiredTools: [] as string[],
+    installTimeEstimates: { beginner: 0, average: 0, expert: 0 },
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: parts, isLoading } = useQuery<SparePart[]>({
@@ -78,6 +85,97 @@ export default function SparePartsPage() {
     const files = e.target.files;
     if (files && files.length > 0) {
       uploadImagesMutation.mutate(files);
+    }
+  };
+
+  const uploadTutorialVideoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!selectedPart) throw new Error("No part selected");
+      
+      const formData = new FormData();
+      formData.append('video', file);
+
+      const response = await fetch(`/api/parts/${selectedPart.id}/tutorial`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload tutorial video');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/parts"] });
+      toast({
+        title: "Tutorial uploaded",
+        description: "Tutorial video has been successfully uploaded.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload tutorial video",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMaintenanceMutation = useMutation({
+    mutationFn: async (data: typeof maintenanceForm) => {
+      if (!selectedPart) throw new Error("No part selected");
+
+      const response = await fetch(`/api/parts/${selectedPart.id}/maintenance`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationInstructions: data.locationInstructions,
+          requiredTools: data.requiredTools,
+          installTimeEstimates: JSON.stringify(data.installTimeEstimates),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update maintenance information');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/parts"] });
+      setEditingMaintenance(false);
+      toast({
+        title: "Maintenance info updated",
+        description: "Maintenance information has been successfully updated.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : "Failed to update maintenance info",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadTutorialVideoMutation.mutate(file);
+    }
+  };
+
+  const startEditingMaintenance = () => {
+    if (selectedPart) {
+      setMaintenanceForm({
+        locationInstructions: selectedPart.locationInstructions || "",
+        requiredTools: selectedPart.requiredTools || [],
+        installTimeEstimates: selectedPart.installTimeEstimates 
+          ? JSON.parse(selectedPart.installTimeEstimates)
+          : { beginner: 0, average: 0, expert: 0 },
+      });
+      setEditingMaintenance(true);
     }
   };
 
@@ -420,12 +518,249 @@ export default function SparePartsPage() {
                   </div>
                 </>
               )}
+
+              {/* Maintenance Information Section */}
+              <Separator />
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-lg">Maintenance Guide</h4>
+                  {!editingMaintenance && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={startEditingMaintenance}
+                      data-testid="button-edit-maintenance"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
+
+                {editingMaintenance ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Location Instructions
+                      </label>
+                      <textarea
+                        value={maintenanceForm.locationInstructions}
+                        onChange={(e) => setMaintenanceForm({ ...maintenanceForm, locationInstructions: e.target.value })}
+                        className="w-full min-h-[100px] p-3 border rounded-md text-sm"
+                        placeholder="Describe where to locate this part on the machinery..."
+                        data-testid="input-location-instructions"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Wrench className="h-4 w-4" />
+                        Required Tools (comma-separated)
+                      </label>
+                      <Input
+                        value={maintenanceForm.requiredTools.join(", ")}
+                        onChange={(e) => setMaintenanceForm({ 
+                          ...maintenanceForm, 
+                          requiredTools: e.target.value.split(",").map(t => t.trim()).filter(Boolean)
+                        })}
+                        placeholder="e.g., Socket wrench set, Torque wrench, Pliers"
+                        data-testid="input-required-tools"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Installation Time Estimates (minutes)
+                      </label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-xs text-muted-foreground">Beginner</label>
+                          <Input
+                            type="number"
+                            value={maintenanceForm.installTimeEstimates.beginner}
+                            onChange={(e) => setMaintenanceForm({
+                              ...maintenanceForm,
+                              installTimeEstimates: {
+                                ...maintenanceForm.installTimeEstimates,
+                                beginner: parseInt(e.target.value) || 0
+                              }
+                            })}
+                            data-testid="input-time-beginner"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Average</label>
+                          <Input
+                            type="number"
+                            value={maintenanceForm.installTimeEstimates.average}
+                            onChange={(e) => setMaintenanceForm({
+                              ...maintenanceForm,
+                              installTimeEstimates: {
+                                ...maintenanceForm.installTimeEstimates,
+                                average: parseInt(e.target.value) || 0
+                              }
+                            })}
+                            data-testid="input-time-average"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Expert</label>
+                          <Input
+                            type="number"
+                            value={maintenanceForm.installTimeEstimates.expert}
+                            onChange={(e) => setMaintenanceForm({
+                              ...maintenanceForm,
+                              installTimeEstimates: {
+                                ...maintenanceForm.installTimeEstimates,
+                                expert: parseInt(e.target.value) || 0
+                              }
+                            })}
+                            data-testid="input-time-expert"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        onClick={() => updateMaintenanceMutation.mutate(maintenanceForm)}
+                        disabled={updateMaintenanceMutation.isPending}
+                        data-testid="button-save-maintenance"
+                      >
+                        {updateMaintenanceMutation.isPending ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setEditingMaintenance(false)}
+                        data-testid="button-cancel-maintenance"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Location Instructions */}
+                    {selectedPart.locationInstructions ? (
+                      <div className="bg-muted/50 p-4 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <MapPin className="h-5 w-5 text-primary mt-0.5" />
+                          <div className="flex-1">
+                            <h5 className="font-medium mb-1">Part Location</h5>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {selectedPart.locationInstructions}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground italic">No location instructions added yet.</div>
+                    )}
+
+                    {/* Tutorial Video */}
+                    {selectedPart.tutorialVideoUrl ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium flex items-center gap-2">
+                            <Video className="h-4 w-4" />
+                            Installation Tutorial
+                          </h5>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => videoInputRef.current?.click()}
+                            disabled={uploadTutorialVideoMutation.isPending}
+                            data-testid="button-replace-tutorial"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            {uploadTutorialVideoMutation.isPending ? "Uploading..." : "Replace"}
+                          </Button>
+                        </div>
+                        <video
+                          src={selectedPart.tutorialVideoUrl}
+                          controls
+                          className="w-full rounded-lg bg-black"
+                          data-testid="video-tutorial"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-6 border-2 border-dashed rounded-lg">
+                        <Video className="h-10 w-10 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground mb-3">No tutorial video yet</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => videoInputRef.current?.click()}
+                          disabled={uploadTutorialVideoMutation.isPending}
+                          data-testid="button-upload-tutorial"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {uploadTutorialVideoMutation.isPending ? "Uploading..." : "Upload Tutorial"}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Required Tools */}
+                    {selectedPart.requiredTools && selectedPart.requiredTools.length > 0 && (
+                      <div>
+                        <h5 className="font-medium mb-2 flex items-center gap-2">
+                          <Wrench className="h-4 w-4" />
+                          Required Tools
+                        </h5>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedPart.requiredTools.map((tool, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {tool}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Installation Time Estimates */}
+                    {selectedPart.installTimeEstimates && (
+                      <div>
+                        <h5 className="font-medium mb-3 flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Installation Time Estimates
+                        </h5>
+                        <div className="grid grid-cols-3 gap-3">
+                          {(() => {
+                            const times = JSON.parse(selectedPart.installTimeEstimates);
+                            return (
+                              <>
+                                <div className="bg-muted/50 p-3 rounded-lg text-center">
+                                  <div className="text-xs text-muted-foreground mb-1">Beginner</div>
+                                  <div className="text-2xl font-bold">{times.beginner}</div>
+                                  <div className="text-xs text-muted-foreground">minutes</div>
+                                </div>
+                                <div className="bg-muted/50 p-3 rounded-lg text-center">
+                                  <div className="text-xs text-muted-foreground mb-1">Average</div>
+                                  <div className="text-2xl font-bold">{times.average}</div>
+                                  <div className="text-xs text-muted-foreground">minutes</div>
+                                </div>
+                                <div className="bg-muted/50 p-3 rounded-lg text-center">
+                                  <div className="text-xs text-muted-foreground mb-1">Expert</div>
+                                  <div className="text-2xl font-bold">{times.expert}</div>
+                                  <div className="text-xs text-muted-foreground">minutes</div>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Hidden file input */}
+      {/* Hidden file input for images */}
       <input
         ref={fileInputRef}
         type="file"
@@ -434,6 +769,16 @@ export default function SparePartsPage() {
         onChange={handleFileSelect}
         className="hidden"
         data-testid="input-file-upload"
+      />
+
+      {/* Hidden file input for tutorial videos */}
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/*"
+        onChange={handleVideoSelect}
+        className="hidden"
+        data-testid="input-video-upload"
       />
 
       {/* Full-screen image viewer */}

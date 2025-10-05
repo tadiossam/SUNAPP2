@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -24,6 +24,12 @@ const menuItems = [
     url: "/parts",
     icon: Wrench,
     testId: "link-parts",
+  },
+  {
+    title: "Maintenance History",
+    url: "/maintenance",
+    icon: ClipboardList,
+    testId: "link-maintenance",
   },
   {
     title: "3D Models",

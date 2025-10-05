@@ -11,6 +11,7 @@ import EquipmentPage from "@/pages/Equipment";
 import SparePartsPage from "@/pages/SpareParts";
 import ModelsPage from "@/pages/Models";
 import UploadModelPage from "@/pages/UploadModel";
+import MaintenancePage from "@/pages/Maintenance";
 import LoginPage from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/" component={EquipmentPage} />
       <Route path="/equipment" component={EquipmentPage} />
       <Route path="/parts" component={SparePartsPage} />
+      <Route path="/maintenance" component={MaintenancePage} />
       <Route path="/models" component={ModelsPage} />
       <Route path="/upload" component={UploadModelPage} />
       <Route component={NotFound} />

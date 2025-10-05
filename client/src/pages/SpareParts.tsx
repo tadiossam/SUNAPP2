@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Package, Eye, AlertCircle } from "lucide-react";
+import { useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Search, Package, Eye, AlertCircle, Upload, Image as ImageIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import type { SparePart } from "@shared/schema";
 
 export default function SparePartsPage() {
@@ -28,10 +30,56 @@ export default function SparePartsPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const { data: parts, isLoading } = useQuery<SparePart[]>({
     queryKey: ["/api/parts"],
   });
+
+  const uploadImagesMutation = useMutation({
+    mutationFn: async (files: FileList) => {
+      if (!selectedPart) throw new Error("No part selected");
+      
+      const formData = new FormData();
+      Array.from(files).forEach((file) => {
+        formData.append('images', file);
+      });
+
+      const response = await fetch(`/api/parts/${selectedPart.id}/images`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload images');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/parts"] });
+      toast({
+        title: "Images uploaded",
+        description: "Part images have been successfully uploaded.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload images",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      uploadImagesMutation.mutate(files);
+    }
+  };
 
   const filteredParts = parts?.filter((part) => {
     const matchesSearch =
@@ -148,6 +196,21 @@ export default function SparePartsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredParts.map((part) => (
               <Card key={part.id} className="hover-elevate flex flex-col" data-testid={`card-part-${part.id}`}>
+                {part.imageUrls && part.imageUrls.length > 0 && (
+                  <div className="aspect-video w-full bg-muted overflow-hidden rounded-t-lg relative">
+                    <img
+                      src={part.imageUrls[0]}
+                      alt={part.partName}
+                      className="w-full h-full object-cover"
+                      data-testid={`img-part-${part.id}`}
+                    />
+                    {part.imageUrls.length > 1 && (
+                      <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium">
+                        +{part.imageUrls.length - 1} more
+                      </div>
+                    )}
+                  </div>
+                )}
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -228,6 +291,64 @@ export default function SparePartsPage() {
                 <Badge variant="outline">{selectedPart.category}</Badge>
               </div>
 
+              {/* Image Gallery */}
+              {selectedPart.imageUrls && selectedPart.imageUrls.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold">Part Images ({selectedPart.imageUrls.length})</h4>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadImagesMutation.isPending}
+                        data-testid="button-upload-images"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        {uploadImagesMutation.isPending ? "Uploading..." : "Add More"}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {selectedPart.imageUrls.map((url, idx) => (
+                        <div
+                          key={idx}
+                          className="aspect-square bg-muted rounded-lg overflow-hidden hover-elevate cursor-pointer"
+                          onClick={() => setSelectedImage(url)}
+                          data-testid={`img-gallery-${idx}`}
+                        >
+                          <img
+                            src={url}
+                            alt={`${selectedPart.partName} - Image ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Upload button if no images */}
+              {(!selectedPart.imageUrls || selectedPart.imageUrls.length === 0) && (
+                <>
+                  <Separator />
+                  <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed rounded-lg">
+                    <ImageIcon className="h-12 w-12 text-muted-foreground mb-3" />
+                    <p className="text-sm text-muted-foreground mb-4">No images yet</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadImagesMutation.isPending}
+                      data-testid="button-upload-first-images"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploadImagesMutation.isPending ? "Uploading..." : "Upload Images"}
+                    </Button>
+                  </div>
+                </>
+              )}
+
               {selectedPart.description && (
                 <div>
                   <h4 className="font-semibold mb-2">Description</h4>
@@ -301,6 +422,33 @@ export default function SparePartsPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        onChange={handleFileSelect}
+        className="hidden"
+        data-testid="input-file-upload"
+      />
+
+      {/* Full-screen image viewer */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl p-0">
+          <div className="relative bg-black">
+            {selectedImage && (
+              <img
+                src={selectedImage}
+                alt="Full size"
+                className="w-full h-auto max-h-[90vh] object-contain"
+                data-testid="img-fullscreen"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

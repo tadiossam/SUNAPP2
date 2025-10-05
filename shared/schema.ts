@@ -28,7 +28,7 @@ export const spareParts = pgTable("spare_parts", {
   stockQuantity: integer("stock_quantity").default(0),
   stockStatus: text("stock_status").notNull().default("in_stock"), // in_stock, low_stock, out_of_stock
   model3dPath: text("model_3d_path"), // Path to 3D model file in object storage
-  imagePath: text("image_path"), // Path to part image
+  imageUrls: text("image_urls").array(), // Array of image URLs from object storage
   specifications: text("specifications"), // JSON string of technical specs
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

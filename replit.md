@@ -66,5 +66,11 @@ Initial data seeded from user's spreadsheet includes:
 - PostgreSQL database provisioned and ready
 - All components follow accessibility best practices with data-testid attributes
 
-## Recent Changes
-- 2025-10-05: Initial project setup, complete frontend implementation with all pages and components
+## Known Limitations
+- **3D Model Rendering**: The 3D viewer currently displays a demonstration wireframe. Production implementation would require Three.js (@react-three/fiber) which had peer dependency conflicts with the current React 18 setup. The infrastructure is in place (model paths, upload system, viewer component) - only the Three.js renderer needs to be integrated when dependency conflicts are resolved.
+
+## Recent Changes  
+- 2025-10-05: Complete implementation with database relations, server-side search, interactive UI, and 3D viewer infrastructure
+- 2025-10-05: Updated branding to "PartFinder SSC"
+- 2025-10-05: Fixed database schema with proper foreign key relationships via join tables
+- 2025-10-05: Implemented server-side search endpoints for scalability

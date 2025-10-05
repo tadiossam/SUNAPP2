@@ -100,11 +100,15 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
 
     // Draw info text
     ctx.fillStyle = "hsl(var(--muted-foreground))";
-    ctx.font = "12px var(--font-sans)";
+    ctx.font = "14px var(--font-sans)";
     ctx.textAlign = "center";
-    ctx.fillText("Interactive 3D Viewer", centerX, height - 20);
+    ctx.fillText("Interactive 3D Viewer - Demonstration Mode", centerX, height - 40);
+    ctx.font = "11px var(--font-sans)";
     if (modelPath) {
-      ctx.fillText(`Model: ${modelPath.split("/").pop()}`, centerX, height - 5);
+      ctx.fillText(`Model Path: ${modelPath}`, centerX, height - 22);
+      ctx.fillText("(Production: Would load GLTF/GLB from object storage)", centerX, height - 8);
+    } else {
+      ctx.fillText("No 3D model path provided", centerX, height - 15);
     }
   }, [rotation, zoom, modelPath]);
 

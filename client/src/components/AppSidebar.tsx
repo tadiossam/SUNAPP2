@@ -50,7 +50,7 @@ export function AppSidebar() {
             <Wrench className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="text-base font-semibold">Parts Manager</span>
+            <span className="text-base font-semibold">PartFinder SSC</span>
             <span className="text-xs text-muted-foreground">Heavy Equipment</span>
           </div>
         </div>

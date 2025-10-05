@@ -291,12 +291,11 @@ export default function SparePartsPage() {
                   <div>
                     <h4 className="font-semibold mb-2">3D Model Available</h4>
                     <p className="text-sm text-muted-foreground mb-3">
-                      A 3D schematic is available for this part.
+                      A 3D schematic is available for this part. View it in the 3D Models section.
                     </p>
-                    <Button variant="default" className="w-full" data-testid="button-view-3d">
-                      <Package className="h-4 w-4 mr-2" />
-                      View 3D Model
-                    </Button>
+                    <p className="text-xs font-mono text-muted-foreground bg-muted p-2 rounded">
+                      {selectedPart.model3dPath}
+                    </p>
                   </div>
                 </>
               )}

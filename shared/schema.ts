@@ -30,9 +30,12 @@ export const spareParts = pgTable("spare_parts", {
   model3dPath: text("model_3d_path"), // Path to 3D model file in object storage
   imageUrls: text("image_urls").array(), // Array of image URLs from object storage
   specifications: text("specifications"), // JSON string of technical specs
+  // Manufacturing specifications - for CNC/milling/3D printing
+  manufacturingSpecs: text("manufacturing_specs"), // JSON: {dimensions: {length, width, height, unit}, material, tolerance, weight, cadFormats: ["STL", "STEP", "GLTF"]}
   // Maintenance information
   locationInstructions: text("location_instructions"), // Where to find the part on machinery
   tutorialVideoUrl: text("tutorial_video_url"), // Video tutorial for replacement
+  tutorialAnimationUrl: text("tutorial_animation_url"), // Animated tutorial (GIF/WebM for offline support)
   requiredTools: text("required_tools").array(), // List of tools needed
   installTimeMinutes: integer("install_time_minutes"), // Time estimate in minutes (JSON: {beginner, average, expert})
   installTimeEstimates: text("install_time_estimates"), // JSON string: {"beginner": 120, "average": 60, "expert": 30}

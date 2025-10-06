@@ -1,98 +1,110 @@
-import passport from "passport";
-import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcrypt";
-import type { Express } from "express";
-import session from "express-session";
+import jwt from "jsonwebtoken";
+import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { User } from "@shared/schema";
 
+const JWT_SECRET = process.env.SESSION_SECRET || "partfinder-ssc-secret-key";
+
+// JWT payload interface
+interface JWTPayload {
+  id: string;
+  username: string;
+  role: string;
+}
+
+// Generate JWT token
+export function generateToken(user: User): string {
+  const payload: JWTPayload = {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
+}
+
+// Verify JWT token
+export function verifyToken(token: string): JWTPayload | null {
+  try {
+    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Verify user credentials
+export async function verifyCredentials(username: string, password: string): Promise<User | null> {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
+
+  if (!user) {
+    return null;
+  }
+
+  const isValid = await bcrypt.compare(password, user.password);
+  if (!isValid) {
+    return null;
+  }
+
+  return user;
+}
+
+// Middleware to extract and verify JWT from Authorization header
+export async function authenticateToken(req: any, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  const payload = verifyToken(token);
+  if (!payload) {
+    req.user = null;
+    return next();
+  }
+
+  // Fetch full user from database
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, payload.id))
+    .limit(1);
+
+  req.user = user || null;
+  next();
+}
+
 export function setupAuth(app: Express) {
-  // Session configuration - iOS Safari compatible
-  app.use(
-    session({
-      secret: process.env.SESSION_SECRET || "partfinder-ssc-secret-key",
-      resave: true,
-      saveUninitialized: false, // Don't save empty sessions
-      cookie: {
-        secure: false,
-        httpOnly: false,
-        sameSite: false, // Disable SameSite for iOS compatibility
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      },
-      rolling: true, // Reset expiration on every request
-    })
-  );
-
-  app.use(passport.initialize());
-  app.use(passport.session());
-
-  // Passport local strategy
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.username, username))
-          .limit(1);
-
-        if (!user) {
-          return done(null, false, { message: "Incorrect username or password" });
-        }
-
-        const isValid = await bcrypt.compare(password, user.password);
-        if (!isValid) {
-          return done(null, false, { message: "Incorrect username or password" });
-        }
-
-        return done(null, user);
-      } catch (error) {
-        return done(error);
-      }
-    })
-  );
-
-  // Serialize user for session
-  passport.serializeUser((user: any, done) => {
-    done(null, user.id);
-  });
-
-  // Deserialize user from session
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
+  // Add JWT authentication middleware to all routes
+  app.use(authenticateToken);
 }
 
 // Middleware to check if user is authenticated
-export function isAuthenticated(req: any, res: any, next: any) {
-  if (req.isAuthenticated()) {
+export function isAuthenticated(req: any, res: Response, next: NextFunction) {
+  if (req.user) {
     return next();
   }
   res.status(401).json({ message: "Not authenticated" });
 }
 
 // Middleware to check if user has CEO role
-export function isCEO(req: any, res: any, next: any) {
-  if (req.isAuthenticated() && req.user?.role === "CEO") {
+export function isCEO(req: any, res: Response, next: NextFunction) {
+  if (req.user?.role === "CEO") {
     return next();
   }
   res.status(403).json({ message: "Access denied. CEO role required." });
 }
 
 // Middleware to check if user has CEO or Admin role
-export function isCEOOrAdmin(req: any, res: any, next: any) {
-  if (req.isAuthenticated() && (req.user?.role === "CEO" || req.user?.role === "admin")) {
+export function isCEOOrAdmin(req: any, res: Response, next: NextFunction) {
+  if (req.user?.role === "CEO" || req.user?.role === "admin") {
     return next();
   }
   res.status(403).json({ message: "Access denied. CEO or Admin role required." });
@@ -101,6 +113,8 @@ export function isCEOOrAdmin(req: any, res: any, next: any) {
 // Extend Express Request type to include user
 declare global {
   namespace Express {
-    interface User extends Omit<import("@shared/schema").User, "password"> {}
+    interface Request {
+      user?: Omit<User, "password"> | null;
+    }
   }
 }

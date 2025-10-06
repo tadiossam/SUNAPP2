@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { RotateCcw, ZoomIn, ZoomOut, Move } from "lucide-react";
+import { RotateCcw, ZoomIn, ZoomOut, Move, Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 
 interface Simple3DViewerProps {
   modelPath?: string;
@@ -13,6 +14,9 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [rotationSpeed, setRotationSpeed] = useState(0.5);
+  const animationFrameRef = useRef<number>();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -112,6 +116,59 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
     }
   }, [rotation, zoom, modelPath]);
 
+  // Auto-rotation effect
+  useEffect(() => {
+    if (!autoRotate) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      return;
+    }
+
+    const animate = () => {
+      setRotation((prev) => ({
+        x: prev.x,
+        y: prev.y + rotationSpeed * 0.02,
+      }));
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [autoRotate, rotationSpeed]);
+
+  // Touch support for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setLastPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - lastPos.x;
+    const deltaY = touch.clientY - lastPos.y;
+
+    setRotation((prev) => ({
+      x: prev.x + deltaY * 0.01,
+      y: prev.y + deltaX * 0.01,
+    }));
+
+    setLastPos({ x: touch.clientX, y: touch.clientY });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     setLastPos({ x: e.clientX, y: e.clientY });
@@ -151,8 +208,22 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       />
+      
+      {/* Main Controls */}
       <div className="absolute bottom-4 right-4 flex gap-2">
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={() => setAutoRotate(!autoRotate)}
+          title={autoRotate ? "Pause Auto-Rotation" : "Start Auto-Rotation"}
+          data-testid="button-auto-rotate"
+        >
+          {autoRotate ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+        </Button>
         <Button
           variant="secondary"
           size="icon"
@@ -181,10 +252,33 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
           <RotateCcw className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Rotation Speed Control */}
+      {autoRotate && (
+        <div className="absolute bottom-4 left-4 bg-background/90 backdrop-blur-sm rounded-md px-4 py-3 w-64">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">Rotation Speed</span>
+              <span className="text-xs text-muted-foreground">{rotationSpeed.toFixed(1)}x</span>
+            </div>
+            <Slider
+              value={[rotationSpeed]}
+              onValueChange={(values) => setRotationSpeed(values[0])}
+              min={0.1}
+              max={2}
+              step={0.1}
+              className="w-full"
+              data-testid="slider-rotation-speed"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Instructions */}
       <div className="absolute top-4 left-4 bg-background/80 backdrop-blur-sm rounded-md px-3 py-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <Move className="h-3 w-3" />
-          <span>Drag to rotate • Scroll to zoom</span>
+          <span>Drag to rotate 360° • {autoRotate ? 'Auto-rotating' : 'Click play for auto-rotation'}</span>
         </div>
       </div>
     </div>

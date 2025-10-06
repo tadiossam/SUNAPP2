@@ -11,7 +11,10 @@ interface ManufacturingSpecs {
   weight?: string;
   surfaceFinish?: string;
   hardness?: string;
+  cadFormats?: string[];
 }
+
+import { useState } from "react";
 
 interface DimensionViewerProps {
   partNumber: string;
@@ -21,8 +24,44 @@ interface DimensionViewerProps {
 }
 
 export function DimensionViewer({ partNumber, partName, specs, imageUrl }: DimensionViewerProps) {
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
   const dims = specs.dimensions || {};
   const hasDimensions = dims.length || dims.width || dims.height || dims.diameter;
+
+  // Rotation interaction handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setStartX(e.clientX);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const deltaX = e.clientX - startX;
+    setRotationAngle((prev) => prev + deltaX * 0.5);
+    setStartX(e.clientX);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsDragging(true);
+    setStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const deltaX = e.touches[0].clientX - startX;
+    setRotationAngle((prev) => prev + deltaX * 0.5);
+    setStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
 
   if (!hasDimensions) {
     return (
@@ -46,8 +85,9 @@ export function DimensionViewer({ partNumber, partName, specs, imageUrl }: Dimen
             <p className="text-sm text-muted-foreground mt-1">{partName}</p>
           </div>
           <div className="text-right text-xs text-muted-foreground">
-            <p>MANUFACTURING SPECIFICATIONS</p>
-            <p>CATERPILLAR D8R</p>
+            <p className="font-semibold">CNC MILLING SPECIFICATIONS</p>
+            <p>CATERPILLAR D8R GENUINE PARTS</p>
+            <p className="mt-1">TOLERANCE: {specs.tolerance || 'ISO 2768-m'}</p>
           </div>
         </div>
       </div>
@@ -55,8 +95,18 @@ export function DimensionViewer({ partNumber, partName, specs, imageUrl }: Dimen
       <div className="grid md:grid-cols-2 gap-6">
         {/* Technical Drawing Visualization */}
         <div className="border rounded-lg p-6 bg-background">
-          <div className="aspect-square flex items-center justify-center">
-            <svg viewBox="0 0 400 400" className="w-full h-full">
+          <div className="aspect-square flex items-center justify-center relative">
+            <svg 
+              viewBox="0 0 400 400" 
+              className="w-full h-full cursor-grab active:cursor-grabbing"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               {/* Grid background */}
               <defs>
                 <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -65,6 +115,8 @@ export function DimensionViewer({ partNumber, partName, specs, imageUrl }: Dimen
               </defs>
               <rect width="400" height="400" fill="url(#grid)" />
 
+              {/* Main drawing group with rotation */}
+              <g transform={`rotate(${rotationAngle}, 200, 200)`}>
               {/* Draw based on part type */}
               {isCylindrical ? (
                 <>
@@ -157,11 +209,25 @@ export function DimensionViewer({ partNumber, partName, specs, imageUrl }: Dimen
                   <polygon points="10 0, 0 3, 10 6" fill="hsl(var(--primary))"/>
                 </marker>
               </defs>
+              </g>
             </svg>
+            
+            {/* Rotation indicator */}
+            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-background/90 backdrop-blur-sm rounded-full px-3 py-1 text-xs text-muted-foreground">
+              🔄 Drag to rotate 360°
+            </div>
           </div>
           
-          <div className="mt-4 text-center text-xs text-muted-foreground">
-            Technical Schematic - All dimensions in millimeters (mm)
+          <div className="mt-4 space-y-1">
+            <p className="text-center text-xs font-semibold text-primary">
+              PRECISION ENGINEERING DRAWING
+            </p>
+            <p className="text-center text-xs text-muted-foreground">
+              All dimensions in millimeters (mm) • Decimal precision: ±{specs.tolerance?.includes('±') ? specs.tolerance.split('±')[1] : '0.1mm'}
+            </p>
+            <p className="text-center text-xs text-muted-foreground">
+              Suitable for: CNC Milling • 3D Printing • Manual Machining
+            </p>
           </div>
         </div>
 
@@ -243,10 +309,49 @@ export function DimensionViewer({ partNumber, partName, specs, imageUrl }: Dimen
             </div>
           </div>
 
+          {/* CAD Format Availability */}
+          {specs.cadFormats && specs.cadFormats.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted px-4 py-2 border-b">
+                <h4 className="font-semibold text-sm">CAD EXPORT FORMATS</h4>
+              </div>
+              <div className="p-4">
+                <div className="flex flex-wrap gap-2">
+                  {specs.cadFormats.map((format) => (
+                    <div key={format} className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-md">
+                      <span className="text-xs font-mono font-semibold text-primary">{format}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Compatible with: AutoCAD • SolidWorks • Fusion 360 • Mastercam
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-            <p className="text-xs text-primary font-medium">
-              ✓ CNC/Milling Ready • ✓ 3D Print Compatible • ✓ ISO Tolerance Standards
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-primary">CNC MACHINING READY</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Millimeter Precision</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>ISO 2768 Tolerance</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>3-Axis Compatible</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>CAD Export Ready</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

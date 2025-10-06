@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Simple3DViewer } from "@/components/Simple3DViewer";
@@ -121,6 +122,9 @@ export default function ModelsPage() {
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="text-xl">{selectedPart?.partName}</DialogTitle>
+            <DialogDescription>
+              Interactive 3D view of {selectedPart?.partName}
+            </DialogDescription>
           </DialogHeader>
 
           {selectedPart && (

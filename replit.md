@@ -11,7 +11,7 @@ A comprehensive web application for managing heavy equipment inventory and spare
 - **Database**: PostgreSQL (Neon) with Drizzle ORM
 - **Storage**: Replit Object Storage for 3D models
 - **UI**: Shadcn UI + Tailwind CSS
-- **3D Viewing**: Placeholder for Three.js integration
+- **3D Viewing**: Three.js with GLTF/GLB loader
 - **Routing**: Wouter
 - **State Management**: TanStack Query (React Query)
 
@@ -160,10 +160,20 @@ All equipment includes plate numbers, asset numbers, new asset numbers, and mach
 - **Email Target**: tafestadios@gmail.com
 - **Notifications Include**: Action type, record details, timestamp, who performed action
 
-## Known Limitations
-- **3D Model Rendering**: The 3D viewer currently displays a demonstration wireframe. Production implementation would require Three.js (@react-three/fiber) which had peer dependency conflicts with the current React 18 setup. The infrastructure is in place (model paths, upload system, viewer component) - only the Three.js renderer needs to be integrated when dependency conflicts are resolved.
+## 3D Model System
+- **Three.js Integration**: ✅ Fully implemented with WebGL renderer and GLTF/GLB loader
+- **Features**: Interactive rotation (mouse/touch), auto-rotation, zoom controls, loading states, error handling
+- **Model Files**: Currently showing placeholder geometry - upload GLB/GLTF files to object storage to see actual 3D models
+- **8 Parts Ready**: Model paths configured for filters and fluids (1R-1808, 326-1642, 1R-0749, 6I-2505, 132-8875, 337-5270, 205-6611, 452-5996)
+- **File Format**: GLB/GLTF preferred for 3D models stored in object storage
 
 ## Recent Changes  
+- 2025-10-06: **Implemented Three.js 3D Model Rendering**
+  - Replaced wireframe placeholder with actual WebGL renderer
+  - Added GLTF/GLB loader for real 3D model files
+  - Interactive controls: drag rotation, auto-rotation, zoom, touch support
+  - Graceful error handling with placeholder geometry when files missing
+  - Ready to load actual 3D models from object storage
 - 2025-10-05: **Implemented PWA, Manufacturing Specs, and Offline Support**
   - Created Progressive Web App with service workers for full offline functionality
   - Added manufacturing specifications system (dimensions, material, tolerance, weight, CAD formats)

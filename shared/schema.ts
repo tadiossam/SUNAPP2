@@ -125,6 +125,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(), // Hashed password
   fullName: text("full_name").notNull(),
   role: text("role").notNull().default("user"), // CEO, admin, user
+  language: text("language").notNull().default("en"), // en, am (English, Amharic)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

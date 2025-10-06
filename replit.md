@@ -117,8 +117,8 @@ All equipment includes plate numbers, asset numbers, new asset numbers, and mach
   - Username: `ceo`
   - Password: `ceo123` (⚠️ Change after first login!)
 - **Admin Login Credentials:**
-  - Username: `admin`
-  - Password: `admin123` (⚠️ Change after first login!)
+  - Username: `admin` / Password: `admin123` (⚠️ Change after first login!)
+  - Username: `biruk` / Password: `Tolera123` - Biruk Tolera
 - Session management with express-session
 - Password hashing with bcrypt (10 rounds)
 - Secure cookies enabled in production

@@ -132,7 +132,7 @@ export default function ModelsPage() {
                 </span>
               </div>
 
-              <Simple3DViewer modelPath={selectedPart.model3dPath} className="h-[400px]" />
+              <Simple3DViewer modelPath={selectedPart.model3dPath || undefined} className="h-[400px]" />
 
               {selectedPart.description && (
                 <div>

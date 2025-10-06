@@ -11,42 +11,44 @@ import {
   SidebarMenuItem,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-
-const menuItems = [
-  {
-    title: "Equipment",
-    url: "/",
-    icon: Home,
-    testId: "link-equipment",
-  },
-  {
-    title: "Spare Parts",
-    url: "/parts",
-    icon: Wrench,
-    testId: "link-parts",
-  },
-  {
-    title: "Maintenance History",
-    url: "/maintenance",
-    icon: ClipboardList,
-    testId: "link-maintenance",
-  },
-  {
-    title: "3D Models",
-    url: "/models",
-    icon: Box,
-    testId: "link-models",
-  },
-  {
-    title: "Upload Model",
-    url: "/upload",
-    icon: Upload,
-    testId: "link-upload",
-  },
-];
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { t } = useLanguage();
+
+  const menuItems = [
+    {
+      title: t("equipment"),
+      url: "/",
+      icon: Home,
+      testId: "link-equipment",
+    },
+    {
+      title: t("spareParts"),
+      url: "/parts",
+      icon: Wrench,
+      testId: "link-parts",
+    },
+    {
+      title: t("maintenanceHistory"),
+      url: "/maintenance",
+      icon: ClipboardList,
+      testId: "link-maintenance",
+    },
+    {
+      title: t("models3D"),
+      url: "/models",
+      icon: Box,
+      testId: "link-models",
+    },
+    {
+      title: t("uploadModel"),
+      url: "/upload",
+      icon: Upload,
+      testId: "link-upload",
+    },
+  ];
 
   return (
     <Sidebar>
@@ -56,18 +58,18 @@ export function AppSidebar() {
             <Wrench className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="text-base font-semibold">PartFinder SSC</span>
-            <span className="text-xs text-muted-foreground">Heavy Equipment</span>
+            <span className="text-base font-semibold">{t("appName")}</span>
+            <span className="text-xs text-muted-foreground">{t("heavyEquipment")}</span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("navigation")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={item.testId}>
                       <item.icon className="h-4 w-4" />

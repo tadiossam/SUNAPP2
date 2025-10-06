@@ -7,6 +7,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import EquipmentPage from "@/pages/Equipment";
 import SparePartsPage from "@/pages/SpareParts";
 import ModelsPage from "@/pages/Models";
@@ -116,6 +118,7 @@ function AppContent() {
               >
                 <LogOut className="h-4 w-4" />
               </Button>
+              <LanguageToggle />
               <ThemeToggle />
             </div>
           </header>
@@ -132,10 +135,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <AppContent />
-          <Toaster />
-        </TooltipProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <AppContent />
+            <Toaster />
+          </TooltipProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

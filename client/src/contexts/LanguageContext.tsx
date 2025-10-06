@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { translations, Language, TranslationKey } from '@/i18n/translations';
 import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 interface LanguageContextType {
   language: Language;
@@ -19,14 +20,30 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // First check localStorage for immediate language setting
+    const savedLanguage = localStorage.getItem('language') as Language;
+    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'am')) {
+      setLanguageState(savedLanguage);
+    }
+    
+    // Then sync with user preference from backend
     if (user?.user?.language) {
-      setLanguageState(user.user.language as Language);
+      const userLang = user.user.language as Language;
+      setLanguageState(userLang);
+      localStorage.setItem('language', userLang);
     }
   }, [user]);
 
-  const setLanguage = (lang: Language) => {
+  const setLanguage = async (lang: Language) => {
     setLanguageState(lang);
-    // Language will be saved to backend during login
+    localStorage.setItem('language', lang);
+    
+    // Persist to backend
+    try {
+      await apiRequest('POST', '/api/user/language', { language: lang });
+    } catch (error) {
+      console.error('Failed to save language preference:', error);
+    }
   };
 
   const t = (key: TranslationKey): string => {

@@ -78,6 +78,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User language preference update
+  app.post("/api/user/language", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { language } = req.body;
+      
+      if (!language || (language !== 'en' && language !== 'am')) {
+        return res.status(400).json({ message: "Invalid language. Must be 'en' or 'am'" });
+      }
+
+      await storage.updateUserLanguage(req.user.id, language);
+      
+      res.json({ message: "Language preference updated successfully" });
+    } catch (error) {
+      console.error("Error updating language preference:", error);
+      res.status(500).json({ message: "Failed to update language preference" });
+    }
+  });
+
   // Equipment endpoints with server-side search
   app.get("/api/equipment", async (req, res) => {
     try {

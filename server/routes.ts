@@ -34,7 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication endpoints
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { username, password, language } = req.body;
       
       if (!username || !password) {
         return res.status(400).json({ message: "Username and password required" });
@@ -44,6 +44,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Update user language preference if provided
+      if (language && (language === 'en' || language === 'am')) {
+        await storage.updateUserLanguage(user.id, language);
+        user.language = language;
       }
 
       const token = generateToken(user);

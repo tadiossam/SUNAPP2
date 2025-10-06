@@ -6,6 +6,7 @@ import {
   maintenanceRecords,
   partsUsageHistory,
   operatingBehaviorReports,
+  users,
   type Equipment,
   type InsertEquipment,
   type SparePart,
@@ -85,6 +86,9 @@ export interface IStorage {
   // Operating Behavior Reports
   getOperatingReportsByEquipment(equipmentId: string): Promise<OperatingBehaviorReport[]>;
   createOperatingReport(data: InsertOperatingBehaviorReport): Promise<OperatingBehaviorReport>;
+  
+  // User operations
+  updateUserLanguage(userId: string, language: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -486,6 +490,14 @@ export class DatabaseStorage implements IStorage {
   async createOperatingReport(data: InsertOperatingBehaviorReport): Promise<OperatingBehaviorReport> {
     const [result] = await db.insert(operatingBehaviorReports).values(data).returning();
     return result;
+  }
+
+  // User operations
+  async updateUserLanguage(userId: string, language: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ language })
+      .where(eq(users.id, userId));
   }
 }
 

@@ -152,6 +152,8 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || e.touches.length !== 1) return;
+    
+    e.preventDefault(); // Prevent page scrolling while rotating
 
     const touch = e.touches[0];
     const deltaX = touch.clientX - lastPos.x;
@@ -220,6 +222,7 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
           size="icon"
           onClick={() => setAutoRotate(!autoRotate)}
           title={autoRotate ? "Pause Auto-Rotation" : "Start Auto-Rotation"}
+          aria-label={autoRotate ? "Pause automatic rotation" : "Start automatic rotation"}
           data-testid="button-auto-rotate"
         >
           {autoRotate ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -229,6 +232,7 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
           size="icon"
           onClick={() => setZoom(Math.min(zoom + 0.2, 3))}
           title="Zoom In"
+          aria-label="Zoom in on 3D model"
           data-testid="button-zoom-in"
         >
           <ZoomIn className="h-4 w-4" />
@@ -238,6 +242,7 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
           size="icon"
           onClick={() => setZoom(Math.max(zoom - 0.2, 0.5))}
           title="Zoom Out"
+          aria-label="Zoom out on 3D model"
           data-testid="button-zoom-out"
         >
           <ZoomOut className="h-4 w-4" />
@@ -247,6 +252,7 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
           size="icon"
           onClick={handleReset}
           title="Reset View"
+          aria-label="Reset view to default position"
           data-testid="button-reset-view"
         >
           <RotateCcw className="h-4 w-4" />

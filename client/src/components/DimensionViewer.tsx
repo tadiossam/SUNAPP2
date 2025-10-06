@@ -54,6 +54,7 @@ export function DimensionViewer({ partNumber, partName, specs, imageUrl }: Dimen
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
+    e.preventDefault(); // Prevent page scrolling while rotating
     const deltaX = e.touches[0].clientX - startX;
     setRotationAngle((prev) => prev + deltaX * 0.5);
     setStartX(e.touches[0].clientX);

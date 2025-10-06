@@ -18,6 +18,7 @@ import type { SparePart } from "@shared/schema";
 
 export default function UploadModelPage() {
   const [selectedPartId, setSelectedPartId] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -30,15 +31,30 @@ export default function UploadModelPage() {
   const partsWithoutModels = parts?.filter((part) => !part.model3dPath);
 
   const uploadMutation = useMutation({
-    mutationFn: async (data: { partId: string; modelPath: string }) => {
-      return await apiRequest("PUT", `/api/parts/${data.partId}/model`, {
-        model3dPath: data.modelPath,
+    mutationFn: async (data: { partId: string; file: File }) => {
+      const formData = new FormData();
+      formData.append('modelFile', data.file);
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/parts/${data.partId}/upload-model`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
       });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parts"] });
       setUploadStatus("success");
       setSelectedPartId("");
+      setSelectedFile(null);
       toast({
         title: "Success",
         description: "3D model uploaded successfully",
@@ -54,6 +70,27 @@ export default function UploadModelPage() {
     },
   });
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validExtensions = ['.glb', '.gltf', '.obj'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      if (!validExtensions.includes(fileExtension)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select a GLB, GLTF, or OBJ file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSelectedFile(file);
+      setUploadStatus("idle");
+    }
+  };
+
   const handleUpload = () => {
     if (!selectedPartId) {
       toast({
@@ -64,11 +101,18 @@ export default function UploadModelPage() {
       return;
     }
 
-    // Simulate file upload - in production this would handle actual file upload
-    const mockModelPath = `/models/${selectedPartId}-${Date.now()}.glb`;
+    if (!selectedFile) {
+      toast({
+        title: "Error",
+        description: "Please select a 3D model file",
+        variant: "destructive",
+      });
+      return;
+    }
+
     uploadMutation.mutate({
       partId: selectedPartId,
-      modelPath: mockModelPath,
+      file: selectedFile,
     });
   };
 
@@ -137,20 +181,33 @@ export default function UploadModelPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>3D Model File</Label>
-                <div className="border-2 border-dashed rounded-lg p-8 text-center hover-elevate cursor-pointer">
+                <Label htmlFor="model-file">3D Model File</Label>
+                <input
+                  id="model-file"
+                  type="file"
+                  accept=".glb,.gltf,.obj"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  data-testid="input-model-file"
+                />
+                <label
+                  htmlFor="model-file"
+                  className="border-2 border-dashed rounded-lg p-8 text-center hover-elevate cursor-pointer block"
+                >
                   <div className="flex flex-col items-center gap-2">
                     <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                       <Upload className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Click to upload or drag and drop</p>
+                      <p className="font-medium">
+                        {selectedFile ? selectedFile.name : 'Click to upload or drag and drop'}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         GLB, GLTF, or OBJ files (max 50MB)
                       </p>
                     </div>
                   </div>
-                </div>
+                </label>
                 <p className="text-xs text-muted-foreground">
                   Supported formats: .glb (recommended), .gltf, .obj
                 </p>

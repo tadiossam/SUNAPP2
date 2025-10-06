@@ -2,8 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, Ruler, Weight, Box, FileText, Hammer } from "lucide-react";
 import type { SparePart } from "@shared/schema";
+import { useState } from "react";
+import { Simple3DViewer } from "./Simple3DViewer";
 
 interface ManufacturingSpecsProps {
   part: SparePart;
@@ -27,6 +30,7 @@ interface ManufacturingData {
 }
 
 export function ManufacturingSpecs({ part }: ManufacturingSpecsProps) {
+  const [show3DViewer, setShow3DViewer] = useState(false);
   let specs: ManufacturingData = {};
   
   try {
@@ -36,6 +40,18 @@ export function ManufacturingSpecs({ part }: ManufacturingSpecsProps) {
   } catch (error) {
     console.error('Failed to parse manufacturing specs:', error);
   }
+
+  const handleDownloadCAD = () => {
+    if (!part.model3dPath) return;
+    
+    // Download the 3D model file
+    const link = document.createElement('a');
+    link.href = part.model3dPath;
+    link.download = `${part.partNumber}-3d-model${part.model3dPath.substring(part.model3dPath.lastIndexOf('.'))}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (!specs || Object.keys(specs).length === 0) {
     return (
@@ -180,6 +196,7 @@ export function ManufacturingSpecs({ part }: ManufacturingSpecsProps) {
                   <Button 
                     variant="outline" 
                     size="sm"
+                    onClick={handleDownloadCAD}
                     data-testid="button-download-cad"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -188,6 +205,7 @@ export function ManufacturingSpecs({ part }: ManufacturingSpecsProps) {
                   <Button 
                     variant="outline" 
                     size="sm"
+                    onClick={() => setShow3DViewer(true)}
                     data-testid="button-view-3d"
                   >
                     <Box className="w-4 h-4 mr-2" />
@@ -207,6 +225,19 @@ export function ManufacturingSpecs({ part }: ManufacturingSpecsProps) {
           </p>
         </div>
       </CardContent>
+
+      <Dialog open={show3DViewer} onOpenChange={setShow3DViewer}>
+        <DialogContent className="max-w-4xl h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>{part.partName} - 3D Model</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {part.model3dPath && (
+              <Simple3DViewer modelPath={part.model3dPath} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

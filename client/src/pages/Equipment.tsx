@@ -55,11 +55,26 @@ export default function EquipmentPage() {
     <div className="flex flex-col h-full">
       <div className="flex-none border-b bg-card p-6">
         <div className="flex flex-col gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Equipment Inventory</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your heavy equipment fleet
-            </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Equipment Inventory</h1>
+              <p className="text-muted-foreground mt-1">
+                Manage your heavy equipment fleet
+              </p>
+            </div>
+            {equipment && (
+              <div className="text-right">
+                <div className="text-2xl font-bold" data-testid="text-total-equipment">
+                  {equipment.length}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Assets</div>
+                {filteredEquipment && filteredEquipment.length < equipment.length && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    ({filteredEquipment.length} filtered)
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col md:flex-row gap-4">

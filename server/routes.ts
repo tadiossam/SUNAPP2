@@ -30,6 +30,29 @@ const upload = multer({
   }
 });
 
+// Configure multer for 3D model files
+const upload3DModel = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for 3D models
+  fileFilter: (_req, file, cb) => {
+    // Accept 3D model formats
+    const allowedMimeTypes = [
+      'model/gltf-binary', // GLB
+      'model/gltf+json',   // GLTF
+      'model/obj',         // OBJ
+      'application/octet-stream', // Fallback for GLB files
+    ];
+    const allowedExtensions = ['.glb', '.gltf', '.obj'];
+    const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    
+    if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only 3D model files (GLB, GLTF, OBJ) are allowed'));
+    }
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication endpoints
   app.post("/api/auth/login", async (req, res) => {
@@ -234,6 +257,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating part:", error);
       res.status(400).json({ error: "Invalid part data" });
+    }
+  });
+
+  // Upload 3D model file to object storage
+  app.post("/api/parts/:id/upload-model", isCEOOrAdmin, upload3DModel.single('modelFile'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const partId = req.params.id;
+      const part = await storage.getPartById(partId);
+      
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      // Generate unique filename with part number
+      const fileExtension = req.file.originalname.substring(req.file.originalname.lastIndexOf('.'));
+      const fileName = `${part.partNumber}-${nanoid(8)}${fileExtension}`;
+      
+      // Get the public object storage path
+      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
+      if (!publicPath) {
+        return res.status(500).json({ error: "Object storage not configured" });
+      }
+
+      // Create models directory if it doesn't exist
+      await mkdir(join(publicPath, 'models'), { recursive: true });
+
+      // Write file to object storage
+      const filePath = join(publicPath, 'models', fileName);
+      await writeFile(filePath, req.file.buffer);
+
+      // Update part with publicly accessible URL path
+      const publicUrl = `/public/models/${fileName}`;
+      const updatedPart = await storage.updatePartModel(partId, publicUrl);
+
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'spare_part', part.id, req.user.username, { action: '3D model uploaded', fileName }
+        ));
+      }
+
+      res.json({ 
+        message: "3D model uploaded successfully",
+        part: updatedPart,
+        modelPath: publicUrl
+      });
+    } catch (error) {
+      console.error("Error uploading 3D model:", error);
+      res.status(500).json({ error: "Failed to upload 3D model" });
     }
   });
 

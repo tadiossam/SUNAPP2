@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Lock, User as UserIcon } from "lucide-react";
+import { Shield, Lock, User as UserIcon, Languages } from "lucide-react";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [language, setLanguage] = useState<"en" | "am">("en");
 
   // Check if already logged in
   const { data: authData } = useQuery({
@@ -22,7 +24,7 @@ export default function Login() {
 
   // Login mutation
   const loginMutation = useMutation({
-    mutationFn: async (credentials: { username: string; password: string }) => {
+    mutationFn: async (credentials: { username: string; password: string; language: string }) => {
       const res = await apiRequest("POST", "/api/auth/login", credentials);
       return res.json();
     },
@@ -49,7 +51,7 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate({ username, password });
+    loginMutation.mutate({ username, password, language });
   };
 
   // Redirect if already logged in
@@ -76,14 +78,29 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="language" className="flex items-center gap-2">
+                <Languages className="h-4 w-4" />
+                {language === "am" ? "ቋንቋ" : "Language"}
+              </Label>
+              <Select value={language} onValueChange={(value: "en" | "am") => setLanguage(value)}>
+                <SelectTrigger id="language" data-testid="select-language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="am">አማርኛ (Amharic)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="username" className="flex items-center gap-2">
                 <UserIcon className="h-4 w-4" />
-                Username
+                {language === "am" ? "የተጠቃሚ ስም" : "Username"}
               </Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="Enter your username"
+                placeholder={language === "am" ? "የተጠቃሚ ስምዎን ያስገቡ" : "Enter your username"}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -93,12 +110,12 @@ export default function Login() {
             <div className="space-y-2">
               <Label htmlFor="password" className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
-                Password
+                {language === "am" ? "የይለፍ ቃል" : "Password"}
               </Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder={language === "am" ? "የይለፍ ቃልዎን ያስገቡ" : "Enter your password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -113,7 +130,9 @@ export default function Login() {
               disabled={loginMutation.isPending}
               data-testid="button-login"
             >
-              {loginMutation.isPending ? "Signing in..." : "Sign In"}
+              {loginMutation.isPending 
+                ? (language === "am" ? "በመግባት ላይ..." : "Signing in...") 
+                : (language === "am" ? "ግባ" : "Sign In")}
             </Button>
           </CardFooter>
         </form>

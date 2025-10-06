@@ -9,19 +9,19 @@ import { eq } from "drizzle-orm";
 import type { User } from "@shared/schema";
 
 export function setupAuth(app: Express) {
-  // Session configuration
+  // Session configuration - iOS Safari compatible
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "partfinder-ssc-secret-key",
       resave: true,
-      saveUninitialized: true,
+      saveUninitialized: false, // Don't save empty sessions
       cookie: {
         secure: false,
-        httpOnly: false, // Allow client-side access for debugging
-        sameSite: "lax",
-        path: "/",
+        httpOnly: false,
+        sameSite: false, // Disable SameSite for iOS compatibility
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       },
+      rolling: true, // Reset expiration on every request
     })
   );
 

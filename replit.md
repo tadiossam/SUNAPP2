@@ -118,16 +118,31 @@ A comprehensive web application for managing heavy equipment inventory and spare
 ⏳ AI-powered part matching with confidence scores
 
 ## Equipment Data
-Master equipment list for **Sunshine Construction PLC** (30 units):
+Complete equipment inventory for **Sunshine Construction PLC** (109 units):
 
-**DOZER Equipment (25 units):**
-- 24x CAT D8R
-- 1x KOMATSU D155A-5
+**DOZER Equipment (50 units):**
+- 48x CAT D8R
+- 2x KOMATSU D155A-5
 
-**WHEEL LOADER Equipment (5 units):**
-- 2x VOLVO (L-90C, L-120E)
-- 2x CATERPILLAR (938F)
-- 1x KOMATSU (938E-2)
+**WHEEL LOADER Equipment (31 units):**
+- 10x VOLVO
+- 6x CATERPILLAR/CAT
+- 5x CHINA
+- 5x SEM
+- 4x XCMG
+- 1x KOMATSU
+
+**EXCAVATOR Equipment (24 units):**
+- 10x KOMATSU (PC220-7, PC300-7, PC300-8MO, PC300)
+- 8x DEVELON (DX360LCA-7M)
+- 4x DOOSAN (DX340LCA)
+- 2x CAT WHEEL (M316D)
+
+**WHEEL EXCAVATOR Equipment (3 units):**
+- 3x DEVELON (DX210WA)
+
+**GRADER Equipment (1 unit):**
+- 1x CAT (12G)
 
 All equipment includes plate numbers, asset numbers, new asset numbers, and machine serial numbers.
 
@@ -168,6 +183,12 @@ All equipment includes plate numbers, asset numbers, new asset numbers, and mach
 - **File Format**: GLB/GLTF preferred for 3D models stored in object storage
 
 ## Recent Changes  
+- 2025-10-06: **Imported Excel Equipment Data & Fixed 3D Model Upload**
+  - Successfully imported 28 new equipment units from Excel (EXCAVATOR, WHEEL EXCAVATOR, GRADER)
+  - Total equipment now: 109 units (up from 81)
+  - Fixed 3D model upload to use object storage path (`/public/models/`)
+  - 3D model upload now consistent with image/video upload pattern
+  - Equipment page dynamically displays new equipment types in filters
 - 2025-10-06: **Implemented Three.js 3D Model Rendering**
   - Replaced wireframe placeholder with actual WebGL renderer
   - Added GLTF/GLB loader for real 3D model files

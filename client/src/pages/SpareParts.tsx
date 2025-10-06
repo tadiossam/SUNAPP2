@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { ManufacturingSpecs } from "@/components/ManufacturingSpecs";
+import { DimensionViewer } from "@/components/DimensionViewer";
 import type { SparePart } from "@shared/schema";
 
 export default function SparePartsPage() {
@@ -491,6 +492,22 @@ export default function SparePartsPage() {
               {/* Manufacturing Specifications */}
               <Separator />
               <ManufacturingSpecs part={selectedPart} />
+
+              {/* 3D Dimension Viewer */}
+              {selectedPart.manufacturingSpecs && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="font-semibold text-lg mb-4">Technical Dimensions</h4>
+                    <DimensionViewer
+                      partNumber={selectedPart.partNumber}
+                      partName={selectedPart.partName}
+                      specs={selectedPart.manufacturingSpecs as any}
+                      imageUrl={selectedPart.imageUrls?.[0]}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Maintenance Information Section */}
               <Separator />

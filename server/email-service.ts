@@ -11,7 +11,7 @@ if (process.env.RESEND_API_KEY) {
 interface EmailNotification {
   action: 'created' | 'updated' | 'deleted';
   recordType: 'equipment' | 'maintenance' | 'parts_usage' | 'operating_report' | 'spare_part';
-  recordId: number;
+  recordId: string;
   performedBy: string;
   details: Record<string, any>;
 }
@@ -60,7 +60,7 @@ export async function sendCEONotification(notification: EmailNotification) {
 export function createNotification(
   action: EmailNotification['action'],
   recordType: EmailNotification['recordType'],
-  recordId: number,
+  recordId: string,
   performedBy: string,
   details: Record<string, any>
 ): EmailNotification {

@@ -13,8 +13,7 @@ import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
-import passport from "passport";
-import { isCEO, isCEOOrAdmin } from "./auth";
+import { isCEO, isCEOOrAdmin, verifyCredentials, generateToken } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 
 // Configure multer for memory storage
@@ -33,36 +32,39 @@ const upload = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication endpoints
-  app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: any, info: any) => {
-      if (err) {
-        return res.status(500).json({ message: "Authentication error" });
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password required" });
       }
+
+      const user = await verifyCredentials(username, password);
+      
       if (!user) {
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+        return res.status(401).json({ message: "Invalid credentials" });
       }
-      req.logIn(user, (err) => {
-        if (err) {
-          return res.status(500).json({ message: "Login error" });
-        }
-        // Don't send password to client
-        const { password, ...userWithoutPassword } = user;
-        return res.json({ user: userWithoutPassword });
+
+      const token = generateToken(user);
+      const { password: _, ...userWithoutPassword } = user;
+      
+      res.json({ 
+        user: userWithoutPassword,
+        token 
       });
-    })(req, res, next);
+    } catch (error) {
+      res.status(500).json({ message: "Authentication error" });
+    }
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Logout error" });
-      }
-      res.json({ message: "Logged out successfully" });
-    });
+    // With JWT, logout is handled client-side by removing the token
+    res.json({ message: "Logged out successfully" });
   });
 
   app.get("/api/auth/me", (req, res) => {
-    if (req.isAuthenticated()) {
+    if (req.user) {
       const { password, ...userWithoutPassword } = req.user as any;
       res.json({ user: userWithoutPassword });
     } else {
@@ -498,7 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'parts_usage', parseInt(req.params.maintenanceId), req.user.username, { parts }
+          'created', 'parts_usage', req.params.maintenanceId, req.user.username, { parts }
         ));
       }
       

@@ -72,6 +72,12 @@ A comprehensive web application for managing heavy equipment inventory and spare
 
 ### Phase 4 - Offline Support & Manufacturing Specs (Completed)
 ✅ Progressive Web App (PWA) with service workers for offline functionality
+✅ iOS and Android mobile compatibility:
+  - Apple-specific meta tags for iOS Safari
+  - Touch-optimized viewport settings (user-scalable for accessibility)
+  - Apple Touch Icon for home screen installation
+  - Standalone app mode on iOS devices
+  - Android Chrome web app capabilities
 ✅ Manufacturing specifications system:
   - Millimeter-precision dimensions (length, width, height, diameter)
   - Material specifications

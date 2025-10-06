@@ -8,9 +8,11 @@ async function throwIfResNotOk(res: Response) {
 }
 
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem("auth_token");
-  if (token) {
-    return { Authorization: `Bearer ${token}` };
+  if (typeof window !== "undefined" && window.localStorage) {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
   }
   return {};
 }

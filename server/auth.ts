@@ -13,12 +13,13 @@ export function setupAuth(app: Express) {
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "partfinder-ssc-secret-key",
-      resave: false,
-      saveUninitialized: false,
+      resave: true,
+      saveUninitialized: true,
       cookie: {
-        secure: false, // Set to false for development in Replit
-        httpOnly: true,
+        secure: false,
+        httpOnly: false, // Allow client-side access for debugging
         sameSite: "lax",
+        path: "/",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       },
     })

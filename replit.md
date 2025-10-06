@@ -62,13 +62,16 @@ A comprehensive web application for managing heavy equipment inventory and spare
 ✅ Complete master equipment list imported (30 units from Sunshine Construction PLC)
   - 25 DOZER units (CAT D8R and KOMATSU D155A-5)
   - 5 WHEEL LOADER units (VOLVO, CATERPILLAR, KOMATSU)
-✅ User authentication system with Passport.js and Express Session
+✅ JWT-based authentication system (iOS Safari compatible)
+  - Replaced session cookies with JWT tokens stored in localStorage
+  - Tokens sent via Authorization header (works on iOS Safari)
+  - No cookie dependencies (fixes iOS Safari blocking issues)
 ✅ Role-based access control (CEO, admin, user roles)
 ✅ CEO-only access for equipment creation/modification
 ✅ Secure login/logout functionality
 ✅ Protected routes with middleware authentication
 ✅ Password hashing with bcrypt
-✅ Session management with secure cookies
+✅ 24-hour token expiration with automatic renewal
 
 ### Phase 4 - Offline Support & Manufacturing Specs (Completed)
 ✅ Progressive Web App (PWA) with service workers for offline functionality

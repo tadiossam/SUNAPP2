@@ -27,6 +27,10 @@ export default function Login() {
       return res.json();
     },
     onSuccess: (data: any) => {
+      // Store JWT token in localStorage
+      if (data.token) {
+        localStorage.setItem("auth_token", data.token);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({
         title: "Login successful",

@@ -51,6 +51,8 @@ function AppContent() {
       return res.json();
     },
     onSuccess: () => {
+      // Remove JWT token from localStorage
+      localStorage.removeItem("auth_token");
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({
         title: "Logged out",

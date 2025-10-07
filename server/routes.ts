@@ -1402,6 +1402,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug test page
+  app.get("/debug-test", (_req, res) => {
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Test</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            padding: 40px; 
+            background: #f0f0f0;
+        }
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1 class="success">✓ Server Connection Working!</h1>
+        <p>If you can see this page, your browser can connect to the server.</p>
+        <p>Current time: <span id="time"></span></p>
+        <button onclick="testAPI()">Test API Connection</button>
+        <div id="result"></div>
+        <hr>
+        <a href="/" style="color: blue;">Go to Main App</a>
+    </div>
+    <script>
+        document.getElementById('time').textContent = new Date().toLocaleTimeString();
+        
+        async function testAPI() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                document.getElementById('result').innerHTML = 
+                    '<p style="color: green;">API works! Response: ' + JSON.stringify(data) + '</p>';
+            } catch (err) {
+                document.getElementById('result').innerHTML = 
+                    '<p style="color: red;">API error: ' + err.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>`);
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

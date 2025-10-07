@@ -14,6 +14,11 @@ import {
   standardOperatingProcedures,
   partsStorageLocations,
   equipmentLocations,
+  equipmentReceptions,
+  receptionChecklists,
+  receptionInspectionItems,
+  damageReports,
+  repairEstimates,
   type Equipment,
   type InsertEquipment,
   type SparePart,
@@ -47,6 +52,17 @@ import {
   type PartsStorageLocationWithDetails,
   type EquipmentLocation,
   type InsertEquipmentLocation,
+  type EquipmentReception,
+  type InsertEquipmentReception,
+  type EquipmentReceptionWithDetails,
+  type ReceptionChecklist,
+  type InsertReceptionChecklist,
+  type ReceptionInspectionItem,
+  type InsertReceptionInspectionItem,
+  type DamageReport,
+  type InsertDamageReport,
+  type RepairEstimate,
+  type InsertRepairEstimate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
@@ -157,6 +173,31 @@ export interface IStorage {
   getEquipmentCurrentLocation(equipmentId: string): Promise<EquipmentLocation | undefined>;
   createEquipmentLocation(data: InsertEquipmentLocation): Promise<EquipmentLocation>;
   updateEquipmentLocation(id: string, data: Partial<InsertEquipmentLocation>): Promise<EquipmentLocation>;
+
+  // Equipment Reception/Check-in Operations
+  getAllReceptions(filters?: { status?: string; garageId?: string }): Promise<EquipmentReceptionWithDetails[]>;
+  getReceptionById(id: string): Promise<EquipmentReceptionWithDetails | undefined>;
+  getReceptionsByEquipment(equipmentId: string): Promise<EquipmentReceptionWithDetails[]>;
+  createReception(data: InsertEquipmentReception): Promise<EquipmentReception>;
+  updateReception(id: string, data: Partial<InsertEquipmentReception>): Promise<EquipmentReception>;
+  
+  // Reception Checklists (Templates)
+  getChecklistTemplates(filters?: { equipmentType?: string; role?: string }): Promise<ReceptionChecklist[]>;
+  createChecklistTemplate(data: InsertReceptionChecklist): Promise<ReceptionChecklist>;
+  
+  // Inspection Items
+  getInspectionItemsByReception(receptionId: string): Promise<ReceptionInspectionItem[]>;
+  createInspectionItem(data: InsertReceptionInspectionItem): Promise<ReceptionInspectionItem>;
+  createBulkInspectionItems(items: InsertReceptionInspectionItem[]): Promise<ReceptionInspectionItem[]>;
+  
+  // Damage Reports
+  getDamageReportsByReception(receptionId: string): Promise<DamageReport[]>;
+  createDamageReport(data: InsertDamageReport): Promise<DamageReport>;
+  
+  // Repair Estimates
+  getRepairEstimateByReception(receptionId: string): Promise<RepairEstimate | undefined>;
+  createRepairEstimate(data: InsertRepairEstimate): Promise<RepairEstimate>;
+  updateRepairEstimate(id: string, data: Partial<InsertRepairEstimate>): Promise<RepairEstimate>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -870,6 +911,209 @@ export class DatabaseStorage implements IStorage {
 
   async updateEquipmentLocation(id: string, data: Partial<InsertEquipmentLocation>): Promise<EquipmentLocation> {
     const [result] = await db.update(equipmentLocations).set(data).where(eq(equipmentLocations.id, id)).returning();
+    return result;
+  }
+
+  // Equipment Reception/Check-in Operations
+  async getAllReceptions(filters?: { status?: string; garageId?: string }): Promise<EquipmentReceptionWithDetails[]> {
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(equipmentReceptions.status, filters.status));
+    }
+    if (filters?.garageId) {
+      conditions.push(eq(equipmentReceptions.garageId, filters.garageId));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const receptions = await db
+      .select()
+      .from(equipmentReceptions)
+      .where(whereClause)
+      .orderBy(desc(equipmentReceptions.dropOffTime));
+
+    // Get related data for each reception
+    const results: EquipmentReceptionWithDetails[] = [];
+    for (const reception of receptions) {
+      const equipmentData = reception.equipmentId
+        ? await this.getEquipmentById(reception.equipmentId)
+        : undefined;
+      const garageData = reception.garageId
+        ? await this.getGarageById(reception.garageId)
+        : undefined;
+      const mechanicData = reception.mechanicId
+        ? await this.getEmployeeById(reception.mechanicId)
+        : undefined;
+      const workOrderData = reception.workOrderId
+        ? await this.getWorkOrderById(reception.workOrderId)
+        : undefined;
+
+      results.push({
+        ...reception,
+        equipment: equipmentData,
+        garage: garageData,
+        mechanic: mechanicData,
+        workOrder: workOrderData,
+      });
+    }
+    return results;
+  }
+
+  async getReceptionById(id: string): Promise<EquipmentReceptionWithDetails | undefined> {
+    const [reception] = await db
+      .select()
+      .from(equipmentReceptions)
+      .where(eq(equipmentReceptions.id, id));
+
+    if (!reception) return undefined;
+
+    const equipmentData = reception.equipmentId
+      ? await this.getEquipmentById(reception.equipmentId)
+      : undefined;
+    const garageData = reception.garageId
+      ? await this.getGarageById(reception.garageId)
+      : undefined;
+    const mechanicData = reception.mechanicId
+      ? await this.getEmployeeById(reception.mechanicId)
+      : undefined;
+    const workOrderData = reception.workOrderId
+      ? await this.getWorkOrderById(reception.workOrderId)
+      : undefined;
+    const inspectionItems = await this.getInspectionItemsByReception(id);
+    const damageReportsData = await this.getDamageReportsByReception(id);
+    const repairEstimateData = await this.getRepairEstimateByReception(id);
+
+    return {
+      ...reception,
+      equipment: equipmentData,
+      garage: garageData,
+      mechanic: mechanicData,
+      workOrder: workOrderData,
+      inspectionItems,
+      damageReports: damageReportsData,
+      repairEstimate: repairEstimateData,
+    };
+  }
+
+  async getReceptionsByEquipment(equipmentId: string): Promise<EquipmentReceptionWithDetails[]> {
+    const receptions = await db
+      .select()
+      .from(equipmentReceptions)
+      .where(eq(equipmentReceptions.equipmentId, equipmentId))
+      .orderBy(desc(equipmentReceptions.dropOffTime));
+
+    const results: EquipmentReceptionWithDetails[] = [];
+    for (const reception of receptions) {
+      const garageData = reception.garageId
+        ? await this.getGarageById(reception.garageId)
+        : undefined;
+      const mechanicData = reception.mechanicId
+        ? await this.getEmployeeById(reception.mechanicId)
+        : undefined;
+
+      results.push({
+        ...reception,
+        garage: garageData,
+        mechanic: mechanicData,
+      });
+    }
+    return results;
+  }
+
+  async createReception(data: InsertEquipmentReception): Promise<EquipmentReception> {
+    const [result] = await db.insert(equipmentReceptions).values(data).returning();
+    return result;
+  }
+
+  async updateReception(id: string, data: Partial<InsertEquipmentReception>): Promise<EquipmentReception> {
+    const updated = { ...data, updatedAt: new Date() };
+    const [result] = await db
+      .update(equipmentReceptions)
+      .set(updated)
+      .where(eq(equipmentReceptions.id, id))
+      .returning();
+    return result;
+  }
+
+  // Reception Checklists (Templates)
+  async getChecklistTemplates(filters?: { equipmentType?: string; role?: string }): Promise<ReceptionChecklist[]> {
+    const conditions = [eq(receptionChecklists.isActive, true)];
+    
+    if (filters?.equipmentType) {
+      conditions.push(
+        or(
+          eq(receptionChecklists.equipmentType, filters.equipmentType),
+          eq(receptionChecklists.equipmentType, "ALL")
+        )!
+      );
+    }
+    if (filters?.role) {
+      conditions.push(eq(receptionChecklists.role, filters.role));
+    }
+
+    return await db
+      .select()
+      .from(receptionChecklists)
+      .where(and(...conditions))
+      .orderBy(receptionChecklists.sortOrder);
+  }
+
+  async createChecklistTemplate(data: InsertReceptionChecklist): Promise<ReceptionChecklist> {
+    const [result] = await db.insert(receptionChecklists).values(data).returning();
+    return result;
+  }
+
+  // Inspection Items
+  async getInspectionItemsByReception(receptionId: string): Promise<ReceptionInspectionItem[]> {
+    return await db
+      .select()
+      .from(receptionInspectionItems)
+      .where(eq(receptionInspectionItems.receptionId, receptionId));
+  }
+
+  async createInspectionItem(data: InsertReceptionInspectionItem): Promise<ReceptionInspectionItem> {
+    const [result] = await db.insert(receptionInspectionItems).values(data).returning();
+    return result;
+  }
+
+  async createBulkInspectionItems(items: InsertReceptionInspectionItem[]): Promise<ReceptionInspectionItem[]> {
+    if (items.length === 0) return [];
+    const results = await db.insert(receptionInspectionItems).values(items).returning();
+    return results;
+  }
+
+  // Damage Reports
+  async getDamageReportsByReception(receptionId: string): Promise<DamageReport[]> {
+    return await db
+      .select()
+      .from(damageReports)
+      .where(eq(damageReports.receptionId, receptionId));
+  }
+
+  async createDamageReport(data: InsertDamageReport): Promise<DamageReport> {
+    const [result] = await db.insert(damageReports).values(data).returning();
+    return result;
+  }
+
+  // Repair Estimates
+  async getRepairEstimateByReception(receptionId: string): Promise<RepairEstimate | undefined> {
+    const [result] = await db
+      .select()
+      .from(repairEstimates)
+      .where(eq(repairEstimates.receptionId, receptionId));
+    return result || undefined;
+  }
+
+  async createRepairEstimate(data: InsertRepairEstimate): Promise<RepairEstimate> {
+    const [result] = await db.insert(repairEstimates).values(data).returning();
+    return result;
+  }
+
+  async updateRepairEstimate(id: string, data: Partial<InsertRepairEstimate>): Promise<RepairEstimate> {
+    const [result] = await db
+      .update(repairEstimates)
+      .set(data)
+      .where(eq(repairEstimates.id, id))
+      .returning();
     return result;
   }
 }

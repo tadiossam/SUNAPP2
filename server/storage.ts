@@ -132,6 +132,7 @@ export interface IStorage {
   getEmployeeById(id: string): Promise<Employee | undefined>;
   createEmployee(data: InsertEmployee): Promise<Employee>;
   updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee>;
+  updateEmployeePhoto(id: string, photoUrl: string): Promise<Employee | undefined>;
 
   // Work Orders
   getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]>;
@@ -659,6 +660,11 @@ export class DatabaseStorage implements IStorage {
   async updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee> {
     const [result] = await db.update(employees).set(data).where(eq(employees.id, id)).returning();
     return result;
+  }
+
+  async updateEmployeePhoto(id: string, photoUrl: string): Promise<Employee | undefined> {
+    const [result] = await db.update(employees).set({ profilePicture: photoUrl }).where(eq(employees.id, id)).returning();
+    return result || undefined;
   }
 
   // Work Orders

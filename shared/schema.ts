@@ -310,10 +310,11 @@ export const employees = pgTable("employees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   employeeId: text("employee_id").notNull().unique(), // Company employee ID
   fullName: text("full_name").notNull(),
-  role: text("role").notNull(), // "mechanic", "wash_staff", "supervisor", "technician"
+  role: text("role").notNull(), // "mechanic", "wash_employee", "supervisor", "painter", "body_worker", "electrician", "technician"
   specialty: text("specialty"), // For mechanics: "Engine", "Hydraulic", "Electrical"
   phoneNumber: text("phone_number"),
   email: text("email"),
+  profilePicture: text("profile_picture"), // Path to employee photo
   garageId: varchar("garage_id").references(() => garages.id), // Primary garage assignment
   isActive: boolean("is_active").default(true).notNull(),
   hireDate: timestamp("hire_date"),

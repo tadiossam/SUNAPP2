@@ -811,6 +811,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Employee photo upload endpoint
+  app.post("/api/employees/:id/photo", isCEOOrAdmin, upload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Get the public object storage path
+      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
+      if (!publicPath) {
+        return res.status(500).json({ error: "Object storage not configured" });
+      }
+
+      // Save file to object storage
+      await mkdir(join(publicPath, 'employees'), { recursive: true });
+
+      const ext = req.file.originalname.split('.').pop();
+      const filename = `${nanoid()}.${ext}`;
+      const filePath = join(publicPath, 'employees', filename);
+      
+      await writeFile(filePath, req.file.buffer);
+      const photoUrl = `/public/employees/${filename}`;
+
+      // Update employee with photo URL
+      const employee = await storage.updateEmployeePhoto(req.params.id, photoUrl);
+      if (!employee) {
+        return res.status(404).json({ error: "Employee not found" });
+      }
+
+      res.json(employee);
+    } catch (error) {
+      console.error("Error uploading employee photo:", error);
+      res.status(500).json({ error: "Failed to upload photo" });
+    }
+  });
+
   // Work Orders
   app.get("/api/work-orders", async (req, res) => {
     try {

@@ -229,6 +229,13 @@ All equipment includes plate numbers, asset numbers, new asset numbers, and mach
 - **File Format**: GLB/GLTF preferred for 3D models stored in object storage
 
 ## Recent Changes  
+- 2025-10-07: **Added Ethiopian Birr Currency Conversion to Spare Parts**
+  - Implemented USD/ETB currency selector in spare parts catalog header
+  - Dynamic price conversion with 1 USD = 125 ETB exchange rate
+  - Price formatting with proper currency symbols ($ for USD, Br for ETB)
+  - Updated both card view and detail dialog to show converted prices
+  - Seamless currency switching without page reload
+  - Tested and verified accurate conversion calculations
 - 2025-10-06: **Imported Excel Equipment Data & Fixed 3D Model Upload**
   - Successfully imported 28 new equipment units from Excel (EXCAVATOR, WHEEL EXCAVATOR, GRADER)
   - Total equipment now: 109 units (up from 81)

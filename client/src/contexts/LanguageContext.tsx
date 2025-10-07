@@ -40,7 +40,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     
     // Persist to backend
     try {
-      await apiRequest('/api/user/language', 'POST', { language: lang });
+      await apiRequest('POST', '/api/user/language', { language: lang });
     } catch (error) {
       console.error('Failed to save language preference:', error);
     }

@@ -26,7 +26,7 @@ export default function Garages() {
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertGarage) => {
-      return await apiRequest("/api/garages", "POST", data);
+      return await apiRequest("POST", "/api/garages", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/garages"] });

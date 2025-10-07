@@ -16,6 +16,7 @@ import UploadModelPage from "@/pages/UploadModel";
 import MaintenancePage from "@/pages/Maintenance";
 import LoginPage from "@/pages/Login";
 import GaragesPage from "@/pages/Garages";
+import EmployeesPage from "@/pages/Employees";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
@@ -33,6 +34,7 @@ function Router() {
       <Route path="/models" component={ModelsPage} />
       <Route path="/upload" component={UploadModelPage} />
       <Route path="/garages" component={GaragesPage} />
+      <Route path="/employees" component={EmployeesPage} />
       <Route component={NotFound} />
     </Switch>
   );

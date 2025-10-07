@@ -287,6 +287,16 @@ export default function SparePartsPage() {
                   <SelectItem value="out_of_stock">Out of Stock</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select value={currency} onValueChange={(value: "USD" | "ETB") => setCurrency(value)}>
+                <SelectTrigger className="w-[120px]" data-testid="select-currency">
+                  <SelectValue placeholder="Currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD ($)</SelectItem>
+                  <SelectItem value="ETB">ETB (Br)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

@@ -29,6 +29,7 @@ import { join } from "path";
 import { nanoid } from "nanoid";
 import { isCEO, isCEOOrAdmin, verifyCredentials, generateToken } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -377,44 +378,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Tutorial video upload endpoint
-  app.post("/api/parts/:id/tutorial", upload.single('video'), async (req, res) => {
-    try {
-      const file = req.file;
-      if (!file) {
-        return res.status(400).json({ error: "No video file uploaded" });
-      }
-
-      // Get the public object storage path
-      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
-      if (!publicPath) {
-        return res.status(500).json({ error: "Object storage not configured" });
-      }
-
-      // Save video to object storage
-      await mkdir(join(publicPath, 'tutorials'), { recursive: true });
-      const ext = file.originalname.split('.').pop();
-      const filename = `${nanoid()}.${ext}`;
-      const filePath = join(publicPath, 'tutorials', filename);
-      
-      await writeFile(filePath, file.buffer);
-      const videoUrl = `/public/tutorials/${filename}`;
-
-      // Update part with tutorial video URL
-      const part = await storage.updatePartMaintenance(req.params.id, {
-        tutorialVideoUrl: videoUrl,
-      });
-      
-      if (!part) {
-        return res.status(404).json({ error: "Part not found" });
-      }
-
-      res.json(part);
-    } catch (error) {
-      console.error("Error uploading tutorial video:", error);
-      res.status(500).json({ error: "Failed to upload tutorial video" });
-    }
-  });
+  // Note: Tutorial video upload now uses presigned URLs
+  // See /api/parts/:id/tutorial/upload-url and PUT /api/parts/:id/tutorial endpoints
 
   // Image upload endpoint for parts
   app.post("/api/parts/:id/images", upload.array('images', 10), async (req, res) => {
@@ -1450,6 +1415,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     </script>
 </body>
 </html>`);
+  });
+
+  // Object Storage endpoints
+  
+  // Serve public objects from object storage
+  app.get("/public-objects/:filePath(*)", async (req, res) => {
+    const filePath = req.params.filePath;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const file = await objectStorageService.searchPublicObject(filePath);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      console.error("Error searching for public object:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get presigned upload URL for tutorial videos
+  app.post("/api/parts/:id/tutorial/upload-url", isCEOOrAdmin, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error generating upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Update part with tutorial video URL after upload
+  app.put("/api/parts/:id/tutorial", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.body.tutorialVideoURL) {
+        return res.status(400).json({ error: "tutorialVideoURL is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = objectStorageService.normalizeObjectEntityPath(
+        req.body.tutorialVideoURL,
+      );
+
+      // Update part with tutorial video URL
+      const part = await storage.updatePartMaintenance(req.params.id, {
+        tutorialVideoUrl: objectPath,
+      });
+      
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'spare_part', part.id, req.user.username, 
+          { action: 'tutorial video uploaded', videoUrl: objectPath }
+        ));
+      }
+
+      res.json({ 
+        part,
+        objectPath 
+      });
+    } catch (error) {
+      console.error("Error updating tutorial video:", error);
+      res.status(500).json({ error: "Failed to update tutorial video" });
+    }
   });
 
   const httpServer = createServer(app);

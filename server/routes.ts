@@ -1402,8 +1402,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Debug test page
-  app.get("/debug-test", (_req, res) => {
+  // Debug test page - use API route to ensure it's not caught by Vite
+  app.get("/api/debug-test", (_req, res) => {
     res.send(`<!DOCTYPE html>
 <html>
 <head>

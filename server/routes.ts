@@ -15,6 +15,13 @@ import {
   insertStandardOperatingProcedureSchema,
   insertPartsStorageLocationSchema,
   insertEquipmentLocationSchema,
+  insertEquipmentReceptionSchema,
+  insertReceptionChecklistSchema,
+  insertReceptionInspectionItemSchema,
+  insertDamageReportSchema,
+  insertRepairEstimateSchema,
+  insertPartsRequestSchema,
+  insertApprovalSchema,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -1056,6 +1063,342 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating equipment location:", error);
       res.status(400).json({ error: "Failed to update equipment location" });
+    }
+  });
+
+  // Equipment Reception/Check-in Routes
+  app.get("/api/receptions", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { status, garageId } = req.query;
+      const receptions = await storage.getAllReceptions({
+        status: status as string,
+        garageId: garageId as string,
+      });
+      res.json(receptions);
+    } catch (error) {
+      console.error("Error fetching receptions:", error);
+      res.status(500).json({ error: "Failed to fetch receptions" });
+    }
+  });
+
+  app.get("/api/receptions/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const reception = await storage.getReceptionById(req.params.id);
+      if (!reception) {
+        return res.status(404).json({ error: "Reception not found" });
+      }
+      res.json(reception);
+    } catch (error) {
+      console.error("Error fetching reception:", error);
+      res.status(500).json({ error: "Failed to fetch reception" });
+    }
+  });
+
+  app.get("/api/equipment/:equipmentId/receptions", isCEOOrAdmin, async (req, res) => {
+    try {
+      const receptions = await storage.getReceptionsByEquipment(req.params.equipmentId);
+      res.json(receptions);
+    } catch (error) {
+      console.error("Error fetching equipment receptions:", error);
+      res.status(500).json({ error: "Failed to fetch equipment receptions" });
+    }
+  });
+
+  app.post("/api/receptions", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertEquipmentReceptionSchema.parse(req.body);
+      const reception = await storage.createReception(validatedData);
+      res.status(201).json(reception);
+    } catch (error) {
+      console.error("Error creating reception:", error);
+      res.status(400).json({ error: "Invalid reception data" });
+    }
+  });
+
+  app.put("/api/receptions/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertEquipmentReceptionSchema.parse(req.body);
+      const reception = await storage.updateReception(req.params.id, validatedData);
+      res.json(reception);
+    } catch (error) {
+      console.error("Error updating reception:", error);
+      res.status(400).json({ error: "Failed to update reception" });
+    }
+  });
+
+  // Reception Checklists
+  app.get("/api/reception-checklists", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { equipmentType, role } = req.query;
+      const checklists = await storage.getChecklistTemplates({
+        equipmentType: equipmentType as string,
+        role: role as string,
+      });
+      res.json(checklists);
+    } catch (error) {
+      console.error("Error fetching checklists:", error);
+      res.status(500).json({ error: "Failed to fetch checklists" });
+    }
+  });
+
+  app.post("/api/reception-checklists", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertReceptionChecklistSchema.parse(req.body);
+      const checklist = await storage.createChecklistTemplate(validatedData);
+      res.status(201).json(checklist);
+    } catch (error) {
+      console.error("Error creating checklist:", error);
+      res.status(400).json({ error: "Invalid checklist data" });
+    }
+  });
+
+  // Inspection Items
+  app.get("/api/receptions/:receptionId/inspections", isCEOOrAdmin, async (req, res) => {
+    try {
+      const items = await storage.getInspectionItemsByReception(req.params.receptionId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching inspection items:", error);
+      res.status(500).json({ error: "Failed to fetch inspection items" });
+    }
+  });
+
+  app.post("/api/receptions/:receptionId/inspections", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (Array.isArray(req.body)) {
+        const items = await storage.createBulkInspectionItems(req.body);
+        return res.status(201).json(items);
+      }
+      const validatedData = insertReceptionInspectionItemSchema.parse(req.body);
+      const item = await storage.createInspectionItem(validatedData);
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating inspection items:", error);
+      res.status(400).json({ error: "Invalid inspection data" });
+    }
+  });
+
+  // Damage Reports
+  app.get("/api/receptions/:receptionId/damages", isCEOOrAdmin, async (req, res) => {
+    try {
+      const damages = await storage.getDamageReportsByReception(req.params.receptionId);
+      res.json(damages);
+    } catch (error) {
+      console.error("Error fetching damage reports:", error);
+      res.status(500).json({ error: "Failed to fetch damage reports" });
+    }
+  });
+
+  app.post("/api/receptions/:receptionId/damages", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertDamageReportSchema.parse(req.body);
+      const damage = await storage.createDamageReport(validatedData);
+      res.status(201).json(damage);
+    } catch (error) {
+      console.error("Error creating damage report:", error);
+      res.status(400).json({ error: "Invalid damage report data" });
+    }
+  });
+
+  // Repair Estimates
+  app.get("/api/receptions/:receptionId/estimate", isCEOOrAdmin, async (req, res) => {
+    try {
+      const estimate = await storage.getRepairEstimateByReception(req.params.receptionId);
+      res.json(estimate);
+    } catch (error) {
+      console.error("Error fetching repair estimate:", error);
+      res.status(500).json({ error: "Failed to fetch repair estimate" });
+    }
+  });
+
+  app.post("/api/receptions/:receptionId/estimate", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertRepairEstimateSchema.parse(req.body);
+      const estimate = await storage.createRepairEstimate(validatedData);
+      res.status(201).json(estimate);
+    } catch (error) {
+      console.error("Error creating repair estimate:", error);
+      res.status(400).json({ error: "Invalid estimate data" });
+    }
+  });
+
+  // ============ APPROVAL SYSTEM ROUTES ============
+  
+  // Parts Requests
+  app.get("/api/parts-requests", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { status, approvalStatus, requestedById } = req.query;
+      const requests = await storage.getAllPartsRequests({
+        status: status as string,
+        approvalStatus: approvalStatus as string,
+        requestedById: requestedById as string,
+      });
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching parts requests:", error);
+      res.status(500).json({ error: "Failed to fetch parts requests" });
+    }
+  });
+
+  app.get("/api/parts-requests/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const request = await storage.getPartsRequestById(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: "Parts request not found" });
+      }
+      res.json(request);
+    } catch (error) {
+      console.error("Error fetching parts request:", error);
+      res.status(500).json({ error: "Failed to fetch parts request" });
+    }
+  });
+
+  app.get("/api/work-orders/:workOrderId/parts-requests", isCEOOrAdmin, async (req, res) => {
+    try {
+      const requests = await storage.getPartsRequestsByWorkOrder(req.params.workOrderId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching work order parts requests:", error);
+      res.status(500).json({ error: "Failed to fetch work order parts requests" });
+    }
+  });
+
+  app.post("/api/parts-requests", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertPartsRequestSchema.parse(req.body);
+      const request = await storage.createPartsRequest(validatedData);
+      res.status(201).json(request);
+    } catch (error) {
+      console.error("Error creating parts request:", error);
+      res.status(400).json({ error: "Invalid parts request data" });
+    }
+  });
+
+  app.put("/api/parts-requests/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertPartsRequestSchema.parse(req.body);
+      const request = await storage.updatePartsRequest(req.params.id, validatedData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating parts request:", error);
+      res.status(400).json({ error: "Failed to update parts request" });
+    }
+  });
+
+  // Approvals
+  app.get("/api/approvals", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { status, assignedToId, approvalType } = req.query;
+      const approvals = await storage.getAllApprovals({
+        status: status as string,
+        assignedToId: assignedToId as string,
+        approvalType: approvalType as string,
+      });
+      res.json(approvals);
+    } catch (error) {
+      console.error("Error fetching approvals:", error);
+      res.status(500).json({ error: "Failed to fetch approvals" });
+    }
+  });
+
+  app.get("/api/approvals/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const approval = await storage.getApprovalById(req.params.id);
+      if (!approval) {
+        return res.status(404).json({ error: "Approval not found" });
+      }
+      res.json(approval);
+    } catch (error) {
+      console.error("Error fetching approval:", error);
+      res.status(500).json({ error: "Failed to fetch approval" });
+    }
+  });
+
+  app.get("/api/employees/:employeeId/pending-approvals", isCEOOrAdmin, async (req, res) => {
+    try {
+      const approvals = await storage.getPendingApprovalsByEmployee(req.params.employeeId);
+      res.json(approvals);
+    } catch (error) {
+      console.error("Error fetching pending approvals:", error);
+      res.status(500).json({ error: "Failed to fetch pending approvals" });
+    }
+  });
+
+  app.post("/api/approvals", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertApprovalSchema.parse(req.body);
+      const approval = await storage.createApproval(validatedData);
+      res.status(201).json(approval);
+    } catch (error) {
+      console.error("Error creating approval:", error);
+      res.status(400).json({ error: "Invalid approval data" });
+    }
+  });
+
+  app.put("/api/approvals/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertApprovalSchema.parse(req.body);
+      const approval = await storage.updateApproval(req.params.id, validatedData);
+      res.json(approval);
+    } catch (error) {
+      console.error("Error updating approval:", error);
+      res.status(400).json({ error: "Failed to update approval" });
+    }
+  });
+
+  // Approval Actions
+  app.post("/api/work-orders/:id/approve", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { approvedById, notes } = req.body;
+      await storage.approveWorkOrder(req.params.id, approvedById, notes);
+      res.json({ message: "Work order approved successfully" });
+    } catch (error) {
+      console.error("Error approving work order:", error);
+      res.status(400).json({ error: "Failed to approve work order" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/reject", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { approvedById, notes } = req.body;
+      await storage.rejectWorkOrder(req.params.id, approvedById, notes);
+      res.json({ message: "Work order rejected successfully" });
+    } catch (error) {
+      console.error("Error rejecting work order:", error);
+      res.status(400).json({ error: "Failed to reject work order" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/approve-completion", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { approvedById, notes } = req.body;
+      await storage.approveWorkOrderCompletion(req.params.id, approvedById, notes);
+      res.json({ message: "Work order completion approved successfully" });
+    } catch (error) {
+      console.error("Error approving work order completion:", error);
+      res.status(400).json({ error: "Failed to approve work order completion" });
+    }
+  });
+
+  app.post("/api/parts-requests/:id/approve", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { approvedById, notes } = req.body;
+      await storage.approvePartsRequest(req.params.id, approvedById, notes);
+      res.json({ message: "Parts request approved successfully" });
+    } catch (error) {
+      console.error("Error approving parts request:", error);
+      res.status(400).json({ error: "Failed to approve parts request" });
+    }
+  });
+
+  app.post("/api/parts-requests/:id/reject", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { approvedById, notes } = req.body;
+      await storage.rejectPartsRequest(req.params.id, approvedById, notes);
+      res.json({ message: "Parts request rejected successfully" });
+    } catch (error) {
+      console.error("Error rejecting parts request:", error);
+      res.status(400).json({ error: "Failed to reject parts request" });
     }
   });
 

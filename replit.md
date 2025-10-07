@@ -136,6 +136,18 @@ A comprehensive web application for managing heavy equipment inventory and spare
   - Automatic work order creation from inspections
   - Repair estimates and cost tracking
   
+✅ **Supervisor/Department Head Approval System:**
+  - Multi-level approval workflow for job orders, completions, and parts requests
+  - Department-based approval hierarchy (mechanical, electrical, paint, body, wash, general)
+  - Approval limit controls (maximum amount supervisors can authorize)
+  - Work order approval/rejection with supervisor notes
+  - Job completion approval workflow
+  - Parts request approval system with cost tracking
+  - Universal approvals tracking table for all approval types
+  - Pending approvals dashboard for supervisors
+  - Approval escalation to higher authority
+  - Automatic status updates on approval/rejection
+  
 ### Phase 7 - Warehouse Management System (In Progress)
 ⏳ **Advanced Warehouse Features:**
   - Dedicated warehouse facilities with zone management

@@ -316,6 +316,10 @@ export const employees = pgTable("employees", {
   email: text("email"),
   profilePicture: text("profile_picture"), // Path to employee photo
   garageId: varchar("garage_id").references(() => garages.id), // Primary garage assignment
+  department: text("department"), // Department assignment: "mechanical", "electrical", "paint", "body", "wash", "general"
+  canApprove: boolean("can_approve").default(false), // Can approve work orders and parts requests
+  approvalLimit: decimal("approval_limit", { precision: 12, scale: 2 }), // Maximum amount they can approve (in currency)
+  supervisorId: varchar("supervisor_id").references((): any => employees.id), // Their supervisor/department head
   isActive: boolean("is_active").default(true).notNull(),
   hireDate: timestamp("hire_date"),
   certifications: text("certifications").array(), // List of certifications
@@ -337,6 +341,16 @@ export const workOrders = pgTable("work_orders", {
   status: text("status").notNull().default("pending"), // pending, assigned, in_progress, completed, cancelled
   estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
   actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
+  estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }), // Estimated total cost
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // Actual total cost
+  approvalStatus: text("approval_status").default("not_required"), // not_required, pending, approved, rejected
+  approvedById: varchar("approved_by_id").references(() => employees.id), // Supervisor who approved
+  approvedAt: timestamp("approved_at"),
+  approvalNotes: text("approval_notes"),
+  completionApprovalStatus: text("completion_approval_status").default("not_required"), // For job completion approval
+  completionApprovedById: varchar("completion_approved_by_id").references(() => employees.id),
+  completionApprovedAt: timestamp("completion_approved_at"),
+  completionApprovalNotes: text("completion_approval_notes"),
   notes: text("notes"),
   createdById: varchar("created_by_id").references(() => users.id),
   scheduledDate: timestamp("scheduled_date"),
@@ -560,6 +574,48 @@ export const repairEstimates = pgTable("repair_estimates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============ APPROVAL SYSTEM ============
+
+// Parts Requests - When parts are needed for work orders
+export const partsRequests = pgTable("parts_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestNumber: text("request_number").notNull().unique(), // PR-2025-001
+  workOrderId: varchar("work_order_id").references(() => workOrders.id),
+  receptionId: varchar("reception_id").references(() => equipmentReceptions.id),
+  requestedById: varchar("requested_by_id").notNull().references(() => employees.id),
+  partsData: text("parts_data").notNull(), // JSON array of {partId, partNumber, quantity, unitCost, description}
+  totalCost: decimal("total_cost", { precision: 12, scale: 2 }),
+  urgency: text("urgency").notNull().default("normal"), // low, normal, high, critical
+  justification: text("justification"), // Why these parts are needed
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, fulfilled, cancelled
+  approvalStatus: text("approval_status").default("pending"), // pending, approved, rejected
+  approvedById: varchar("approved_by_id").references(() => employees.id),
+  approvedAt: timestamp("approved_at"),
+  approvalNotes: text("approval_notes"),
+  fulfilledAt: timestamp("fulfilled_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Approvals - Universal approval tracking for all approval workflows
+export const approvals = pgTable("approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  approvalType: text("approval_type").notNull(), // "work_order", "work_order_completion", "parts_request", "repair_estimate"
+  referenceId: varchar("reference_id").notNull(), // ID of the work order, parts request, etc.
+  referenceNumber: text("reference_number"), // WO-2025-001, PR-2025-001, etc.
+  requestedById: varchar("requested_by_id").notNull().references(() => employees.id),
+  assignedToId: varchar("assigned_to_id").notNull().references(() => employees.id), // Supervisor who needs to approve
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, escalated
+  priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
+  amount: decimal("amount", { precision: 12, scale: 2 }), // Cost/amount if applicable
+  description: text("description").notNull(),
+  requestNotes: text("request_notes"),
+  responseNotes: text("response_notes"),
+  respondedAt: timestamp("responded_at"),
+  escalatedToId: varchar("escalated_to_id").references(() => employees.id), // If escalated to higher authority
+  escalatedAt: timestamp("escalated_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations for garage management
 export const garagesRelations = relations(garages, ({ many }) => ({
   repairBays: many(repairBays),
@@ -770,6 +826,17 @@ export const insertRepairEstimateSchema = createInsertSchema(repairEstimates).om
   createdAt: true,
 });
 
+// Insert schemas for approval system
+export const insertPartsRequestSchema = createInsertSchema(partsRequests).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertApprovalSchema = createInsertSchema(approvals).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Select types for warehouse management
 export type Warehouse = typeof warehouses.$inferSelect;
 export type InsertWarehouse = z.infer<typeof insertWarehouseSchema>;
@@ -803,4 +870,23 @@ export type EquipmentReceptionWithDetails = EquipmentReception & {
   inspectionItems?: ReceptionInspectionItem[];
   damageReports?: DamageReport[];
   repairEstimate?: RepairEstimate;
+};
+
+// Select types for approval system
+export type PartsRequest = typeof partsRequests.$inferSelect;
+export type InsertPartsRequest = z.infer<typeof insertPartsRequestSchema>;
+export type Approval = typeof approvals.$inferSelect;
+export type InsertApproval = z.infer<typeof insertApprovalSchema>;
+
+// Extended types with relations for approvals
+export type PartsRequestWithDetails = PartsRequest & {
+  requestedBy?: Employee;
+  approvedBy?: Employee;
+  workOrder?: WorkOrder;
+};
+
+export type ApprovalWithDetails = Approval & {
+  requestedBy?: Employee;
+  assignedTo?: Employee;
+  escalatedTo?: Employee;
 };

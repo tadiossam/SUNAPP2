@@ -19,6 +19,8 @@ import {
   receptionInspectionItems,
   damageReports,
   repairEstimates,
+  partsRequests,
+  approvals,
   type Equipment,
   type InsertEquipment,
   type SparePart,
@@ -63,6 +65,12 @@ import {
   type InsertDamageReport,
   type RepairEstimate,
   type InsertRepairEstimate,
+  type PartsRequest,
+  type InsertPartsRequest,
+  type PartsRequestWithDetails,
+  type Approval,
+  type InsertApproval,
+  type ApprovalWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
@@ -198,6 +206,28 @@ export interface IStorage {
   getRepairEstimateByReception(receptionId: string): Promise<RepairEstimate | undefined>;
   createRepairEstimate(data: InsertRepairEstimate): Promise<RepairEstimate>;
   updateRepairEstimate(id: string, data: Partial<InsertRepairEstimate>): Promise<RepairEstimate>;
+
+  // Approval System
+  // Parts Requests
+  getAllPartsRequests(filters?: { status?: string; approvalStatus?: string; requestedById?: string }): Promise<PartsRequestWithDetails[]>;
+  getPartsRequestById(id: string): Promise<PartsRequestWithDetails | undefined>;
+  getPartsRequestsByWorkOrder(workOrderId: string): Promise<PartsRequest[]>;
+  createPartsRequest(data: InsertPartsRequest): Promise<PartsRequest>;
+  updatePartsRequest(id: string, data: Partial<InsertPartsRequest>): Promise<PartsRequest>;
+  
+  // Approvals
+  getAllApprovals(filters?: { status?: string; assignedToId?: string; approvalType?: string }): Promise<ApprovalWithDetails[]>;
+  getApprovalById(id: string): Promise<ApprovalWithDetails | undefined>;
+  getPendingApprovalsByEmployee(employeeId: string): Promise<ApprovalWithDetails[]>;
+  createApproval(data: InsertApproval): Promise<Approval>;
+  updateApproval(id: string, data: Partial<InsertApproval>): Promise<Approval>;
+  
+  // Approval Actions
+  approveWorkOrder(workOrderId: string, approvedById: string, notes?: string): Promise<void>;
+  rejectWorkOrder(workOrderId: string, approvedById: string, notes?: string): Promise<void>;
+  approveWorkOrderCompletion(workOrderId: string, approvedById: string, notes?: string): Promise<void>;
+  approvePartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
+  rejectPartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1115,6 +1145,221 @@ export class DatabaseStorage implements IStorage {
       .where(eq(repairEstimates.id, id))
       .returning();
     return result;
+  }
+
+  // Approval System - Parts Requests
+  async getAllPartsRequests(filters?: { status?: string; approvalStatus?: string; requestedById?: string }): Promise<PartsRequestWithDetails[]> {
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(partsRequests.status, filters.status));
+    }
+    if (filters?.approvalStatus) {
+      conditions.push(eq(partsRequests.approvalStatus, filters.approvalStatus));
+    }
+    if (filters?.requestedById) {
+      conditions.push(eq(partsRequests.requestedById, filters.requestedById));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const requests = await db
+      .select()
+      .from(partsRequests)
+      .where(whereClause)
+      .orderBy(desc(partsRequests.createdAt));
+
+    const results: PartsRequestWithDetails[] = [];
+    for (const request of requests) {
+      const requestedBy = request.requestedById ? await this.getEmployeeById(request.requestedById) : undefined;
+      const approvedBy = request.approvedById ? await this.getEmployeeById(request.approvedById) : undefined;
+      const workOrder = request.workOrderId ? await this.getWorkOrderById(request.workOrderId) : undefined;
+
+      results.push({
+        ...request,
+        requestedBy,
+        approvedBy,
+        workOrder,
+      });
+    }
+    return results;
+  }
+
+  async getPartsRequestById(id: string): Promise<PartsRequestWithDetails | undefined> {
+    const [request] = await db
+      .select()
+      .from(partsRequests)
+      .where(eq(partsRequests.id, id));
+
+    if (!request) return undefined;
+
+    const requestedBy = request.requestedById ? await this.getEmployeeById(request.requestedById) : undefined;
+    const approvedBy = request.approvedById ? await this.getEmployeeById(request.approvedById) : undefined;
+    const workOrder = request.workOrderId ? await this.getWorkOrderById(request.workOrderId) : undefined;
+
+    return {
+      ...request,
+      requestedBy,
+      approvedBy,
+      workOrder,
+    };
+  }
+
+  async getPartsRequestsByWorkOrder(workOrderId: string): Promise<PartsRequest[]> {
+    return await db
+      .select()
+      .from(partsRequests)
+      .where(eq(partsRequests.workOrderId, workOrderId));
+  }
+
+  async createPartsRequest(data: InsertPartsRequest): Promise<PartsRequest> {
+    const [result] = await db.insert(partsRequests).values(data).returning();
+    return result;
+  }
+
+  async updatePartsRequest(id: string, data: Partial<InsertPartsRequest>): Promise<PartsRequest> {
+    const [result] = await db
+      .update(partsRequests)
+      .set(data)
+      .where(eq(partsRequests.id, id))
+      .returning();
+    return result;
+  }
+
+  // Approval System - Approvals
+  async getAllApprovals(filters?: { status?: string; assignedToId?: string; approvalType?: string }): Promise<ApprovalWithDetails[]> {
+    const conditions = [];
+    if (filters?.status) {
+      conditions.push(eq(approvals.status, filters.status));
+    }
+    if (filters?.assignedToId) {
+      conditions.push(eq(approvals.assignedToId, filters.assignedToId));
+    }
+    if (filters?.approvalType) {
+      conditions.push(eq(approvals.approvalType, filters.approvalType));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const approvalsList = await db
+      .select()
+      .from(approvals)
+      .where(whereClause)
+      .orderBy(desc(approvals.createdAt));
+
+    const results: ApprovalWithDetails[] = [];
+    for (const approval of approvalsList) {
+      const requestedBy = await this.getEmployeeById(approval.requestedById);
+      const assignedTo = await this.getEmployeeById(approval.assignedToId);
+      const escalatedTo = approval.escalatedToId ? await this.getEmployeeById(approval.escalatedToId) : undefined;
+
+      results.push({
+        ...approval,
+        requestedBy,
+        assignedTo,
+        escalatedTo,
+      });
+    }
+    return results;
+  }
+
+  async getApprovalById(id: string): Promise<ApprovalWithDetails | undefined> {
+    const [approval] = await db
+      .select()
+      .from(approvals)
+      .where(eq(approvals.id, id));
+
+    if (!approval) return undefined;
+
+    const requestedBy = await this.getEmployeeById(approval.requestedById);
+    const assignedTo = await this.getEmployeeById(approval.assignedToId);
+    const escalatedTo = approval.escalatedToId ? await this.getEmployeeById(approval.escalatedToId) : undefined;
+
+    return {
+      ...approval,
+      requestedBy,
+      assignedTo,
+      escalatedTo,
+    };
+  }
+
+  async getPendingApprovalsByEmployee(employeeId: string): Promise<ApprovalWithDetails[]> {
+    return await this.getAllApprovals({ assignedToId: employeeId, status: "pending" });
+  }
+
+  async createApproval(data: InsertApproval): Promise<Approval> {
+    const [result] = await db.insert(approvals).values(data).returning();
+    return result;
+  }
+
+  async updateApproval(id: string, data: Partial<InsertApproval>): Promise<Approval> {
+    const [result] = await db
+      .update(approvals)
+      .set(data)
+      .where(eq(approvals.id, id))
+      .returning();
+    return result;
+  }
+
+  // Approval Actions
+  async approveWorkOrder(workOrderId: string, approvedById: string, notes?: string): Promise<void> {
+    await db
+      .update(workOrders)
+      .set({
+        approvalStatus: "approved",
+        approvedById,
+        approvedAt: new Date(),
+        approvalNotes: notes,
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async rejectWorkOrder(workOrderId: string, approvedById: string, notes?: string): Promise<void> {
+    await db
+      .update(workOrders)
+      .set({
+        approvalStatus: "rejected",
+        approvedById,
+        approvedAt: new Date(),
+        approvalNotes: notes,
+        status: "cancelled",
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async approveWorkOrderCompletion(workOrderId: string, approvedById: string, notes?: string): Promise<void> {
+    await db
+      .update(workOrders)
+      .set({
+        completionApprovalStatus: "approved",
+        completionApprovedById: approvedById,
+        completionApprovedAt: new Date(),
+        completionApprovalNotes: notes,
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async approvePartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void> {
+    await db
+      .update(partsRequests)
+      .set({
+        approvalStatus: "approved",
+        approvedById,
+        approvedAt: new Date(),
+        approvalNotes: notes,
+        status: "approved",
+      })
+      .where(eq(partsRequests.id, partsRequestId));
+  }
+
+  async rejectPartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void> {
+    await db
+      .update(partsRequests)
+      .set({
+        approvalStatus: "rejected",
+        approvedById,
+        approvedAt: new Date(),
+        approvalNotes: notes,
+        status: "rejected",
+      })
+      .where(eq(partsRequests.id, partsRequestId));
   }
 }
 

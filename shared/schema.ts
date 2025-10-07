@@ -14,6 +14,7 @@ export const equipment = pgTable("equipment", {
   assetNo: text("asset_no"),
   newAssetNo: text("new_asset_no"),
   machineSerial: text("machine_serial"),
+  remarks: text("remarks"), // Notes, missing data info, special conditions
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

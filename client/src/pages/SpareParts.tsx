@@ -364,7 +364,7 @@ export default function SparePartsPage() {
                   {part.price && (
                     <div className="flex items-center justify-between pt-2">
                       <span className="text-muted-foreground">Price:</span>
-                      <span className="font-semibold text-lg">${part.price}</span>
+                      <span className="font-semibold text-lg">{formatPrice(part.price)}</span>
                     </div>
                   )}
                   {part.stockQuantity !== null && (
@@ -488,7 +488,7 @@ export default function SparePartsPage() {
                 {selectedPart.price && (
                   <div>
                     <span className="text-sm text-muted-foreground">Price</span>
-                    <p className="text-2xl font-bold">${selectedPart.price}</p>
+                    <p className="text-2xl font-bold">{formatPrice(selectedPart.price)}</p>
                   </div>
                 )}
                 {selectedPart.stockQuantity !== null && (

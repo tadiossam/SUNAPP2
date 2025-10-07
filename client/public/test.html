@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CONNECTION TEST</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { 
+            font-family: Arial;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .box {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            max-width: 600px;
+        }
+        h1 { color: #22c55e; font-size: 32px; margin-bottom: 20px; }
+        p { margin: 10px 0; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>✓ YOU CAN SEE THIS!</h1>
+        <p>If you see this COLORFUL page, your browser works.</p>
+        <p>Time: <strong><span id="time"></span></strong></p>
+    </div>
+    <script>
+        document.getElementById('time').textContent = new Date().toLocaleTimeString();
+    </script>
+</body>
+</html>

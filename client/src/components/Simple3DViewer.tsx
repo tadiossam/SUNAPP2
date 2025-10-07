@@ -113,7 +113,7 @@ export function Simple3DViewer({ modelPath, className = "" }: Simple3DViewerProp
         },
         (error) => {
           console.error('Error loading model:', error);
-          setLoadError('Model file not found - showing placeholder');
+          setLoadError(null);
           setIsLoading(false);
         }
       );

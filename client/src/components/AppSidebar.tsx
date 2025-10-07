@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -17,7 +17,7 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { t } = useLanguage();
 
-  const menuItems = [
+  const mainMenuItems = [
     {
       title: t("equipment"),
       url: "/",
@@ -50,6 +50,39 @@ export function AppSidebar() {
     },
   ];
 
+  const garageMenuItems = [
+    {
+      title: t("garages"),
+      url: "/garages",
+      icon: Building2,
+      testId: "link-garages",
+    },
+    {
+      title: t("employees"),
+      url: "/employees",
+      icon: Users,
+      testId: "link-employees",
+    },
+    {
+      title: t("workOrders"),
+      url: "/work-orders",
+      icon: FileText,
+      testId: "link-work-orders",
+    },
+    {
+      title: t("sops"),
+      url: "/sops",
+      icon: BookOpen,
+      testId: "link-sops",
+    },
+    {
+      title: t("partsLocations"),
+      url: "/parts-locations",
+      icon: MapPin,
+      testId: "link-parts-locations",
+    },
+  ];
+
   return (
     <Sidebar>
       <SidebarHeader className="p-6">
@@ -68,7 +101,25 @@ export function AppSidebar() {
           <SidebarGroupLabel>{t("navigation")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {mainMenuItems.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton asChild isActive={location === item.url}>
+                    <Link href={item.url} data-testid={item.testId}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        
+        <SidebarGroup>
+          <SidebarGroupLabel>{t("garageManagement")}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {garageMenuItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={item.testId}>

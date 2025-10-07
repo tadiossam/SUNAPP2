@@ -123,11 +123,33 @@ export const translations = {
     // Garage Management
     garageManagement: "Garage Management",
     garages: "Garages",
+    workOrders: "Work Orders",
+    sops: "Standard Operating Procedures",
+    partsLocations: "Parts Locations",
+    
+    // Work Orders
+    manageAndTrackWorkOrders: "Manage and track work orders",
+    searchWorkOrders: "Search work orders",
+    addWorkOrder: "Add Work Order",
+    noWorkOrdersFound: "No work orders found",
+    allStatuses: "All Statuses",
+    allPriorities: "All Priorities",
+    
+    // SOPs
+    standardOperatingProcedures: "Standard Operating Procedures",
+    searchSOPs: "Search SOPs",
+    addSOP: "Add SOP",
+    noSOPsFound: "No SOPs found",
+    allCategories: "All Categories",
+    allRoles: "All Roles",
+    
+    // Parts Locations
+    trackPartsStorageLocations: "Track parts storage locations",
+    searchPartsLocations: "Search parts locations",
+    addPartsLocation: "Add Parts Location",
+    noPartsLocationsFound: "No parts locations found",
     repairBays: "Repair Bays",
     employees: "Employees",
-    workOrders: "Work Orders",
-    sops: "Standard Procedures",
-    partsLocations: "Parts Locations",
     garageName: "Garage Name",
     location: "Location",
     capacity: "Capacity",
@@ -175,9 +197,6 @@ export const translations = {
     addGarage: "Add Garage",
     addRepairBay: "Add Repair Bay",
     addEmployee: "Add Employee",
-    addWorkOrder: "Add Work Order",
-    addSOP: "Add SOP",
-    addPartsLocation: "Add Parts Location",
     viewWorkOrder: "View Work Order",
     assignMechanic: "Assign Mechanic",
     completeWorkOrder: "Complete Work Order",
@@ -343,6 +362,28 @@ export const translations = {
     workOrders: "የስራ ትዕዛዞች",
     sops: "መደበኛ አሰራሮች",
     partsLocations: "የክፍሎች አካባቢዎች",
+    
+    // Work Orders
+    manageAndTrackWorkOrders: "የስራ ትዕዛዞችን ያስተዳድሩ እና ይከታተሉ",
+    searchWorkOrders: "የስራ ትዕዛዞችን ፈልግ",
+    addWorkOrder: "የስራ ትዕዛዝ አክል",
+    noWorkOrdersFound: "ምንም የስራ ትዕዛዝ አልተገኘም",
+    allStatuses: "ሁሉም ሁኔታዎች",
+    allPriorities: "ሁሉም ቅድሚያዎች",
+    
+    // SOPs
+    standardOperatingProcedures: "መደበኛ የአሰራር ሂደቶች",
+    searchSOPs: "SOPs ፈልግ",
+    addSOP: "SOP አክል",
+    noSOPsFound: "ምንም SOP አልተገኘም",
+    allCategories: "ሁሉም ምድቦች",
+    allRoles: "ሁሉም ሚናዎች",
+    
+    // Parts Locations
+    trackPartsStorageLocations: "የክፍሎች ማከማቻ አካባቢዎችን ይከታተሉ",
+    searchPartsLocations: "የክፍሎች አካባቢዎችን ፈልግ",
+    addPartsLocation: "የክፍሎች አካባቢ አክል",
+    noPartsLocationsFound: "ምንም የክፍሎች አካባቢዎች አልተገኙም",
     garageName: "የጋራዥ ስም",
     location: "አካባቢ",
     capacity: "አቅም",
@@ -390,9 +431,6 @@ export const translations = {
     addGarage: "ጋራዥ አክል",
     addRepairBay: "የጥገና ቦታ አክል",
     addEmployee: "ሰራተኛ አክል",
-    addWorkOrder: "የስራ ትዕዛዝ አክል",
-    addSOP: "አሰራር አክል",
-    addPartsLocation: "የክፍሎች አካባቢ አክል",
     viewWorkOrder: "የስራ ትዕዛዝ ይመልከቱ",
     assignMechanic: "ሜካኒክ ይመድቡ",
     completeWorkOrder: "የስራ ትዕዛዝ አጠናቅቅ",

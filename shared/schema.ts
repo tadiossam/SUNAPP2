@@ -392,6 +392,174 @@ export const equipmentLocations = pgTable("equipment_locations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============ WAREHOUSE MANAGEMENT SYSTEM ============
+
+// Warehouses - Dedicated parts storage facilities
+export const warehouses = pgTable("warehouses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // "WH-001", "WH-ADDIS", "WH-TERMINAL"
+  name: text("name").notNull(),
+  location: text("location").notNull(),
+  type: text("type").notNull().default("main"), // main, satellite, mobile
+  capacity: integer("capacity"), // Total storage capacity
+  managerId: varchar("manager_id").references(() => employees.id),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Warehouse Zones - Areas/sections within warehouses
+export const warehouseZones = pgTable("warehouse_zones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  warehouseId: varchar("warehouse_id").notNull().references(() => warehouses.id, { onDelete: "cascade" }),
+  zoneCode: text("zone_code").notNull(), // "A", "B1", "RACK-12"
+  name: text("name").notNull(), // "Zone A - Filters", "Rack 12 - Hydraulics"
+  type: text("type").notNull(), // "shelf", "bin", "rack", "floor", "cage"
+  row: text("row"), // For warehouse map: "A", "B"
+  column: text("column"), // For warehouse map: "1", "2"
+  level: integer("level"), // Shelf level: 1, 2, 3
+  capacity: integer("capacity"),
+  currentLoad: integer("current_load").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Stock Ledger - Double-entry transaction log for all stock movements
+export const stockLedger = pgTable("stock_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionType: text("transaction_type").notNull(), // receive, issue, transfer, adjust, return
+  partId: varchar("part_id").notNull().references(() => spareParts.id),
+  fromWarehouseId: varchar("from_warehouse_id").references(() => warehouses.id),
+  fromZoneId: varchar("from_zone_id").references(() => warehouseZones.id),
+  toWarehouseId: varchar("to_warehouse_id").references(() => warehouses.id),
+  toZoneId: varchar("to_zone_id").references(() => warehouseZones.id),
+  quantity: integer("quantity").notNull(),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
+  referenceType: text("reference_type"), // work_order, purchase_order, transfer, audit
+  referenceId: varchar("reference_id"), // ID of the source document
+  workOrderId: varchar("work_order_id").references(() => workOrders.id),
+  performedById: varchar("performed_by_id").references(() => employees.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Stock Reservations - Parts reserved for work orders
+export const stockReservations = pgTable("stock_reservations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  partId: varchar("part_id").notNull().references(() => spareParts.id),
+  warehouseId: varchar("warehouse_id").references(() => warehouses.id),
+  zoneId: varchar("zone_id").references(() => warehouseZones.id),
+  quantityReserved: integer("quantity_reserved").notNull(),
+  quantityIssued: integer("quantity_issued").default(0),
+  status: text("status").notNull().default("reserved"), // reserved, partially_issued, fully_issued, cancelled
+  reservedById: varchar("reserved_by_id").references(() => employees.id),
+  expiresAt: timestamp("expires_at"), // Auto-release after X hours
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Reorder Rules - Automatic reorder thresholds and supplier info
+export const reorderRules = pgTable("reorder_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partId: varchar("part_id").notNull().references(() => spareParts.id, { onDelete: "cascade" }),
+  warehouseId: varchar("warehouse_id").references(() => warehouses.id),
+  minQuantity: integer("min_quantity").notNull(), // Trigger reorder
+  reorderQuantity: integer("reorder_quantity").notNull(), // How much to order
+  maxQuantity: integer("max_quantity"), // Maximum stock level
+  leadTimeDays: integer("lead_time_days").default(7),
+  supplierName: text("supplier_name"),
+  supplierContact: text("supplier_contact"),
+  preferredSupplier: text("preferred_supplier"),
+  lastOrderDate: timestamp("last_order_date"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============ EQUIPMENT RECEPTION/CHECK-IN SYSTEM ============
+
+// Equipment Receptions - Check-in records when equipment arrives at garage
+export const equipmentReceptions = pgTable("equipment_receptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receptionNumber: text("reception_number").notNull().unique(), // REC-2025-001
+  equipmentId: varchar("equipment_id").notNull().references(() => equipment.id),
+  garageId: varchar("garage_id").notNull().references(() => garages.id),
+  dropOffTime: timestamp("drop_off_time").notNull().defaultNow(),
+  operatorHours: decimal("operator_hours", { precision: 10, scale: 2 }), // Equipment hours at drop-off
+  fuelLevel: text("fuel_level"), // "full", "3/4", "1/2", "1/4", "empty"
+  fluidLevels: text("fluid_levels"), // JSON: { oil: "ok", hydraulic: "low", coolant: "ok" }
+  issuesReported: text("issues_reported"), // Driver's reported problems
+  visualDamageSummary: text("visual_damage_summary"),
+  conditionGrade: text("condition_grade"), // "excellent", "good", "fair", "poor", "critical"
+  driverName: text("driver_name"),
+  driverSignature: text("driver_signature"), // Base64 or URL to signature image
+  mechanicId: varchar("mechanic_id").references(() => employees.id),
+  status: text("status").notNull().default("driver_submitted"), // driver_submitted, awaiting_mechanic, inspection_complete, work_order_created, closed
+  workOrderId: varchar("work_order_id").references(() => workOrders.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Reception Checklists - Template for standardized inspection items
+export const receptionChecklists = pgTable("reception_checklists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  equipmentType: text("equipment_type").notNull(), // "DOZER", "WHEEL LOADER", "EXCAVATOR", "ALL"
+  role: text("role").notNull(), // "driver", "mechanic"
+  category: text("category").notNull(), // "engine", "hydraulic", "electrical", "undercarriage", "cabin", "safety"
+  sortOrder: integer("sort_order").default(0),
+  itemDescription: text("item_description").notNull(), // "Check engine oil level", "Inspect hydraulic hoses"
+  defaultSeverity: text("default_severity").default("ok"), // ok, minor, critical
+  requiresPhoto: boolean("requires_photo").default(false),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Reception Inspection Items - Actual inspection results
+export const receptionInspectionItems = pgTable("reception_inspection_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receptionId: varchar("reception_id").notNull().references(() => equipmentReceptions.id, { onDelete: "cascade" }),
+  checklistItemId: varchar("checklist_item_id").references(() => receptionChecklists.id),
+  status: text("status").notNull(), // "pass", "fail", "attention_required", "not_applicable"
+  severity: text("severity").notNull().default("ok"), // "ok", "minor", "critical"
+  notes: text("notes"),
+  requiresParts: boolean("requires_parts").default(false),
+  partsSuggested: text("parts_suggested"), // JSON array of part IDs or descriptions
+  photoUrl: text("photo_url"),
+  recordedById: varchar("recorded_by_id").references(() => employees.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Damage Reports - Visual damage marking with coordinates on equipment diagrams
+export const damageReports = pgTable("damage_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receptionId: varchar("reception_id").notNull().references(() => equipmentReceptions.id, { onDelete: "cascade" }),
+  viewAngle: text("view_angle").notNull(), // "front", "rear", "left", "right", "top"
+  coordinateX: decimal("coordinate_x", { precision: 5, scale: 4 }), // 0.0 to 1.0 (percentage of image width)
+  coordinateY: decimal("coordinate_y", { precision: 5, scale: 4 }), // 0.0 to 1.0 (percentage of image height)
+  severity: text("severity").notNull(), // "minor", "moderate", "critical"
+  damageType: text("damage_type"), // "dent", "scratch", "crack", "missing_part", "leak", "worn"
+  description: text("description").notNull(),
+  photoUrl: text("photo_url"),
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
+  markedById: varchar("marked_by_id").references(() => employees.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Repair Estimates - Generated from mechanic inspection
+export const repairEstimates = pgTable("repair_estimates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  receptionId: varchar("reception_id").notNull().references(() => equipmentReceptions.id, { onDelete: "cascade" }),
+  laborHours: decimal("labor_hours", { precision: 5, scale: 2 }),
+  laborCost: decimal("labor_cost", { precision: 10, scale: 2 }),
+  partsCost: decimal("parts_cost", { precision: 10, scale: 2 }),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
+  recommendation: text("recommendation").notNull(), // "return_to_service", "repair_required", "major_overhaul", "grounded"
+  priority: text("priority").notNull().default("medium"), // "low", "medium", "high", "urgent"
+  estimatedCompletionDays: integer("estimated_completion_days"),
+  generatedById: varchar("generated_by_id").references(() => employees.id),
+  approvedById: varchar("approved_by_id").references(() => employees.id),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations for garage management
 export const garagesRelations = relations(garages, ({ many }) => ({
   repairBays: many(repairBays),
@@ -547,4 +715,92 @@ export type RepairBayWithDetails = RepairBay & {
 export type PartsStorageLocationWithDetails = PartsStorageLocation & {
   part?: SparePart;
   garage?: Garage;
+};
+
+// Insert schemas for warehouse management
+export const insertWarehouseSchema = createInsertSchema(warehouses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertWarehouseZoneSchema = createInsertSchema(warehouseZones).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStockLedgerSchema = createInsertSchema(stockLedger).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStockReservationSchema = createInsertSchema(stockReservations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReorderRuleSchema = createInsertSchema(reorderRules).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Insert schemas for equipment reception
+export const insertEquipmentReceptionSchema = createInsertSchema(equipmentReceptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertReceptionChecklistSchema = createInsertSchema(receptionChecklists).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReceptionInspectionItemSchema = createInsertSchema(receptionInspectionItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDamageReportSchema = createInsertSchema(damageReports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRepairEstimateSchema = createInsertSchema(repairEstimates).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Select types for warehouse management
+export type Warehouse = typeof warehouses.$inferSelect;
+export type InsertWarehouse = z.infer<typeof insertWarehouseSchema>;
+export type WarehouseZone = typeof warehouseZones.$inferSelect;
+export type InsertWarehouseZone = z.infer<typeof insertWarehouseZoneSchema>;
+export type StockLedger = typeof stockLedger.$inferSelect;
+export type InsertStockLedger = z.infer<typeof insertStockLedgerSchema>;
+export type StockReservation = typeof stockReservations.$inferSelect;
+export type InsertStockReservation = z.infer<typeof insertStockReservationSchema>;
+export type ReorderRule = typeof reorderRules.$inferSelect;
+export type InsertReorderRule = z.infer<typeof insertReorderRuleSchema>;
+
+// Select types for equipment reception
+export type EquipmentReception = typeof equipmentReceptions.$inferSelect;
+export type InsertEquipmentReception = z.infer<typeof insertEquipmentReceptionSchema>;
+export type ReceptionChecklist = typeof receptionChecklists.$inferSelect;
+export type InsertReceptionChecklist = z.infer<typeof insertReceptionChecklistSchema>;
+export type ReceptionInspectionItem = typeof receptionInspectionItems.$inferSelect;
+export type InsertReceptionInspectionItem = z.infer<typeof insertReceptionInspectionItemSchema>;
+export type DamageReport = typeof damageReports.$inferSelect;
+export type InsertDamageReport = z.infer<typeof insertDamageReportSchema>;
+export type RepairEstimate = typeof repairEstimates.$inferSelect;
+export type InsertRepairEstimate = z.infer<typeof insertRepairEstimateSchema>;
+
+// Extended types with relations for reception
+export type EquipmentReceptionWithDetails = EquipmentReception & {
+  equipment?: Equipment;
+  garage?: Garage;
+  mechanic?: Employee;
+  workOrder?: WorkOrder;
+  inspectionItems?: ReceptionInspectionItem[];
+  damageReports?: DamageReport[];
+  repairEstimate?: RepairEstimate;
 };

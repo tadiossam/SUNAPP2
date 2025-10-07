@@ -31,6 +31,7 @@ export default function SparePartsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [currency, setCurrency] = useState<"USD" | "ETB">("USD");
   const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editingMaintenance, setEditingMaintenance] = useState(false);
@@ -42,6 +43,21 @@ export default function SparePartsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Ethiopian Birr exchange rate (1 USD = 125 ETB approximately)
+  const USD_TO_ETB_RATE = 125;
+
+  // Format price based on selected currency
+  const formatPrice = (priceUSD: string | null | undefined): string => {
+    if (!priceUSD) return "N/A";
+    const numPrice = parseFloat(priceUSD);
+    
+    if (currency === "ETB") {
+      const priceETB = numPrice * USD_TO_ETB_RATE;
+      return `${priceETB.toFixed(2)} Br`;
+    }
+    return `$${numPrice.toFixed(2)}`;
+  };
 
   const { data: parts, isLoading } = useQuery<SparePart[]>({
     queryKey: ["/api/parts"],

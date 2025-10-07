@@ -275,3 +275,275 @@ export type EquipmentWithMaintenanceHistory = Equipment & {
   maintenanceRecords?: MaintenanceRecordWithDetails[];
   operatingReports?: OperatingBehaviorReport[];
 };
+
+// ============================================
+// GARAGE MANAGEMENT SYSTEM
+// ============================================
+
+// Garages/Workshops table - Physical locations for equipment and maintenance
+export const garages = pgTable("garages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // "Main Workshop", "Field Station 1", etc.
+  location: text("location").notNull(), // Address or site location
+  type: text("type").notNull(), // "workshop", "field_station", "warehouse"
+  capacity: integer("capacity"), // Max equipment capacity
+  contactPerson: text("contact_person"),
+  phoneNumber: text("phone_number"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Repair Bays within garages
+export const repairBays = pgTable("repair_bays", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  garageId: varchar("garage_id").notNull().references(() => garages.id, { onDelete: "cascade" }),
+  bayNumber: text("bay_number").notNull(), // "Bay 1", "A-1", etc.
+  bayType: text("bay_type").notNull(), // "heavy_equipment", "light_vehicle", "diagnostic", "wash"
+  status: text("status").notNull().default("available"), // available, occupied, maintenance, closed
+  currentEquipmentId: varchar("current_equipment_id").references(() => equipment.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Employees table - Comprehensive employee management (mechanics, wash staff, etc.)
+export const employees = pgTable("employees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: text("employee_id").notNull().unique(), // Company employee ID
+  fullName: text("full_name").notNull(),
+  role: text("role").notNull(), // "mechanic", "wash_staff", "supervisor", "technician"
+  specialty: text("specialty"), // For mechanics: "Engine", "Hydraulic", "Electrical"
+  phoneNumber: text("phone_number"),
+  email: text("email"),
+  garageId: varchar("garage_id").references(() => garages.id), // Primary garage assignment
+  isActive: boolean("is_active").default(true).notNull(),
+  hireDate: timestamp("hire_date"),
+  certifications: text("certifications").array(), // List of certifications
+  language: text("language").default("en"), // Preferred language: en, am
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Work Orders - Proper workflow for mechanics
+export const workOrders = pgTable("work_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderNumber: text("work_order_number").notNull().unique(), // WO-2025-001
+  equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
+  garageId: varchar("garage_id").references(() => garages.id),
+  repairBayId: varchar("repair_bay_id").references(() => repairBays.id),
+  assignedToId: varchar("assigned_to_id").references(() => employees.id), // Assigned mechanic/employee
+  priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
+  workType: text("work_type").notNull(), // "repair", "maintenance", "inspection", "wash"
+  description: text("description").notNull(),
+  status: text("status").notNull().default("pending"), // pending, assigned, in_progress, completed, cancelled
+  estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
+  actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
+  notes: text("notes"),
+  createdById: varchar("created_by_id").references(() => users.id),
+  scheduledDate: timestamp("scheduled_date"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Standard Operating Procedures (SOPs) - For wash staff and other tasks
+export const standardOperatingProcedures = pgTable("standard_operating_procedures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sopCode: text("sop_code").notNull().unique(), // SOP-WASH-001, SOP-MAINT-001
+  title: text("title").notNull(),
+  category: text("category").notNull(), // "wash", "maintenance", "safety", "inspection"
+  targetRole: text("target_role").notNull(), // "wash_staff", "mechanic", "all"
+  description: text("description").notNull(),
+  steps: text("steps").notNull(), // JSON array of step objects: [{step: 1, instruction: "...", safetyNote: "..."}]
+  requiredEquipment: text("required_equipment").array(), // Tools/equipment needed
+  estimatedTimeMinutes: integer("estimated_time_minutes"),
+  safetyRequirements: text("safety_requirements").array(), // PPE, safety measures
+  videoUrl: text("video_url"), // Tutorial video
+  documentUrl: text("document_url"), // PDF or document link
+  language: text("language").default("en"), // en, am for bilingual support
+  version: text("version").default("1.0"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Parts Storage Locations - Track where parts are stored
+export const partsStorageLocations = pgTable("parts_storage_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  partId: varchar("part_id").notNull().references(() => spareParts.id, { onDelete: "cascade" }),
+  garageId: varchar("garage_id").references(() => garages.id),
+  location: text("location").notNull(), // "Shelf A-12", "Bin 45", "Warehouse Zone C"
+  quantity: integer("quantity").notNull().default(0),
+  minQuantity: integer("min_quantity").default(0), // Reorder level
+  notes: text("notes"),
+  lastRestocked: timestamp("last_restocked"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Equipment Location Tracking - Track which equipment is in which garage
+export const equipmentLocations = pgTable("equipment_locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
+  garageId: varchar("garage_id").references(() => garages.id),
+  locationStatus: text("location_status").notNull().default("in_field"), // in_field, in_garage, in_repair, in_wash, transported
+  repairBayId: varchar("repair_bay_id").references(() => repairBays.id),
+  arrivedAt: timestamp("arrived_at").notNull().defaultNow(),
+  departedAt: timestamp("departed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations for garage management
+export const garagesRelations = relations(garages, ({ many }) => ({
+  repairBays: many(repairBays),
+  employees: many(employees),
+  workOrders: many(workOrders),
+  partsLocations: many(partsStorageLocations),
+  equipmentLocations: many(equipmentLocations),
+}));
+
+export const repairBaysRelations = relations(repairBays, ({ one, many }) => ({
+  garage: one(garages, {
+    fields: [repairBays.garageId],
+    references: [garages.id],
+  }),
+  currentEquipment: one(equipment, {
+    fields: [repairBays.currentEquipmentId],
+    references: [equipment.id],
+  }),
+  workOrders: many(workOrders),
+  equipmentLocations: many(equipmentLocations),
+}));
+
+export const employeesRelations = relations(employees, ({ one, many }) => ({
+  garage: one(garages, {
+    fields: [employees.garageId],
+    references: [garages.id],
+  }),
+  workOrders: many(workOrders),
+}));
+
+export const workOrdersRelations = relations(workOrders, ({ one }) => ({
+  equipment: one(equipment, {
+    fields: [workOrders.equipmentId],
+    references: [equipment.id],
+  }),
+  garage: one(garages, {
+    fields: [workOrders.garageId],
+    references: [garages.id],
+  }),
+  repairBay: one(repairBays, {
+    fields: [workOrders.repairBayId],
+    references: [repairBays.id],
+  }),
+  assignedTo: one(employees, {
+    fields: [workOrders.assignedToId],
+    references: [employees.id],
+  }),
+  createdBy: one(users, {
+    fields: [workOrders.createdById],
+    references: [users.id],
+  }),
+}));
+
+export const partsStorageLocationsRelations = relations(partsStorageLocations, ({ one }) => ({
+  part: one(spareParts, {
+    fields: [partsStorageLocations.partId],
+    references: [spareParts.id],
+  }),
+  garage: one(garages, {
+    fields: [partsStorageLocations.garageId],
+    references: [garages.id],
+  }),
+}));
+
+export const equipmentLocationsRelations = relations(equipmentLocations, ({ one }) => ({
+  equipment: one(equipment, {
+    fields: [equipmentLocations.equipmentId],
+    references: [equipment.id],
+  }),
+  garage: one(garages, {
+    fields: [equipmentLocations.garageId],
+    references: [garages.id],
+  }),
+  repairBay: one(repairBays, {
+    fields: [equipmentLocations.repairBayId],
+    references: [repairBays.id],
+  }),
+}));
+
+// Insert schemas for garage management
+export const insertGarageSchema = createInsertSchema(garages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertRepairBaySchema = createInsertSchema(repairBays).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEmployeeSchema = createInsertSchema(employees).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertWorkOrderSchema = createInsertSchema(workOrders).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStandardOperatingProcedureSchema = createInsertSchema(standardOperatingProcedures).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPartsStorageLocationSchema = createInsertSchema(partsStorageLocations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEquipmentLocationSchema = createInsertSchema(equipmentLocations).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Select types for garage management
+export type Garage = typeof garages.$inferSelect;
+export type InsertGarage = z.infer<typeof insertGarageSchema>;
+export type RepairBay = typeof repairBays.$inferSelect;
+export type InsertRepairBay = z.infer<typeof insertRepairBaySchema>;
+export type Employee = typeof employees.$inferSelect;
+export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
+export type WorkOrder = typeof workOrders.$inferSelect;
+export type InsertWorkOrder = z.infer<typeof insertWorkOrderSchema>;
+export type StandardOperatingProcedure = typeof standardOperatingProcedures.$inferSelect;
+export type InsertStandardOperatingProcedure = z.infer<typeof insertStandardOperatingProcedureSchema>;
+export type PartsStorageLocation = typeof partsStorageLocations.$inferSelect;
+export type InsertPartsStorageLocation = z.infer<typeof insertPartsStorageLocationSchema>;
+export type EquipmentLocation = typeof equipmentLocations.$inferSelect;
+export type InsertEquipmentLocation = z.infer<typeof insertEquipmentLocationSchema>;
+
+// Extended types with relations
+export type GarageWithDetails = Garage & {
+  repairBays?: RepairBay[];
+  employees?: Employee[];
+  workOrders?: WorkOrder[];
+};
+
+export type WorkOrderWithDetails = WorkOrder & {
+  equipment?: Equipment;
+  garage?: Garage;
+  repairBay?: RepairBay;
+  assignedTo?: Employee;
+  createdBy?: User;
+};
+
+export type RepairBayWithDetails = RepairBay & {
+  garage?: Garage;
+  currentEquipment?: Equipment;
+};
+
+export type PartsStorageLocationWithDetails = PartsStorageLocation & {
+  part?: SparePart;
+  garage?: Garage;
+};

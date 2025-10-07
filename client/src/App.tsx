@@ -99,15 +99,15 @@ function AppContent() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1">
-          <header className="flex items-center justify-between h-14 px-4 border-b bg-background">
+          <header className="flex items-center justify-between h-12 px-3 border-b bg-background">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               {(authData as any)?.user && (
-                <div className="flex items-center gap-2 text-sm">
-                  <UserIcon className="h-4 w-4 text-muted-foreground" />
+                <div className="flex items-center gap-2 text-xs">
+                  <UserIcon className="h-3 w-3 text-muted-foreground" />
                   <span className="text-foreground">{(authData as any).user.fullName}</span>
                   {(authData as any).user.role === "CEO" && (
-                    <span className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded">
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded">
                       CEO
                     </span>
                   )}
@@ -115,7 +115,7 @@ function AppContent() {
               )}
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => logoutMutation.mutate()}
                 disabled={logoutMutation.isPending}
                 data-testid="button-logout"

@@ -7,6 +7,13 @@ import {
   partsUsageHistory,
   operatingBehaviorReports,
   users,
+  garages,
+  repairBays,
+  employees,
+  workOrders,
+  standardOperatingProcedures,
+  partsStorageLocations,
+  equipmentLocations,
   type Equipment,
   type InsertEquipment,
   type SparePart,
@@ -22,6 +29,24 @@ import {
   type InsertPartsUsageHistory,
   type OperatingBehaviorReport,
   type InsertOperatingBehaviorReport,
+  type Garage,
+  type InsertGarage,
+  type GarageWithDetails,
+  type RepairBay,
+  type InsertRepairBay,
+  type RepairBayWithDetails,
+  type Employee,
+  type InsertEmployee,
+  type WorkOrder,
+  type InsertWorkOrder,
+  type WorkOrderWithDetails,
+  type StandardOperatingProcedure,
+  type InsertStandardOperatingProcedure,
+  type PartsStorageLocation,
+  type InsertPartsStorageLocation,
+  type PartsStorageLocationWithDetails,
+  type EquipmentLocation,
+  type InsertEquipmentLocation,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
@@ -89,6 +114,48 @@ export interface IStorage {
   
   // User operations
   updateUserLanguage(userId: string, language: string): Promise<void>;
+
+  // Garage Management Operations
+  // Garages
+  getAllGarages(): Promise<Garage[]>;
+  getGarageById(id: string): Promise<GarageWithDetails | undefined>;
+  createGarage(data: InsertGarage): Promise<Garage>;
+  updateGarage(id: string, data: Partial<InsertGarage>): Promise<Garage>;
+
+  // Repair Bays
+  getRepairBaysByGarage(garageId: string): Promise<RepairBayWithDetails[]>;
+  createRepairBay(data: InsertRepairBay): Promise<RepairBay>;
+  updateRepairBay(id: string, data: Partial<InsertRepairBay>): Promise<RepairBay>;
+
+  // Employees
+  getAllEmployees(role?: string, garageId?: string): Promise<Employee[]>;
+  getEmployeeById(id: string): Promise<Employee | undefined>;
+  createEmployee(data: InsertEmployee): Promise<Employee>;
+  updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee>;
+
+  // Work Orders
+  getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]>;
+  getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined>;
+  createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;
+  updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder>;
+
+  // Standard Operating Procedures
+  getAllSOPs(filters?: { category?: string; targetRole?: string; language?: string }): Promise<StandardOperatingProcedure[]>;
+  getSOPById(id: string): Promise<StandardOperatingProcedure | undefined>;
+  createSOP(data: InsertStandardOperatingProcedure): Promise<StandardOperatingProcedure>;
+  updateSOP(id: string, data: Partial<InsertStandardOperatingProcedure>): Promise<StandardOperatingProcedure>;
+
+  // Parts Storage Locations
+  getPartStorageLocations(partId: string): Promise<PartsStorageLocationWithDetails[]>;
+  getGaragePartsInventory(garageId: string): Promise<PartsStorageLocationWithDetails[]>;
+  createPartsStorageLocation(data: InsertPartsStorageLocation): Promise<PartsStorageLocation>;
+  updatePartsStorageLocation(id: string, data: Partial<InsertPartsStorageLocation>): Promise<PartsStorageLocation>;
+
+  // Equipment Location Tracking
+  getEquipmentLocationHistory(equipmentId: string): Promise<EquipmentLocation[]>;
+  getEquipmentCurrentLocation(equipmentId: string): Promise<EquipmentLocation | undefined>;
+  createEquipmentLocation(data: InsertEquipmentLocation): Promise<EquipmentLocation>;
+  updateEquipmentLocation(id: string, data: Partial<InsertEquipmentLocation>): Promise<EquipmentLocation>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -164,8 +231,8 @@ export class DatabaseStorage implements IStorage {
       .from(partCompatibility)
       .where(eq(partCompatibility.partId, part.id));
 
-    const makes = [...new Set(compatibility.map((c) => c.make))];
-    const models = [...new Set(compatibility.filter((c) => c.model).map((c) => c.model!))];
+    const makes = Array.from(new Set(compatibility.map((c) => c.make)));
+    const models = Array.from(new Set(compatibility.filter((c) => c.model).map((c) => c.model!)));
 
     return {
       ...part,
@@ -498,6 +565,306 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ language })
       .where(eq(users.id, userId));
+  }
+
+  // ============================================
+  // GARAGE MANAGEMENT IMPLEMENTATIONS
+  // ============================================
+
+  // Garages
+  async getAllGarages(): Promise<Garage[]> {
+    return await db.select().from(garages).orderBy(garages.name);
+  }
+
+  async getGarageById(id: string): Promise<GarageWithDetails | undefined> {
+    const [garage] = await db.select().from(garages).where(eq(garages.id, id));
+    if (!garage) return undefined;
+
+    const bays = await db.select().from(repairBays).where(eq(repairBays.garageId, id));
+    const employeesList = await db.select().from(employees).where(eq(employees.garageId, id));
+    const orders = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
+
+    return {
+      ...garage,
+      repairBays: bays,
+      employees: employeesList,
+      workOrders: orders,
+    };
+  }
+
+  async createGarage(data: InsertGarage): Promise<Garage> {
+    const [result] = await db.insert(garages).values(data).returning();
+    return result;
+  }
+
+  async updateGarage(id: string, data: Partial<InsertGarage>): Promise<Garage> {
+    const [result] = await db.update(garages).set(data).where(eq(garages.id, id)).returning();
+    return result;
+  }
+
+  // Repair Bays
+  async getRepairBaysByGarage(garageId: string): Promise<RepairBayWithDetails[]> {
+    const bays = await db.select().from(repairBays).where(eq(repairBays.garageId, garageId));
+    
+    const baysWithDetails = await Promise.all(
+      bays.map(async (bay) => {
+        const [garage] = await db.select().from(garages).where(eq(garages.id, bay.garageId));
+        let currentEquipment = undefined;
+        if (bay.currentEquipmentId) {
+          [currentEquipment] = await db.select().from(equipment).where(eq(equipment.id, bay.currentEquipmentId));
+        }
+        return { ...bay, garage, currentEquipment };
+      })
+    );
+    
+    return baysWithDetails;
+  }
+
+  async createRepairBay(data: InsertRepairBay): Promise<RepairBay> {
+    const [result] = await db.insert(repairBays).values(data).returning();
+    return result;
+  }
+
+  async updateRepairBay(id: string, data: Partial<InsertRepairBay>): Promise<RepairBay> {
+    const [result] = await db.update(repairBays).set(data).where(eq(repairBays.id, id)).returning();
+    return result;
+  }
+
+  // Employees
+  async getAllEmployees(role?: string, garageId?: string): Promise<Employee[]> {
+    const conditions = [];
+    
+    if (role) {
+      conditions.push(eq(employees.role, role));
+    }
+    if (garageId) {
+      conditions.push(eq(employees.garageId, garageId));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    return await db.select().from(employees).where(whereClause).orderBy(employees.fullName);
+  }
+
+  async getEmployeeById(id: string): Promise<Employee | undefined> {
+    const [result] = await db.select().from(employees).where(eq(employees.id, id));
+    return result || undefined;
+  }
+
+  async createEmployee(data: InsertEmployee): Promise<Employee> {
+    const [result] = await db.insert(employees).values(data).returning();
+    return result;
+  }
+
+  async updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee> {
+    const [result] = await db.update(employees).set(data).where(eq(employees.id, id)).returning();
+    return result;
+  }
+
+  // Work Orders
+  async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]> {
+    const conditions = [];
+    
+    if (filters?.status) {
+      conditions.push(eq(workOrders.status, filters.status));
+    }
+    if (filters?.assignedToId) {
+      conditions.push(eq(workOrders.assignedToId, filters.assignedToId));
+    }
+    if (filters?.garageId) {
+      conditions.push(eq(workOrders.garageId, filters.garageId));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const orders = await db.select().from(workOrders).where(whereClause).orderBy(desc(workOrders.createdAt));
+    
+    const ordersWithDetails = await Promise.all(
+      orders.map(async (order) => {
+        const [equipmentData] = await db.select().from(equipment).where(eq(equipment.id, order.equipmentId));
+        let garage = undefined;
+        if (order.garageId) {
+          [garage] = await db.select().from(garages).where(eq(garages.id, order.garageId));
+        }
+        let repairBay = undefined;
+        if (order.repairBayId) {
+          [repairBay] = await db.select().from(repairBays).where(eq(repairBays.id, order.repairBayId));
+        }
+        let assignedTo = undefined;
+        if (order.assignedToId) {
+          [assignedTo] = await db.select().from(employees).where(eq(employees.id, order.assignedToId));
+        }
+        let createdBy = undefined;
+        if (order.createdById) {
+          [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
+        }
+        
+        return {
+          ...order,
+          equipment: equipmentData,
+          garage,
+          repairBay,
+          assignedTo,
+          createdBy,
+        };
+      })
+    );
+    
+    return ordersWithDetails;
+  }
+
+  async getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined> {
+    const [order] = await db.select().from(workOrders).where(eq(workOrders.id, id));
+    if (!order) return undefined;
+    
+    const [equipmentData] = await db.select().from(equipment).where(eq(equipment.id, order.equipmentId));
+    let garage = undefined;
+    if (order.garageId) {
+      [garage] = await db.select().from(garages).where(eq(garages.id, order.garageId));
+    }
+    let repairBay = undefined;
+    if (order.repairBayId) {
+      [repairBay] = await db.select().from(repairBays).where(eq(repairBays.id, order.repairBayId));
+    }
+    let assignedTo = undefined;
+    if (order.assignedToId) {
+      [assignedTo] = await db.select().from(employees).where(eq(employees.id, order.assignedToId));
+    }
+    let createdBy = undefined;
+    if (order.createdById) {
+      [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
+    }
+    
+    return {
+      ...order,
+      equipment: equipmentData,
+      garage,
+      repairBay,
+      assignedTo,
+      createdBy,
+    };
+  }
+
+  async createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder> {
+    const [result] = await db.insert(workOrders).values(data).returning();
+    return result;
+  }
+
+  async updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder> {
+    const [result] = await db.update(workOrders).set(data).where(eq(workOrders.id, id)).returning();
+    return result;
+  }
+
+  // Standard Operating Procedures
+  async getAllSOPs(filters?: { category?: string; targetRole?: string; language?: string }): Promise<StandardOperatingProcedure[]> {
+    const conditions = [eq(standardOperatingProcedures.isActive, true)];
+    
+    if (filters?.category) {
+      conditions.push(eq(standardOperatingProcedures.category, filters.category));
+    }
+    if (filters?.targetRole) {
+      conditions.push(eq(standardOperatingProcedures.targetRole, filters.targetRole));
+    }
+    if (filters?.language) {
+      conditions.push(eq(standardOperatingProcedures.language, filters.language));
+    }
+    
+    const whereClause = and(...conditions);
+    
+    return await db.select().from(standardOperatingProcedures).where(whereClause).orderBy(standardOperatingProcedures.title);
+  }
+
+  async getSOPById(id: string): Promise<StandardOperatingProcedure | undefined> {
+    const [result] = await db.select().from(standardOperatingProcedures).where(eq(standardOperatingProcedures.id, id));
+    return result || undefined;
+  }
+
+  async createSOP(data: InsertStandardOperatingProcedure): Promise<StandardOperatingProcedure> {
+    const [result] = await db.insert(standardOperatingProcedures).values(data).returning();
+    return result;
+  }
+
+  async updateSOP(id: string, data: Partial<InsertStandardOperatingProcedure>): Promise<StandardOperatingProcedure> {
+    const [result] = await db.update(standardOperatingProcedures).set({
+      ...data,
+      updatedAt: new Date(),
+    }).where(eq(standardOperatingProcedures.id, id)).returning();
+    return result;
+  }
+
+  // Parts Storage Locations
+  async getPartStorageLocations(partId: string): Promise<PartsStorageLocationWithDetails[]> {
+    const locations = await db.select().from(partsStorageLocations).where(eq(partsStorageLocations.partId, partId));
+    
+    const locationsWithDetails = await Promise.all(
+      locations.map(async (location) => {
+        const [part] = await db.select().from(spareParts).where(eq(spareParts.id, location.partId));
+        let garage = undefined;
+        if (location.garageId) {
+          [garage] = await db.select().from(garages).where(eq(garages.id, location.garageId));
+        }
+        return { ...location, part, garage };
+      })
+    );
+    
+    return locationsWithDetails;
+  }
+
+  async getGaragePartsInventory(garageId: string): Promise<PartsStorageLocationWithDetails[]> {
+    const locations = await db.select().from(partsStorageLocations).where(eq(partsStorageLocations.garageId, garageId));
+    
+    const locationsWithDetails = await Promise.all(
+      locations.map(async (location) => {
+        const [part] = await db.select().from(spareParts).where(eq(spareParts.id, location.partId));
+        const [garage] = await db.select().from(garages).where(eq(garages.id, garageId));
+        return { ...location, part, garage };
+      })
+    );
+    
+    return locationsWithDetails;
+  }
+
+  async createPartsStorageLocation(data: InsertPartsStorageLocation): Promise<PartsStorageLocation> {
+    const [result] = await db.insert(partsStorageLocations).values(data).returning();
+    return result;
+  }
+
+  async updatePartsStorageLocation(id: string, data: Partial<InsertPartsStorageLocation>): Promise<PartsStorageLocation> {
+    const [result] = await db.update(partsStorageLocations).set(data).where(eq(partsStorageLocations.id, id)).returning();
+    return result;
+  }
+
+  // Equipment Location Tracking
+  async getEquipmentLocationHistory(equipmentId: string): Promise<EquipmentLocation[]> {
+    return await db
+      .select()
+      .from(equipmentLocations)
+      .where(eq(equipmentLocations.equipmentId, equipmentId))
+      .orderBy(desc(equipmentLocations.arrivedAt));
+  }
+
+  async getEquipmentCurrentLocation(equipmentId: string): Promise<EquipmentLocation | undefined> {
+    const [result] = await db
+      .select()
+      .from(equipmentLocations)
+      .where(and(
+        eq(equipmentLocations.equipmentId, equipmentId),
+        sql`${equipmentLocations.departedAt} IS NULL`
+      ))
+      .orderBy(desc(equipmentLocations.arrivedAt))
+      .limit(1);
+    
+    return result || undefined;
+  }
+
+  async createEquipmentLocation(data: InsertEquipmentLocation): Promise<EquipmentLocation> {
+    const [result] = await db.insert(equipmentLocations).values(data).returning();
+    return result;
+  }
+
+  async updateEquipmentLocation(id: string, data: Partial<InsertEquipmentLocation>): Promise<EquipmentLocation> {
+    const [result] = await db.update(equipmentLocations).set(data).where(eq(equipmentLocations.id, id)).returning();
+    return result;
   }
 }
 

@@ -10,7 +10,7 @@ if (process.env.RESEND_API_KEY) {
 
 interface EmailNotification {
   action: 'created' | 'updated' | 'deleted';
-  recordType: 'equipment' | 'maintenance' | 'parts_usage' | 'operating_report' | 'spare_part';
+  recordType: 'equipment' | 'maintenance' | 'parts_usage' | 'operating_report' | 'spare_part' | 'garage' | 'employee' | 'work_order' | 'sop';
   recordId: string;
   performedBy: string;
   details: Record<string, any>;

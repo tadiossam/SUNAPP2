@@ -156,30 +156,18 @@ export default function EquipmentPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-muted-foreground">Make:</span>
-                      <span className="ml-2 font-medium">{item.make}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Asset:</span>
-                      <span className="ml-2 font-mono text-xs">{item.assetNo || "N/A"}</span>
-                    </div>
+                  <div>
+                    <span className="text-muted-foreground">New Asset #:</span>
+                    <span className="ml-2 font-mono text-xs font-medium">{item.newAssetNo || "N/A"}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Plate No:</span>
+                    <span className="text-muted-foreground">Plate #:</span>
                     <span className="ml-2 font-mono text-xs">{item.plateNo || "N/A"}</span>
                   </div>
                   {item.machineSerial && (
                     <div>
-                      <span className="text-muted-foreground">Serial:</span>
+                      <span className="text-muted-foreground">Serial #:</span>
                       <span className="ml-2 font-mono text-xs">{item.machineSerial}</span>
-                    </div>
-                  )}
-                  {item.newAssetNo && (
-                    <div>
-                      <span className="text-muted-foreground">New Asset:</span>
-                      <span className="ml-2 font-mono text-xs">{item.newAssetNo}</span>
                     </div>
                   )}
                 </CardContent>

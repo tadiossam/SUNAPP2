@@ -59,10 +59,11 @@ export default function Garages() {
         description: "Garage has been successfully deleted.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to delete garage";
       toast({
         title: "Delete failed",
-        description: "Failed to delete garage",
+        description: errorMessage,
         variant: "destructive",
       });
     },

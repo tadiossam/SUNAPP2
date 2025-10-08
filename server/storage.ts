@@ -676,6 +676,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteGarage(id: string): Promise<void> {
+    // Check if garage exists
+    const [garage] = await db.select().from(garages).where(eq(garages.id, id));
+    if (!garage) {
+      throw new Error("Garage not found");
+    }
+
+    // Check for dependencies that don't have cascade delete
+    const employeesList = await db.select().from(employees).where(eq(employees.garageId, id));
+    const workOrdersList = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
+    const storageLocations = await db.select().from(partsStorageLocations).where(eq(partsStorageLocations.garageId, id));
+    const equipmentLocationsList = await db.select().from(equipmentLocations).where(eq(equipmentLocations.garageId, id));
+    const receptionsList = await db.select().from(equipmentReceptions).where(eq(equipmentReceptions.garageId, id));
+
+    if (employeesList.length > 0) {
+      throw new Error("Cannot delete garage: has assigned employees");
+    }
+    if (workOrdersList.length > 0) {
+      throw new Error("Cannot delete garage: has active work orders");
+    }
+    if (storageLocations.length > 0) {
+      throw new Error("Cannot delete garage: has parts storage locations");
+    }
+    if (equipmentLocationsList.length > 0) {
+      throw new Error("Cannot delete garage: has equipment locations");
+    }
+    if (receptionsList.length > 0) {
+      throw new Error("Cannot delete garage: has equipment receptions");
+    }
+
+    // Delete the garage (repair bays will be cascade deleted)
     await db.delete(garages).where(eq(garages.id, id));
   }
 

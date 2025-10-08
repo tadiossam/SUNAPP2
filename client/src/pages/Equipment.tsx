@@ -261,20 +261,20 @@ function EquipmentDetailDialog({
             </CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-sm text-muted-foreground">Plate Number</div>
-                <div className="font-mono text-sm">{equipment.plateNo || "N/A"}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Serial Number</div>
-                <div className="font-mono text-sm">{equipment.machineSerial || "N/A"}</div>
-              </div>
-              <div>
                 <div className="text-sm text-muted-foreground">Asset Number</div>
                 <div className="font-mono text-sm">{equipment.assetNo || "N/A"}</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">New Asset Number</div>
                 <div className="font-mono text-sm">{equipment.newAssetNo || "N/A"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Plate Number</div>
+                <div className="font-mono text-sm">{equipment.plateNo || "N/A"}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Serial Number</div>
+                <div className="font-mono text-sm">{equipment.machineSerial || "N/A"}</div>
               </div>
             </CardContent>
           </Card>

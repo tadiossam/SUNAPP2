@@ -469,22 +469,18 @@ export default function SparePartsPage() {
                       {part.category}
                     </Badge>
                   </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Price:</span>
+                    <span className="font-semibold text-lg">{part.price ? formatPrice(part.price) : "N/A"}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Stock:</span>
+                    <span className="font-mono">{part.stockQuantity !== null ? part.stockQuantity : "N/A"}</span>
+                  </div>
                   {part.description && (
                     <p className="text-muted-foreground text-xs line-clamp-2">
                       {part.description}
                     </p>
-                  )}
-                  {part.price && (
-                    <div className="flex items-center justify-between pt-2">
-                      <span className="text-muted-foreground">Price:</span>
-                      <span className="font-semibold text-lg">{formatPrice(part.price)}</span>
-                    </div>
-                  )}
-                  {part.stockQuantity !== null && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Quantity:</span>
-                      <span className="font-mono">{part.stockQuantity}</span>
-                    </div>
                   )}
                 </CardContent>
                 <CardFooter className="pt-4">

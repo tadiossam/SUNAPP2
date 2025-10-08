@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Package, Eye, AlertCircle, Upload, Image as ImageIcon, MapPin, Wrench, Clock, Video, Edit } from "lucide-react";
+import { Search, Package, Eye, AlertCircle, Upload, Image as ImageIcon, MapPin, Wrench, Clock, Video, Edit, Trash2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -62,6 +62,14 @@ export default function SparePartsPage() {
   const { data: parts, isLoading } = useQuery<SparePart[]>({
     queryKey: ["/api/parts"],
   });
+
+  // Get current user to check role
+  const { data: authData } = useQuery<{ user: { role: string } }>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  // Check if user is CEO or Admin
+  const isCEOorAdmin = authData?.user?.role === "CEO" || authData?.user?.role === "admin";
 
   const uploadImagesMutation = useMutation({
     mutationFn: async (files: FileList) => {
@@ -241,6 +249,42 @@ export default function SparePartsPage() {
       toast({
         title: "Update failed",
         description: error instanceof Error ? error.message : "Failed to update maintenance info",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: async (imageUrl: string) => {
+      if (!selectedPart) throw new Error("No part selected");
+      
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/parts/${selectedPart.id}/images`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete image');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/parts"] });
+      toast({
+        title: "Image deleted",
+        description: "Image has been successfully deleted.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Failed to delete image",
         variant: "destructive",
       });
     },
@@ -493,30 +537,53 @@ export default function SparePartsPage() {
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-semibold">Part Images ({selectedPart.imageUrls.length})</h4>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadImagesMutation.isPending}
-                        data-testid="button-upload-images"
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        {uploadImagesMutation.isPending ? "Uploading..." : "Add More"}
-                      </Button>
+                      {isCEOorAdmin && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadImagesMutation.isPending}
+                          data-testid="button-upload-images"
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {uploadImagesMutation.isPending ? "Uploading..." : "Add More"}
+                        </Button>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {selectedPart.imageUrls.map((url, idx) => (
                         <div
                           key={idx}
-                          className="aspect-square bg-muted rounded-lg overflow-hidden hover-elevate cursor-pointer"
-                          onClick={() => setSelectedImage(url)}
+                          className="relative aspect-square bg-muted rounded-lg overflow-hidden group"
                           data-testid={`img-gallery-${idx}`}
                         >
-                          <img
-                            src={url}
-                            alt={`${selectedPart.partName} - Image ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
+                          <div 
+                            className="w-full h-full cursor-pointer"
+                            onClick={() => setSelectedImage(url)}
+                          >
+                            <img
+                              src={url}
+                              alt={`${selectedPart.partName} - Image ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          {isCEOorAdmin && (
+                            <Button
+                              size="icon"
+                              variant="destructive"
+                              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm("Are you sure you want to delete this image?")) {
+                                  deleteImageMutation.mutate(url);
+                                }
+                              }}
+                              disabled={deleteImageMutation.isPending}
+                              data-testid={`button-delete-image-${idx}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -531,15 +598,17 @@ export default function SparePartsPage() {
                   <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed rounded-lg">
                     <ImageIcon className="h-12 w-12 text-muted-foreground mb-3" />
                     <p className="text-sm text-muted-foreground mb-4">No images yet</p>
-                    <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadImagesMutation.isPending}
-                      data-testid="button-upload-first-images"
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      {uploadImagesMutation.isPending ? "Uploading..." : "Upload Images"}
-                    </Button>
+                    {isCEOorAdmin && (
+                      <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadImagesMutation.isPending}
+                        data-testid="button-upload-first-images"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        {uploadImagesMutation.isPending ? "Uploading..." : "Upload Images"}
+                      </Button>
+                    )}
                   </div>
                 </>
               )}

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Building2, Plus, MapPin, Users } from "lucide-react";
+import { Building2, Plus, MapPin, Users, Trash2, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,14 @@ export default function Garages() {
     queryKey: ["/api/garages"],
   });
 
+  // Get current user to check role
+  const { data: authData } = useQuery<{ user: { role: string } }>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  // Check if user is CEO or Admin
+  const isCEOorAdmin = authData?.user?.role === "CEO" || authData?.user?.role === "admin";
+
   const createMutation = useMutation({
     mutationFn: async (data: InsertGarage) => {
       return await apiRequest("POST", "/api/garages", data);
@@ -36,6 +44,26 @@ export default function Garages() {
       toast({
         title: t("addGarage"),
         description: "Garage created successfully",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/garages/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      toast({
+        title: "Garage deleted",
+        description: "Garage has been successfully deleted.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Delete failed",
+        description: "Failed to delete garage",
+        variant: "destructive",
       });
     },
   });
@@ -197,7 +225,26 @@ export default function Garages() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{garage.name}</span>
-                  <Building2 className="h-5 w-5 text-primary" />
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    {isCEOorAdmin && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("Are you sure you want to delete this garage?")) {
+                            deleteMutation.mutate(garage.id);
+                          }
+                        }}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-garage-${garage.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -227,6 +274,18 @@ export default function Garages() {
                     </div>
                   </div>
                 )}
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => window.location.href = `/garages/${garage.id}`}
+                    data-testid={`button-view-garage-${garage.id}`}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

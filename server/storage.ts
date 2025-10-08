@@ -145,6 +145,7 @@ export interface IStorage {
   getGarageById(id: string): Promise<GarageWithDetails | undefined>;
   createGarage(data: InsertGarage): Promise<Garage>;
   updateGarage(id: string, data: Partial<InsertGarage>): Promise<Garage>;
+  deleteGarage(id: string): Promise<void>;
 
   // Repair Bays
   getRepairBaysByGarage(garageId: string): Promise<RepairBayWithDetails[]>;
@@ -672,6 +673,10 @@ export class DatabaseStorage implements IStorage {
   async updateGarage(id: string, data: Partial<InsertGarage>): Promise<Garage> {
     const [result] = await db.update(garages).set(data).where(eq(garages.id, id)).returning();
     return result;
+  }
+
+  async deleteGarage(id: string): Promise<void> {
+    await db.delete(garages).where(eq(garages.id, id));
   }
 
   // Repair Bays

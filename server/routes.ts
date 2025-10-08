@@ -647,6 +647,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/garages/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteGarage(req.params.id);
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted', 'garage', req.params.id, req.user.username, {}
+        ));
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting garage:", error);
+      res.status(500).json({ error: "Failed to delete garage" });
+    }
+  });
+
   // Repair Bays
   app.get("/api/garages/:garageId/bays", async (req, res) => {
     try {
@@ -1530,6 +1547,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating part images:", error);
       res.status(500).json({ error: "Failed to update part images" });
+    }
+  });
+
+  // Delete a specific image from a part
+  app.delete("/api/parts/:id/images", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { imageUrl } = req.body;
+      
+      if (!imageUrl) {
+        return res.status(400).json({ error: "imageUrl is required" });
+      }
+
+      // Get existing part
+      const existingPart = await storage.getPartById(req.params.id);
+      if (!existingPart) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      // Remove the specific image from the array
+      const updatedImageUrls = (existingPart.imageUrls || []).filter(
+        url => url !== imageUrl
+      );
+
+      // Update part with filtered image URLs
+      const part = await storage.updatePart(req.params.id, {
+        imageUrls: updatedImageUrls,
+      });
+      
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'spare_part', part.id, req.user.username, 
+          { action: 'image deleted', imageUrl }
+        ));
+      }
+
+      res.json({ part });
+    } catch (error) {
+      console.error("Error deleting part image:", error);
+      res.status(500).json({ error: "Failed to delete part image" });
     }
   });
 

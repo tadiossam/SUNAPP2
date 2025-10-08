@@ -382,43 +382,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // See /api/parts/:id/tutorial/upload-url and PUT /api/parts/:id/tutorial endpoints
 
   // Image upload endpoint for parts
+  // TODO: Update to use presigned URLs like tutorial videos
   app.post("/api/parts/:id/images", upload.array('images', 10), async (req, res) => {
-    try {
-      const files = req.files as Express.Multer.File[];
-      if (!files || files.length === 0) {
-        return res.status(400).json({ error: "No files uploaded" });
-      }
-
-      // Get the public object storage path
-      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
-      if (!publicPath) {
-        return res.status(500).json({ error: "Object storage not configured" });
-      }
-
-      // Save files to object storage
-      const imageUrls: string[] = [];
-      await mkdir(join(publicPath, 'parts'), { recursive: true });
-
-      for (const file of files) {
-        const ext = file.originalname.split('.').pop();
-        const filename = `${nanoid()}.${ext}`;
-        const filePath = join(publicPath, 'parts', filename);
-        
-        await writeFile(filePath, file.buffer);
-        imageUrls.push(`/public/parts/${filename}`);
-      }
-
-      // Update part with new image URLs
-      const part = await storage.addPartImages(req.params.id, imageUrls);
-      if (!part) {
-        return res.status(404).json({ error: "Part not found" });
-      }
-
-      res.json(part);
-    } catch (error) {
-      console.error("Error uploading images:", error);
-      res.status(500).json({ error: "Failed to upload images" });
-    }
+    // Temporarily disabled - needs to be updated to use object storage presigned URLs
+    return res.status(501).json({ error: "Image upload temporarily disabled - being updated to use object storage" });
   });
 
   // Maintenance History endpoints
@@ -1440,7 +1407,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const objectStorageService = new ObjectStorageService();
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      res.json({ uploadURL });
+      
+      // Extract the object path from the upload URL (before query parameters)
+      const url = new URL(uploadURL);
+      const objectPath = objectStorageService.normalizeObjectEntityPath(url.origin + url.pathname);
+      
+      res.json({ 
+        uploadURL,      // For uploading the file
+        objectPath      // For storing in database
+      });
     } catch (error) {
       console.error("Error generating upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });

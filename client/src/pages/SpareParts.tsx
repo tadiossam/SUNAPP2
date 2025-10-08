@@ -110,19 +110,50 @@ export default function SparePartsPage() {
     mutationFn: async (file: File) => {
       if (!selectedPart) throw new Error("No part selected");
       
-      const formData = new FormData();
-      formData.append('video', file);
-
-      const response = await fetch(`/api/parts/${selectedPart.id}/tutorial`, {
+      // Step 1: Get presigned upload URL from backend
+      const token = localStorage.getItem('auth_token');
+      const urlResponse = await fetch(`/api/parts/${selectedPart.id}/tutorial/upload-url`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
       });
 
-      if (!response.ok) {
+      if (!urlResponse.ok) {
+        throw new Error('Failed to get upload URL');
+      }
+
+      const { uploadURL, objectPath } = await urlResponse.json();
+
+      // Step 2: Upload file directly to object storage using presigned URL
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
         throw new Error('Failed to upload tutorial video');
       }
 
-      return response.json();
+      // Step 3: Update part with tutorial video URL (use permanent object path, not presigned URL)
+      const updateResponse = await fetch(`/api/parts/${selectedPart.id}/tutorial`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ tutorialVideoURL: objectPath }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update part with tutorial video');
+      }
+
+      return updateResponse.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parts"] });

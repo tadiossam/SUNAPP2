@@ -6,7 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import EquipmentPage from "@/pages/Equipment";
 import SparePartsPage from "@/pages/SpareParts";
 import ModelsPage from "@/pages/Models";
@@ -121,6 +123,7 @@ function AppContent() {
                   )}
                 </div>
               )}
+              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"
@@ -144,20 +147,17 @@ function AppContent() {
 }
 
 function App() {
-  // Set light theme on mount
-  useEffect(() => {
-    document.documentElement.classList.add("light");
-  }, []);
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <TooltipProvider>
-          <AppContent />
-          <Toaster />
-        </TooltipProvider>
-      </LanguageProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="light">
+      <QueryClientProvider client={queryClient}>
+        <LanguageProvider>
+          <TooltipProvider>
+            <AppContent />
+            <Toaster />
+          </TooltipProvider>
+        </LanguageProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

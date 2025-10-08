@@ -67,21 +67,59 @@ export default function SparePartsPage() {
     mutationFn: async (files: FileList) => {
       if (!selectedPart) throw new Error("No part selected");
       
-      const formData = new FormData();
-      Array.from(files).forEach((file) => {
-        formData.append('images', file);
-      });
-
-      const response = await fetch(`/api/parts/${selectedPart.id}/images`, {
+      const fileArray = Array.from(files);
+      const token = localStorage.getItem('auth_token');
+      
+      // Step 1: Get presigned upload URLs from backend for all images
+      const urlResponse = await fetch(`/api/parts/${selectedPart.id}/images/upload-urls`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ count: fileArray.length }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to upload images');
+      if (!urlResponse.ok) {
+        throw new Error('Failed to get upload URLs');
       }
 
-      return response.json();
+      const { uploadData } = await urlResponse.json();
+      
+      // Step 2: Upload each file to its presigned URL
+      const uploadPromises = fileArray.map((file, index) => {
+        return fetch(uploadData[index].uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+      });
+
+      const uploadResults = await Promise.all(uploadPromises);
+      
+      // Check if all uploads succeeded
+      if (uploadResults.some(result => !result.ok)) {
+        throw new Error('Failed to upload one or more images');
+      }
+
+      // Step 3: Update part with image URLs (use permanent object paths, not presigned URLs)
+      const objectPaths = uploadData.map((data: any) => data.objectPath);
+      const updateResponse = await fetch(`/api/parts/${selectedPart.id}/images`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ imageUrls: objectPaths }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update part with images');
+      }
+
+      return updateResponse.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parts"] });

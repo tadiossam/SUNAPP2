@@ -378,15 +378,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Note: Tutorial video upload now uses presigned URLs
-  // See /api/parts/:id/tutorial/upload-url and PUT /api/parts/:id/tutorial endpoints
-
-  // Image upload endpoint for parts
-  // TODO: Update to use presigned URLs like tutorial videos
-  app.post("/api/parts/:id/images", upload.array('images', 10), async (req, res) => {
-    // Temporarily disabled - needs to be updated to use object storage presigned URLs
-    return res.status(501).json({ error: "Image upload temporarily disabled - being updated to use object storage" });
-  });
+  // Note: Tutorial video and image uploads now use presigned URLs
+  // See /api/parts/:id/tutorial/upload-url, PUT /api/parts/:id/tutorial
+  // And /api/parts/:id/images/upload-urls, PUT /api/parts/:id/images endpoints
 
   // Maintenance History endpoints
   // Mechanics
@@ -1457,6 +1451,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating tutorial video:", error);
       res.status(500).json({ error: "Failed to update tutorial video" });
+    }
+  });
+
+  // Get presigned upload URLs for part images (multiple images)
+  app.post("/api/parts/:id/images/upload-urls", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { count } = req.body;
+      
+      if (!count || count < 1 || count > 10) {
+        return res.status(400).json({ error: "Count must be between 1 and 10" });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      const uploadData = [];
+      
+      // Generate a presigned URL for each image
+      for (let i = 0; i < count; i++) {
+        const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+        
+        // Extract the object path from the upload URL (before query parameters)
+        const url = new URL(uploadURL);
+        const objectPath = objectStorageService.normalizeObjectEntityPath(url.origin + url.pathname);
+        
+        uploadData.push({
+          uploadURL,      // For uploading the file
+          objectPath      // For storing in database
+        });
+      }
+      
+      res.json({ uploadData });
+    } catch (error) {
+      console.error("Error generating image upload URLs:", error);
+      res.status(500).json({ error: "Failed to generate upload URLs" });
+    }
+  });
+
+  // Update part with image URLs after upload
+  app.put("/api/parts/:id/images", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.body.imageUrls || !Array.isArray(req.body.imageUrls)) {
+        return res.status(400).json({ error: "imageUrls array is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      
+      // Normalize all object paths
+      const normalizedPaths = req.body.imageUrls.map((url: string) => 
+        objectStorageService.normalizeObjectEntityPath(url)
+      );
+
+      // Get existing part to append new images
+      const existingPart = await storage.getPartById(req.params.id);
+      if (!existingPart) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      // Append new images to existing images
+      const allImageUrls = [...(existingPart.imageUrls || []), ...normalizedPaths];
+
+      // Update part with all image URLs
+      const part = await storage.updatePart(req.params.id, {
+        imageUrls: allImageUrls,
+      });
+      
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated', 'spare_part', part.id, req.user.username, 
+          { action: 'images uploaded', count: normalizedPaths.length }
+        ));
+      }
+
+      res.json({ part });
+    } catch (error) {
+      console.error("Error updating part images:", error);
+      res.status(500).json({ error: "Failed to update part images" });
     }
   });
 

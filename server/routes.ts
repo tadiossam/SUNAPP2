@@ -144,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const searchTerm = req.query.search as string | undefined;
       const equipmentType = req.query.equipmentType as string | undefined;
       const make = req.query.make as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
 
       const result = await storage.searchEquipment({

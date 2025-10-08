@@ -22,11 +22,12 @@ I prefer iterative development with clear communication at each stage. Please as
 - **Backend**: Express.js with Node.js.
 - **Database**: PostgreSQL (Neon) with Drizzle ORM.
 - **3D Viewing**: Three.js with GLTF/GLB loader.
-- **Authentication**: JWT-based authentication stored in localStorage for iOS Safari compatibility, role-based access control (CEO, Admin, User), password hashing with bcrypt, protected routes.
+- **Authentication**: JWT-based authentication stored in localStorage as 'auth_token' for iOS Safari compatibility, role-based access control (CEO, Admin, User), password hashing with bcrypt, protected routes with Authorization header.
 - **Offline Support**: Progressive Web App (PWA) with service workers for caching API responses, images, videos, and 3D models.
 - **Mobile Compatibility**: Apple-specific meta tags, touch-optimized viewport, Apple Touch Icon, standalone app mode for iOS and Android.
 - **Manufacturing Specifications**: Millimeter-precision dimensions, material, tolerance, weight, CAD format availability (STL, STEP, GLTF, GLB), surface finish, and hardness data.
-- **Image/Video/3D Model Handling**: Multi-image upload, video tutorial upload/playback, 3D model upload to object storage.
+- **Object Storage**: Replit Object Storage via Google Cloud Storage with presigned URL pattern for secure uploads. ObjectStorageService (server/objectStorage.ts) handles upload URL generation and ACL policies (server/objectAcl.ts).
+- **Image/Video/3D Model Handling**: Tutorial video upload via 3-step presigned URL flow (get uploadURL + objectPath, upload to GCS, save permanent path). Image upload temporarily disabled pending same refactor. 3D model upload functional.
 
 ### Feature Specifications
 - **Equipment Inventory**: Search, filter by type/make.

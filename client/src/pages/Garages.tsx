@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Garages() {
   const { t } = useLanguage();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
@@ -280,7 +282,7 @@ export default function Garages() {
                     size="sm"
                     variant="outline"
                     className="flex-1"
-                    onClick={() => window.location.href = `/garages/${garage.id}`}
+                    onClick={() => setLocation(`/garages/${garage.id}`)}
                     data-testid={`button-view-garage-${garage.id}`}
                   >
                     <Eye className="h-4 w-4 mr-2" />

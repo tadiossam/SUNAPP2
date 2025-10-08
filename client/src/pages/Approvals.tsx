@@ -67,7 +67,7 @@ export default function ApprovalsPage() {
 
   // Fetch pending approvals (for current user if logged in as supervisor)
   const { data: approvals, isLoading: loadingApprovals } = useQuery<Approval[]>({
-    queryKey: ["/api/approvals", { status: "pending" }],
+    queryKey: ["/api/approvals?status=pending"],
   });
 
   // Fetch work orders pending approval
@@ -85,7 +85,7 @@ export default function ApprovalsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parts-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
       toast({ title: t("success"), description: t("partsRequestApproved") });
       setSelectedRequest(null);
       setApprovalNotes("");
@@ -103,7 +103,7 @@ export default function ApprovalsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parts-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
       toast({ title: t("success"), description: t("partsRequestRejected") });
       setSelectedRequest(null);
       setApprovalNotes("");

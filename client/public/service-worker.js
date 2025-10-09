@@ -1,4 +1,4 @@
-const CACHE_NAME = 'partfinder-ssc-v2';
+const CACHE_NAME = 'partfinder-ssc-v3';
 const OFFLINE_URL = '/';
 
 const STATIC_ASSETS = [
@@ -46,6 +46,7 @@ self.addEventListener('fetch', (event) => {
   const isApiRequest = url.pathname.startsWith('/api/');
   const isAsset = 
     url.pathname.startsWith('/assets/') ||
+    url.pathname.startsWith('/stock_images/') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.webm') ||

@@ -30,6 +30,7 @@ import { nanoid } from "nanoid";
 import { isCEO, isCEOOrAdmin, verifyCredentials, generateToken } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import express from "express";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -69,6 +70,9 @@ const upload3DModel = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve stock images as static files
+  app.use('/stock_images', express.static(join(process.cwd(), 'attached_assets', 'stock_images')));
+
   // Authentication endpoints
   app.post("/api/auth/login", async (req, res) => {
     try {

@@ -50,6 +50,8 @@ export default function WorkOrdersPage() {
   const [notes, setNotes] = useState("");
   const [selectedParts, setSelectedParts] = useState<SparePart[]>([]);
   const [partSearchTerm, setPartSearchTerm] = useState("");
+  const [isPartsDialogOpen, setIsPartsDialogOpen] = useState(false);
+  const [tempSelectedParts, setTempSelectedParts] = useState<string[]>([]);
 
   const { data: workOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders"],
@@ -109,10 +111,23 @@ export default function WorkOrdersPage() {
     setPartSearchTerm("");
   };
 
-  const addPart = (part: SparePart) => {
-    if (!selectedParts.find(p => p.id === part.id)) {
-      setSelectedParts([...selectedParts, part]);
+  const openPartsDialog = () => {
+    setTempSelectedParts(selectedParts.map(p => p.id));
+    setIsPartsDialogOpen(true);
+  };
+
+  const togglePartSelection = (partId: string) => {
+    if (tempSelectedParts.includes(partId)) {
+      setTempSelectedParts(tempSelectedParts.filter(id => id !== partId));
+    } else {
+      setTempSelectedParts([...tempSelectedParts, partId]);
     }
+  };
+
+  const confirmPartsSelection = () => {
+    const selected = spareParts?.filter(p => tempSelectedParts.includes(p.id)) || [];
+    setSelectedParts(selected);
+    setIsPartsDialogOpen(false);
     setPartSearchTerm("");
   };
 
@@ -130,10 +145,9 @@ export default function WorkOrdersPage() {
   };
 
   const filteredSpareParts = spareParts?.filter(part => 
-    !selectedParts.find(p => p.id === part.id) &&
-    (partSearchTerm === "" ||
-      part.partNumber.toLowerCase().includes(partSearchTerm.toLowerCase()) ||
-      part.partName.toLowerCase().includes(partSearchTerm.toLowerCase()))
+    partSearchTerm === "" ||
+    part.partNumber.toLowerCase().includes(partSearchTerm.toLowerCase()) ||
+    part.partName.toLowerCase().includes(partSearchTerm.toLowerCase())
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -424,7 +438,74 @@ export default function WorkOrdersPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
+            {/* Required Spare Parts */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Required Spare Parts
+              </Label>
+              
+              {/* Selected Parts Display */}
+              {selectedParts.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
+                  {selectedParts.map((part) => (
+                    <div key={part.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{part.partName}</span>
+                        <span className="text-xs text-muted-foreground">{part.partNumber}</span>
+                      </div>
+                      <Badge className={getStockStatusColor(part.stockStatus)} data-testid={`badge-stock-${part.id}`}>
+                        {part.stockStatus.replace("_", " ")}
+                      </Badge>
+                      {part.stockStatus === "out_of_stock" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs"
+                          onClick={() => {
+                            toast({
+                              title: "Purchase Request",
+                              description: `Request purchase for ${part.partName}`,
+                            });
+                          }}
+                          data-testid={`button-request-purchase-${part.id}`}
+                        >
+                          <ShoppingCart className="h-3 w-3 mr-1" />
+                          Request Purchase
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => removePart(part.id)}
+                        data-testid={`button-remove-part-${part.id}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Select Parts Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openPartsDialog}
+                className="w-full"
+                data-testid="button-select-spare-parts"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {selectedParts.length === 0 ? "Select Spare Parts" : `Manage Selected Parts (${selectedParts.length})`}
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Scheduled Date */}
               <div className="space-y-2">
                 <Label htmlFor="scheduledDate">Scheduled Date</Label>
@@ -492,107 +573,6 @@ export default function WorkOrdersPage() {
               />
             </div>
 
-            {/* Required Spare Parts */}
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Required Spare Parts
-              </Label>
-              
-              {/* Selected Parts */}
-              {selectedParts.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
-                  {selectedParts.map((part) => (
-                    <div key={part.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{part.partName}</span>
-                        <span className="text-xs text-muted-foreground">{part.partNumber}</span>
-                      </div>
-                      <Badge className={getStockStatusColor(part.stockStatus)} data-testid={`badge-stock-${part.id}`}>
-                        {part.stockStatus.replace("_", " ")}
-                      </Badge>
-                      {part.stockStatus === "out_of_stock" && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-xs"
-                          onClick={() => {
-                            toast({
-                              title: "Purchase Request",
-                              description: `Request purchase for ${part.partName}`,
-                            });
-                          }}
-                          data-testid={`button-request-purchase-${part.id}`}
-                        >
-                          <ShoppingCart className="h-3 w-3 mr-1" />
-                          Request Purchase
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => removePart(part.id)}
-                        data-testid={`button-remove-part-${part.id}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Part Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search spare parts by name or part number..."
-                  value={partSearchTerm}
-                  onChange={(e) => setPartSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                    }
-                  }}
-                  className="pl-9"
-                  data-testid="input-search-spare-parts"
-                />
-              </div>
-
-              {/* Available Parts List */}
-              {partSearchTerm && filteredSpareParts && filteredSpareParts.length > 0 && (
-                <Card>
-                  <CardContent className="p-2 max-h-48 overflow-y-auto">
-                    <div className="space-y-1">
-                      {filteredSpareParts.slice(0, 10).map((part) => (
-                        <div
-                          key={part.id}
-                          className="flex items-center justify-between p-2 hover-elevate rounded-md cursor-pointer"
-                          onClick={() => addPart(part)}
-                          data-testid={`option-spare-part-${part.id}`}
-                        >
-                          <div className="flex-1">
-                            <div className="text-sm font-medium">{part.partName}</div>
-                            <div className="text-xs text-muted-foreground">{part.partNumber}</div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge className={getStockStatusColor(part.stockStatus)}>
-                              {part.stockStatus.replace("_", " ")}
-                            </Badge>
-                            {part.price && (
-                              <span className="text-sm text-muted-foreground">${part.price}</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
             {/* Form Actions */}
             <div className="flex justify-end gap-3 pt-4">
               <Button
@@ -615,6 +595,108 @@ export default function WorkOrdersPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Spare Parts Selection Dialog */}
+      <Dialog open={isPartsDialogOpen} onOpenChange={setIsPartsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-spare-parts">
+          <DialogHeader>
+            <DialogTitle>Select Spare Parts</DialogTitle>
+            <DialogDescription>
+              Choose the spare parts required for this work order
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col gap-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search spare parts by name or part number..."
+                value={partSearchTerm}
+                onChange={(e) => setPartSearchTerm(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-parts-dialog"
+              />
+            </div>
+
+            {/* Parts List */}
+            <div className="flex-1 overflow-y-auto border rounded-md">
+              {filteredSpareParts && filteredSpareParts.length > 0 ? (
+                <div className="divide-y">
+                  {filteredSpareParts.map((part) => (
+                    <div
+                      key={part.id}
+                      className="flex items-center gap-3 p-4 hover-elevate cursor-pointer"
+                      onClick={() => togglePartSelection(part.id)}
+                      data-testid={`part-option-${part.id}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={tempSelectedParts.includes(part.id)}
+                        onChange={() => togglePartSelection(part.id)}
+                        className="h-4 w-4 rounded border-gray-300"
+                        data-testid={`checkbox-part-${part.id}`}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{part.partName}</div>
+                        <div className="text-sm text-muted-foreground">{part.partNumber}</div>
+                        {part.category && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Category: {part.category}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge className={getStockStatusColor(part.stockStatus)}>
+                          {part.stockStatus.replace("_", " ")}
+                        </Badge>
+                        {part.price && (
+                          <span className="text-sm font-medium">${part.price}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
+                  {partSearchTerm ? "No parts found matching your search" : "No spare parts available"}
+                </div>
+              )}
+            </div>
+
+            {/* Selection Summary */}
+            {tempSelectedParts.length > 0 && (
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">
+                  {tempSelectedParts.length} part{tempSelectedParts.length !== 1 ? 's' : ''} selected
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Dialog Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsPartsDialogOpen(false);
+                setPartSearchTerm("");
+              }}
+              data-testid="button-cancel-parts-selection"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmPartsSelection}
+              data-testid="button-confirm-parts-selection"
+            >
+              Confirm Selection
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

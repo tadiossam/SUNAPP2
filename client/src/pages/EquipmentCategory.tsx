@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { ArrowLeft, Search, Wrench, DollarSign, Calendar, TrendingUp, X } from "lucide-react";
@@ -18,12 +18,35 @@ import type {
   SparePart 
 } from "@shared/schema";
 
+// Background image mapping for different equipment categories
+const CATEGORY_BACKGROUNDS: Record<string, string> = {
+  "EXCAVATOR": "/attached_assets/Capture_1760099408820.PNG",
+  "ASPHALT DISTR.": "/attached_assets/Capture_1760099408820.PNG",
+  "TRUCK": "/attached_assets/Capture_1760099408820.PNG",
+  "LOADER": "/attached_assets/Capture_1760099408820.PNG",
+  "GRADER": "/attached_assets/Capture_1760099408820.PNG",
+  "ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "DOZER": "/attached_assets/Capture_1760099408820.PNG",
+  "BACKHOE": "/attached_assets/Capture_1760099408820.PNG",
+  "CRANE": "/attached_assets/Capture_1760099408820.PNG",
+  "FORKLIFT": "/attached_assets/Capture_1760099408820.PNG",
+  "default": "/attached_assets/Capture_1760099408820.PNG"
+};
+
 export default function EquipmentCategoryPage() {
   const [, params] = useRoute("/equipment/category/:type");
   const equipmentType = params?.type ? decodeURIComponent(params.type) : "";
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const [backgroundImage, setBackgroundImage] = useState("/attached_assets/Capture_1760099408820.PNG");
+  const [backgroundImage, setBackgroundImage] = useState(
+    CATEGORY_BACKGROUNDS[equipmentType] || CATEGORY_BACKGROUNDS["default"]
+  );
+
+  // Update background image when equipment type changes
+  useEffect(() => {
+    const newBackground = CATEGORY_BACKGROUNDS[equipmentType] || CATEGORY_BACKGROUNDS["default"];
+    setBackgroundImage(newBackground);
+  }, [equipmentType]);
 
   const { data: equipment, isLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],

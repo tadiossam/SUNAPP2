@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,7 +37,6 @@ export default function EquipmentPage() {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterMake, setFilterMake] = useState<string>("all");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const { data: equipment, isLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -78,16 +77,6 @@ export default function EquipmentPage() {
 
   // Sort groups by equipment type alphabetically
   groupedEquipment.sort((a, b) => a.equipmentType.localeCompare(b.equipmentType));
-
-  const toggleGroup = (key: string) => {
-    const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(key)) {
-      newExpanded.delete(key);
-    } else {
-      newExpanded.add(key);
-    }
-    setExpandedGroups(newExpanded);
-  };
 
   const equipmentTypes = Array.from(new Set(equipment?.map((e) => e.equipmentType) || []));
   const makes = Array.from(new Set(equipment?.map((e) => e.make) || []));
@@ -183,19 +172,17 @@ export default function EquipmentPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {groupedEquipment.map((group) => {
               const groupKey = group.equipmentType;
-              const isExpanded = expandedGroups.has(groupKey);
-              const displayUnits = isExpanded ? group.units : group.units.slice(0, 5);
               
               return (
                 <Card 
                   key={groupKey} 
-                  className="overflow-hidden hover-elevate" 
+                  className="overflow-hidden hover-elevate cursor-pointer" 
                   data-testid={`card-equipment-group-${groupKey}`}
+                  onClick={() => setLocation(`/equipment/category/${encodeURIComponent(groupKey)}`)}
                 >
                   <div 
-                    className="relative h-48 cursor-pointer bg-cover bg-center"
+                    className="relative h-48 bg-cover bg-center"
                     style={{ backgroundImage: `url(/attached_assets/Capture_1760099408820.PNG)` }}
-                    onClick={() => setLocation(`/equipment/category/${encodeURIComponent(groupKey)}`)}
                     data-testid={`header-equipment-type-${groupKey}`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20" />
@@ -212,64 +199,10 @@ export default function EquipmentPage() {
                             {group.count === 1 ? 'Unit' : 'Units'}
                           </p>
                         </div>
-                        {isExpanded ? (
-                          <ChevronDown className="h-6 w-6 text-white flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-6 w-6 text-white flex-shrink-0" />
-                        )}
+                        <ChevronRight className="h-6 w-6 text-white flex-shrink-0" />
                       </div>
                     </div>
                   </div>
-                  
-                  {(isExpanded || group.units.length > 0) && (
-                    <CardContent className="p-4 space-y-2">
-                      {displayUnits.map((unit, idx) => (
-                        <div 
-                          key={unit.id}
-                          className="p-3 rounded-md bg-muted/50 hover-elevate cursor-pointer text-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEquipment(unit);
-                          }}
-                          data-testid={`card-equipment-unit-${unit.id}`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div>
-                              <div className="font-medium">{unit.make} {unit.model}</div>
-                              {unit.machineSerial && (
-                                <div className="text-xs text-muted-foreground mt-0.5">
-                                  Serial: {unit.machineSerial}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                            {unit.assetNo && (
-                              <div>
-                                <span className="text-muted-foreground">Asset #:</span>
-                                <span className="ml-1 font-mono">{unit.assetNo}</span>
-                              </div>
-                            )}
-                            {unit.plateNo && (
-                              <div>
-                                <span className="text-muted-foreground">Plate #:</span>
-                                <span className="ml-1 font-mono">{unit.plateNo}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {!isExpanded && group.units.length > 5 && (
-                        <div 
-                          className="text-center text-sm text-muted-foreground pt-2 cursor-pointer hover:text-foreground"
-                          onClick={() => toggleGroup(groupKey)}
-                          data-testid={`link-show-more-${groupKey}`}
-                        >
-                          +{group.units.length - 5} more units
-                        </div>
-                      )}
-                    </CardContent>
-                  )}
                 </Card>
               );
             })}

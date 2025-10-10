@@ -30,7 +30,18 @@ I prefer iterative development with clear communication at each stage. Please as
 - **Image/Video/3D Model Handling**: Tutorial video and part image uploads both use 3-step presigned URL flow (get uploadURL + objectPath, upload to GCS, save permanent path). Image upload supports multiple files in parallel. 3D model upload functional.
 
 ### Feature Specifications
-- **Equipment Inventory**: Search, filter by type/make.
+- **Equipment Inventory**: 
+  - Category-based grouping by Equipment Type with clickable category cards
+  - Category cards show background image, type name, unit count, and navigation arrow
+  - No unit list on main page - units displayed on dedicated category pages
+  - Search and filter by type/make on main page
+- **Equipment Category Pages** (/equipment/category/:type):
+  - Full-screen background banner with category name (text-7xl) and total unit count (top-right corner)
+  - Configurable background images per category via CATEGORY_BACKGROUNDS mapping
+  - Displays all units in 2-column grid below search bar
+  - Search functionality to filter units within category
+  - Equipment detail modal with statistics (Maintenance Records, Total Cost, Labor Hours, Avg Performance)
+  - Tabs for Maintenance History, Parts Used, and Operating Reports
 - **Spare Parts Catalog**: Advanced filtering (category, stock status), part detail modal with specifications, compatibility, images, videos, animated tutorials, and maintenance guides.
 - **3D Models Library**: Demonstration viewer, model upload, 360-degree interactive rotation, auto-rotation with speed controls.
 - **Maintenance Information System**: Part location instructions, installation tutorials, required tools list, time estimates.

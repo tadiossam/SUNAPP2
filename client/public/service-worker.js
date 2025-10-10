@@ -1,4 +1,4 @@
-const CACHE_NAME = 'partfinder-ssc-v4';
+const CACHE_NAME = 'partfinder-ssc-v5-visible';
 const OFFLINE_URL = '/';
 
 const STATIC_ASSETS = [

@@ -39,7 +39,7 @@ const CATEGORY_BACKGROUNDS: Record<string, string> = {
   "S/D ROLLER": "/attached_assets/Capture_1760099408820.PNG",
   "PNEUMATIC ROLLER": "/attached_assets/Capture_1760099408820.PNG",
   "TYRE PNEUMATIC": "/attached_assets/Capture_1760099408820.PNG",
-  "DOZER": "/attached_assets/Capture_1760099408820.PNG",
+  "DOZER": "/attached_assets/dozer_1760103113381.avif",
   "MOBILE CRANE": "/attached_assets/Capture_1760099408820.PNG",
   "HALF CRANE": "/attached_assets/Capture_1760099408820.PNG",
   "CRUSHER": "/attached_assets/Capture_1760099408820.PNG",

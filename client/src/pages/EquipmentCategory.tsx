@@ -136,40 +136,42 @@ export default function EquipmentCategoryPage() {
               </div>
             </div>
 
-            {/* Equipment Results - Only show when searching */}
-            {searchTerm && filteredEquipment && filteredEquipment.length > 0 && (
-              <div className="w-full max-w-2xl mt-6 max-h-96 overflow-y-auto space-y-2">
-                {filteredEquipment.map((item) => (
-                  <Card 
-                    key={item.id} 
-                    className="bg-white/10 backdrop-blur-sm border-white/20 hover-elevate cursor-pointer"
-                    onClick={() => setSelectedEquipment(item)}
-                    data-testid={`card-equipment-${item.id}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-white">
-                            {item.make} {item.model}
-                          </h3>
-                          <p className="text-sm text-white/70">
-                            Serial: {item.machineSerial || "N/A"}
-                          </p>
+            {/* Equipment Results - Show all units or filtered results */}
+            {filteredEquipment && filteredEquipment.length > 0 && (
+              <div className="w-full max-w-4xl mt-6 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredEquipment.map((item) => (
+                    <Card 
+                      key={item.id} 
+                      className="bg-white/10 backdrop-blur-sm border-white/20 hover-elevate cursor-pointer"
+                      onClick={() => setSelectedEquipment(item)}
+                      data-testid={`card-equipment-${item.id}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-white">
+                              {item.make} {item.model}
+                            </h3>
+                            <p className="text-sm text-white/70">
+                              Serial: {item.machineSerial || "N/A"}
+                            </p>
+                          </div>
+                          <div className="text-right text-sm text-white/70">
+                            {item.assetNo && <p>Asset: {item.assetNo}</p>}
+                            {item.plateNo && <p>Plate: {item.plateNo}</p>}
+                          </div>
                         </div>
-                        <div className="text-right text-sm text-white/70">
-                          {item.assetNo && <p>Asset: {item.assetNo}</p>}
-                          {item.plateNo && <p>Plate: {item.plateNo}</p>}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
 
-            {searchTerm && (!filteredEquipment || filteredEquipment.length === 0) && (
+            {(!filteredEquipment || filteredEquipment.length === 0) && (
               <div className="mt-6 text-center">
-                <p className="text-white/70 text-lg">No equipment found matching your search</p>
+                <p className="text-white/70 text-lg">No equipment found in this category</p>
               </div>
             )}
           </div>

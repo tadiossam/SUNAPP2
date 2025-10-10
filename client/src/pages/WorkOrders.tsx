@@ -444,11 +444,11 @@ export default function WorkOrdersPage() {
               </div>
             </div>
 
-            {/* Required Spare Parts */}
-            <div className="space-y-3 p-4 border-2 border-primary rounded-lg bg-primary/5">
+            {/* Required Spare Parts - UPDATED v6 */}
+            <div className="space-y-3 p-4 border-2 border-primary rounded-lg bg-primary/5 shadow-lg">
               <Label className="flex items-center gap-2 text-lg font-semibold text-primary">
                 <Package className="h-5 w-5" />
-                Required Spare Parts
+                Required Spare Parts [v6 - Active]
               </Label>
               
               {/* Selected Parts Display */}
@@ -501,11 +501,11 @@ export default function WorkOrdersPage() {
                 type="button"
                 variant="default"
                 onClick={openPartsDialog}
-                className="w-full h-12 text-base font-semibold"
+                className="w-full h-14 text-lg font-bold shadow-xl animate-pulse"
                 data-testid="button-select-spare-parts"
               >
-                <Plus className="h-5 w-5 mr-2" />
-                {selectedParts.length === 0 ? "Click Here to Select Spare Parts" : `Manage Selected Parts (${selectedParts.length})`}
+                <Plus className="h-6 w-6 mr-2" />
+                {selectedParts.length === 0 ? "🔧 CLICK HERE TO SELECT SPARE PARTS 🔧" : `Manage Selected Parts (${selectedParts.length})`}
               </Button>
             </div>
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'partfinder-ssc-v6-force-refresh';
+const CACHE_NAME = 'partfinder-ssc-v7-final-update';
 const OFFLINE_URL = '/';
 
 const STATIC_ASSETS = [

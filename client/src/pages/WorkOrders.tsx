@@ -117,16 +117,20 @@ export default function WorkOrdersPage() {
   };
 
   const togglePartSelection = (partId: string) => {
-    if (tempSelectedParts.includes(partId)) {
-      setTempSelectedParts(tempSelectedParts.filter(id => id !== partId));
-    } else {
-      setTempSelectedParts([...tempSelectedParts, partId]);
-    }
+    setTempSelectedParts(prev => {
+      if (prev.includes(partId)) {
+        return prev.filter(id => id !== partId);
+      } else {
+        return [...prev, partId];
+      }
+    });
   };
 
   const confirmPartsSelection = () => {
-    const selected = spareParts?.filter(p => tempSelectedParts.includes(p.id)) || [];
-    setSelectedParts(selected);
+    setSelectedParts(prev => {
+      const selected = spareParts?.filter(p => tempSelectedParts.includes(p.id)) || [];
+      return selected;
+    });
     setIsPartsDialogOpen(false);
     setPartSearchTerm("");
   };
@@ -635,7 +639,11 @@ export default function WorkOrdersPage() {
                       <input
                         type="checkbox"
                         checked={tempSelectedParts.includes(part.id)}
-                        onChange={() => togglePartSelection(part.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          togglePartSelection(part.id);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
                         className="h-4 w-4 rounded border-gray-300"
                         data-testid={`checkbox-part-${part.id}`}
                       />

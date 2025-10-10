@@ -68,7 +68,7 @@ export default function WorkOrdersPage() {
   });
 
   const { data: spareParts } = useQuery<SparePart[]>({
-    queryKey: ["/api/spare-parts"],
+    queryKey: ["/api/parts"],
   });
 
   const createWorkOrderMutation = useMutation({
@@ -156,8 +156,8 @@ export default function WorkOrdersPage() {
       priority,
       workType,
       description,
-      estimatedHours: estimatedHours ? parseFloat(estimatedHours) : undefined,
-      estimatedCost: estimatedCost ? parseFloat(estimatedCost) : undefined,
+      estimatedHours: estimatedHours || undefined,
+      estimatedCost: estimatedCost || undefined,
       scheduledDate: scheduledDate || undefined,
       notes: notes || undefined,
       requiredParts: selectedParts.map(part => ({
@@ -551,6 +551,11 @@ export default function WorkOrdersPage() {
                   placeholder="Search spare parts by name or part number..."
                   value={partSearchTerm}
                   onChange={(e) => setPartSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                    }
+                  }}
                   className="pl-9"
                   data-testid="input-search-spare-parts"
                 />

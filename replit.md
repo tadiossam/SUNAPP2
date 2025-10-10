@@ -47,6 +47,16 @@ I prefer iterative development with clear communication at each stage. Please as
 - **Maintenance Information System**: Part location instructions, installation tutorials, required tools list, time estimates.
 - **CEO Access Control**: CEO-only access for equipment creation/modification, secure login/logout.
 - **Garage Management**: Garages/workshops with capacity, repair bays, employee management (mechanic, painter, electrician, etc., with bilingual support), work order system, SOPs, parts storage location tracking.
+- **Work Order Management**: 
+  - Complete work order creation with equipment selection, garage/employee assignment
+  - Priority levels (Low, Medium, High, Critical), work types (Repair, Maintenance, Inspection, Overhaul, Replacement, Diagnostics)
+  - Spare parts multi-select with real-time search (searches by part name or number), stock status display (in_stock/low_stock/out_of_stock)
+  - Selected parts displayed as badges with remove functionality
+  - Request Purchase button for out-of-stock parts with toast notifications
+  - Work order submission includes required parts array with partId, partName, partNumber, and stockStatus
+  - Cost estimation (string format), scheduling (datetime-local), and comprehensive notes
+  - Filterable work order list by status, priority, and search
+  - Enter key in spare parts search prevented from submitting form
 - **Equipment Reception/Check-in**: Driver drop-off checklist, mechanic inspection workflow, visual damage reporting, photo documentation, automatic work order creation, repair estimates.
 - **Approval System**: Multi-level approval workflow for job orders, completions, parts requests based on department hierarchy, approval limit controls, pending approvals dashboard, escalation.
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.

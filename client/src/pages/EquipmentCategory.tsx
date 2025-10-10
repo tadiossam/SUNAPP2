@@ -147,24 +147,31 @@ export default function EquipmentCategoryPage() {
     : 0;
 
   return (
-    <div className="flex-1 overflow-auto">
-      {/* Hero Banner Header with Background */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header Banner with Background */}
       <div 
-        className="relative h-screen bg-cover bg-center"
+        className="relative h-64 bg-cover bg-center flex-shrink-0"
         style={{ backgroundImage: `url(${backgroundImage})` }}
         data-testid="header-category-banner"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/50" />
-        <div className="absolute inset-0 container mx-auto px-6 py-8 flex flex-col">
-          <div className="flex items-center justify-between mb-8">
+        <div className="absolute inset-0 container mx-auto px-6 py-6 flex flex-col">
+          <div className="mb-4">
             <Link href="/equipment">
               <Button variant="ghost" size="sm" className="text-white hover:text-white/90">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Equipment
               </Button>
             </Link>
+          </div>
+          
+          <div className="flex-1 flex items-center justify-between">
+            <h1 className="text-6xl font-bold text-white" data-testid="text-category-name">
+              {equipmentType}
+            </h1>
+            
             <div className="text-right">
-              <p className="text-6xl font-bold text-white" data-testid="text-total-units">
+              <p className="text-7xl font-bold text-white" data-testid="text-total-units">
                 {categoryEquipment?.length || 0}
               </p>
               <p className="text-xl text-white/80">
@@ -172,65 +179,70 @@ export default function EquipmentCategoryPage() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto w-full">
-            <h1 className="text-7xl font-bold text-white mb-8 text-center" data-testid="text-category-name">
-              {equipmentType}
-            </h1>
-            
-            {/* Search Bar */}
-            <div className="w-full max-w-2xl">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/60 h-5 w-5" />
-                <Input
-                  placeholder="Search by model, make, serial, asset, or plate number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-12 h-14 text-lg bg-white/10 border-white/20 text-white placeholder:text-white/50 backdrop-blur-sm"
-                  data-testid="input-search-equipment"
-                />
-              </div>
+      {/* Content Section */}
+      <div className="flex-1 overflow-auto bg-background">
+        <div className="container mx-auto px-6 py-6">
+          {/* Search Bar */}
+          <div className="mb-6 max-w-2xl">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                placeholder="Search by model, make, serial, asset, or plate number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 h-12"
+                data-testid="input-search-equipment"
+              />
             </div>
-
-            {/* Equipment Results - Show all units or filtered results */}
-            {filteredEquipment && filteredEquipment.length > 0 && (
-              <div className="w-full max-w-4xl mt-6 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {filteredEquipment.map((item) => (
-                    <Card 
-                      key={item.id} 
-                      className="bg-white/10 backdrop-blur-sm border-white/20 hover-elevate cursor-pointer"
-                      onClick={() => setSelectedEquipment(item)}
-                      data-testid={`card-equipment-${item.id}`}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-white">
-                              {item.make} {item.model}
-                            </h3>
-                            <p className="text-sm text-white/70">
-                              Serial: {item.machineSerial || "N/A"}
-                            </p>
-                          </div>
-                          <div className="text-right text-sm text-white/70">
-                            {item.assetNo && <p>Asset: {item.assetNo}</p>}
-                            {item.plateNo && <p>Plate: {item.plateNo}</p>}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(!filteredEquipment || filteredEquipment.length === 0) && (
-              <div className="mt-6 text-center">
-                <p className="text-white/70 text-lg">No equipment found in this category</p>
-              </div>
-            )}
           </div>
+
+          {/* Equipment Grid */}
+          {filteredEquipment && filteredEquipment.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredEquipment.map((item) => (
+                <Card 
+                  key={item.id} 
+                  className="hover-elevate cursor-pointer"
+                  onClick={() => setSelectedEquipment(item)}
+                  data-testid={`card-equipment-${item.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold mb-1">
+                          {item.make} {item.model}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Serial: {item.machineSerial || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {item.assetNo && (
+                        <div>
+                          <span className="text-muted-foreground">Asset:</span>
+                          <span className="ml-1 font-mono">{item.assetNo}</span>
+                        </div>
+                      )}
+                      {item.plateNo && (
+                        <div>
+                          <span className="text-muted-foreground">Plate:</span>
+                          <span className="ml-1 font-mono">{item.plateNo}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground text-lg">No equipment found in this category</p>
+            </div>
+          )}
         </div>
       </div>
 

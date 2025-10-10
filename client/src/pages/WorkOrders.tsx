@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Equipment, Garage, Employee } from "@shared/schema";
+import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
 
 type WorkOrder = {
   id: string;
@@ -48,6 +48,8 @@ export default function WorkOrdersPage() {
   const [estimatedCost, setEstimatedCost] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [selectedParts, setSelectedParts] = useState<SparePart[]>([]);
+  const [partSearchTerm, setPartSearchTerm] = useState("");
 
   const { data: workOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders"],
@@ -63,6 +65,10 @@ export default function WorkOrdersPage() {
 
   const { data: employees } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
+  });
+
+  const { data: spareParts } = useQuery<SparePart[]>({
+    queryKey: ["/api/spare-parts"],
   });
 
   const createWorkOrderMutation = useMutation({
@@ -99,7 +105,36 @@ export default function WorkOrdersPage() {
     setEstimatedCost("");
     setScheduledDate("");
     setNotes("");
+    setSelectedParts([]);
+    setPartSearchTerm("");
   };
+
+  const addPart = (part: SparePart) => {
+    if (!selectedParts.find(p => p.id === part.id)) {
+      setSelectedParts([...selectedParts, part]);
+    }
+    setPartSearchTerm("");
+  };
+
+  const removePart = (partId: string) => {
+    setSelectedParts(selectedParts.filter(p => p.id !== partId));
+  };
+
+  const getStockStatusColor = (status: string) => {
+    switch (status) {
+      case "in_stock": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "low_stock": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+      case "out_of_stock": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+    }
+  };
+
+  const filteredSpareParts = spareParts?.filter(part => 
+    !selectedParts.find(p => p.id === part.id) &&
+    (partSearchTerm === "" ||
+      part.partNumber.toLowerCase().includes(partSearchTerm.toLowerCase()) ||
+      part.partName.toLowerCase().includes(partSearchTerm.toLowerCase()))
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +160,12 @@ export default function WorkOrdersPage() {
       estimatedCost: estimatedCost ? parseFloat(estimatedCost) : undefined,
       scheduledDate: scheduledDate || undefined,
       notes: notes || undefined,
+      requiredParts: selectedParts.map(part => ({
+        partId: part.id,
+        partName: part.partName,
+        partNumber: part.partNumber,
+        stockStatus: part.stockStatus,
+      })),
     });
   };
 
@@ -449,6 +490,102 @@ export default function WorkOrdersPage() {
                 rows={2}
                 data-testid="textarea-notes"
               />
+            </div>
+
+            {/* Required Spare Parts */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Required Spare Parts
+              </Label>
+              
+              {/* Selected Parts */}
+              {selectedParts.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
+                  {selectedParts.map((part) => (
+                    <div key={part.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{part.partName}</span>
+                        <span className="text-xs text-muted-foreground">{part.partNumber}</span>
+                      </div>
+                      <Badge className={getStockStatusColor(part.stockStatus)} data-testid={`badge-stock-${part.id}`}>
+                        {part.stockStatus.replace("_", " ")}
+                      </Badge>
+                      {part.stockStatus === "out_of_stock" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-xs"
+                          onClick={() => {
+                            toast({
+                              title: "Purchase Request",
+                              description: `Request purchase for ${part.partName}`,
+                            });
+                          }}
+                          data-testid={`button-request-purchase-${part.id}`}
+                        >
+                          <ShoppingCart className="h-3 w-3 mr-1" />
+                          Request Purchase
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => removePart(part.id)}
+                        data-testid={`button-remove-part-${part.id}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Part Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search spare parts by name or part number..."
+                  value={partSearchTerm}
+                  onChange={(e) => setPartSearchTerm(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search-spare-parts"
+                />
+              </div>
+
+              {/* Available Parts List */}
+              {partSearchTerm && filteredSpareParts && filteredSpareParts.length > 0 && (
+                <Card>
+                  <CardContent className="p-2 max-h-48 overflow-y-auto">
+                    <div className="space-y-1">
+                      {filteredSpareParts.slice(0, 10).map((part) => (
+                        <div
+                          key={part.id}
+                          className="flex items-center justify-between p-2 hover-elevate rounded-md cursor-pointer"
+                          onClick={() => addPart(part)}
+                          data-testid={`option-spare-part-${part.id}`}
+                        >
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">{part.partName}</div>
+                            <div className="text-xs text-muted-foreground">{part.partNumber}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={getStockStatusColor(part.stockStatus)}>
+                              {part.stockStatus.replace("_", " ")}
+                            </Badge>
+                            {part.price && (
+                              <span className="text-sm text-muted-foreground">${part.price}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Form Actions */}

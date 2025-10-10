@@ -1,12 +1,18 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Search, Plus, FileText, Calendar, User, Clock, DollarSign } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Equipment, Garage, Employee } from "@shared/schema";
 
 type WorkOrder = {
   id: string;
@@ -24,13 +30,103 @@ type WorkOrder = {
 
 export default function WorkOrdersPage() {
   const { t } = useLanguage();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Form state
+  const [workOrderNumber, setWorkOrderNumber] = useState("");
+  const [equipmentId, setEquipmentId] = useState("");
+  const [garageId, setGarageId] = useState("");
+  const [assignedToId, setAssignedToId] = useState("");
+  const [priority, setPriority] = useState("medium");
+  const [workType, setWorkType] = useState("repair");
+  const [description, setDescription] = useState("");
+  const [estimatedHours, setEstimatedHours] = useState("");
+  const [estimatedCost, setEstimatedCost] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [notes, setNotes] = useState("");
 
   const { data: workOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders"],
   });
+
+  const { data: equipment } = useQuery<Equipment[]>({
+    queryKey: ["/api/equipment"],
+  });
+
+  const { data: garages } = useQuery<Garage[]>({
+    queryKey: ["/api/garages"],
+  });
+
+  const { data: employees } = useQuery<Employee[]>({
+    queryKey: ["/api/employees"],
+  });
+
+  const createWorkOrderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/work-orders", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      toast({
+        title: "Success",
+        description: "Work order created successfully",
+      });
+      resetForm();
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create work order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setWorkOrderNumber("");
+    setEquipmentId("");
+    setGarageId("");
+    setAssignedToId("");
+    setPriority("medium");
+    setWorkType("repair");
+    setDescription("");
+    setEstimatedHours("");
+    setEstimatedCost("");
+    setScheduledDate("");
+    setNotes("");
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!equipmentId || !description || !workType) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createWorkOrderMutation.mutate({
+      workOrderNumber,
+      equipmentId,
+      garageId: garageId || undefined,
+      assignedToId: assignedToId || undefined,
+      priority,
+      workType,
+      description,
+      estimatedHours: estimatedHours ? parseFloat(estimatedHours) : undefined,
+      estimatedCost: estimatedCost ? parseFloat(estimatedCost) : undefined,
+      scheduledDate: scheduledDate || undefined,
+      notes: notes || undefined,
+    });
+  };
 
   const filteredWorkOrders = workOrders?.filter((wo) => {
     const matchesSearch = wo.workOrderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -111,7 +207,7 @@ export default function WorkOrdersPage() {
                 <SelectItem value="urgent">Urgent</SelectItem>
               </SelectContent>
             </Select>
-            <Button data-testid="button-add-work-order">
+            <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-work-order">
               <Plus className="h-4 w-4 mr-2" />
               {t("addWorkOrder")}
             </Button>
@@ -179,6 +275,206 @@ export default function WorkOrdersPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Add Work Order Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-add-work-order">
+          <DialogHeader>
+            <DialogTitle>Create New Work Order</DialogTitle>
+            <DialogDescription>
+              Fill in the details to create a new work order for equipment service
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Work Order Number */}
+              <div className="space-y-2">
+                <Label htmlFor="workOrderNumber">Work Order Number (Optional)</Label>
+                <Input
+                  id="workOrderNumber"
+                  value={workOrderNumber}
+                  onChange={(e) => setWorkOrderNumber(e.target.value)}
+                  placeholder="e.g., WO-2025-001"
+                  data-testid="input-work-order-number"
+                />
+                <p className="text-xs text-muted-foreground">Leave blank to auto-generate</p>
+              </div>
+
+              {/* Equipment Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="equipment">Equipment *</Label>
+                <Select value={equipmentId} onValueChange={setEquipmentId}>
+                  <SelectTrigger data-testid="select-equipment">
+                    <SelectValue placeholder="Select equipment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {equipment?.map((eq) => (
+                      <SelectItem key={eq.id} value={eq.id}>
+                        {eq.make} {eq.model} - {eq.assetNo || eq.plateNo || eq.machineSerial}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Work Type */}
+              <div className="space-y-2">
+                <Label htmlFor="workType">Work Type *</Label>
+                <Select value={workType} onValueChange={setWorkType}>
+                  <SelectTrigger data-testid="select-work-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="repair">Repair</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="inspection">Inspection</SelectItem>
+                    <SelectItem value="wash">Wash</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger data-testid="select-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Garage */}
+              <div className="space-y-2">
+                <Label htmlFor="garage">Garage/Workshop</Label>
+                <Select value={garageId} onValueChange={setGarageId}>
+                  <SelectTrigger data-testid="select-garage">
+                    <SelectValue placeholder="Select garage (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {garages?.map((garage) => (
+                      <SelectItem key={garage.id} value={garage.id}>
+                        {garage.name} - {garage.location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Assigned To */}
+              <div className="space-y-2">
+                <Label htmlFor="assignedTo">Assign To</Label>
+                <Select value={assignedToId} onValueChange={setAssignedToId}>
+                  <SelectTrigger data-testid="select-assigned-to">
+                    <SelectValue placeholder="Select employee (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees?.filter(emp => emp.isActive)?.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.fullName} - {emp.role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Scheduled Date */}
+              <div className="space-y-2">
+                <Label htmlFor="scheduledDate">Scheduled Date</Label>
+                <Input
+                  id="scheduledDate"
+                  type="datetime-local"
+                  value={scheduledDate}
+                  onChange={(e) => setScheduledDate(e.target.value)}
+                  data-testid="input-scheduled-date"
+                />
+              </div>
+
+              {/* Estimated Hours */}
+              <div className="space-y-2">
+                <Label htmlFor="estimatedHours">Estimated Hours</Label>
+                <Input
+                  id="estimatedHours"
+                  type="number"
+                  step="0.5"
+                  value={estimatedHours}
+                  onChange={(e) => setEstimatedHours(e.target.value)}
+                  placeholder="e.g., 4.5"
+                  data-testid="input-estimated-hours"
+                />
+              </div>
+
+              {/* Estimated Cost */}
+              <div className="space-y-2">
+                <Label htmlFor="estimatedCost">Estimated Cost (USD)</Label>
+                <Input
+                  id="estimatedCost"
+                  type="number"
+                  step="0.01"
+                  value={estimatedCost}
+                  onChange={(e) => setEstimatedCost(e.target.value)}
+                  placeholder="e.g., 1500.00"
+                  data-testid="input-estimated-cost"
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the work to be done..."
+                rows={3}
+                data-testid="textarea-description"
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any additional information..."
+                rows={2}
+                data-testid="textarea-notes"
+              />
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  resetForm();
+                  setIsDialogOpen(false);
+                }}
+                data-testid="button-cancel"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createWorkOrderMutation.isPending}
+                data-testid="button-submit-work-order"
+              >
+                {createWorkOrderMutation.isPending ? "Creating..." : "Create Work Order"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -19,23 +19,56 @@ import type {
 } from "@shared/schema";
 
 // Background image mapping for different equipment categories
+// To change a category's background, update the image path for that category
 const CATEGORY_BACKGROUNDS: Record<string, string> = {
   "EXCAVATOR": "/attached_assets/Capture_1760099408820.PNG",
+  "WHEEL EXCAVATOR": "/attached_assets/Capture_1760099408820.PNG",
   "ASPHALT DISTR.": "/attached_assets/Capture_1760099408820.PNG",
-  "TRUCK": "/attached_assets/Capture_1760099408820.PNG",
-  "LOADER": "/attached_assets/Capture_1760099408820.PNG",
+  "ASPHALT PAVER": "/attached_assets/Capture_1760099408820.PNG",
+  "ASPHALT PLANT": "/attached_assets/Capture_1760099408820.PNG",
+  "ASPHALT TYRE ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "DUMP TRUCK": "/attached_assets/Capture_1760099408820.PNG",
+  "MID TRUCK": "/attached_assets/Capture_1760099408820.PNG",
+  "MIXER TRUCK": "/attached_assets/Capture_1760099408820.PNG",
+  "WHEEL LOADER": "/attached_assets/Capture_1760099408820.PNG",
   "GRADER": "/attached_assets/Capture_1760099408820.PNG",
   "ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "D DRUM ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "D/DRUM ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "S/D DRUM ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "S/D ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "PNEUMATIC ROLLER": "/attached_assets/Capture_1760099408820.PNG",
+  "TYRE PNEUMATIC": "/attached_assets/Capture_1760099408820.PNG",
   "DOZER": "/attached_assets/Capture_1760099408820.PNG",
-  "BACKHOE": "/attached_assets/Capture_1760099408820.PNG",
-  "CRANE": "/attached_assets/Capture_1760099408820.PNG",
-  "FORKLIFT": "/attached_assets/Capture_1760099408820.PNG",
+  "MOBILE CRANE": "/attached_assets/Capture_1760099408820.PNG",
+  "HALF CRANE": "/attached_assets/Capture_1760099408820.PNG",
+  "CRUSHER": "/attached_assets/Capture_1760099408820.PNG",
+  "CHINA CRUSHER": "/attached_assets/Capture_1760099408820.PNG",
+  "CRUSHER (INDIA)": "/attached_assets/Capture_1760099408820.PNG",
+  "CONE CRUSHER": "/attached_assets/Capture_1760099408820.PNG",
+  "WAGON DRILL": "/attached_assets/Capture_1760099408820.PNG",
+  "SERVICE BUS": "/attached_assets/Capture_1760099408820.PNG",
+  "DOUBLE CAB": "/attached_assets/Capture_1760099408820.PNG",
+  "STATION WAGON": "/attached_assets/Capture_1760099408820.PNG",
+  "SUV": "/attached_assets/Capture_1760099408820.PNG",
+  "LAND ROVER": "/attached_assets/Capture_1760099408820.PNG",
+  "RANGE ROVER": "/attached_assets/Capture_1760099408820.PNG",
+  "PRADO": "/attached_assets/Capture_1760099408820.PNG",
+  "RAV4": "/attached_assets/Capture_1760099408820.PNG",
+  "TERIOS": "/attached_assets/Capture_1760099408820.PNG",
+  "COROLLA": "/attached_assets/Capture_1760099408820.PNG",
+  "LEXUS": "/attached_assets/Capture_1760099408820.PNG",
+  "MERCEDES": "/attached_assets/Capture_1760099408820.PNG",
+  "BMW": "/attached_assets/Capture_1760099408820.PNG",
+  "AUDI": "/attached_assets/Capture_1760099408820.PNG",
+  "CADILLAC": "/attached_assets/Capture_1760099408820.PNG",
   "default": "/attached_assets/Capture_1760099408820.PNG"
 };
 
 export default function EquipmentCategoryPage() {
   const [, params] = useRoute("/equipment/category/:type");
-  const equipmentType = params?.type ? decodeURIComponent(params.type) : "";
+  // Normalize equipment type to uppercase for consistent mapping
+  const equipmentType = params?.type ? decodeURIComponent(params.type).toUpperCase().trim() : "";
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [backgroundImage, setBackgroundImage] = useState(
@@ -53,7 +86,7 @@ export default function EquipmentCategoryPage() {
   });
 
   const categoryEquipment = equipment?.filter(
-    (item) => item.equipmentType === equipmentType
+    (item) => item.equipmentType.toUpperCase().trim() === equipmentType
   );
 
   const filteredEquipment = categoryEquipment?.filter((item) => {

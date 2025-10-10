@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign } from "lucide-react";
+import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign, ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,11 +24,20 @@ import type {
   SparePart 
 } from "@shared/schema";
 
+interface EquipmentGroup {
+  equipmentType: string;
+  make: string;
+  model: string;
+  count: number;
+  units: Equipment[];
+}
+
 export default function EquipmentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterMake, setFilterMake] = useState<string>("all");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const { data: equipment, isLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -47,6 +56,38 @@ export default function EquipmentPage() {
 
     return matchesSearch && matchesType && matchesMake;
   });
+
+  // Group equipment by type + make + model
+  const groupedEquipment: EquipmentGroup[] = [];
+  filteredEquipment?.forEach((item) => {
+    const key = `${item.equipmentType}-${item.make}-${item.model}`;
+    const existing = groupedEquipment.find(
+      (g) => g.equipmentType === item.equipmentType && g.make === item.make && g.model === item.model
+    );
+    
+    if (existing) {
+      existing.units.push(item);
+      existing.count++;
+    } else {
+      groupedEquipment.push({
+        equipmentType: item.equipmentType,
+        make: item.make,
+        model: item.model,
+        count: 1,
+        units: [item],
+      });
+    }
+  });
+
+  const toggleGroup = (key: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedGroups(newExpanded);
+  };
 
   const equipmentTypes = Array.from(new Set(equipment?.map((e) => e.equipmentType) || []));
   const makes = Array.from(new Set(equipment?.map((e) => e.make) || []));
@@ -138,41 +179,87 @@ export default function EquipmentPage() {
               </Card>
             ))}
           </div>
-        ) : filteredEquipment && filteredEquipment.length > 0 ? (
+        ) : groupedEquipment && groupedEquipment.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredEquipment.map((item) => (
-              <Card 
-                key={item.id} 
-                className="hover-elevate cursor-pointer" 
-                data-testid={`card-equipment-${item.id}`}
-                onClick={() => setSelectedEquipment(item)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg">{item.model}</CardTitle>
-                    <Badge variant="secondary" className="font-mono text-xs">
-                      {item.equipmentType}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">New Asset #:</span>
-                    <span className="ml-2 font-mono text-xs font-medium">{item.newAssetNo || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Plate #:</span>
-                    <span className="ml-2 font-mono text-xs">{item.plateNo || "N/A"}</span>
-                  </div>
-                  {item.machineSerial && (
-                    <div>
-                      <span className="text-muted-foreground">Serial #:</span>
-                      <span className="ml-2 font-mono text-xs">{item.machineSerial}</span>
+            {groupedEquipment.map((group) => {
+              const groupKey = `${group.equipmentType}-${group.make}-${group.model}`;
+              const isExpanded = expandedGroups.has(groupKey);
+              
+              return (
+                <Card 
+                  key={groupKey} 
+                  className="hover-elevate" 
+                  data-testid={`card-equipment-group-${groupKey}`}
+                >
+                  <CardHeader 
+                    className="pb-3 cursor-pointer"
+                    onClick={() => toggleGroup(groupKey)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                        )}
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{group.model}</CardTitle>
+                          <CardDescription className="text-sm mt-1">
+                            {group.make}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="secondary" className="font-mono text-xs">
+                          {group.equipmentType}
+                        </Badge>
+                        <Badge variant="outline" className="font-bold">
+                          {group.count} {group.count === 1 ? 'unit' : 'units'}
+                        </Badge>
+                      </div>
                     </div>
+                  </CardHeader>
+                  
+                  {isExpanded && (
+                    <CardContent className="space-y-2 pt-0">
+                      <div className="border-t pt-3 space-y-2">
+                        {group.units.map((unit, idx) => (
+                          <div 
+                            key={unit.id}
+                            className="p-3 rounded-md bg-muted/50 hover-elevate cursor-pointer text-sm"
+                            onClick={() => setSelectedEquipment(unit)}
+                            data-testid={`card-equipment-unit-${unit.id}`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="font-medium">Unit {idx + 1}</div>
+                              {unit.machineSerial && (
+                                <div className="font-mono text-xs bg-background px-2 py-0.5 rounded">
+                                  {unit.machineSerial}
+                                </div>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {unit.newAssetNo && (
+                                <div>
+                                  <span className="text-muted-foreground">Asset #:</span>
+                                  <span className="ml-1 font-mono">{unit.newAssetNo}</span>
+                                </div>
+                              )}
+                              {unit.plateNo && (
+                                <div>
+                                  <span className="text-muted-foreground">Plate #:</span>
+                                  <span className="ml-1 font-mono">{unit.plateNo}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
                   )}
-                </CardContent>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-[400px] text-center">

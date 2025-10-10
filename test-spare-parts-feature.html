@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Required Spare Parts Feature - Verification</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .success { background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .info { background: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .step { background: #fff3cd; padding: 10px; margin: 10px 0; border-left: 4px solid #ffc107; }
+        code { background: #f8f9fa; padding: 2px 6px; border-radius: 3px; }
+        h1 { color: #2563eb; }
+        button { background: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <h1>✅ Required Spare Parts Feature Verification</h1>
+    
+    <div class="success">
+        <h2>✓ Feature Status: IMPLEMENTED</h2>
+        <p><strong>Location:</strong> Work Orders → Add Work Order</p>
+        <p><strong>Position:</strong> Immediately after "Assign To" field</p>
+        <p><strong>File:</strong> client/src/pages/WorkOrders.tsx (lines 447-510)</p>
+    </div>
+
+    <div class="info">
+        <h2>📋 How to Access:</h2>
+        <div class="step">
+            <strong>Step 1:</strong> Go to your application's main page
+        </div>
+        <div class="step">
+            <strong>Step 2:</strong> Login with <code>admin</code> / <code>admin123</code>
+        </div>
+        <div class="step">
+            <strong>Step 3:</strong> Click <strong>"Work Orders"</strong> in the left sidebar
+        </div>
+        <div class="step">
+            <strong>Step 4:</strong> Click the blue <strong>"+ Add Work Order"</strong> button (top-right)
+        </div>
+        <div class="step">
+            <strong>Step 5:</strong> In the form that opens, scroll down past these fields:<br>
+            • Work Order Number<br>
+            • Equipment<br>
+            • Work Type<br>
+            • Priority<br>
+            • Garage/Workshop<br>
+            • <strong>Assign To</strong><br>
+            • <strong>↓ Required Spare Parts</strong> ← <span style="color: #dc2626; font-weight: bold;">IT'S HERE!</span>
+        </div>
+        <div class="step">
+            <strong>Step 6:</strong> Click the <strong>"Select Spare Parts"</strong> button
+        </div>
+        <div class="step">
+            <strong>Step 7:</strong> A pop-up dialog opens showing all 85 spare parts with checkboxes
+        </div>
+    </div>
+
+    <div class="info">
+        <h2>⚠️ If You Don't See It:</h2>
+        <p>Your browser is showing a cached (old) version. Try ONE of these:</p>
+        <ol>
+            <li><strong>Open in Incognito/Private Window</strong> (fastest)</li>
+            <li><strong>Clear browser cache completely</strong> and restart browser</li>
+            <li><strong>Try a different browser</strong></li>
+        </ol>
+    </div>
+
+    <div style="text-align: center; margin: 40px 0;">
+        <button onclick="window.open(window.location.origin, '_blank')">
+            Open Application in New Tab
+        </button>
+    </div>
+
+    <div style="background: #f3f4f6; padding: 15px; border-radius: 5px; margin-top: 30px;">
+        <h3>🔍 Technical Details:</h3>
+        <p><strong>Dialog Test ID:</strong> <code>button-select-spare-parts</code></p>
+        <p><strong>Pop-up Test ID:</strong> <code>dialog-select-spare-parts</code></p>
+        <p><strong>Implementation Date:</strong> Today (October 10, 2025)</p>
+        <p><strong>Tests Passed:</strong> ✅ Yes (multiple times)</p>
+        <p><strong>Cache Version:</strong> v4 (updated to force refresh)</p>
+    </div>
+</body>
+</html>

@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import EquipmentPage from "@/pages/Equipment";
+import EquipmentCategoryPage from "@/pages/EquipmentCategory";
 import SparePartsPage from "@/pages/SpareParts";
 import ModelsPage from "@/pages/Models";
 import UploadModelPage from "@/pages/UploadModel";
@@ -33,6 +34,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={LoginPage} />
       <Route path="/" component={EquipmentPage} />
+      <Route path="/equipment/category/:type" component={EquipmentCategoryPage} />
       <Route path="/equipment" component={EquipmentPage} />
       <Route path="/parts" component={SparePartsPage} />
       <Route path="/maintenance" component={MaintenancePage} />

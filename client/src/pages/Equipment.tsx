@@ -26,8 +26,6 @@ import type {
 
 interface EquipmentGroup {
   equipmentType: string;
-  make: string;
-  model: string;
   count: number;
   units: Equipment[];
 }
@@ -57,12 +55,11 @@ export default function EquipmentPage() {
     return matchesSearch && matchesType && matchesMake;
   });
 
-  // Group equipment by type + make + model
+  // Group equipment by type only
   const groupedEquipment: EquipmentGroup[] = [];
   filteredEquipment?.forEach((item) => {
-    const key = `${item.equipmentType}-${item.make}-${item.model}`;
     const existing = groupedEquipment.find(
-      (g) => g.equipmentType === item.equipmentType && g.make === item.make && g.model === item.model
+      (g) => g.equipmentType === item.equipmentType
     );
     
     if (existing) {
@@ -71,13 +68,14 @@ export default function EquipmentPage() {
     } else {
       groupedEquipment.push({
         equipmentType: item.equipmentType,
-        make: item.make,
-        model: item.model,
         count: 1,
         units: [item],
       });
     }
   });
+
+  // Sort groups by equipment type alphabetically
+  groupedEquipment.sort((a, b) => a.equipmentType.localeCompare(b.equipmentType));
 
   const toggleGroup = (key: string) => {
     const newExpanded = new Set(expandedGroups);
@@ -182,7 +180,7 @@ export default function EquipmentPage() {
         ) : groupedEquipment && groupedEquipment.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {groupedEquipment.map((group) => {
-              const groupKey = `${group.equipmentType}-${group.make}-${group.model}`;
+              const groupKey = group.equipmentType;
               const isExpanded = expandedGroups.has(groupKey);
               
               return (
@@ -203,20 +201,12 @@ export default function EquipmentPage() {
                           <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                         )}
                         <div className="flex-1">
-                          <CardTitle className="text-lg">{group.model}</CardTitle>
-                          <CardDescription className="text-sm mt-1">
-                            {group.make}
-                          </CardDescription>
+                          <CardTitle className="text-lg">{group.equipmentType}</CardTitle>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge variant="secondary" className="font-mono text-xs">
-                          {group.equipmentType}
-                        </Badge>
-                        <Badge variant="outline" className="font-bold">
-                          {group.count} {group.count === 1 ? 'unit' : 'units'}
-                        </Badge>
-                      </div>
+                      <Badge variant="outline" className="font-bold">
+                        {group.count} {group.count === 1 ? 'unit' : 'units'}
+                      </Badge>
                     </div>
                   </CardHeader>
                   
@@ -227,22 +217,27 @@ export default function EquipmentPage() {
                           <div 
                             key={unit.id}
                             className="p-3 rounded-md bg-muted/50 hover-elevate cursor-pointer text-sm"
-                            onClick={() => setSelectedEquipment(unit)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEquipment(unit);
+                            }}
                             data-testid={`card-equipment-unit-${unit.id}`}
                           >
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <div className="font-medium">Unit {idx + 1}</div>
-                              {unit.machineSerial && (
-                                <div className="font-mono text-xs bg-background px-2 py-0.5 rounded">
-                                  {unit.machineSerial}
-                                </div>
-                              )}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <div className="font-medium">{unit.make} {unit.model}</div>
+                                {unit.machineSerial && (
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Serial: {unit.machineSerial}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              {unit.newAssetNo && (
+                            <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                              {unit.assetNo && (
                                 <div>
                                   <span className="text-muted-foreground">Asset #:</span>
-                                  <span className="ml-1 font-mono">{unit.newAssetNo}</span>
+                                  <span className="ml-1 font-mono">{unit.assetNo}</span>
                                 </div>
                               )}
                               {unit.plateNo && (

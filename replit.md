@@ -48,6 +48,8 @@ I prefer iterative development with clear communication at each stage. Please as
 - **CEO Access Control**: CEO-only access for equipment creation/modification, secure login/logout.
 - **Garage Management**: Garages/workshops with capacity, repair bays, employee management (mechanic, painter, electrician, etc., with bilingual support), work order system, SOPs, parts storage location tracking.
 - **Work Order Management**: 
+  - **Full CRUD Operations**: Create, edit, update, and delete work orders with confirmation dialogs
+  - **Auto-generated Work Order Numbers**: Format WO-YYYY-XXX (e.g., WO-2025-001)
   - Complete work order creation with equipment selection, garage/employee assignment
   - Priority levels (Low, Medium, High, Critical), work types (Repair, Maintenance, Inspection, Overhaul, Replacement, Diagnostics)
   - **Spare Parts Selection (Dialog-Based)**:
@@ -59,7 +61,14 @@ I prefer iterative development with clear communication at each stage. Please as
     - Selected parts displayed as badges with part name, number, stock status, and remove button
     - Request Purchase button for out-of-stock parts with toast notifications
     - Functional state setters prevent stale state issues
+  - **Required Parts Persistence**: 
+    - Junction table `work_order_required_parts` stores parts with denormalized data (partName, partNumber, stockStatus)
+    - Parts automatically populate when editing work orders
+    - Full replacement strategy on update (delete old parts, insert new ones)
+    - Cascade delete removes parts when work order is deleted
   - Work order submission includes required parts array with partId, partName, partNumber, and stockStatus
+  - **Edit Functionality**: All fields preserve correctly (equipmentId, garageId, assignedToId, priority, workType, description, estimatedHours, estimatedCost, scheduledDate, notes, requiredParts)
+  - **Delete with Confirmation**: AlertDialog confirmation before deletion
   - Cost estimation (string format), scheduling (datetime-local), and comprehensive notes
   - Filterable work order list by status, priority, and search
   - Enter key in spare parts search prevented from submitting form

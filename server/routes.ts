@@ -203,6 +203,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Protected: Only CEO/Admin can update equipment
+  app.put("/api/equipment/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertEquipmentSchema.parse(req.body);
+      const equipment = await storage.updateEquipment(req.params.id, validatedData);
+      
+      if (!equipment) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated',
+          'equipment',
+          equipment.id,
+          req.user.username,
+          validatedData
+        ));
+      }
+      
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(400).json({ error: "Invalid equipment data" });
+    }
+  });
+
+  // Protected: Only CEO/Admin can delete equipment
+  app.delete("/api/equipment/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const deleted = await storage.deleteEquipment(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Equipment not found" });
+      }
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted',
+          'equipment',
+          req.params.id,
+          req.user.username,
+          { id: req.params.id }
+        ));
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting equipment:", error);
+      res.status(500).json({ error: "Failed to delete equipment" });
+    }
+  });
+
+  // Protected: Only CEO/Admin can import equipment from Excel
+  app.post("/api/equipment/import", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { equipment: equipmentList } = req.body;
+      
+      if (!Array.isArray(equipmentList) || equipmentList.length === 0) {
+        return res.status(400).json({ error: "Invalid equipment list" });
+      }
+      
+      // Validate all equipment data
+      const validatedEquipment = equipmentList.map(item => insertEquipmentSchema.parse(item));
+      
+      // Create all equipment
+      const created = await Promise.all(
+        validatedEquipment.map(data => storage.createEquipment(data))
+      );
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created',
+          'equipment',
+          'bulk',
+          req.user.username,
+          { action: 'bulk import', count: created.length }
+        ));
+      }
+      
+      res.status(201).json({ success: true, count: created.length, equipment: created });
+    } catch (error) {
+      console.error("Error importing equipment:", error);
+      res.status(400).json({ error: "Invalid equipment data" });
+    }
+  });
+
   // Spare parts endpoints with server-side search
   app.get("/api/parts", async (req, res) => {
     try {

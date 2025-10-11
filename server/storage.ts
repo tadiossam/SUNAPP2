@@ -83,6 +83,8 @@ export interface IStorage {
   getAllEquipment(): Promise<Equipment[]>;
   getEquipmentById(id: string): Promise<Equipment | undefined>;
   createEquipment(data: InsertEquipment): Promise<Equipment>;
+  updateEquipment(id: string, data: InsertEquipment): Promise<Equipment | undefined>;
+  deleteEquipment(id: string): Promise<boolean>;
   searchEquipment(params: {
     searchTerm?: string;
     equipmentType?: string;
@@ -254,6 +256,16 @@ export class DatabaseStorage implements IStorage {
   async createEquipment(data: InsertEquipment): Promise<Equipment> {
     const [result] = await db.insert(equipment).values(data).returning();
     return result;
+  }
+
+  async updateEquipment(id: string, data: InsertEquipment): Promise<Equipment | undefined> {
+    const [result] = await db.update(equipment).set(data).where(eq(equipment.id, id)).returning();
+    return result || undefined;
+  }
+
+  async deleteEquipment(id: string): Promise<boolean> {
+    const result = await db.delete(equipment).where(eq(equipment.id, id)).returning();
+    return result.length > 0;
   }
 
   async searchEquipment(params: {

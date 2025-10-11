@@ -76,7 +76,7 @@ import {
   type ApprovalWithDetails,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, and, sql, desc } from "drizzle-orm";
+import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Equipment operations
@@ -790,7 +790,8 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(workOrders.status, filters.status));
     }
     if (filters?.assignedToId) {
-      conditions.push(eq(workOrders.assignedToId, filters.assignedToId));
+      // Filter by checking if assignedToId is in the assignedToIds array
+      conditions.push(sql`${filters.assignedToId} = ANY(${workOrders.assignedToIds})`);
     }
     if (filters?.garageId) {
       conditions.push(eq(workOrders.garageId, filters.garageId));
@@ -811,10 +812,13 @@ export class DatabaseStorage implements IStorage {
         if (order.repairBayId) {
           [repairBay] = await db.select().from(repairBays).where(eq(repairBays.id, order.repairBayId));
         }
-        let assignedTo = undefined;
-        if (order.assignedToId) {
-          [assignedTo] = await db.select().from(employees).where(eq(employees.id, order.assignedToId));
+        
+        // Get assigned employees from assignedToIds array
+        let assignedToList: Employee[] = [];
+        if (order.assignedToIds && order.assignedToIds.length > 0) {
+          assignedToList = await db.select().from(employees).where(inArray(employees.id, order.assignedToIds));
         }
+        
         let createdBy = undefined;
         if (order.createdById) {
           [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
@@ -828,7 +832,7 @@ export class DatabaseStorage implements IStorage {
           equipment: equipmentData,
           garage,
           repairBay,
-          assignedTo,
+          assignedToList,
           createdBy,
           requiredParts,
         };
@@ -851,10 +855,13 @@ export class DatabaseStorage implements IStorage {
     if (order.repairBayId) {
       [repairBay] = await db.select().from(repairBays).where(eq(repairBays.id, order.repairBayId));
     }
-    let assignedTo = undefined;
-    if (order.assignedToId) {
-      [assignedTo] = await db.select().from(employees).where(eq(employees.id, order.assignedToId));
+    
+    // Get assigned employees from assignedToIds array
+    let assignedToList: Employee[] = [];
+    if (order.assignedToIds && order.assignedToIds.length > 0) {
+      assignedToList = await db.select().from(employees).where(inArray(employees.id, order.assignedToIds));
     }
+    
     let createdBy = undefined;
     if (order.createdById) {
       [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
@@ -868,7 +875,7 @@ export class DatabaseStorage implements IStorage {
       equipment: equipmentData,
       garage,
       repairBay,
-      assignedTo,
+      assignedToList,
       createdBy,
       requiredParts,
     };

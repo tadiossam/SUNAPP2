@@ -181,7 +181,20 @@ export default function WorkOrdersPage() {
     setDescription(workOrder.description);
     setEstimatedHours(workOrder.estimatedHours || "");
     setEstimatedCost(workOrder.estimatedCost || "");
-    setScheduledDate(workOrder.scheduledDate || "");
+    
+    // Format date for datetime-local input (YYYY-MM-DDTHH:mm)
+    if (workOrder.scheduledDate) {
+      const date = new Date(workOrder.scheduledDate);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      setScheduledDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+    } else {
+      setScheduledDate("");
+    }
+    
     setNotes(workOrder.notes || "");
     
     // Hydrate selected parts from work order required parts
@@ -202,6 +215,15 @@ export default function WorkOrdersPage() {
           } as SparePart;
         })
         .filter(Boolean);
+      setSelectedParts(partsToSelect);
+    } else if (workOrder.requiredParts) {
+      // If spareParts not loaded yet, create partial parts from denormalized data
+      const partsToSelect = workOrder.requiredParts.map(reqPart => ({
+        id: reqPart.sparePartId || reqPart.id,
+        partName: reqPart.partName,
+        partNumber: reqPart.partNumber,
+        stockStatus: reqPart.stockStatus || 'unknown',
+      } as SparePart));
       setSelectedParts(partsToSelect);
     }
     
@@ -729,7 +751,9 @@ export default function WorkOrdersPage() {
                 disabled={createWorkOrderMutation.isPending}
                 data-testid="button-submit-work-order"
               >
-                {createWorkOrderMutation.isPending ? "Creating..." : "Create Work Order"}
+                {createWorkOrderMutation.isPending 
+                  ? (editingWorkOrder ? "Updating..." : "Creating...") 
+                  : (editingWorkOrder ? "Update Work Order" : "Create Work Order")}
               </Button>
             </div>
           </form>

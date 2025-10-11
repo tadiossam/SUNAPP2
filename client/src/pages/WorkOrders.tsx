@@ -111,6 +111,18 @@ export default function WorkOrdersPage() {
     generateWorkOrderNumber();
   }, [isDialogOpen, editingWorkOrder]);
 
+  // Auto-calculate estimated cost based on selected spare parts
+  useEffect(() => {
+    const totalCost = selectedParts.reduce((sum, part) => {
+      const price = parseFloat(part.price || '0');
+      return sum + price;
+    }, 0);
+    
+    if (totalCost > 0) {
+      setEstimatedCost(totalCost.toFixed(2));
+    }
+  }, [selectedParts]);
+
   const createWorkOrderMutation = useMutation({
     mutationFn: async (data: any) => {
       if (editingWorkOrder) {

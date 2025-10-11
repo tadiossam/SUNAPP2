@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
@@ -69,6 +69,11 @@ export default function WorkOrdersPage() {
   const [partSearchTerm, setPartSearchTerm] = useState("");
   const [isPartsDialogOpen, setIsPartsDialogOpen] = useState(false);
   const [tempSelectedParts, setTempSelectedParts] = useState<string[]>([]);
+  
+  // Employee selection dialog state
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
+  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
+  const [tempSelectedEmployees, setTempSelectedEmployees] = useState<string[]>([]);
 
   const { data: workOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders"],
@@ -269,6 +274,32 @@ export default function WorkOrdersPage() {
     setSelectedParts(selectedParts.filter(p => p.id !== partId));
   };
 
+  // Employee selection dialog functions
+  const openEmployeeDialog = () => {
+    setTempSelectedEmployees(assignedToIds);
+    setIsEmployeeDialogOpen(true);
+  };
+
+  const toggleEmployeeSelection = (employeeId: string) => {
+    setTempSelectedEmployees(prev => {
+      if (prev.includes(employeeId)) {
+        return prev.filter(id => id !== employeeId);
+      } else {
+        return [...prev, employeeId];
+      }
+    });
+  };
+
+  const confirmEmployeeSelection = () => {
+    setAssignedToIds(tempSelectedEmployees);
+    setIsEmployeeDialogOpen(false);
+    setEmployeeSearchTerm("");
+  };
+
+  const removeEmployee = (employeeId: string) => {
+    setAssignedToIds(assignedToIds.filter(id => id !== employeeId));
+  };
+
   const getStockStatusColor = (status: string) => {
     switch (status) {
       case "in_stock": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
@@ -282,6 +313,14 @@ export default function WorkOrdersPage() {
     partSearchTerm === "" ||
     part.partNumber.toLowerCase().includes(partSearchTerm.toLowerCase()) ||
     part.partName.toLowerCase().includes(partSearchTerm.toLowerCase())
+  );
+
+  const filteredEmployees = employees?.filter(emp => 
+    emp.isActive && (
+      employeeSearchTerm === "" ||
+      emp.fullName.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
+      emp.role.toLowerCase().includes(employeeSearchTerm.toLowerCase())
+    )
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -599,50 +638,38 @@ export default function WorkOrdersPage() {
               {/* Assigned To - Team Selection */}
               <div className="space-y-2 col-span-2">
                 <Label>Assign To (Team)</Label>
-                <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
-                  {employees?.filter(emp => emp.isActive && assignedToIds.includes(emp.id))?.map((emp) => (
-                    <Badge key={emp.id} variant="secondary" className="pr-1">
-                      {emp.fullName}
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-4 w-4 ml-1"
-                        onClick={() => setAssignedToIds(assignedToIds.filter(id => id !== emp.id))}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                  {assignedToIds.length === 0 && (
-                    <span className="text-sm text-muted-foreground">No employees assigned</span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
-                  {employees?.filter(emp => emp.isActive)?.map((emp) => (
-                    <label
-                      key={emp.id}
-                      className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={assignedToIds.includes(emp.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setAssignedToIds([...assignedToIds, emp.id]);
-                          } else {
-                            setAssignedToIds(assignedToIds.filter(id => id !== emp.id));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{emp.fullName}</span>
-                        <span className="text-xs text-muted-foreground">{emp.role}</span>
+                <Input
+                  readOnly
+                  value={assignedToIds.length === 0 ? "" : `${assignedToIds.length} team member${assignedToIds.length !== 1 ? 's' : ''} selected`}
+                  placeholder="Click to select team members"
+                  onClick={openEmployeeDialog}
+                  className="cursor-pointer"
+                  data-testid="input-select-team-members"
+                />
+                
+                {/* Selected Employees Display */}
+                {assignedToIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
+                    {employees?.filter(emp => emp.isActive && assignedToIds.includes(emp.id))?.map((emp) => (
+                      <div key={emp.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{emp.fullName}</span>
+                          <span className="text-xs text-muted-foreground">{emp.role}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => removeEmployee(emp.id)}
+                          data-testid={`button-remove-employee-${emp.id}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
                       </div>
-                    </label>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -905,6 +932,99 @@ export default function WorkOrdersPage() {
               type="button"
               onClick={confirmPartsSelection}
               data-testid="button-confirm-parts-selection"
+            >
+              Confirm Selection
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Employee Selection Dialog */}
+      <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-team-members">
+          <DialogHeader>
+            <DialogTitle>Select Team Members</DialogTitle>
+            <DialogDescription>
+              Choose the employees to assign to this work order
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col gap-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search employees by name or role..."
+                value={employeeSearchTerm}
+                onChange={(e) => setEmployeeSearchTerm(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-employees-dialog"
+              />
+            </div>
+
+            {/* Employees List */}
+            <div className="flex-1 overflow-y-auto border rounded-md">
+              {filteredEmployees && filteredEmployees.length > 0 ? (
+                <div className="divide-y">
+                  {filteredEmployees.map((emp) => (
+                    <div
+                      key={emp.id}
+                      className="flex items-center gap-3 p-4 hover-elevate cursor-pointer"
+                      onClick={() => toggleEmployeeSelection(emp.id)}
+                      data-testid={`employee-option-${emp.id}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={tempSelectedEmployees.includes(emp.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleEmployeeSelection(emp.id);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 rounded border-gray-300"
+                        data-testid={`checkbox-employee-${emp.id}`}
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">{emp.fullName}</div>
+                        <div className="text-sm text-muted-foreground">{emp.role}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
+                  {employeeSearchTerm ? "No employees found matching your search" : "No active employees available"}
+                </div>
+              )}
+            </div>
+
+            {/* Selection Summary */}
+            {tempSelectedEmployees.length > 0 && (
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">
+                  {tempSelectedEmployees.length} employee{tempSelectedEmployees.length !== 1 ? 's' : ''} selected
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Dialog Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsEmployeeDialogOpen(false);
+                setEmployeeSearchTerm("");
+              }}
+              data-testid="button-cancel-employee-selection"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmEmployeeSelection}
+              data-testid="button-confirm-employee-selection"
             >
               Confirm Selection
             </Button>

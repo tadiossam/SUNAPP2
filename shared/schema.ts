@@ -334,7 +334,7 @@ export const workOrders = pgTable("work_orders", {
   equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
   garageId: varchar("garage_id").references(() => garages.id),
   repairBayId: varchar("repair_bay_id").references(() => repairBays.id),
-  assignedToId: varchar("assigned_to_id").references(() => employees.id), // Assigned mechanic/employee
+  assignedToIds: text("assigned_to_ids").array(), // Array of assigned employee IDs (team assignment)
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   workType: text("work_type").notNull(), // "repair", "maintenance", "inspection", "wash"
   description: text("description").notNull(),
@@ -671,14 +671,11 @@ export const workOrdersRelations = relations(workOrders, ({ one }) => ({
     fields: [workOrders.repairBayId],
     references: [repairBays.id],
   }),
-  assignedTo: one(employees, {
-    fields: [workOrders.assignedToId],
-    references: [employees.id],
-  }),
   createdBy: one(users, {
     fields: [workOrders.createdById],
     references: [users.id],
   }),
+  // Note: assignedToIds is an array, so assigned employees are fetched separately
 }));
 
 export const partsStorageLocationsRelations = relations(partsStorageLocations, ({ one }) => ({
@@ -781,7 +778,7 @@ export type WorkOrderWithDetails = WorkOrder & {
   equipment?: Equipment;
   garage?: Garage;
   repairBay?: RepairBay;
-  assignedTo?: Employee;
+  assignedToList?: Employee[]; // Array of assigned employees (team)
   createdBy?: User;
   requiredParts?: WorkOrderRequiredPart[];
 };

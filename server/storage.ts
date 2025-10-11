@@ -858,7 +858,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder> {
-    const [result] = await db.insert(workOrders).values(data).returning();
+    // Auto-generate work order number if not provided
+    let workOrderNumber = data.workOrderNumber;
+    
+    if (!workOrderNumber) {
+      const currentYear = new Date().getFullYear();
+      const prefix = `WO-${currentYear}-`;
+      
+      // Find the highest existing number for this year
+      const existingOrders = await db
+        .select()
+        .from(workOrders)
+        .where(sql`${workOrders.workOrderNumber} LIKE ${prefix || ''}%`)
+        .orderBy(desc(workOrders.workOrderNumber))
+        .limit(1);
+      
+      let nextNumber = 1;
+      if (existingOrders.length > 0) {
+        const lastNumber = existingOrders[0].workOrderNumber.split('-')[2];
+        nextNumber = parseInt(lastNumber) + 1;
+      }
+      
+      workOrderNumber = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+    }
+    
+    const [result] = await db.insert(workOrders).values({
+      ...data,
+      workOrderNumber,
+    }).returning();
     return result;
   }
 

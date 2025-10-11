@@ -714,6 +714,9 @@ export const insertEmployeeSchema = createInsertSchema(employees).omit({
 export const insertWorkOrderSchema = createInsertSchema(workOrders).omit({
   id: true,
   createdAt: true,
+}).extend({
+  workOrderNumber: z.string().optional(),
+  scheduledDate: z.string().optional().nullable().transform(val => val ? new Date(val) : null),
 });
 
 export const insertStandardOperatingProcedureSchema = createInsertSchema(standardOperatingProcedures).omit({

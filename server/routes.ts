@@ -843,8 +843,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
+      // Remove empty work order number to allow auto-generation
+      const bodyData = { ...req.body };
+      if (!bodyData.workOrderNumber || bodyData.workOrderNumber.trim() === '') {
+        delete bodyData.workOrderNumber;
+      }
+      
       const validatedData = insertWorkOrderSchema.parse({
-        ...req.body,
+        ...bodyData,
         createdById: req.user?.id,
       });
       const workOrder = await storage.createWorkOrder(validatedData);

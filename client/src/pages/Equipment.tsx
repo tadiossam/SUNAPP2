@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign, ChevronRight } from "lucide-react";
+import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign, ChevronRight, Plus, Upload, Download, Edit, Trash2, FileSpreadsheet } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,15 +15,21 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { insertEquipmentSchema, type Equipment, type InsertEquipment } from "@shared/schema";
 import type { 
-  Equipment, 
   MaintenanceRecordWithDetails, 
   OperatingBehaviorReport,
   PartsUsageHistory,
   SparePart 
 } from "@shared/schema";
+import * as XLSX from "xlsx";
 
 interface EquipmentGroup {
   equipmentType: string;
@@ -37,6 +43,29 @@ export default function EquipmentPage() {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterMake, setFilterMake] = useState<string>("all");
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  
+  // CRUD dialogs state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+  // Import/Export state
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Form state
+  const [formData, setFormData] = useState<InsertEquipment>({
+    equipmentType: "",
+    make: "",
+    model: "",
+    plateNo: "",
+    assetNo: "",
+    newAssetNo: "",
+    machineSerial: "",
+    remarks: "",
+  });
+
+  const { toast } = useToast();
 
   const { data: equipment, isLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -80,6 +109,200 @@ export default function EquipmentPage() {
 
   const equipmentTypes = Array.from(new Set(equipment?.map((e) => e.equipmentType) || []));
   const makes = Array.from(new Set(equipment?.map((e) => e.make) || []));
+
+  // Mutations
+  const createEquipmentMutation = useMutation({
+    mutationFn: async (data: InsertEquipment) => {
+      if (editingEquipment) {
+        return await apiRequest("PUT", `/api/equipment/${editingEquipment.id}`, data);
+      } else {
+        return await apiRequest("POST", "/api/equipment", data);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      toast({
+        title: "Success",
+        description: editingEquipment ? "Equipment updated successfully" : "Equipment created successfully",
+      });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || `Failed to ${editingEquipment ? 'update' : 'create'} equipment`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteEquipmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/equipment/${id}`, null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      toast({
+        title: "Success",
+        description: "Equipment deleted successfully",
+      });
+      setDeleteConfirmId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete equipment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importEquipmentMutation = useMutation({
+    mutationFn: async (equipmentList: InsertEquipment[]) => {
+      return await apiRequest("POST", "/api/equipment/import", { equipment: equipmentList });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      toast({
+        title: "Success",
+        description: `Imported ${data.count} equipment items successfully`,
+      });
+      setIsImportDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to import equipment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handler functions
+  const resetForm = () => {
+    setFormData({
+      equipmentType: "",
+      make: "",
+      model: "",
+      plateNo: "",
+      assetNo: "",
+      newAssetNo: "",
+      machineSerial: "",
+      remarks: "",
+    });
+    setEditingEquipment(null);
+    setIsCreateDialogOpen(false);
+  };
+
+  const handleCreate = () => {
+    resetForm();
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleEdit = (equip: Equipment) => {
+    setFormData({
+      equipmentType: equip.equipmentType,
+      make: equip.make,
+      model: equip.model,
+      plateNo: equip.plateNo || "",
+      assetNo: equip.assetNo || "",
+      newAssetNo: equip.newAssetNo || "",
+      machineSerial: equip.machineSerial || "",
+      remarks: equip.remarks || "",
+    });
+    setEditingEquipment(equip);
+    setIsCreateDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    setDeleteConfirmId(id);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createEquipmentMutation.mutate(formData);
+  };
+
+  // Excel template download
+  const downloadTemplate = () => {
+    const template = [
+      {
+        "Equipment Type": "DOZER",
+        "Make": "CAT",
+        "Model": "D8R",
+        "Plate No": "AA-12345",
+        "Asset No": "SSC-001",
+        "New Asset No": "SSC-NEW-001",
+        "Machine Serial": "CAT12345X",
+        "Remarks": "Sample equipment entry"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Equipment Template");
+    XLSX.writeFile(workbook, "equipment_import_template.xlsx");
+
+    toast({
+      title: "Template Downloaded",
+      description: "Excel template has been downloaded successfully",
+    });
+  };
+
+  // Excel import handler
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        const equipmentList: InsertEquipment[] = jsonData.map((row: any) => ({
+          equipmentType: row["Equipment Type"] || "",
+          make: row["Make"] || "",
+          model: row["Model"] || "",
+          plateNo: row["Plate No"] || null,
+          assetNo: row["Asset No"] || null,
+          newAssetNo: row["New Asset No"] || null,
+          machineSerial: row["Machine Serial"] || null,
+          remarks: row["Remarks"] || null,
+        }));
+
+        // Validate required fields
+        const invalidRows = equipmentList.filter(
+          (item) => !item.equipmentType || !item.make || !item.model
+        );
+
+        if (invalidRows.length > 0) {
+          toast({
+            title: "Validation Error",
+            description: `${invalidRows.length} rows missing required fields (Equipment Type, Make, Model)`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        importEquipmentMutation.mutate(equipmentList);
+      } catch (error) {
+        toast({
+          title: "Import Error",
+          description: "Failed to parse Excel file. Please use the template format.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -148,6 +371,28 @@ export default function EquipmentPage() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={handleCreate} data-testid="button-add-equipment">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Equipment
+            </Button>
+            <Button variant="outline" onClick={downloadTemplate} data-testid="button-download-template">
+              <Download className="h-4 w-4 mr-2" />
+              Download Template
+            </Button>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
+              <Upload className="h-4 w-4 mr-2" />
+              Import from Excel
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileImport}
+              className="hidden"
+            />
           </div>
         </div>
       </div>
@@ -222,6 +467,145 @@ export default function EquipmentPage() {
         equipment={selectedEquipment}
         onClose={() => setSelectedEquipment(null)}
       />
+
+      {/* Create/Edit Equipment Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingEquipment ? "Edit Equipment" : "Add New Equipment"}</DialogTitle>
+            <DialogDescription>
+              {editingEquipment ? "Update equipment information" : "Add a new equipment unit to your inventory"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="equipmentType">Equipment Type *</Label>
+                <Input
+                  id="equipmentType"
+                  value={formData.equipmentType}
+                  onChange={(e) => setFormData({ ...formData, equipmentType: e.target.value })}
+                  placeholder="e.g., DOZER, WHEEL LOADER"
+                  required
+                  data-testid="input-equipment-type"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="make">Make *</Label>
+                <Input
+                  id="make"
+                  value={formData.make}
+                  onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                  placeholder="e.g., CAT, KOMATSU"
+                  required
+                  data-testid="input-make"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="model">Model *</Label>
+                <Input
+                  id="model"
+                  value={formData.model}
+                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                  placeholder="e.g., D8R, L-90C"
+                  required
+                  data-testid="input-model"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plateNo">Plate Number</Label>
+                <Input
+                  id="plateNo"
+                  value={formData.plateNo || ""}
+                  onChange={(e) => setFormData({ ...formData, plateNo: e.target.value })}
+                  placeholder="e.g., AA-12345"
+                  data-testid="input-plate-no"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assetNo">Asset Number</Label>
+                <Input
+                  id="assetNo"
+                  value={formData.assetNo || ""}
+                  onChange={(e) => setFormData({ ...formData, assetNo: e.target.value })}
+                  placeholder="e.g., SSC-001"
+                  data-testid="input-asset-no"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="newAssetNo">New Asset Number</Label>
+                <Input
+                  id="newAssetNo"
+                  value={formData.newAssetNo || ""}
+                  onChange={(e) => setFormData({ ...formData, newAssetNo: e.target.value })}
+                  placeholder="e.g., SSC-NEW-001"
+                  data-testid="input-new-asset-no"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="machineSerial">Machine Serial</Label>
+                <Input
+                  id="machineSerial"
+                  value={formData.machineSerial || ""}
+                  onChange={(e) => setFormData({ ...formData, machineSerial: e.target.value })}
+                  placeholder="e.g., CAT12345X"
+                  data-testid="input-machine-serial"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="remarks">Remarks</Label>
+              <Textarea
+                id="remarks"
+                value={formData.remarks || ""}
+                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                placeholder="Additional notes or comments"
+                rows={3}
+                data-testid="textarea-remarks"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={resetForm} data-testid="button-cancel-equipment">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createEquipmentMutation.isPending} data-testid="button-submit-equipment">
+                {createEquipmentMutation.isPending ? "Saving..." : editingEquipment ? "Update" : "Create"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Equipment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this equipment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmId && deleteEquipmentMutation.mutate(deleteConfirmId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

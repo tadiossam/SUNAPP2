@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
-import { ArrowLeft, Search, Wrench, DollarSign, Calendar, TrendingUp, X } from "lucide-react";
+import { ArrowLeft, Search, Wrench, DollarSign, Calendar, TrendingUp, X, Pencil, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,20 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { 
   Equipment, 
   MaintenanceRecordWithDetails, 
@@ -74,6 +87,20 @@ export default function EquipmentCategoryPage() {
   const [backgroundImage, setBackgroundImage] = useState(
     CATEGORY_BACKGROUNDS[equipmentType] || CATEGORY_BACKGROUNDS["default"]
   );
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    equipmentType: "",
+    make: "",
+    model: "",
+    plateNo: "",
+    assetNo: "",
+    newAssetNo: "",
+    machineSerial: "",
+    remarks: "",
+  });
+  const { toast } = useToast();
 
   // Update background image when equipment type changes
   useEffect(() => {
@@ -116,6 +143,88 @@ export default function EquipmentCategoryPage() {
   const { data: spareParts } = useQuery<SparePart[]>({
     queryKey: ["/api/spare-parts"],
   });
+
+  // Update equipment mutation
+  const updateEquipmentMutation = useMutation({
+    mutationFn: async (data: { id: string; equipment: typeof formData }) => {
+      return await apiRequest("PUT", `/api/equipment/${data.id}`, data.equipment);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      toast({ title: "Success", description: "Equipment updated successfully" });
+      setIsEditDialogOpen(false);
+      setEditingEquipment(null);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update equipment", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Delete equipment mutation
+  const deleteEquipmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/equipment/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      toast({ title: "Success", description: "Equipment deleted successfully" });
+      setDeleteConfirmId(null);
+      setSelectedEquipment(null);
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to delete equipment", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      equipmentType: "",
+      make: "",
+      model: "",
+      plateNo: "",
+      assetNo: "",
+      newAssetNo: "",
+      machineSerial: "",
+      remarks: "",
+    });
+  };
+
+  const handleEdit = (equipment: Equipment, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setEditingEquipment(equipment);
+    setFormData({
+      equipmentType: equipment.equipmentType,
+      make: equipment.make,
+      model: equipment.model,
+      plateNo: equipment.plateNo || "",
+      assetNo: equipment.assetNo || "",
+      newAssetNo: equipment.newAssetNo || "",
+      machineSerial: equipment.machineSerial || "",
+      remarks: equipment.remarks || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDelete = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setDeleteConfirmId(id);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingEquipment) {
+      updateEquipmentMutation.mutate({ id: editingEquipment.id, equipment: formData });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -219,6 +328,24 @@ export default function EquipmentCategoryPage() {
                           Serial: {item.machineSerial || "N/A"}
                         </p>
                       </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => handleEdit(item, e)}
+                          data-testid={`button-edit-${item.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => handleDelete(item.id, e)}
+                          data-testid={`button-delete-${item.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       {item.assetNo && (
@@ -260,10 +387,32 @@ export default function EquipmentCategoryPage() {
 
           {/* Header */}
           <div className="p-8 pb-6">
-            <h2 className="text-4xl font-bold mb-1">{selectedEquipment?.model}</h2>
-            <p className="text-lg text-muted-foreground">
-              {selectedEquipment?.equipmentType} - {selectedEquipment?.make}
-            </p>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-4xl font-bold mb-1">{selectedEquipment?.model}</h2>
+                <p className="text-lg text-muted-foreground">
+                  {selectedEquipment?.equipmentType} - {selectedEquipment?.make}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={(e) => selectedEquipment && handleEdit(selectedEquipment, e)}
+                  data-testid="button-edit-equipment-dialog"
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={(e) => selectedEquipment && handleDelete(selectedEquipment.id, e)}
+                  data-testid="button-delete-equipment-dialog"
+                >
+                  <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+                  Delete
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Equipment Information Section */}
@@ -438,6 +587,157 @@ export default function EquipmentCategoryPage() {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Equipment Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Equipment</DialogTitle>
+            <DialogDescription>
+              Update equipment information
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="equipmentType">Equipment Type *</Label>
+                <Input
+                  id="equipmentType"
+                  value={formData.equipmentType}
+                  onChange={(e) => setFormData({ ...formData, equipmentType: e.target.value })}
+                  placeholder="e.g., DOZER, WHEEL LOADER"
+                  required
+                  data-testid="input-equipment-type"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="make">Make *</Label>
+                <Input
+                  id="make"
+                  value={formData.make}
+                  onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                  placeholder="e.g., CAT, KOMATSU"
+                  required
+                  data-testid="input-make"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="model">Model *</Label>
+                <Input
+                  id="model"
+                  value={formData.model}
+                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                  placeholder="e.g., D8R, L-90C"
+                  required
+                  data-testid="input-model"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plateNo">Plate Number</Label>
+                <Input
+                  id="plateNo"
+                  value={formData.plateNo || ""}
+                  onChange={(e) => setFormData({ ...formData, plateNo: e.target.value })}
+                  placeholder="e.g., AA-12345"
+                  data-testid="input-plate-no"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="assetNo">Asset Number</Label>
+                <Input
+                  id="assetNo"
+                  value={formData.assetNo || ""}
+                  onChange={(e) => setFormData({ ...formData, assetNo: e.target.value })}
+                  placeholder="e.g., A-12345"
+                  data-testid="input-asset-no"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="newAssetNo">New Asset Number</Label>
+                <Input
+                  id="newAssetNo"
+                  value={formData.newAssetNo || ""}
+                  onChange={(e) => setFormData({ ...formData, newAssetNo: e.target.value })}
+                  placeholder="e.g., NA-12345"
+                  data-testid="input-new-asset-no"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="machineSerial">Machine Serial</Label>
+                <Input
+                  id="machineSerial"
+                  value={formData.machineSerial || ""}
+                  onChange={(e) => setFormData({ ...formData, machineSerial: e.target.value })}
+                  placeholder="e.g., SN-123456"
+                  data-testid="input-machine-serial"
+                />
+              </div>
+
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="remarks">Remarks</Label>
+                <Input
+                  id="remarks"
+                  value={formData.remarks || ""}
+                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                  placeholder="Additional notes"
+                  data-testid="input-remarks"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingEquipment(null);
+                  resetForm();
+                }}
+                data-testid="button-cancel-edit"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                disabled={updateEquipmentMutation.isPending}
+                data-testid="button-submit-edit"
+              >
+                {updateEquipmentMutation.isPending ? "Updating..." : "Update Equipment"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Equipment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the equipment from your inventory.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmId && deleteEquipmentMutation.mutate(deleteConfirmId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              {deleteEquipmentMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

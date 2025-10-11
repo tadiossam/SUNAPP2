@@ -29,7 +29,8 @@ type WorkOrder = {
   workOrderNumber: string;
   equipmentId: string;
   garageId?: string | null;
-  assignedToId?: string | null;
+  assignedToIds?: string[] | null; // Array of employee IDs for team assignment
+  assignedToList?: Employee[]; // Populated assigned employees
   priority: string;
   workType: string;
   description: string;
@@ -56,7 +57,7 @@ export default function WorkOrdersPage() {
   const [workOrderNumber, setWorkOrderNumber] = useState("");
   const [equipmentId, setEquipmentId] = useState("");
   const [garageId, setGarageId] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
+  const [assignedToIds, setAssignedToIds] = useState<string[]>([]); // Array for team assignment
   const [priority, setPriority] = useState("medium");
   const [workType, setWorkType] = useState("repair");
   const [description, setDescription] = useState("");
@@ -157,7 +158,7 @@ export default function WorkOrdersPage() {
     setWorkOrderNumber("");
     setEquipmentId("");
     setGarageId("");
-    setAssignedToId("");
+    setAssignedToIds([]);
     setPriority("medium");
     setWorkType("repair");
     setDescription("");
@@ -175,7 +176,7 @@ export default function WorkOrdersPage() {
     setWorkOrderNumber(workOrder.workOrderNumber);
     setEquipmentId(workOrder.equipmentId);
     setGarageId(workOrder.garageId || "");
-    setAssignedToId(workOrder.assignedToId || "");
+    setAssignedToIds(workOrder.assignedToIds || []);
     setPriority(workOrder.priority);
     setWorkType(workOrder.workType);
     setDescription(workOrder.description);
@@ -299,7 +300,7 @@ export default function WorkOrdersPage() {
       workOrderNumber,
       equipmentId,
       garageId: garageId || undefined,
-      assignedToId: assignedToId || undefined,
+      assignedToIds: assignedToIds.length > 0 ? assignedToIds : undefined,
       priority,
       workType,
       description,
@@ -431,6 +432,19 @@ export default function WorkOrdersPage() {
                   <p className="text-sm font-medium mb-1">{wo.workType}</p>
                   <p className="text-xs text-muted-foreground line-clamp-2">{wo.description}</p>
                 </div>
+                {/* Assigned Team */}
+                {wo.assignedToList && wo.assignedToList.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <div className="flex flex-wrap gap-1">
+                      {wo.assignedToList.map((emp) => (
+                        <Badge key={emp.id} variant="outline" className="text-xs">
+                          {emp.fullName}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {wo.scheduledDate && (
                     <div className="flex items-center gap-1.5">
@@ -582,21 +596,53 @@ export default function WorkOrdersPage() {
                 </Select>
               </div>
 
-              {/* Assigned To */}
-              <div className="space-y-2">
-                <Label htmlFor="assignedTo">Assign To</Label>
-                <Select value={assignedToId} onValueChange={setAssignedToId}>
-                  <SelectTrigger data-testid="select-assigned-to">
-                    <SelectValue placeholder="Select employee (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees?.filter(emp => emp.isActive)?.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.fullName} - {emp.role}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Assigned To - Team Selection */}
+              <div className="space-y-2 col-span-2">
+                <Label>Assign To (Team)</Label>
+                <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30">
+                  {employees?.filter(emp => emp.isActive && assignedToIds.includes(emp.id))?.map((emp) => (
+                    <Badge key={emp.id} variant="secondary" className="pr-1">
+                      {emp.fullName}
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-4 w-4 ml-1"
+                        onClick={() => setAssignedToIds(assignedToIds.filter(id => id !== emp.id))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                  {assignedToIds.length === 0 && (
+                    <span className="text-sm text-muted-foreground">No employees assigned</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                  {employees?.filter(emp => emp.isActive)?.map((emp) => (
+                    <label
+                      key={emp.id}
+                      className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={assignedToIds.includes(emp.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAssignedToIds([...assignedToIds, emp.id]);
+                          } else {
+                            setAssignedToIds(assignedToIds.filter(id => id !== emp.id));
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{emp.fullName}</span>
+                        <span className="text-xs text-muted-foreground">{emp.role}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 

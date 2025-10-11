@@ -867,17 +867,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
+      // Extract requiredParts from body
+      const { requiredParts, ...workOrderData } = req.body;
+      
       // Remove empty work order number to allow auto-generation
-      const bodyData = { ...req.body };
-      if (!bodyData.workOrderNumber || bodyData.workOrderNumber.trim() === '') {
-        delete bodyData.workOrderNumber;
+      if (!workOrderData.workOrderNumber || workOrderData.workOrderNumber.trim() === '') {
+        delete workOrderData.workOrderNumber;
       }
       
       const validatedData = insertWorkOrderSchema.parse({
-        ...bodyData,
+        ...workOrderData,
         createdById: req.user?.id,
       });
       const workOrder = await storage.createWorkOrder(validatedData);
+      
+      // Save required parts if provided
+      if (requiredParts && Array.isArray(requiredParts) && requiredParts.length > 0) {
+        const partsToInsert = requiredParts.map((part: any) => ({
+          workOrderId: workOrder.id,
+          sparePartId: part.partId || null,
+          partName: part.partName,
+          partNumber: part.partNumber,
+          stockStatus: part.stockStatus || null,
+          quantity: part.quantity || 1,
+        }));
+        await storage.replaceWorkOrderRequiredParts(workOrder.id, partsToInsert);
+      }
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
@@ -894,12 +909,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/work-orders/:id", isCEOOrAdmin, async (req, res) => {
     try {
-      const validatedData = insertWorkOrderSchema.parse(req.body);
+      // Extract requiredParts from body
+      const { requiredParts, ...workOrderData } = req.body;
+      
+      const validatedData = insertWorkOrderSchema.parse(workOrderData);
       const workOrder = await storage.updateWorkOrder(req.params.id, validatedData);
+      
+      // Update required parts if provided
+      if (requiredParts && Array.isArray(requiredParts)) {
+        const partsToInsert = requiredParts.map((part: any) => ({
+          workOrderId: req.params.id,
+          sparePartId: part.partId || part.id || null,
+          partName: part.partName,
+          partNumber: part.partNumber,
+          stockStatus: part.stockStatus || null,
+          quantity: part.quantity || 1,
+        }));
+        await storage.replaceWorkOrderRequiredParts(req.params.id, partsToInsert);
+      }
+      
       res.json(workOrder);
     } catch (error) {
       console.error("Error updating work order:", error);
       res.status(400).json({ error: "Failed to update work order" });
+    }
+  });
+
+  app.delete("/api/work-orders/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteWorkOrder(req.params.id);
+      res.json({ message: "Work order deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting work order:", error);
+      res.status(400).json({ error: "Failed to delete work order" });
     }
   });
 

@@ -359,6 +359,18 @@ export const workOrders = pgTable("work_orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Work Order Required Parts - Junction table for parts needed in work orders
+export const workOrderRequiredParts = pgTable("work_order_required_parts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  sparePartId: varchar("spare_part_id").references(() => spareParts.id, { onDelete: "set null" }),
+  partName: text("part_name").notNull(), // Denormalized for history
+  partNumber: text("part_number").notNull(), // Denormalized for history
+  stockStatus: text("stock_status"), // Denormalized snapshot
+  quantity: integer("quantity").default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Standard Operating Procedures (SOPs) - For wash staff and other tasks
 export const standardOperatingProcedures = pgTable("standard_operating_procedures", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -719,6 +731,11 @@ export const insertWorkOrderSchema = createInsertSchema(workOrders).omit({
   scheduledDate: z.string().optional().nullable().transform(val => val ? new Date(val) : null),
 });
 
+export const insertWorkOrderRequiredPartSchema = createInsertSchema(workOrderRequiredParts).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertStandardOperatingProcedureSchema = createInsertSchema(standardOperatingProcedures).omit({
   id: true,
   createdAt: true,
@@ -744,6 +761,8 @@ export type Employee = typeof employees.$inferSelect;
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
 export type WorkOrder = typeof workOrders.$inferSelect;
 export type InsertWorkOrder = z.infer<typeof insertWorkOrderSchema>;
+export type WorkOrderRequiredPart = typeof workOrderRequiredParts.$inferSelect;
+export type InsertWorkOrderRequiredPart = z.infer<typeof insertWorkOrderRequiredPartSchema>;
 export type StandardOperatingProcedure = typeof standardOperatingProcedures.$inferSelect;
 export type InsertStandardOperatingProcedure = z.infer<typeof insertStandardOperatingProcedureSchema>;
 export type PartsStorageLocation = typeof partsStorageLocations.$inferSelect;
@@ -764,6 +783,7 @@ export type WorkOrderWithDetails = WorkOrder & {
   repairBay?: RepairBay;
   assignedTo?: Employee;
   createdBy?: User;
+  requiredParts?: WorkOrderRequiredPart[];
 };
 
 export type RepairBayWithDetails = RepairBay & {

@@ -11,6 +11,7 @@ import {
   repairBays,
   employees,
   workOrders,
+  workOrderRequiredParts,
   standardOperatingProcedures,
   partsStorageLocations,
   equipmentLocations,
@@ -47,6 +48,8 @@ import {
   type WorkOrder,
   type InsertWorkOrder,
   type WorkOrderWithDetails,
+  type WorkOrderRequiredPart,
+  type InsertWorkOrderRequiredPart,
   type StandardOperatingProcedure,
   type InsertStandardOperatingProcedure,
   type PartsStorageLocation,
@@ -165,6 +168,11 @@ export interface IStorage {
   getWorkOrdersByPrefix(prefix: string): Promise<WorkOrder[]>;
   createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;
   updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder>;
+  deleteWorkOrder(id: string): Promise<void>;
+  
+  // Work Order Required Parts
+  getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]>;
+  replaceWorkOrderRequiredParts(workOrderId: string, parts: InsertWorkOrderRequiredPart[]): Promise<void>;
 
   // Standard Operating Procedures
   getAllSOPs(filters?: { category?: string; targetRole?: string; language?: string }): Promise<StandardOperatingProcedure[]>;
@@ -812,6 +820,9 @@ export class DatabaseStorage implements IStorage {
           [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
         }
         
+        // Get required parts
+        const requiredParts = await this.getWorkOrderRequiredParts(order.id);
+        
         return {
           ...order,
           equipment: equipmentData,
@@ -819,6 +830,7 @@ export class DatabaseStorage implements IStorage {
           repairBay,
           assignedTo,
           createdBy,
+          requiredParts,
         };
       })
     );
@@ -848,6 +860,9 @@ export class DatabaseStorage implements IStorage {
       [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
     }
     
+    // Get required parts
+    const requiredParts = await this.getWorkOrderRequiredParts(order.id);
+    
     return {
       ...order,
       equipment: equipmentData,
@@ -855,6 +870,7 @@ export class DatabaseStorage implements IStorage {
       repairBay,
       assignedTo,
       createdBy,
+      requiredParts,
     };
   }
 
@@ -897,6 +913,28 @@ export class DatabaseStorage implements IStorage {
   async updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder> {
     const [result] = await db.update(workOrders).set(data).where(eq(workOrders.id, id)).returning();
     return result;
+  }
+
+  async deleteWorkOrder(id: string): Promise<void> {
+    await db.delete(workOrders).where(eq(workOrders.id, id));
+  }
+
+  async getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]> {
+    return await db.select().from(workOrderRequiredParts).where(eq(workOrderRequiredParts.workOrderId, workOrderId));
+  }
+
+  async replaceWorkOrderRequiredParts(workOrderId: string, parts: InsertWorkOrderRequiredPart[]): Promise<void> {
+    // Delete existing parts
+    await db.delete(workOrderRequiredParts).where(eq(workOrderRequiredParts.workOrderId, workOrderId));
+    
+    // Insert new parts if any
+    if (parts.length > 0) {
+      const partsWithWorkOrderId = parts.map(part => ({
+        ...part,
+        workOrderId,
+      }));
+      await db.insert(workOrderRequiredParts).values(partsWithWorkOrderId);
+    }
   }
 
   // Standard Operating Procedures

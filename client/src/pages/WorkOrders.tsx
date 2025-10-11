@@ -7,24 +7,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
+
+type WorkOrderRequiredPart = {
+  id: string;
+  sparePartId?: string | null;
+  partName: string;
+  partNumber: string;
+  stockStatus?: string | null;
+  quantity?: number;
+};
 
 type WorkOrder = {
   id: string;
   workOrderNumber: string;
   equipmentId: string;
+  garageId?: string | null;
+  assignedToId?: string | null;
   priority: string;
   workType: string;
   description: string;
   status: string;
-  estimatedHours: string;
-  estimatedCost: string;
-  scheduledDate: string;
+  estimatedHours: string | null;
+  estimatedCost: string | null;
+  scheduledDate: string | null;
+  notes?: string | null;
+  requiredParts?: WorkOrderRequiredPart[];
   createdAt: string;
 };
 
@@ -35,6 +49,8 @@ export default function WorkOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
   // Form state
   const [workOrderNumber, setWorkOrderNumber] = useState("");
@@ -73,10 +89,10 @@ export default function WorkOrdersPage() {
     queryKey: ["/api/parts"],
   });
 
-  // Auto-generate work order number when dialog opens
+  // Auto-generate work order number when dialog opens (only for new work orders)
   useEffect(() => {
     const generateWorkOrderNumber = async () => {
-      if (isDialogOpen && !workOrderNumber) {
+      if (isDialogOpen && !editingWorkOrder && !workOrderNumber) {
         try {
           const response = await fetch("/api/work-orders/generate-number");
           const data = await response.json();
@@ -87,25 +103,51 @@ export default function WorkOrdersPage() {
       }
     };
     generateWorkOrderNumber();
-  }, [isDialogOpen]);
+  }, [isDialogOpen, editingWorkOrder]);
 
   const createWorkOrderMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/work-orders", data);
+      if (editingWorkOrder) {
+        return await apiRequest("PUT", `/api/work-orders/${editingWorkOrder.id}`, data);
+      } else {
+        return await apiRequest("POST", "/api/work-orders", data);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
       toast({
         title: "Success",
-        description: "Work order created successfully",
+        description: editingWorkOrder ? "Work order updated successfully" : "Work order created successfully",
       });
       resetForm();
       setIsDialogOpen(false);
+      setEditingWorkOrder(null);
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create work order",
+        description: error.message || `Failed to ${editingWorkOrder ? 'update' : 'create'} work order`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteWorkOrderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/work-orders/${id}`, null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      toast({
+        title: "Success",
+        description: "Work order deleted successfully",
+      });
+      setDeleteConfirmId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete work order",
         variant: "destructive",
       });
     },
@@ -125,6 +167,55 @@ export default function WorkOrdersPage() {
     setNotes("");
     setSelectedParts([]);
     setPartSearchTerm("");
+    setEditingWorkOrder(null);
+  };
+
+  const handleEdit = (workOrder: WorkOrder) => {
+    setEditingWorkOrder(workOrder);
+    setWorkOrderNumber(workOrder.workOrderNumber);
+    setEquipmentId(workOrder.equipmentId);
+    setGarageId(workOrder.garageId || "");
+    setAssignedToId(workOrder.assignedToId || "");
+    setPriority(workOrder.priority);
+    setWorkType(workOrder.workType);
+    setDescription(workOrder.description);
+    setEstimatedHours(workOrder.estimatedHours || "");
+    setEstimatedCost(workOrder.estimatedCost || "");
+    setScheduledDate(workOrder.scheduledDate || "");
+    setNotes(workOrder.notes || "");
+    
+    // Hydrate selected parts from work order required parts
+    if (workOrder.requiredParts && spareParts) {
+      const partsToSelect = workOrder.requiredParts
+        .map(reqPart => {
+          // Try to find the part in the spare parts list
+          const fullPart = spareParts.find(sp => sp.id === reqPart.sparePartId);
+          if (fullPart) {
+            return fullPart;
+          }
+          // If not found, create a partial SparePart from the denormalized data
+          return {
+            id: reqPart.sparePartId || reqPart.id,
+            partName: reqPart.partName,
+            partNumber: reqPart.partNumber,
+            stockStatus: reqPart.stockStatus || 'unknown',
+          } as SparePart;
+        })
+        .filter(Boolean);
+      setSelectedParts(partsToSelect);
+    }
+    
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmId) {
+      deleteWorkOrderMutation.mutate(deleteConfirmId);
+    }
   };
 
   const openPartsDialog = () => {
@@ -338,6 +429,28 @@ export default function WorkOrdersPage() {
                     </div>
                   )}
                 </div>
+                <div className="flex gap-2 pt-2 border-t">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => handleEdit(wo)}
+                    className="flex-1"
+                    data-testid={`button-edit-${wo.id}`}
+                  >
+                    <Edit className="h-3.5 w-3.5 mr-1.5" />
+                    Edit
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => handleDelete(wo.id)}
+                    className="flex-1 text-destructive hover:text-destructive"
+                    data-testid={`button-delete-${wo.id}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                    Delete
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -352,12 +465,17 @@ export default function WorkOrdersPage() {
       )}
 
       {/* Add Work Order Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) {
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-add-work-order">
           <DialogHeader>
-            <DialogTitle>Create New Work Order</DialogTitle>
+            <DialogTitle>{editingWorkOrder ? "Edit Work Order" : "Create New Work Order"}</DialogTitle>
             <DialogDescription>
-              Fill in the details to create a new work order for equipment service
+              {editingWorkOrder ? "Update the work order details" : "Fill in the details to create a new work order for equipment service"}
             </DialogDescription>
           </DialogHeader>
 
@@ -723,6 +841,28 @@ export default function WorkOrdersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent data-testid="dialog-delete-confirmation">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Work Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this work order? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

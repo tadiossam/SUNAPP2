@@ -162,6 +162,7 @@ export interface IStorage {
   // Work Orders
   getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]>;
   getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined>;
+  getWorkOrdersByPrefix(prefix: string): Promise<WorkOrder[]>;
   createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;
   updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder>;
 
@@ -857,6 +858,15 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getWorkOrdersByPrefix(prefix: string): Promise<WorkOrder[]> {
+    const pattern = `${prefix}%`;
+    return await db
+      .select()
+      .from(workOrders)
+      .where(sql`${workOrders.workOrderNumber} LIKE ${pattern}`)
+      .orderBy(desc(workOrders.workOrderNumber));
+  }
+
   async createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder> {
     // Auto-generate work order number if not provided
     let workOrderNumber = data.workOrderNumber;
@@ -866,12 +876,7 @@ export class DatabaseStorage implements IStorage {
       const prefix = `WO-${currentYear}-`;
       
       // Find the highest existing number for this year
-      const existingOrders = await db
-        .select()
-        .from(workOrders)
-        .where(sql`${workOrders.workOrderNumber} LIKE ${prefix || ''}%`)
-        .orderBy(desc(workOrders.workOrderNumber))
-        .limit(1);
+      const existingOrders = await this.getWorkOrdersByPrefix(prefix);
       
       let nextNumber = 1;
       if (existingOrders.length > 0) {

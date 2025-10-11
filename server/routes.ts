@@ -828,6 +828,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/work-orders/generate-number", async (_req, res) => {
+    try {
+      const currentYear = new Date().getFullYear();
+      const prefix = `WO-${currentYear}-`;
+      
+      const existingOrders = await storage.getWorkOrdersByPrefix(prefix);
+      const existingNumbers = new Set(existingOrders.map(o => o.workOrderNumber));
+      
+      let nextNumber = 1;
+      let generatedNumber = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+      
+      // Find next available number (handle gaps from deleted orders)
+      while (existingNumbers.has(generatedNumber)) {
+        nextNumber++;
+        generatedNumber = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+      }
+      
+      res.json({ workOrderNumber: generatedNumber });
+    } catch (error) {
+      console.error("Error generating work order number:", error);
+      res.status(500).json({ error: "Failed to generate work order number" });
+    }
+  });
+
   app.get("/api/work-orders/:id", async (req, res) => {
     try {
       const workOrder = await storage.getWorkOrderById(req.params.id);

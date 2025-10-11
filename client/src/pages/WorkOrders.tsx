@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +72,22 @@ export default function WorkOrdersPage() {
   const { data: spareParts } = useQuery<SparePart[]>({
     queryKey: ["/api/parts"],
   });
+
+  // Auto-generate work order number when dialog opens
+  useEffect(() => {
+    const generateWorkOrderNumber = async () => {
+      if (isDialogOpen && !workOrderNumber) {
+        try {
+          const response = await fetch("/api/work-orders/generate-number");
+          const data = await response.json();
+          setWorkOrderNumber(data.workOrderNumber);
+        } catch (error) {
+          console.error("Failed to generate work order number:", error);
+        }
+      }
+    };
+    generateWorkOrderNumber();
+  }, [isDialogOpen]);
 
   const createWorkOrderMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -349,15 +365,15 @@ export default function WorkOrdersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Work Order Number */}
               <div className="space-y-2">
-                <Label htmlFor="workOrderNumber">Work Order Number (Optional)</Label>
+                <Label htmlFor="workOrderNumber">Work Order Number</Label>
                 <Input
                   id="workOrderNumber"
                   value={workOrderNumber}
                   onChange={(e) => setWorkOrderNumber(e.target.value)}
-                  placeholder="e.g., WO-2025-001"
                   data-testid="input-work-order-number"
+                  className="font-mono font-semibold"
                 />
-                <p className="text-xs text-muted-foreground">Leave blank to auto-generate</p>
+                <p className="text-xs text-muted-foreground">Auto-generated (editable)</p>
               </div>
 
               {/* Equipment Selection */}
@@ -444,11 +460,11 @@ export default function WorkOrdersPage() {
               </div>
             </div>
 
-            {/* Required Spare Parts - UPDATED v6 */}
-            <div className="space-y-3 p-4 border-2 border-primary rounded-lg bg-primary/5 shadow-lg">
+            {/* Required Spare Parts */}
+            <div className="space-y-3 p-4 border-2 border-primary rounded-lg bg-primary/5">
               <Label className="flex items-center gap-2 text-lg font-semibold text-primary">
                 <Package className="h-5 w-5" />
-                Required Spare Parts [v6 - Active]
+                Required Spare Parts
               </Label>
               
               {/* Selected Parts Display */}
@@ -501,11 +517,11 @@ export default function WorkOrdersPage() {
                 type="button"
                 variant="default"
                 onClick={openPartsDialog}
-                className="w-full h-14 text-lg font-bold shadow-xl animate-pulse"
+                className="w-full h-12 text-base font-semibold"
                 data-testid="button-select-spare-parts"
               >
-                <Plus className="h-6 w-6 mr-2" />
-                {selectedParts.length === 0 ? "🔧 CLICK HERE TO SELECT SPARE PARTS 🔧" : `Manage Selected Parts (${selectedParts.length})`}
+                <Plus className="h-5 w-5 mr-2" />
+                {selectedParts.length === 0 ? "Click Here to Select Spare Parts" : `Manage Selected Parts (${selectedParts.length})`}
               </Button>
             </div>
 

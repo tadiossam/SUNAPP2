@@ -31,8 +31,14 @@ I prefer iterative development with clear communication at each stage. Please as
 
 ### Feature Specifications
 - **Equipment Inventory**: 
-  - Category-based grouping by Equipment Type with clickable category cards
-  - Category cards show background image, type name, unit count, and navigation arrow
+  - **Equipment Categories System**: Full CRUD for equipment categories with name, description, and background images
+  - **Dual Add Button**: DropdownMenu with "Add Category" and "Add Equipment" options
+  - **Category Selection**: Dropdown shows both created categories and existing equipment types (prefixed with "type:" for uncategorized items)
+  - **Category Management**: Edit/Delete functionality on EquipmentCategory page with buttons on banner and detail dialogs
+  - **Flexible Assignment**: Equipment can be assigned to categories OR use legacy equipment types for backward compatibility
+  - **Smart Processing**: "type:" prefixed selections set equipmentType and clear categoryId; category selections use category name as equipmentType
+  - **Simplified Forms**: Price and standalone Equipment Type fields removed per user request - category selection drives equipment type
+  - Category-based grouping with clickable category cards showing background image, type name, unit count, and navigation arrow
   - No unit list on main page - units displayed on dedicated category pages
   - Search and filter by type/make on main page
 - **Equipment Category Pages** (/equipment/category/:type):

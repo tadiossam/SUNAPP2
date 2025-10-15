@@ -145,12 +145,15 @@ export default function EquipmentPage() {
         return await apiRequest("POST", "/api/equipment", data);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"] });
       toast({
         title: "Success",
         description: editingEquipment ? "Equipment updated successfully" : "Equipment created successfully",
       });
+      setIsCreateDialogOpen(false);
+      setEditingEquipment(null);
       resetForm();
     },
     onError: (error: any) => {
@@ -208,12 +211,14 @@ export default function EquipmentPage() {
     mutationFn: async (data: InsertEquipmentCategory) => {
       return await apiRequest("POST", "/api/equipment-categories", data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"] });
       toast({
         title: "Success",
         description: "Equipment category created successfully",
       });
+      setIsCategoryDialogOpen(false);
       resetCategoryForm();
     },
     onError: (error: any) => {

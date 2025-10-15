@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign, ChevronRight, Plus, Upload, Download, Edit, Trash2, FileSpreadsheet } from "lucide-react";
+import { Search, Filter, Calendar, Wrench, TrendingUp, DollarSign, ChevronRight, Plus, Upload, Download, Edit, Trash2, FileSpreadsheet, FolderPlus, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -22,7 +28,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { insertEquipmentSchema, type Equipment, type InsertEquipment } from "@shared/schema";
+import { 
+  insertEquipmentSchema, 
+  insertEquipmentCategorySchema,
+  type Equipment, 
+  type InsertEquipment,
+  type EquipmentCategory,
+  type InsertEquipmentCategory 
+} from "@shared/schema";
 import type { 
   MaintenanceRecordWithDetails, 
   OperatingBehaviorReport,
@@ -46,6 +59,7 @@ export default function EquipmentPage() {
   
   // CRUD dialogs state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
@@ -53,8 +67,9 @@ export default function EquipmentPage() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Form state
+  // Form state for equipment
   const [formData, setFormData] = useState<InsertEquipment>({
+    categoryId: null,
     equipmentType: "",
     make: "",
     model: "",
@@ -62,13 +77,25 @@ export default function EquipmentPage() {
     assetNo: "",
     newAssetNo: "",
     machineSerial: "",
+    price: null,
     remarks: "",
+  });
+
+  // Form state for category
+  const [categoryFormData, setCategoryFormData] = useState<InsertEquipmentCategory>({
+    name: "",
+    description: "",
+    backgroundImage: "",
   });
 
   const { toast } = useToast();
 
   const { data: equipment, isLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
+  });
+
+  const { data: categories } = useQuery<EquipmentCategory[]>({
+    queryKey: ["/api/equipment-categories"],
   });
 
   const filteredEquipment = equipment?.filter((item) => {
@@ -178,9 +205,31 @@ export default function EquipmentPage() {
     },
   });
 
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: InsertEquipmentCategory) => {
+      return await apiRequest("POST", "/api/equipment-categories", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+      toast({
+        title: "Success",
+        description: "Equipment category created successfully",
+      });
+      resetCategoryForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create category",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Handler functions
   const resetForm = () => {
     setFormData({
+      categoryId: null,
       equipmentType: "",
       make: "",
       model: "",
@@ -188,10 +237,20 @@ export default function EquipmentPage() {
       assetNo: "",
       newAssetNo: "",
       machineSerial: "",
+      price: null,
       remarks: "",
     });
     setEditingEquipment(null);
     setIsCreateDialogOpen(false);
+  };
+
+  const resetCategoryForm = () => {
+    setCategoryFormData({
+      name: "",
+      description: "",
+      backgroundImage: "",
+    });
+    setIsCategoryDialogOpen(false);
   };
 
   const handleCreate = () => {
@@ -201,6 +260,7 @@ export default function EquipmentPage() {
 
   const handleEdit = (equip: Equipment) => {
     setFormData({
+      categoryId: equip.categoryId || null,
       equipmentType: equip.equipmentType,
       make: equip.make,
       model: equip.model,
@@ -208,6 +268,7 @@ export default function EquipmentPage() {
       assetNo: equip.assetNo || "",
       newAssetNo: equip.newAssetNo || "",
       machineSerial: equip.machineSerial || "",
+      price: equip.price || null,
       remarks: equip.remarks || "",
     });
     setEditingEquipment(equip);
@@ -221,6 +282,16 @@ export default function EquipmentPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createEquipmentMutation.mutate(formData);
+  };
+
+  const handleCreateCategory = () => {
+    resetCategoryForm();
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    createCategoryMutation.mutate(categoryFormData);
   };
 
   // Excel template download
@@ -374,10 +445,24 @@ export default function EquipmentPage() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            <Button onClick={handleCreate} data-testid="button-add-equipment">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Equipment
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button data-testid="button-add-menu">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={handleCreateCategory} data-testid="menu-add-category">
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Add Category
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCreate} data-testid="menu-add-equipment">
+                  <Package className="h-4 w-4 mr-2" />
+                  Add Equipment
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" onClick={downloadTemplate} data-testid="button-download-template">
               <Download className="h-4 w-4 mr-2" />
               Download Template
@@ -480,6 +565,39 @@ export default function EquipmentPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={formData.categoryId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, categoryId: value === "none" ? null : value })}
+                >
+                  <SelectTrigger data-testid="select-category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Category</SelectItem>
+                    {categories?.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (USD)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  value={formData.price || ""}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  placeholder="e.g., 150000.00"
+                  data-testid="input-price"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="equipmentType">Equipment Type *</Label>
                 <Input
@@ -606,6 +724,64 @@ export default function EquipmentPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Equipment Category</DialogTitle>
+            <DialogDescription>
+              Create a new category to organize your equipment
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCategorySubmit} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="categoryName">Category Name *</Label>
+              <Input
+                id="categoryName"
+                value={categoryFormData.name}
+                onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value.toUpperCase() })}
+                placeholder="e.g., DOZER, WHEEL LOADER, EXCAVATOR"
+                required
+                data-testid="input-category-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="categoryDescription">Description</Label>
+              <Textarea
+                id="categoryDescription"
+                value={categoryFormData.description || ""}
+                onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                placeholder="Optional description of this category"
+                rows={3}
+                data-testid="textarea-category-description"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="categoryBackground">Background Image URL</Label>
+              <Input
+                id="categoryBackground"
+                value={categoryFormData.backgroundImage || ""}
+                onChange={(e) => setCategoryFormData({ ...categoryFormData, backgroundImage: e.target.value })}
+                placeholder="e.g., /attached_assets/dozer_background.jpg"
+                data-testid="input-category-background"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={resetCategoryForm} data-testid="button-cancel-category">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createCategoryMutation.isPending} data-testid="button-submit-category">
+                {createCategoryMutation.isPending ? "Creating..." : "Create Category"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

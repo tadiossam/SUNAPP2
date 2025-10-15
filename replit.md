@@ -38,6 +38,7 @@ I prefer iterative development with clear communication at each stage. Please as
   - **Flexible Assignment**: Equipment can be assigned to categories OR use legacy equipment types for backward compatibility
   - **Smart Processing**: "type:" prefixed selections set equipmentType and clear categoryId; category selections use category name as equipmentType
   - **Simplified Forms**: Price and standalone Equipment Type fields removed per user request - category selection drives equipment type
+  - **Real-time Updates**: All mutations use invalidateQueries + refetchQueries with type: 'active' to ensure immediate UI updates for category cards and unit counts
   - Category-based grouping with clickable category cards showing background image, type name, unit count, and navigation arrow
   - No unit list on main page - units displayed on dedicated category pages
   - Search and filter by type/make on main page

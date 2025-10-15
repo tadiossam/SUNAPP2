@@ -178,8 +178,9 @@ export default function EquipmentCategoryPage() {
     mutationFn: async (data: { id: string; equipment: typeof formData }) => {
       return await apiRequest("PUT", `/api/equipment/${data.id}`, data.equipment);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({ title: "Success", description: "Equipment updated successfully" });
       setIsEditDialogOpen(false);
       setEditingEquipment(null);
@@ -199,8 +200,9 @@ export default function EquipmentCategoryPage() {
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/equipment/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({ title: "Success", description: "Equipment deleted successfully" });
       setDeleteConfirmId(null);
       setSelectedEquipment(null);
@@ -219,8 +221,11 @@ export default function EquipmentCategoryPage() {
     mutationFn: async (data: { id: string; category: typeof categoryFormData }) => {
       return await apiRequest("PUT", `/api/equipment-categories/${data.id}`, data.category);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"], type: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({ title: "Success", description: "Category updated successfully" });
       setIsEditCategoryDialogOpen(false);
       resetCategoryForm();
@@ -239,8 +244,11 @@ export default function EquipmentCategoryPage() {
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/equipment-categories/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"], type: 'active' });
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({ title: "Success", description: "Category deleted successfully" });
       setDeleteCategoryConfirmId(null);
       window.location.href = "/equipment";

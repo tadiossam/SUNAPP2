@@ -147,7 +147,7 @@ export default function EquipmentPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({
         title: "Success",
         description: editingEquipment ? "Equipment updated successfully" : "Equipment created successfully",
@@ -169,8 +169,9 @@ export default function EquipmentPage() {
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/equipment/${id}`, null);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({
         title: "Success",
         description: "Equipment deleted successfully",
@@ -190,8 +191,9 @@ export default function EquipmentPage() {
     mutationFn: async (equipmentList: InsertEquipment[]) => {
       return await apiRequest("POST", "/api/equipment/import", { equipment: equipmentList });
     },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+    onSuccess: async (data: any) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({
         title: "Success",
         description: `Imported ${data.count} equipment items successfully`,
@@ -213,7 +215,7 @@ export default function EquipmentPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"], type: 'active' });
       toast({
         title: "Success",
         description: "Equipment category created successfully",

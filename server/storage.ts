@@ -350,7 +350,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(equipment)
       .where(whereClause)
-      .limit(params.limit || 100)
+      .limit(params.limit || 10000)  // Increased limit to handle large fleets
       .offset(params.offset || 0);
 
     return {

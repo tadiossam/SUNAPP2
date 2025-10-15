@@ -147,6 +147,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/equipment-categories", async (req, res) => {
     try {
       const categories = await storage.getAllEquipmentCategories();
+      
+      // Prevent caching to ensure fresh data
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       res.json(categories);
     } catch (error) {
       console.error("Error fetching equipment categories:", error);
@@ -263,6 +271,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset,
       });
 
+      // Prevent caching to ensure fresh data
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       res.json(result.items);
     } catch (error) {
       console.error("Error fetching equipment:", error);

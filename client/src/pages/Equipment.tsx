@@ -77,7 +77,6 @@ export default function EquipmentPage() {
     assetNo: "",
     newAssetNo: "",
     machineSerial: "",
-    price: null,
     remarks: "",
   });
 
@@ -259,8 +258,11 @@ export default function EquipmentPage() {
   };
 
   const handleEdit = (equip: Equipment) => {
+    // If equipment has a category, use it; otherwise use equipmentType as a "type:" value
+    const categoryValue = equip.categoryId || `type:${equip.equipmentType}`;
+    
     setFormData({
-      categoryId: equip.categoryId || null,
+      categoryId: categoryValue,
       equipmentType: equip.equipmentType,
       make: equip.make,
       model: equip.model,
@@ -268,7 +270,6 @@ export default function EquipmentPage() {
       assetNo: equip.assetNo || "",
       newAssetNo: equip.newAssetNo || "",
       machineSerial: equip.machineSerial || "",
-      price: equip.price || null,
       remarks: equip.remarks || "",
     });
     setEditingEquipment(equip);
@@ -281,7 +282,24 @@ export default function EquipmentPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createEquipmentMutation.mutate(formData);
+    
+    // Process the category selection
+    const processedData = { ...formData };
+    
+    // If categoryId starts with "type:", it's an equipment type, not a category
+    if (processedData.categoryId?.startsWith("type:")) {
+      const equipmentType = processedData.categoryId.replace("type:", "");
+      processedData.equipmentType = equipmentType;
+      processedData.categoryId = null;
+    } else if (processedData.categoryId) {
+      // Find the category name to use as equipmentType
+      const selectedCategory = categories?.find(cat => cat.id === processedData.categoryId);
+      if (selectedCategory) {
+        processedData.equipmentType = selectedCategory.name;
+      }
+    }
+    
+    createEquipmentMutation.mutate(processedData);
   };
 
   const handleCreateCategory = () => {
@@ -566,48 +584,32 @@ export default function EquipmentPage() {
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category">Category *</Label>
                 <Select
-                  value={formData.categoryId || "none"}
-                  onValueChange={(value) => setFormData({ ...formData, categoryId: value === "none" ? null : value })}
+                  value={formData.categoryId || ""}
+                  onValueChange={(value) => setFormData({ ...formData, categoryId: value || null })}
+                  required
                 >
                   <SelectTrigger data-testid="select-category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Category</SelectItem>
                     {categories?.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>
                     ))}
+                    {/* Show existing equipment types as category options */}
+                    {Array.from(new Set(equipment?.map(e => e.equipmentType) || []))
+                      .filter(type => !categories?.some(cat => cat.name.toUpperCase() === type.toUpperCase()))
+                      .map((type) => (
+                        <SelectItem key={type} value={`type:${type}`}>
+                          {type}
+                        </SelectItem>
+                      ))
+                    }
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="price">Price (USD)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={formData.price || ""}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="e.g., 150000.00"
-                  data-testid="input-price"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="equipmentType">Equipment Type *</Label>
-                <Input
-                  id="equipmentType"
-                  value={formData.equipmentType}
-                  onChange={(e) => setFormData({ ...formData, equipmentType: e.target.value })}
-                  placeholder="e.g., DOZER, WHEEL LOADER"
-                  required
-                  data-testid="input-equipment-type"
-                />
               </div>
 
               <div className="space-y-2">

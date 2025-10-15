@@ -100,7 +100,6 @@ export default function EquipmentCategoryPage() {
     assetNo: "",
     newAssetNo: "",
     machineSerial: "",
-    price: null as string | null,
     remarks: "",
   });
   const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false);
@@ -265,7 +264,6 @@ export default function EquipmentCategoryPage() {
       assetNo: "",
       newAssetNo: "",
       machineSerial: "",
-      price: null,
       remarks: "",
     });
   };
@@ -290,7 +288,6 @@ export default function EquipmentCategoryPage() {
       assetNo: equipment.assetNo || "",
       newAssetNo: equipment.newAssetNo || "",
       machineSerial: equipment.machineSerial || "",
-      price: equipment.price || null,
       remarks: equipment.remarks || "",
     });
     setIsEditDialogOpen(true);
@@ -730,48 +727,6 @@ export default function EquipmentCategoryPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  value={formData.categoryId || ""}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value || null })}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  data-testid="select-category"
-                >
-                  <option value="">No Category</option>
-                  {categories?.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="price">Price (USD)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={formData.price || ""}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="e.g., 150000.00"
-                  data-testid="input-price"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="equipmentType">Equipment Type *</Label>
-                <Input
-                  id="equipmentType"
-                  value={formData.equipmentType}
-                  onChange={(e) => setFormData({ ...formData, equipmentType: e.target.value })}
-                  placeholder="e.g., DOZER, WHEEL LOADER"
-                  required
-                  data-testid="input-equipment-type"
-                />
-              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="make">Make *</Label>

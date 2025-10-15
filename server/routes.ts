@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
+  insertEquipmentCategorySchema,
   insertEquipmentSchema, 
   insertSparePartSchema,
   insertMechanicSchema,
@@ -139,6 +140,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating language preference:", error);
       res.status(500).json({ message: "Failed to update language preference" });
+    }
+  });
+
+  // Equipment Category endpoints
+  app.get("/api/equipment-categories", async (req, res) => {
+    try {
+      const categories = await storage.getAllEquipmentCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching equipment categories:", error);
+      res.status(500).json({ error: "Failed to fetch equipment categories" });
+    }
+  });
+
+  app.get("/api/equipment-categories/:id", async (req, res) => {
+    try {
+      const category = await storage.getEquipmentCategoryById(req.params.id);
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error fetching equipment category:", error);
+      res.status(500).json({ error: "Failed to fetch equipment category" });
+    }
+  });
+
+  // Protected: Only CEO/Admin can create categories
+  app.post("/api/equipment-categories", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertEquipmentCategorySchema.parse(req.body);
+      const category = await storage.createEquipmentCategory(validatedData);
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'created',
+          'equipment_category',
+          category.id,
+          req.user.username,
+          validatedData
+        ));
+      }
+      
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Error creating equipment category:", error);
+      res.status(500).json({ error: "Failed to create equipment category" });
+    }
+  });
+
+  // Protected: Only CEO/Admin can update categories
+  app.put("/api/equipment-categories/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertEquipmentCategorySchema.partial().parse(req.body);
+      const category = await storage.updateEquipmentCategory(req.params.id, validatedData);
+      
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'updated',
+          'equipment_category',
+          category.id,
+          req.user.username,
+          validatedData
+        ));
+      }
+      
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating equipment category:", error);
+      res.status(500).json({ error: "Failed to update equipment category" });
+    }
+  });
+
+  // Protected: Only CEO/Admin can delete categories
+  app.delete("/api/equipment-categories/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const deleted = await storage.deleteEquipmentCategory(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted',
+          'equipment_category',
+          req.params.id,
+          req.user.username,
+          { id: req.params.id }
+        ));
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting equipment category:", error);
+      res.status(500).json({ error: "Failed to delete equipment category" });
     }
   });
 

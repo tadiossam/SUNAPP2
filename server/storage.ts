@@ -1,4 +1,5 @@
 import {
+  equipmentCategories,
   equipment,
   spareParts,
   partCompatibility,
@@ -22,6 +23,8 @@ import {
   repairEstimates,
   partsRequests,
   approvals,
+  type EquipmentCategory,
+  type InsertEquipmentCategory,
   type Equipment,
   type InsertEquipment,
   type SparePart,
@@ -79,6 +82,14 @@ import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
+  // Equipment Category operations
+  getAllEquipmentCategories(): Promise<EquipmentCategory[]>;
+  getEquipmentCategoryById(id: string): Promise<EquipmentCategory | undefined>;
+  getEquipmentCategoryByName(name: string): Promise<EquipmentCategory | undefined>;
+  createEquipmentCategory(data: InsertEquipmentCategory): Promise<EquipmentCategory>;
+  updateEquipmentCategory(id: string, data: Partial<InsertEquipmentCategory>): Promise<EquipmentCategory | undefined>;
+  deleteEquipmentCategory(id: string): Promise<boolean>;
+
   // Equipment operations
   getAllEquipment(): Promise<Equipment[]>;
   getEquipmentById(id: string): Promise<Equipment | undefined>;
@@ -243,6 +254,36 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Equipment Category operations
+  async getAllEquipmentCategories(): Promise<EquipmentCategory[]> {
+    return await db.select().from(equipmentCategories);
+  }
+
+  async getEquipmentCategoryById(id: string): Promise<EquipmentCategory | undefined> {
+    const [result] = await db.select().from(equipmentCategories).where(eq(equipmentCategories.id, id));
+    return result || undefined;
+  }
+
+  async getEquipmentCategoryByName(name: string): Promise<EquipmentCategory | undefined> {
+    const [result] = await db.select().from(equipmentCategories).where(eq(equipmentCategories.name, name));
+    return result || undefined;
+  }
+
+  async createEquipmentCategory(data: InsertEquipmentCategory): Promise<EquipmentCategory> {
+    const [result] = await db.insert(equipmentCategories).values(data).returning();
+    return result;
+  }
+
+  async updateEquipmentCategory(id: string, data: Partial<InsertEquipmentCategory>): Promise<EquipmentCategory | undefined> {
+    const [result] = await db.update(equipmentCategories).set(data).where(eq(equipmentCategories.id, id)).returning();
+    return result || undefined;
+  }
+
+  async deleteEquipmentCategory(id: string): Promise<boolean> {
+    const result = await db.delete(equipmentCategories).where(eq(equipmentCategories.id, id)).returning();
+    return result.length > 0;
+  }
+
   // Equipment operations
   async getAllEquipment(): Promise<Equipment[]> {
     return await db.select().from(equipment);

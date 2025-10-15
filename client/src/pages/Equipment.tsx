@@ -528,6 +528,10 @@ export default function EquipmentPage() {
             {groupedEquipment.map((group) => {
               const groupKey = group.equipmentType;
               
+              // Find matching category for this equipment type
+              const matchingCategory = categories?.find(cat => cat.name.toUpperCase() === groupKey.toUpperCase());
+              const backgroundImage = matchingCategory?.backgroundImage || '/attached_assets/Capture_1760099408820.PNG';
+              
               return (
                 <Card 
                   key={groupKey} 
@@ -537,7 +541,7 @@ export default function EquipmentPage() {
                 >
                   <div 
                     className="relative h-48 bg-cover bg-center"
-                    style={{ backgroundImage: `url(/attached_assets/Capture_1760099408820.PNG)` }}
+                    style={{ backgroundImage: `url(${backgroundImage})` }}
                     data-testid={`header-equipment-type-${groupKey}`}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20" />

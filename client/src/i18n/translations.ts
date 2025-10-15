@@ -18,7 +18,7 @@ export const translations = {
     navigation: "Navigation",
     
     // Branding
-    appName: "PartFinder SSC",
+    appName: "Gelan Terminal Mintenance",
     heavyEquipment: "Heavy Equipment",
     
     // Common

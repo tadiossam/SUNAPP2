@@ -580,6 +580,7 @@ export default function EquipmentPage() {
       <EquipmentDetailDialog 
         equipment={selectedEquipment}
         onClose={() => setSelectedEquipment(null)}
+        onEdit={handleEdit}
       />
 
       {/* Create/Edit Equipment Dialog */}
@@ -801,10 +802,12 @@ export default function EquipmentPage() {
 
 function EquipmentDetailDialog({ 
   equipment, 
-  onClose 
+  onClose,
+  onEdit
 }: { 
   equipment: Equipment | null; 
   onClose: () => void;
+  onEdit: (equipment: Equipment) => void;
 }) {
   const { data: maintenanceRecords, isLoading: recordsLoading } = useQuery<MaintenanceRecordWithDetails[]>({
     queryKey: ["/api/equipment", equipment?.id, "maintenance"],
@@ -841,10 +844,27 @@ function EquipmentDetailDialog({
     <Dialog open={!!equipment} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">{equipment.model}</DialogTitle>
-          <DialogDescription>
-            {equipment.equipmentType} - {equipment.make}
-          </DialogDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <DialogTitle className="text-2xl">{equipment.model}</DialogTitle>
+              <DialogDescription>
+                {equipment.equipmentType} - {equipment.make}
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onEdit(equipment);
+                onClose();
+              }}
+              className="gap-2"
+              data-testid="button-edit-equipment"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">

@@ -26,7 +26,7 @@ export async function sendCEONotification(notification: EmailNotification) {
   const recordTypeText = notification.recordType.replace('_', ' ').toUpperCase();
 
   const emailBody = `
-    <h2>PartFinder SSC - Record Change Notification</h2>
+    <h2>Gelan Terminal Mintenance - Record Change Notification</h2>
     
     <p><strong>Action:</strong> ${actionText}</p>
     <p><strong>Record Type:</strong> ${recordTypeText}</p>
@@ -38,16 +38,16 @@ export async function sendCEONotification(notification: EmailNotification) {
     
     <hr>
     <p style="color: #666; font-size: 12px;">
-      This is an automated notification from PartFinder SSC. 
+      This is an automated notification from Gelan Terminal Mintenance. 
       Time: ${new Date().toLocaleString()}
     </p>
   `;
 
   try {
     await resend.emails.send({
-      from: 'PartFinder SSC <notifications@resend.dev>',
+      from: 'Gelan Terminal Mintenance <notifications@resend.dev>',
       to: CEO_EMAIL,
-      subject: `PartFinder SSC Alert: ${actionText} - ${recordTypeText} #${notification.recordId}`,
+      subject: `Gelan Terminal Mintenance Alert: ${actionText} - ${recordTypeText} #${notification.recordId}`,
       html: emailBody,
     });
     console.log(`✓ Email notification sent to CEO for ${actionText} ${recordTypeText} #${notification.recordId}`);

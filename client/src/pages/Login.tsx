@@ -70,7 +70,7 @@ export default function Login() {
               <Shield className="h-12 w-12 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">PartFinder SSC</CardTitle>
+          <CardTitle className="text-2xl font-bold">Gelan Terminal Mintenance</CardTitle>
           <CardDescription>
             Sign in to access the equipment management system
           </CardDescription>

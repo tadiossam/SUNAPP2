@@ -24,7 +24,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { 
-  Equipment, 
+  Equipment,
+  EquipmentCategory,
   MaintenanceRecordWithDetails, 
   OperatingBehaviorReport,
   PartsUsageHistory,
@@ -91,6 +92,7 @@ export default function EquipmentCategoryPage() {
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
+    categoryId: null as string | null,
     equipmentType: "",
     make: "",
     model: "",
@@ -98,23 +100,51 @@ export default function EquipmentCategoryPage() {
     assetNo: "",
     newAssetNo: "",
     machineSerial: "",
+    price: null as string | null,
     remarks: "",
   });
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false);
+  const [deleteCategoryConfirmId, setDeleteCategoryConfirmId] = useState<string | null>(null);
+  const [categoryFormData, setCategoryFormData] = useState({
+    name: "",
+    description: "",
+    backgroundImage: "",
+  });
   const { toast } = useToast();
-
-  // Update background image when equipment type changes
-  useEffect(() => {
-    const newBackground = CATEGORY_BACKGROUNDS[equipmentType] || CATEGORY_BACKGROUNDS["default"];
-    setBackgroundImage(newBackground);
-  }, [equipmentType]);
 
   const { data: equipment, isLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
   });
 
-  const categoryEquipment = equipment?.filter(
-    (item) => item.equipmentType.toUpperCase().trim() === equipmentType
+  const { data: categories } = useQuery<EquipmentCategory[]>({
+    queryKey: ["/api/equipment-categories"],
+  });
+
+  // Try to find a matching category by name
+  const matchedCategory = categories?.find(
+    (cat) => cat.name.toUpperCase().trim() === equipmentType
   );
+
+  // Update background image when equipment type or category changes
+  useEffect(() => {
+    if (matchedCategory?.backgroundImage) {
+      setBackgroundImage(matchedCategory.backgroundImage);
+    } else {
+      const newBackground = CATEGORY_BACKGROUNDS[equipmentType] || CATEGORY_BACKGROUNDS["default"];
+      setBackgroundImage(newBackground);
+    }
+  }, [equipmentType, matchedCategory]);
+
+  // Filter equipment by categoryId if category exists, otherwise by equipmentType
+  // Include legacy equipment (categoryId=null) that matches equipmentType when a category exists
+  const categoryEquipment = equipment?.filter((item) => {
+    if (matchedCategory) {
+      // Include equipment with matching categoryId OR legacy equipment matching equipmentType
+      return item.categoryId === matchedCategory.id || 
+             (!item.categoryId && item.equipmentType.toUpperCase().trim() === equipmentType);
+    }
+    return item.equipmentType.toUpperCase().trim() === equipmentType;
+  });
 
   const filteredEquipment = categoryEquipment?.filter((item) => {
     const matchesSearch =
@@ -185,8 +215,49 @@ export default function EquipmentCategoryPage() {
     },
   });
 
+  // Update category mutation
+  const updateCategoryMutation = useMutation({
+    mutationFn: async (data: { id: string; category: typeof categoryFormData }) => {
+      return await apiRequest("PUT", `/api/equipment-categories/${data.id}`, data.category);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+      toast({ title: "Success", description: "Category updated successfully" });
+      setIsEditCategoryDialogOpen(false);
+      resetCategoryForm();
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update category", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Delete category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/equipment-categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+      toast({ title: "Success", description: "Category deleted successfully" });
+      setDeleteCategoryConfirmId(null);
+      window.location.href = "/equipment";
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to delete category", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
+      categoryId: null,
       equipmentType: "",
       make: "",
       model: "",
@@ -194,7 +265,16 @@ export default function EquipmentCategoryPage() {
       assetNo: "",
       newAssetNo: "",
       machineSerial: "",
+      price: null,
       remarks: "",
+    });
+  };
+
+  const resetCategoryForm = () => {
+    setCategoryFormData({
+      name: "",
+      description: "",
+      backgroundImage: "",
     });
   };
 
@@ -202,6 +282,7 @@ export default function EquipmentCategoryPage() {
     e?.stopPropagation();
     setEditingEquipment(equipment);
     setFormData({
+      categoryId: equipment.categoryId || null,
       equipmentType: equipment.equipmentType,
       make: equipment.make,
       model: equipment.model,
@@ -209,6 +290,7 @@ export default function EquipmentCategoryPage() {
       assetNo: equipment.assetNo || "",
       newAssetNo: equipment.newAssetNo || "",
       machineSerial: equipment.machineSerial || "",
+      price: equipment.price || null,
       remarks: equipment.remarks || "",
     });
     setIsEditDialogOpen(true);
@@ -223,6 +305,30 @@ export default function EquipmentCategoryPage() {
     e.preventDefault();
     if (editingEquipment) {
       updateEquipmentMutation.mutate({ id: editingEquipment.id, equipment: formData });
+    }
+  };
+
+  const handleEditCategory = () => {
+    if (matchedCategory) {
+      setCategoryFormData({
+        name: matchedCategory.name,
+        description: matchedCategory.description || "",
+        backgroundImage: matchedCategory.backgroundImage || "",
+      });
+      setIsEditCategoryDialogOpen(true);
+    }
+  };
+
+  const handleDeleteCategory = () => {
+    if (matchedCategory) {
+      setDeleteCategoryConfirmId(matchedCategory.id);
+    }
+  };
+
+  const handleCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (matchedCategory) {
+      updateCategoryMutation.mutate({ id: matchedCategory.id, category: categoryFormData });
     }
   };
 
@@ -275,9 +381,33 @@ export default function EquipmentCategoryPage() {
           </div>
           
           <div className="flex-1 flex items-center justify-between">
-            <h1 className="text-6xl font-bold text-white" data-testid="text-category-name">
-              {equipmentType}
-            </h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-6xl font-bold text-white" data-testid="text-category-name">
+                {equipmentType}
+              </h1>
+              {matchedCategory && (
+                <div className="flex gap-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-white hover:text-white/90 hover:bg-white/20"
+                    onClick={handleEditCategory}
+                    data-testid="button-edit-category"
+                  >
+                    <Pencil className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-white hover:text-white/90 hover:bg-white/20"
+                    onClick={handleDeleteCategory}
+                    data-testid="button-delete-category"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </div>
+              )}
+            </div>
             
             <div className="text-right">
               <p className="text-7xl font-bold text-white" data-testid="text-total-units">
@@ -601,6 +731,37 @@ export default function EquipmentCategoryPage() {
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <select
+                  id="category"
+                  value={formData.categoryId || ""}
+                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value || null })}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  data-testid="select-category"
+                >
+                  <option value="">No Category</option>
+                  {categories?.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (USD)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  value={formData.price || ""}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  placeholder="e.g., 150000.00"
+                  data-testid="input-price"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="equipmentType">Equipment Type *</Label>
                 <Input
                   id="equipmentType"
@@ -717,7 +878,7 @@ export default function EquipmentCategoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Equipment Confirmation Dialog */}
       <AlertDialog open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -734,6 +895,93 @@ export default function EquipmentCategoryPage() {
               data-testid="button-confirm-delete"
             >
               {deleteEquipmentMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={isEditCategoryDialogOpen} onOpenChange={setIsEditCategoryDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Category</DialogTitle>
+            <DialogDescription>
+              Update category information
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCategorySubmit} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="categoryName">Category Name *</Label>
+              <Input
+                id="categoryName"
+                value={categoryFormData.name}
+                onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value.toUpperCase() })}
+                placeholder="e.g., DOZER, WHEEL LOADER, EXCAVATOR"
+                required
+                data-testid="input-category-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="categoryDescription">Description</Label>
+              <Input
+                id="categoryDescription"
+                value={categoryFormData.description || ""}
+                onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                placeholder="Optional description"
+                data-testid="input-category-description"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="categoryBackground">Background Image URL</Label>
+              <Input
+                id="categoryBackground"
+                value={categoryFormData.backgroundImage || ""}
+                onChange={(e) => setCategoryFormData({ ...categoryFormData, backgroundImage: e.target.value })}
+                placeholder="e.g., /attached_assets/dozer_background.jpg"
+                data-testid="input-category-background"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setIsEditCategoryDialogOpen(false);
+                  resetCategoryForm();
+                }}
+                data-testid="button-cancel-category"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateCategoryMutation.isPending} data-testid="button-submit-category">
+                {updateCategoryMutation.isPending ? "Updating..." : "Update Category"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Category Confirmation Dialog */}
+      <AlertDialog open={deleteCategoryConfirmId !== null} onOpenChange={(open) => !open && setDeleteCategoryConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the category and remove the category assignment from all equipment in this category.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-category">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteCategoryConfirmId && deleteCategoryMutation.mutate(deleteCategoryConfirmId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-category"
+            >
+              {deleteCategoryMutation.isPending ? "Deleting..." : "Delete Category"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

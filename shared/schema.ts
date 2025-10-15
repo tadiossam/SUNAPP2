@@ -4,16 +4,27 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Equipment table - stores heavy machinery information
+// Equipment Categories table - main categories for equipment
+export const equipmentCategories = pgTable("equipment_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(), // DOZER, WHEEL LOADER, EXCAVATOR, etc.
+  description: text("description"),
+  backgroundImage: text("background_image"), // Path to category background image
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Equipment table - stores heavy machinery information (units within categories)
 export const equipment = pgTable("equipment", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  equipmentType: text("equipment_type").notNull(), // DOZER, WHEEL LOADER, etc.
+  categoryId: varchar("category_id").references(() => equipmentCategories.id, { onDelete: "set null" }),
+  equipmentType: text("equipment_type").notNull(), // DOZER, WHEEL LOADER, etc. (kept for backward compatibility)
   make: text("make").notNull(), // CAT, KOMATSU, VOLVO, CATERPILLAR
   model: text("model").notNull(), // D8R, D155A-5, L-90C, etc.
   plateNo: text("plate_no"),
   assetNo: text("asset_no"),
   newAssetNo: text("new_asset_no"),
   machineSerial: text("machine_serial"),
+  price: decimal("price", { precision: 12, scale: 2 }), // Equipment price in USD
   remarks: text("remarks"), // Notes, missing data info, special conditions
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -62,7 +73,15 @@ export const partCompatibility = pgTable("part_compatibility", {
 });
 
 // Relations
-export const equipmentRelations = relations(equipment, ({ many }) => ({
+export const equipmentCategoriesRelations = relations(equipmentCategories, ({ many }) => ({
+  equipment: many(equipment),
+}));
+
+export const equipmentRelations = relations(equipment, ({ one, many }) => ({
+  category: one(equipmentCategories, {
+    fields: [equipment.categoryId],
+    references: [equipmentCategories.id],
+  }),
   compatibilityRecords: many(equipmentPartsCompatibility),
 }));
 
@@ -90,6 +109,11 @@ export const partCompatibilityRelations = relations(partCompatibility, ({ one })
 }));
 
 // Insert schemas
+export const insertEquipmentCategorySchema = createInsertSchema(equipmentCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertEquipmentSchema = createInsertSchema(equipment).omit({
   id: true,
   createdAt: true,
@@ -110,6 +134,8 @@ export const insertPartCompatibilitySchema = createInsertSchema(partCompatibilit
 });
 
 // Select types
+export type EquipmentCategory = typeof equipmentCategories.$inferSelect;
+export type InsertEquipmentCategory = z.infer<typeof insertEquipmentCategorySchema>;
 export type Equipment = typeof equipment.$inferSelect;
 export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
 export type SparePart = typeof spareParts.$inferSelect;

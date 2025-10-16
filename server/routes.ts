@@ -1181,7 +1181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         receptionNumber,
         status: "driver_submitted",
         arrivalDate: req.body.arrivalDate ? new Date(req.body.arrivalDate) : new Date(),
-        kilometreRiding: req.body.kilometreRiding ? parseFloat(req.body.kilometreRiding) : null,
+        kilometreRiding: req.body.kilometreRiding ? String(req.body.kilometreRiding) : null,
       });
       
       const reception = await storage.createReception(validatedData);
@@ -1189,6 +1189,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating equipment reception:", error);
       res.status(400).json({ error: "Failed to create equipment reception" });
+    }
+  });
+
+  app.patch("/api/equipment-receptions/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const updates = {
+        ...req.body,
+        updatedAt: new Date(),
+      };
+      
+      const updatedReception = await storage.updateReception(req.params.id, updates);
+      res.json(updatedReception);
+    } catch (error) {
+      console.error("Error updating equipment reception:", error);
+      res.status(400).json({ error: "Failed to update equipment reception" });
     }
   });
 

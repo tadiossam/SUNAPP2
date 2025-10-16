@@ -148,8 +148,33 @@ export default function ApprovalsPage() {
     },
   });
 
+  // General Approval Mutation (for inspections and other approval types)
+  const approveApprovalMutation = useMutation({
+    mutationFn: async ({ id, status, approvalNotes }: { id: string; status: string; approvalNotes?: string }) => {
+      const response = await apiRequest("PUT", `/api/approvals/${id}`, { status, approvalNotes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections/completed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      toast({ title: t("success"), description: "Approval processed successfully" });
+      setSelectedApproval(null);
+      setApprovalNotes("");
+      setDialogAction(null);
+    },
+    onError: () => {
+      toast({ title: t("error"), description: t("failedToApprove"), variant: "destructive" });
+    },
+  });
+
   const handlePartsAction = (request: PartsRequest, action: "approve" | "reject") => {
     setSelectedRequest(request);
+    setDialogAction(action);
+  };
+
+  const handleApprovalAction = (approval: Approval, action: "approve" | "reject") => {
+    setSelectedApproval(approval);
     setDialogAction(action);
   };
 
@@ -174,6 +199,9 @@ export default function ApprovalsPage() {
       } else {
         rejectWorkOrderMutation.mutate({ id: selectedWorkOrder.id, approvedById, notes: approvalNotes });
       }
+    } else if (selectedApproval && dialogAction) {
+      const status = dialogAction === "approve" ? "approved" : "rejected";
+      approveApprovalMutation.mutate({ id: selectedApproval.id, status, approvalNotes });
     }
   };
 
@@ -423,7 +451,7 @@ export default function ApprovalsPage() {
                         {getPriorityBadge(approval.priority)}
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                       <div className="grid gap-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">{t("type")}:</span>
@@ -439,6 +467,34 @@ export default function ApprovalsPage() {
                             <span className="font-mono font-semibold">${approval.amount}</span>
                           </div>
                         )}
+                        {approval.requestNotes && (
+                          <div className="mt-2">
+                            <span className="text-muted-foreground">Notes:</span>
+                            <p className="mt-1 text-sm whitespace-pre-line">{approval.requestNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="flex-1"
+                          onClick={() => handleApprovalAction(approval, "approve")}
+                          data-testid={`button-approve-approval-${approval.id}`}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          {t("approve")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => handleApprovalAction(approval, "reject")}
+                          data-testid={`button-reject-approval-${approval.id}`}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          {t("reject")}
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -465,6 +521,11 @@ export default function ApprovalsPage() {
               {selectedWorkOrder && (
                 <>
                   {t("workOrder")}: {selectedWorkOrder.workOrderNumber}
+                </>
+              )}
+              {selectedApproval && (
+                <>
+                  {selectedApproval.approvalType.replace("_", " ").toUpperCase()}: {selectedApproval.referenceNumber}
                 </>
               )}
             </DialogDescription>
@@ -496,7 +557,8 @@ export default function ApprovalsPage() {
                 approvePartsMutation.isPending ||
                 rejectPartsMutation.isPending ||
                 approveWorkOrderMutation.isPending ||
-                rejectWorkOrderMutation.isPending
+                rejectWorkOrderMutation.isPending ||
+                approveApprovalMutation.isPending
               }
               data-testid="button-confirm-action"
             >

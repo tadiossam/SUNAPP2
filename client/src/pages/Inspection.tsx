@@ -154,9 +154,10 @@ export default function Inspection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipment-receptions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
       toast({
         title: "Inspection Submitted",
-        description: "Inspection has been completed successfully",
+        description: "Inspection submitted for approval successfully",
       });
       setShowInspectionDialog(false);
       setSelectedReception(null);

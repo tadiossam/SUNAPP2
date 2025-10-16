@@ -1163,6 +1163,9 @@ export class DatabaseStorage implements IStorage {
       const mechanicData = reception.mechanicId
         ? await this.getEmployeeById(reception.mechanicId)
         : undefined;
+      const inspectionOfficerData = reception.inspectionOfficerId
+        ? await this.getEmployeeById(reception.inspectionOfficerId)
+        : undefined;
       const workOrderData = reception.workOrderId
         ? await this.getWorkOrderById(reception.workOrderId)
         : undefined;
@@ -1172,6 +1175,7 @@ export class DatabaseStorage implements IStorage {
         equipment: equipmentData,
         driver: driverData,
         mechanic: mechanicData,
+        inspectionOfficer: inspectionOfficerData,
         workOrder: workOrderData,
       });
     }
@@ -1195,6 +1199,9 @@ export class DatabaseStorage implements IStorage {
     const mechanicData = reception.mechanicId
       ? await this.getEmployeeById(reception.mechanicId)
       : undefined;
+    const inspectionOfficerData = reception.inspectionOfficerId
+      ? await this.getEmployeeById(reception.inspectionOfficerId)
+      : undefined;
     const workOrderData = reception.workOrderId
       ? await this.getWorkOrderById(reception.workOrderId)
       : undefined;
@@ -1207,6 +1214,7 @@ export class DatabaseStorage implements IStorage {
       equipment: equipmentData,
       driver: driverData,
       mechanic: mechanicData,
+      inspectionOfficer: inspectionOfficerData,
       workOrder: workOrderData,
       inspectionItems,
       damageReports: damageReportsData,

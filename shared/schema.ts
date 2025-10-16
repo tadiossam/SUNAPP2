@@ -1000,6 +1000,7 @@ export type EquipmentReceptionWithDetails = EquipmentReception & {
   equipment?: Equipment;
   driver?: Employee;
   mechanic?: Employee;
+  inspectionOfficer?: Employee;
   workOrder?: WorkOrder;
   inspectionItems?: ReceptionInspectionItem[];
   damageReports?: DamageReport[];

@@ -112,11 +112,18 @@ I prefer iterative development with clear communication at each stage. Please as
   - **Secure Access**: Admin-only access to full equipment receptions list
   - **Backend**: PATCH `/api/equipment-receptions/:id` endpoint for updating receptions with new fields
 - **Equipment Inspection** (/inspection):
-  - **Inspection Officer View**: Lists only equipment receptions assigned to logged-in inspection officer
-  - **Secure Filtering**: Backend endpoint `/api/my-inspections` filters by current user ID and "awaiting_mechanic" status
-  - **Inspection Details**: Shows equipment details, driver reported issues, admin notes, service type
-  - **Access Control**: Non-admin users can only see their assigned inspections (role-based filtering at backend)
-  - **Future Features**: Inspection checklist, damage documentation with photos, repair estimates, work order creation
+  - **All Inspections View**: Displays ALL equipment receptions with assigned inspection officers (not just logged-in user's)
+  - **Inspection Officer Column**: Shows assigned officer's name and role for each pending inspection
+  - **Auto-generated Inspection Numbers**: Format INS-YYYY-XXX (e.g., INS-2025-001)
+  - **Service-Type-Based Checklists**:
+    - Long Term Service: 140+ item checklist in Amharic
+    - Short Term Service: 44 item checklist in Amharic
+  - **Interactive Checklist Columns**: 
+    - አለዉ (Has), የለዉም (Does Not Have), የሚሰራ (Working), የማይሰራ (Not Working), የተሰበረ (Broken), የተሰነጠቀ (Cracked)
+    - ተጨማሪ አስተያየት (Additional Comments) text field per item
+  - **Inspection Details Display**: Equipment details, driver reported issues, admin notes, service type, fuel level, kilometrage
+  - **Save & Submit**: Save progress functionality with automatic cache refresh on completion
+  - **Database**: equipment_inspections and inspection_checklist_items tables with full CRUD operations
 - **Approval System**: Multi-level approval workflow for job orders, completions, parts requests based on department hierarchy, approval limit controls, pending approvals dashboard, escalation.
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
 - **Attendance Device Integration** (/admin):

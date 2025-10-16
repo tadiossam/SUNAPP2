@@ -56,11 +56,16 @@ export default function Inspection() {
 
   const currentUser = (authData as any)?.user;
 
-  // Fetch equipment receptions assigned to current user only
-  const { data: assignedReceptions = [], isLoading } = useQuery<EquipmentReceptionWithDetails[]>({
-    queryKey: ["/api/my-inspections"],
+  // Fetch all equipment receptions with inspection officers assigned
+  const { data: allReceptions = [], isLoading } = useQuery<EquipmentReceptionWithDetails[]>({
+    queryKey: ["/api/equipment-receptions"],
     enabled: !!currentUser?.id,
   });
+
+  // Filter to show only receptions with inspection officer assigned
+  const assignedReceptions = allReceptions.filter(
+    (reception) => reception.inspectionOfficerId !== null && reception.inspectionOfficerId !== undefined
+  );
 
   const filteredReceptions = assignedReceptions.filter((reception) => {
     if (!searchTerm) return true;
@@ -75,7 +80,8 @@ export default function Inspection() {
   // Create inspection mutation
   const createInspectionMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/inspections", data);
+      const response = await apiRequest("POST", "/api/inspections", data);
+      return await response.json();
     },
     onSuccess: (data) => {
       setInspectionId(data.id);
@@ -125,7 +131,7 @@ export default function Inspection() {
       return await apiRequest("PATCH", `/api/inspections/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/my-inspections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment-receptions"] });
       toast({
         title: "Inspection Submitted",
         description: "Inspection has been completed successfully",
@@ -296,11 +302,11 @@ export default function Inspection() {
         <div>
           <h1 className="text-3xl font-bold">Equipment Inspections</h1>
           <p className="text-muted-foreground">
-            Review and inspect equipment assigned to you
+            View all equipment awaiting inspection by assigned officers
           </p>
         </div>
         <Badge variant="secondary" className="text-lg px-4 py-2">
-          {filteredReceptions.length} Pending
+          {filteredReceptions.length} Awaiting Inspection
         </Badge>
       </div>
 
@@ -319,7 +325,7 @@ export default function Inspection() {
       {/* Inspections List */}
       <Card>
         <CardHeader>
-          <CardTitle>Assigned Inspections</CardTitle>
+          <CardTitle>All Inspections with Assigned Officers</CardTitle>
         </CardHeader>
         <CardContent>
           {filteredReceptions.length === 0 ? (
@@ -327,7 +333,7 @@ export default function Inspection() {
               <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">
                 {assignedReceptions.length === 0
-                  ? "No inspections assigned to you yet"
+                  ? "No equipment receptions with assigned inspection officers yet"
                   : "No inspections match your search"}
               </p>
             </div>
@@ -338,9 +344,9 @@ export default function Inspection() {
                   <TableHead>Reception Number</TableHead>
                   <TableHead>Equipment</TableHead>
                   <TableHead>Plant Number</TableHead>
+                  <TableHead>Inspection Officer</TableHead>
                   <TableHead>Service Type</TableHead>
                   <TableHead>Arrival Date</TableHead>
-                  <TableHead>Admin Issues</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -353,15 +359,18 @@ export default function Inspection() {
                     <TableCell>{reception.equipment?.model || "N/A"}</TableCell>
                     <TableCell>{reception.plantNumber || "N/A"}</TableCell>
                     <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{reception.inspectionOfficer?.fullName || "Not Assigned"}</span>
+                        <span className="text-xs text-muted-foreground">{reception.inspectionOfficer?.role || ""}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={reception.serviceType === "long_term" ? "destructive" : "secondary"}>
                         {reception.serviceType === "long_term" ? "Long Term" : "Short Term"}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       {reception.arrivalDate ? new Date(reception.arrivalDate).toLocaleDateString() : "N/A"}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {reception.adminIssuesReported || "None"}
                     </TableCell>
                     <TableCell>
                       <Button

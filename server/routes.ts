@@ -1154,6 +1154,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Equipment Reception endpoints
+  app.get("/api/equipment-receptions", async (_req, res) => {
+    try {
+      const receptions = await storage.getAllReceptions();
+      res.json(receptions);
+    } catch (error) {
+      console.error("Error fetching equipment receptions:", error);
+      res.status(500).json({ error: "Failed to fetch equipment receptions" });
+    }
+  });
+
+  app.post("/api/equipment-receptions", async (req, res) => {
+    try {
+      // Generate reception number
+      const currentYear = new Date().getFullYear();
+      const prefix = `REC-${currentYear}-`;
+      const existingReceptions = await storage.getReceptionsByPrefix(prefix);
+      const nextNumber = (existingReceptions.length + 1).toString().padStart(3, '0');
+      const receptionNumber = `${prefix}${nextNumber}`;
+      
+      // Validate and coerce data
+      const validatedData = insertEquipmentReceptionSchema.parse({
+        ...req.body,
+        receptionNumber,
+        status: "driver_submitted",
+        operatorHours: req.body.operatorHours ? parseFloat(req.body.operatorHours) : null,
+      });
+      
+      const reception = await storage.createReception(validatedData);
+      res.status(201).json(reception);
+    } catch (error) {
+      console.error("Error creating equipment reception:", error);
+      res.status(400).json({ error: "Failed to create equipment reception" });
+    }
+  });
+
   // Standard Operating Procedures (SOPs)
   app.get("/api/sops", async (req, res) => {
     try {

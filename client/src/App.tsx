@@ -11,6 +11,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import EquipmentPage from "@/pages/Equipment";
 import EquipmentCategoryPage from "@/pages/EquipmentCategory";
+import EquipmentReceptionPage from "@/pages/EquipmentReception";
 import SparePartsPage from "@/pages/SpareParts";
 import ModelsPage from "@/pages/Models";
 import UploadModelPage from "@/pages/UploadModel";
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/" component={EquipmentPage} />
       <Route path="/equipment/category/:type" component={EquipmentCategoryPage} />
       <Route path="/equipment" component={EquipmentPage} />
+      <Route path="/equipment-reception" component={EquipmentReceptionPage} />
       <Route path="/parts" component={SparePartsPage} />
       <Route path="/maintenance" component={MaintenancePage} />
       <Route path="/models" component={ModelsPage} />

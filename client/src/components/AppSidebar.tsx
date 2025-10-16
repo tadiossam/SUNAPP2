@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -56,6 +56,12 @@ export function AppSidebar() {
       url: "/garages",
       icon: Building2,
       testId: "link-garages",
+    },
+    {
+      title: "Equipment Reception",
+      url: "/equipment-reception",
+      icon: Truck,
+      testId: "link-equipment-reception",
     },
     {
       title: t("employees"),

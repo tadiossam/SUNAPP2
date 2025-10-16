@@ -87,7 +87,12 @@ I prefer iterative development with clear communication at each stage. Please as
   - Cost estimation (string format), scheduling (datetime-local), and comprehensive notes
   - Filterable work order list by status, priority, and search
   - Enter key in spare parts search prevented from submitting form
-- **Equipment Reception/Check-in**: Driver drop-off checklist, mechanic inspection workflow, visual damage reporting, photo documentation, automatic work order creation, repair estimates.
+- **Equipment Reception/Check-in**: 
+  - **Driver Drop-off Workflow**: Complete check-in form when equipment arrives at yard (equipment selection, garage assignment, driver name, operator hours, fuel level, condition grade, reported issues, visual damage summary)
+  - **Auto-generated Reception Numbers**: Format REC-YYYY-XXX (e.g., REC-2025-001)
+  - **Reception Tracking**: View all equipment check-ins with status badges (Driver Submitted, Awaiting Mechanic, Inspection Complete, Work Order Created, Closed)
+  - **Workflow Diagram Integration**: Embedded visual workflow showing complete process from truck yard entry to repair completion
+  - **Future Features**: Mechanic inspection checklist, visual damage reporting with diagram marking, photo documentation, repair estimates, automatic work order creation
 - **Approval System**: Multi-level approval workflow for job orders, completions, parts requests based on department hierarchy, approval limit controls, pending approvals dashboard, escalation.
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
 

@@ -209,6 +209,7 @@ export interface IStorage {
   getAllReceptions(filters?: { status?: string; garageId?: string }): Promise<EquipmentReceptionWithDetails[]>;
   getReceptionById(id: string): Promise<EquipmentReceptionWithDetails | undefined>;
   getReceptionsByEquipment(equipmentId: string): Promise<EquipmentReceptionWithDetails[]>;
+  getReceptionsByPrefix(prefix: string): Promise<EquipmentReception[]>;
   createReception(data: InsertEquipmentReception): Promise<EquipmentReception>;
   updateReception(id: string, data: Partial<InsertEquipmentReception>): Promise<EquipmentReception>;
   
@@ -1227,6 +1228,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(equipmentReceptions.id, id))
       .returning();
     return result;
+  }
+
+  async getReceptionsByPrefix(prefix: string): Promise<EquipmentReception[]> {
+    return await db
+      .select()
+      .from(equipmentReceptions)
+      .where(sql`${equipmentReceptions.receptionNumber} LIKE ${prefix + '%'}`);
   }
 
   // Reception Checklists (Templates)

@@ -750,7 +750,6 @@ export class DatabaseStorage implements IStorage {
     const workOrdersList = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
     const storageLocations = await db.select().from(partsStorageLocations).where(eq(partsStorageLocations.garageId, id));
     const equipmentLocationsList = await db.select().from(equipmentLocations).where(eq(equipmentLocations.garageId, id));
-    const receptionsList = await db.select().from(equipmentReceptions).where(eq(equipmentReceptions.garageId, id));
 
     if (employeesList.length > 0) {
       throw new Error("Cannot delete garage: has assigned employees");
@@ -763,9 +762,6 @@ export class DatabaseStorage implements IStorage {
     }
     if (equipmentLocationsList.length > 0) {
       throw new Error("Cannot delete garage: has equipment locations");
-    }
-    if (receptionsList.length > 0) {
-      throw new Error("Cannot delete garage: has equipment receptions");
     }
 
     // Delete the garage (repair bays will be cascade deleted)
@@ -1116,16 +1112,13 @@ export class DatabaseStorage implements IStorage {
     if (filters?.status) {
       conditions.push(eq(equipmentReceptions.status, filters.status));
     }
-    if (filters?.garageId) {
-      conditions.push(eq(equipmentReceptions.garageId, filters.garageId));
-    }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     const receptions = await db
       .select()
       .from(equipmentReceptions)
       .where(whereClause)
-      .orderBy(desc(equipmentReceptions.dropOffTime));
+      .orderBy(desc(equipmentReceptions.arrivalDate));
 
     // Get related data for each reception
     const results: EquipmentReceptionWithDetails[] = [];
@@ -1133,8 +1126,8 @@ export class DatabaseStorage implements IStorage {
       const equipmentData = reception.equipmentId
         ? await this.getEquipmentById(reception.equipmentId)
         : undefined;
-      const garageData = reception.garageId
-        ? await this.getGarageById(reception.garageId)
+      const driverData = reception.driverId
+        ? await this.getEmployeeById(reception.driverId)
         : undefined;
       const mechanicData = reception.mechanicId
         ? await this.getEmployeeById(reception.mechanicId)
@@ -1146,7 +1139,7 @@ export class DatabaseStorage implements IStorage {
       results.push({
         ...reception,
         equipment: equipmentData,
-        garage: garageData,
+        driver: driverData,
         mechanic: mechanicData,
         workOrder: workOrderData,
       });
@@ -1165,8 +1158,8 @@ export class DatabaseStorage implements IStorage {
     const equipmentData = reception.equipmentId
       ? await this.getEquipmentById(reception.equipmentId)
       : undefined;
-    const garageData = reception.garageId
-      ? await this.getGarageById(reception.garageId)
+    const driverData = reception.driverId
+      ? await this.getEmployeeById(reception.driverId)
       : undefined;
     const mechanicData = reception.mechanicId
       ? await this.getEmployeeById(reception.mechanicId)
@@ -1181,7 +1174,7 @@ export class DatabaseStorage implements IStorage {
     return {
       ...reception,
       equipment: equipmentData,
-      garage: garageData,
+      driver: driverData,
       mechanic: mechanicData,
       workOrder: workOrderData,
       inspectionItems,
@@ -1195,12 +1188,12 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(equipmentReceptions)
       .where(eq(equipmentReceptions.equipmentId, equipmentId))
-      .orderBy(desc(equipmentReceptions.dropOffTime));
+      .orderBy(desc(equipmentReceptions.arrivalDate));
 
     const results: EquipmentReceptionWithDetails[] = [];
     for (const reception of receptions) {
-      const garageData = reception.garageId
-        ? await this.getGarageById(reception.garageId)
+      const driverData = reception.driverId
+        ? await this.getEmployeeById(reception.driverId)
         : undefined;
       const mechanicData = reception.mechanicId
         ? await this.getEmployeeById(reception.mechanicId)
@@ -1208,7 +1201,7 @@ export class DatabaseStorage implements IStorage {
 
       results.push({
         ...reception,
-        garage: garageData,
+        driver: driverData,
         mechanic: mechanicData,
       });
     }

@@ -911,7 +911,7 @@ export type InsertRepairEstimate = z.infer<typeof insertRepairEstimateSchema>;
 // Extended types with relations for reception
 export type EquipmentReceptionWithDetails = EquipmentReception & {
   equipment?: Equipment;
-  garage?: Garage;
+  driver?: Employee;
   mechanic?: Employee;
   workOrder?: WorkOrder;
   inspectionItems?: ReceptionInspectionItem[];

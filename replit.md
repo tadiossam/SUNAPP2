@@ -38,6 +38,7 @@ I prefer iterative development with clear communication at each stage. Please as
   - **Flexible Assignment**: Equipment can be assigned to categories OR use legacy equipment types for backward compatibility
   - **Smart Processing**: "type:" prefixed selections set equipmentType and clear categoryId; category selections use category name as equipmentType
   - **Simplified Forms**: Price and standalone Equipment Type fields removed per user request - category selection drives equipment type
+  - **Equipment Fields**: Make, Model, Plate No, Asset No, New Asset No, Machine Serial, Plant Number, Project Area, Remarks
   - **Real-time Updates**: All mutations use invalidateQueries + refetchQueries with type: 'active' to ensure immediate UI updates for category cards and unit counts
   - Category-based grouping with clickable category cards showing background image, type name, unit count, and navigation arrow
   - No unit list on main page - units displayed on dedicated category pages
@@ -88,7 +89,16 @@ I prefer iterative development with clear communication at each stage. Please as
   - Filterable work order list by status, priority, and search
   - Enter key in spare parts search prevented from submitting form
 - **Equipment Reception/Check-in**: 
-  - **Driver Drop-off Workflow**: Complete check-in form when equipment arrives at yard (equipment selection, garage assignment, driver name, operator hours, fuel level, condition grade, reported issues, visual damage summary)
+  - **Driver Drop-off Workflow**: Complete check-in form when equipment arrives at yard
+    - Equipment Unit selection via searchable dialog (not dropdown)
+    - Plant Number auto-populated from selected equipment (readonly)
+    - Project Area auto-populated from selected equipment (readonly)
+    - Driver selection via employee dialog (linked to employee records)
+    - Arrival Date picker (default today, editable)
+    - Kilometre Riding (numeric field for kilometrage)
+    - Fuel Level dropdown (Full, 3/4, 1/2, 1/4, Empty)
+    - Reason Of Maintenance dropdown (Service, Accident, Damage)
+    - Issues Reported textarea
   - **Auto-generated Reception Numbers**: Format REC-YYYY-XXX (e.g., REC-2025-001)
   - **Reception Tracking**: View all equipment check-ins with status badges (Driver Submitted, Awaiting Mechanic, Inspection Complete, Work Order Created, Closed)
   - **Workflow Diagram Integration**: Embedded visual workflow showing complete process from truck yard entry to repair completion

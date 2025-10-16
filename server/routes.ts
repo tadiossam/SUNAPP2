@@ -31,7 +31,7 @@ import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
-import { isCEO, isCEOOrAdmin, isAuthenticated, verifyCredentials, generateToken } from "./auth";
+import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import express from "express";
@@ -1758,7 +1758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Approvals
-  app.get("/api/approvals", isCEOOrAdmin, async (req, res) => {
+  app.get("/api/approvals", canApprove, async (req, res) => {
     try {
       const { status, assignedToId, approvalType } = req.query;
       const approvals = await storage.getAllApprovals({
@@ -1843,7 +1843,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/approvals/:id", isCEOOrAdmin, async (req, res) => {
+  app.put("/api/approvals/:id", canApprove, async (req, res) => {
     try {
       const validatedData = insertApprovalSchema.parse(req.body);
       const approval = await storage.updateApproval(req.params.id, validatedData);

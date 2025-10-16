@@ -162,6 +162,15 @@ export function isCEOOrAdmin(req: any, res: Response, next: NextFunction) {
   res.status(403).json({ message: "Access denied. CEO or Admin role required." });
 }
 
+// Middleware to check if user has CEO, Admin, or Supervisor role (for approvals)
+export function canApprove(req: any, res: Response, next: NextFunction) {
+  const role = req.user?.role?.toLowerCase();
+  if (role === "ceo" || role === "admin" || role === "supervisor") {
+    return next();
+  }
+  res.status(403).json({ message: "Access denied. CEO, Admin, or Supervisor role required." });
+}
+
 // Extend Express Request type to include user
 declare global {
   namespace Express {

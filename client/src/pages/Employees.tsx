@@ -90,6 +90,8 @@ export default function Employees() {
     defaultValues: {
       employeeId: "",
       fullName: "",
+      username: "",
+      password: "",
       role: "wash_employee",
       phoneNumber: "",
       email: "",
@@ -117,6 +119,12 @@ export default function Employees() {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
+      case "ceo":
+        return "CEO";
+      case "admin":
+        return "Admin";
+      case "user":
+        return "User";
       case "mechanic":
         return t("mechanic");
       case "supervisor":
@@ -208,6 +216,43 @@ export default function Employees() {
                 />
                 <FormField
                   control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username (for login)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value || ""}
+                          data-testid="input-employee-username"
+                          placeholder="Username (optional)"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password (for login)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value || ""}
+                          type="password"
+                          data-testid="input-employee-password"
+                          placeholder="Password (optional)"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="role"
                   render={({ field }) => (
                     <FormItem>
@@ -219,6 +264,9 @@ export default function Employees() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="ceo">CEO</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="user">User</SelectItem>
                           <SelectItem value="wash_employee">{t("washEmployee")}</SelectItem>
                           <SelectItem value="mechanic">{t("mechanic")}</SelectItem>
                           <SelectItem value="supervisor">{t("supervisor")}</SelectItem>

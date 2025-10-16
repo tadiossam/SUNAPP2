@@ -190,7 +190,7 @@ export default function EquipmentReception() {
     const submissionData = {
       ...driverFormData,
       arrivalDate: new Date(driverFormData.arrivalDate).toISOString(),
-      kilometreRiding: driverFormData.kilometreRiding ? parseFloat(driverFormData.kilometreRiding) : undefined,
+      kilometreRiding: driverFormData.kilometreRiding || undefined,
     };
     
     createReceptionMutation.mutate(submissionData);

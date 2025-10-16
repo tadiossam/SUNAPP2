@@ -1802,11 +1802,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { inspectionId, inspectionNumber, equipmentInfo, overallCondition, findings, recommendations } = req.body;
 
       // Find an admin or supervisor to assign the approval to
-      const admins = await storage.getAllEmployees("admin");
-      const assignedTo = admins[0]?.id;
+      // Get all employees and filter by role (case-insensitive)
+      const allEmployees = await storage.getAllEmployees();
+      const approvers = allEmployees.filter(emp => 
+        emp.role?.toLowerCase() === "admin" || 
+        emp.role?.toLowerCase() === "supervisor" ||
+        emp.role?.toLowerCase() === "ceo"
+      );
+      const assignedTo = approvers[0]?.id;
 
       if (!assignedTo) {
-        return res.status(400).json({ error: "No admin available to approve inspection" });
+        return res.status(400).json({ error: "No admin or supervisor available to approve inspection" });
       }
 
       const approval = await storage.createApproval({

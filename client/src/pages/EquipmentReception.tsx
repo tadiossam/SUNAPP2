@@ -190,7 +190,7 @@ export default function EquipmentReception() {
     const submissionData = {
       ...driverFormData,
       arrivalDate: new Date(driverFormData.arrivalDate).toISOString(),
-      kilometreRiding: driverFormData.kilometreRiding || undefined,
+      kilometreRiding: driverFormData.kilometreRiding ? String(driverFormData.kilometreRiding) : undefined,
     };
     
     createReceptionMutation.mutate(submissionData);
@@ -343,8 +343,9 @@ export default function EquipmentReception() {
                       <Label htmlFor="kilometreRiding">Kilometre Riding</Label>
                       <Input
                         id="kilometreRiding"
-                        type="number"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
+                        pattern="[0-9]*\.?[0-9]*"
                         value={driverFormData.kilometreRiding}
                         onChange={(e) => setDriverFormData({ ...driverFormData, kilometreRiding: e.target.value })}
                         placeholder="Enter kilometrage"

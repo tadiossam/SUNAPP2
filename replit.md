@@ -105,9 +105,24 @@ I prefer iterative development with clear communication at each stage. Please as
   - **Future Features**: Mechanic inspection checklist, visual damage reporting with diagram marking, photo documentation, repair estimates, automatic work order creation
 - **Approval System**: Multi-level approval workflow for job orders, completions, parts requests based on department hierarchy, approval limit controls, pending approvals dashboard, escalation.
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
+- **Attendance Device Integration** (/admin):
+  - **iFace990 Plus Biometric Device**: Integration with ZKTeco iFace990 Plus attendance device (Serial: CKPG222360158, IP: 192.168.40.2, Port: 4370)
+  - **Device Configuration**: Admin panel to configure device settings (IP address, port, timeout, serial number)
+  - **Connection Testing**: Test connectivity to the biometric device before importing users
+  - **One-Time Import**: Import all users from attendance device to employee records with mapping to deviceUserId field
+  - **Ongoing Sync**: Sync only new users added to the device since last import/sync
+  - **Employee Mapping**: Automatic creation of employee records from device users with role assignment (technician default)
+  - **Import History**: Complete log of all import/sync operations with success/failure tracking
+  - **Data Tracking**: 
+    - Device settings stored in `attendance_device_settings` table with active/inactive status
+    - Import logs in `device_import_logs` table tracking users imported, updated, skipped, and errors
+    - Employee `deviceUserId` field links employees to biometric device users
+  - **Network Communication**: LAN-based TCP/IP communication using zkteco-js library
+  - **Status Monitoring**: Last import/sync timestamps, user count display, operation status badges
 
 ## External Dependencies
 - **Replit Object Storage**: For 3D models, images, and videos.
 - **Neon**: PostgreSQL database hosting.
 - **Resend**: Email notification service for admin actions (requires `RESEND_API_KEY`).
 - **OpenAI Vision**: (Planned) For AI part recognition.
+- **ZKTeco Biometric Device**: iFace990 Plus attendance device for employee user management via zkteco-js library.

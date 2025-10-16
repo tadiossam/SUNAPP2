@@ -24,6 +24,7 @@ import ApprovalsPage from "@/pages/Approvals";
 import WorkOrdersPage from "@/pages/WorkOrders";
 import SOPsPage from "@/pages/SOPs";
 import PartsLocationsPage from "@/pages/PartsLocations";
+import AdminPage from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/work-orders" component={WorkOrdersPage} />
       <Route path="/sops" component={SOPsPage} />
       <Route path="/parts-locations" component={PartsLocationsPage} />
+      <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
   );

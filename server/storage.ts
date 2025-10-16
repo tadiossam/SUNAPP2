@@ -23,6 +23,8 @@ import {
   repairEstimates,
   partsRequests,
   approvals,
+  attendanceDeviceSettings,
+  deviceImportLogs,
   type EquipmentCategory,
   type InsertEquipmentCategory,
   type Equipment,
@@ -252,6 +254,16 @@ export interface IStorage {
   approveWorkOrderCompletion(workOrderId: string, approvedById: string, notes?: string): Promise<void>;
   approvePartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
   rejectPartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
+
+  // Attendance Device Operations
+  getAttendanceDeviceSettings(): Promise<any | undefined>;
+  saveAttendanceDeviceSettings(data: any): Promise<any>;
+  updateAttendanceDeviceSettings(id: string, data: Partial<any>): Promise<any>;
+  getEmployeeByDeviceUserId(deviceUserId: string): Promise<Employee | undefined>;
+  getEmployeeByEmployeeId(employeeId: string): Promise<Employee | undefined>;
+  getEmployeeByName(fullName: string): Promise<Employee | undefined>;
+  createDeviceImportLog(data: any): Promise<any>;
+  getDeviceImportLogs(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1526,6 +1538,83 @@ export class DatabaseStorage implements IStorage {
         status: "rejected",
       })
       .where(eq(partsRequests.id, partsRequestId));
+  }
+
+  // Attendance Device Operations
+  async getAttendanceDeviceSettings(): Promise<any | undefined> {
+    const [result] = await db
+      .select()
+      .from(attendanceDeviceSettings)
+      .where(eq(attendanceDeviceSettings.isActive, true))
+      .limit(1);
+    return result || undefined;
+  }
+
+  async saveAttendanceDeviceSettings(data: any): Promise<any> {
+    // Deactivate all existing settings
+    await db
+      .update(attendanceDeviceSettings)
+      .set({ isActive: false });
+
+    // Create new active setting
+    const [result] = await db
+      .insert(attendanceDeviceSettings)
+      .values({ ...data, isActive: true })
+      .returning();
+    return result;
+  }
+
+  async updateAttendanceDeviceSettings(id: string, data: Partial<any>): Promise<any> {
+    const [result] = await db
+      .update(attendanceDeviceSettings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(attendanceDeviceSettings.id, id))
+      .returning();
+    return result;
+  }
+
+  async getEmployeeByDeviceUserId(deviceUserId: string): Promise<Employee | undefined> {
+    const [result] = await db
+      .select()
+      .from(employees)
+      .where(eq(employees.deviceUserId, deviceUserId))
+      .limit(1);
+    return result || undefined;
+  }
+
+  async getEmployeeByEmployeeId(employeeId: string): Promise<Employee | undefined> {
+    const [result] = await db
+      .select()
+      .from(employees)
+      .where(eq(employees.employeeId, employeeId))
+      .limit(1);
+    return result || undefined;
+  }
+
+  async getEmployeeByName(fullName: string): Promise<Employee | undefined> {
+    const normalizedSearch = fullName.toLowerCase().trim();
+    const [result] = await db
+      .select()
+      .from(employees)
+      .where(sql`LOWER(TRIM(${employees.fullName})) = ${normalizedSearch}`)
+      .limit(1);
+    return result || undefined;
+  }
+
+  async createDeviceImportLog(data: any): Promise<any> {
+    const [result] = await db
+      .insert(deviceImportLogs)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async getDeviceImportLogs(): Promise<any[]> {
+    return await db
+      .select()
+      .from(deviceImportLogs)
+      .orderBy(desc(deviceImportLogs.createdAt))
+      .limit(50);
   }
 }
 

@@ -338,6 +338,7 @@ export const repairBays = pgTable("repair_bays", {
 export const employees = pgTable("employees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   employeeId: text("employee_id").notNull().unique(), // Company employee ID
+  deviceUserId: text("device_user_id").unique(), // ZKTeco attendance device user ID
   fullName: text("full_name").notNull(),
   role: text("role").notNull(), // "mechanic", "wash_employee", "supervisor", "painter", "body_worker", "electrician", "technician"
   specialty: text("specialty"), // For mechanics: "Engine", "Hydraulic", "Electrical"

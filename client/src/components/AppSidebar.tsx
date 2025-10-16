@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -92,6 +92,12 @@ export function AppSidebar() {
       url: "/parts-locations",
       icon: MapPin,
       testId: "link-parts-locations",
+    },
+    {
+      title: "Admin Panel",
+      url: "/admin",
+      icon: Settings,
+      testId: "link-admin",
     },
   ];
 

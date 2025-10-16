@@ -1001,6 +1001,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/employees/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteEmployee(req.params.id);
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted', 'employee', req.params.id, req.user.username, {}
+        ));
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting employee:", error);
+      res.status(400).json({ error: "Failed to delete employee" });
+    }
+  });
+
   // Employee photo upload endpoint
   app.post("/api/employees/:id/photo", isCEOOrAdmin, upload.single('photo'), async (req, res) => {
     try {

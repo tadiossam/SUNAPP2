@@ -182,6 +182,7 @@ export interface IStorage {
   createEmployee(data: InsertEmployee): Promise<Employee>;
   updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee>;
   updateEmployeePhoto(id: string, photoUrl: string): Promise<Employee | undefined>;
+  deleteEmployee(id: string): Promise<void>;
 
   // Work Orders
   getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]>;
@@ -864,6 +865,10 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
+  async deleteEmployee(id: string): Promise<void> {
+    await db.delete(employees).where(eq(employees.id, id));
+  }
+
   // Work Orders
   async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]> {
     const conditions = [];
@@ -1368,7 +1373,7 @@ export class DatabaseStorage implements IStorage {
         overallCondition: equipmentInspections.overallCondition,
         findings: equipmentInspections.findings,
         recommendations: equipmentInspections.recommendations,
-        completedAt: equipmentInspections.completedAt,
+        completedAt: equipmentInspections.updatedAt, // Using updatedAt as completedAt
         inspectionDate: equipmentInspections.inspectionDate,
         reception: equipmentReceptions,
         inspector: employees,
@@ -1377,7 +1382,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(equipmentReceptions, eq(equipmentInspections.receptionId, equipmentReceptions.id))
       .leftJoin(employees, eq(equipmentInspections.inspectorId, employees.id))
       .where(eq(equipmentInspections.status, "completed"))
-      .orderBy(desc(equipmentInspections.completedAt));
+      .orderBy(desc(equipmentInspections.updatedAt));
     
     // Fetch equipment details for each reception
     const enrichedResults = await Promise.all(

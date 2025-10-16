@@ -456,19 +456,37 @@ export default function Employees() {
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={() => {
-                    setSelectedEmployee(employee);
-                    photoInputRef.current?.click();
-                  }}
-                  data-testid={`button-upload-photo-${employee.id}`}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {t("uploadPhoto")}
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      setSelectedEmployee(employee);
+                      photoInputRef.current?.click();
+                    }}
+                    data-testid={`button-upload-photo-${employee.id}`}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {t("uploadPhoto")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditClick(employee)}
+                    data-testid={`button-edit-${employee.id}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteClick(employee)}
+                    data-testid={`button-delete-${employee.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -484,6 +502,204 @@ export default function Employees() {
         className="hidden"
         data-testid="input-photo-upload"
       />
+
+      {/* Edit Employee Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Employee</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employee ID</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-edit-employee-id"
+                        placeholder="Employee ID"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("employeeName")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-edit-employee-name"
+                        placeholder={t("employeeName")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username (for login)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ""}
+                        data-testid="input-edit-employee-username"
+                        placeholder="Username (optional)"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password (leave blank to keep current)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value || ""}
+                        type="password"
+                        data-testid="input-edit-employee-password"
+                        placeholder="New password (optional)"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("role")}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-employee-role">
+                          <SelectValue placeholder={t("role")} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="ceo">CEO</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="wash_employee">{t("washEmployee")}</SelectItem>
+                        <SelectItem value="mechanic">{t("mechanic")}</SelectItem>
+                        <SelectItem value="supervisor">{t("supervisor")}</SelectItem>
+                        <SelectItem value="painter">{t("painter")}</SelectItem>
+                        <SelectItem value="body_worker">{t("bodyWorker")}</SelectItem>
+                        <SelectItem value="electrician">{t("electrician")}</SelectItem>
+                        <SelectItem value="technician">{t("technician")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("phone")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        data-testid="input-edit-employee-phone"
+                        placeholder={t("phone")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("email")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        type="email"
+                        data-testid="input-edit-employee-email"
+                        placeholder={t("email")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  data-testid="button-submit-edit-employee"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? t("loading") : "Update Employee"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Employee</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to delete employee <strong>{selectedEmployee?.fullName}</strong>? This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              data-testid="button-cancel-delete"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Employee"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

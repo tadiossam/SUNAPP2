@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, ClipboardCheck, AlertCircle, Save, CheckCircle } from "lucide-react";
+import { Search, ClipboardCheck, AlertCircle, Save, CheckCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { EquipmentReceptionWithDetails } from "@shared/schema";
@@ -50,6 +50,8 @@ export default function Inspection() {
   const [overallCondition, setOverallCondition] = useState("");
   const [findings, setFindings] = useState("");
   const [recommendations, setRecommendations] = useState("");
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [viewingInspection, setViewingInspection] = useState<any>(null);
   const { toast } = useToast();
 
   // Get current user
@@ -70,6 +72,12 @@ export default function Inspection() {
   const { data: completedInspections = [] } = useQuery<any[]>({
     queryKey: ["/api/inspections/completed"],
     enabled: !!currentUser?.id,
+  });
+
+  // Fetch checklist items for viewing inspection
+  const { data: viewingChecklistItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspection-checklist-items", viewingInspection?.id],
+    enabled: !!viewingInspection?.id,
   });
 
   // For admins, filter to show only receptions with inspection officer assigned
@@ -455,6 +463,7 @@ export default function Inspection() {
                       <TableHead>Service Type</TableHead>
                       <TableHead>Completed Date</TableHead>
                       <TableHead>Overall Condition</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -472,6 +481,20 @@ export default function Inspection() {
                           {inspection.completedAt ? new Date(inspection.completedAt).toLocaleDateString() : "N/A"}
                         </TableCell>
                         <TableCell>{inspection.overallCondition || "N/A"}</TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setViewingInspection(inspection);
+                              setShowViewDialog(true);
+                            }}
+                            data-testid={`button-view-inspection-${inspection.id}`}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -706,6 +729,135 @@ export default function Inspection() {
                     Submit Inspection
                   </Button>
                 </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Completed Inspection Dialog (Read-Only) */}
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Inspection Details - {viewingInspection?.inspectionNumber}</DialogTitle>
+          </DialogHeader>
+
+          {viewingInspection && (
+            <div className="space-y-6">
+              {/* Equipment Details */}
+              <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                <h3 className="font-semibold">Equipment Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Equipment:</p>
+                    <p className="font-medium">{viewingInspection.reception?.equipment?.model || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Plant Number:</p>
+                    <p className="font-medium">{viewingInspection.reception?.plantNumber || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Service Type:</p>
+                    <Badge variant={viewingInspection.serviceType === "long_term" ? "destructive" : "secondary"}>
+                      {viewingInspection.serviceType === "long_term" ? "Long Term" : "Short Term"}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Inspector:</p>
+                    <p className="font-medium">{viewingInspection.inspector?.fullName || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Completed Date:</p>
+                    <p className="font-medium">
+                      {viewingInspection.completedAt ? new Date(viewingInspection.completedAt).toLocaleDateString() : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Status:</p>
+                    <Badge variant="default">{viewingInspection.status}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Inspection Checklist (Read-Only) */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold">Inspection Checklist</h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead>Item Description</TableHead>
+                        <TableHead className="text-center">Has/Does Not</TableHead>
+                        <TableHead className="text-center">Working/Not Working</TableHead>
+                        <TableHead className="text-center">Broken/Cracked</TableHead>
+                        <TableHead>Comments</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {viewingChecklistItems.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">{item.itemNumber}</TableCell>
+                          <TableCell>{item.itemDescription}</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center gap-2">
+                              <Checkbox checked={item.hasItem} disabled />
+                              <span className="text-xs text-muted-foreground">የለው</span>
+                              <Checkbox checked={item.doesNotHave} disabled />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center gap-2">
+                              <Checkbox checked={item.isWorking} disabled />
+                              <span className="text-xs text-muted-foreground">አይሰራም</span>
+                              <Checkbox checked={item.notWorking} disabled />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center gap-2">
+                              <Checkbox checked={item.isBroken} disabled />
+                              <span className="text-xs text-muted-foreground">ስሰንክሰራ</span>
+                              <Checkbox checked={item.isCracked} disabled />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm">{item.additionalComments || "-"}</p>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Overall Assessment (Read-Only) */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold">Overall Assessment</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Overall Condition</label>
+                    <p className="mt-1 p-2 border rounded bg-muted/30">{viewingInspection.overallCondition || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Findings</label>
+                    <p className="mt-1 p-2 border rounded bg-muted/30">{viewingInspection.findings || "N/A"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Recommendations</label>
+                    <p className="mt-1 p-2 border rounded bg-muted/30">{viewingInspection.recommendations || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <div className="flex justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowViewDialog(false)}
+                  data-testid="button-close-view-dialog"
+                >
+                  Close
+                </Button>
               </div>
             </div>
           )}

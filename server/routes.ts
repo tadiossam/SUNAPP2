@@ -35,6 +35,7 @@ import { isCEO, isCEOOrAdmin, verifyCredentials, generateToken } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import express from "express";
+import bcrypt from "bcrypt";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -955,6 +956,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/employees", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertEmployeeSchema.parse(req.body);
+      
+      // Hash password if provided
+      if (validatedData.password) {
+        validatedData.password = await bcrypt.hash(validatedData.password, 10);
+      }
+      
       const employee = await storage.createEmployee(validatedData);
       
       if (req.user?.role === "admin") {
@@ -973,6 +980,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/employees/:id", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertEmployeeSchema.parse(req.body);
+      
+      // Hash password if provided (update scenario)
+      if (validatedData.password) {
+        validatedData.password = await bcrypt.hash(validatedData.password, 10);
+      }
+      
       const employee = await storage.updateEmployee(req.params.id, validatedData);
       
       if (req.user?.role === "admin") {

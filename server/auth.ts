@@ -2,9 +2,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
-import { users } from "@shared/schema";
+import { users, employees } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import type { User } from "@shared/schema";
+import type { User, Employee } from "@shared/schema";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "partfinder-ssc-secret-key";
 
@@ -34,24 +34,48 @@ export function verifyToken(token: string): JWTPayload | null {
   }
 }
 
-// Verify user credentials
+// Verify user credentials - checks both users and employees tables
 export async function verifyCredentials(username: string, password: string): Promise<User | null> {
+  // First check the users table
   const [user] = await db
     .select()
     .from(users)
     .where(eq(users.username, username))
     .limit(1);
 
-  if (!user) {
+  if (user) {
+    const isValid = await bcrypt.compare(password, user.password);
+    if (isValid) {
+      return user;
+    }
+  }
+
+  // If not found in users table, check employees table
+  const [employee] = await db
+    .select()
+    .from(employees)
+    .where(eq(employees.username, username))
+    .limit(1);
+
+  if (!employee || !employee.password || !employee.username) {
     return null;
   }
 
-  const isValid = await bcrypt.compare(password, user.password);
+  const isValid = await bcrypt.compare(password, employee.password);
   if (!isValid) {
     return null;
   }
 
-  return user;
+  // Convert employee to User-like structure for authentication
+  return {
+    id: employee.id,
+    username: employee.username,
+    password: employee.password,
+    fullName: employee.fullName,
+    role: employee.role,
+    language: employee.language || 'en',
+    createdAt: employee.createdAt,
+  } as User;
 }
 
 // Middleware to extract and verify JWT from Authorization header
@@ -70,14 +94,40 @@ export async function authenticateToken(req: any, res: Response, next: NextFunct
     return next();
   }
 
-  // Fetch full user from database
+  // Fetch full user from database (check users table first)
   const [user] = await db
     .select()
     .from(users)
     .where(eq(users.id, payload.id))
     .limit(1);
 
-  req.user = user || null;
+  if (user) {
+    req.user = user;
+    return next();
+  }
+
+  // If not found in users table, check employees table
+  const [employee] = await db
+    .select()
+    .from(employees)
+    .where(eq(employees.id, payload.id))
+    .limit(1);
+
+  if (employee && employee.username && employee.password) {
+    // Convert employee to User-like structure
+    req.user = {
+      id: employee.id,
+      username: employee.username,
+      password: employee.password,
+      fullName: employee.fullName,
+      role: employee.role,
+      language: employee.language || 'en',
+      createdAt: employee.createdAt,
+    } as User;
+  } else {
+    req.user = null;
+  }
+
   next();
 }
 
@@ -96,7 +146,8 @@ export function isAuthenticated(req: any, res: Response, next: NextFunction) {
 
 // Middleware to check if user has CEO role
 export function isCEO(req: any, res: Response, next: NextFunction) {
-  if (req.user?.role === "CEO") {
+  const role = req.user?.role?.toLowerCase();
+  if (role === "ceo") {
     return next();
   }
   res.status(403).json({ message: "Access denied. CEO role required." });
@@ -104,7 +155,8 @@ export function isCEO(req: any, res: Response, next: NextFunction) {
 
 // Middleware to check if user has CEO or Admin role
 export function isCEOOrAdmin(req: any, res: Response, next: NextFunction) {
-  if (req.user?.role === "CEO" || req.user?.role === "admin") {
+  const role = req.user?.role?.toLowerCase();
+  if (role === "ceo" || role === "admin") {
     return next();
   }
   res.status(403).json({ message: "Access denied. CEO or Admin role required." });

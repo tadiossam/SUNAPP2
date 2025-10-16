@@ -25,6 +25,8 @@ import {
   approvals,
   attendanceDeviceSettings,
   deviceImportLogs,
+  equipmentInspections,
+  inspectionChecklistItems,
   type EquipmentCategory,
   type InsertEquipmentCategory,
   type Equipment,
@@ -79,6 +81,10 @@ import {
   type Approval,
   type InsertApproval,
   type ApprovalWithDetails,
+  type EquipmentInspection,
+  type InsertEquipmentInspection,
+  type InspectionChecklistItem,
+  type InsertInspectionChecklistItem,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
@@ -223,6 +229,19 @@ export interface IStorage {
   getInspectionItemsByReception(receptionId: string): Promise<ReceptionInspectionItem[]>;
   createInspectionItem(data: InsertReceptionInspectionItem): Promise<ReceptionInspectionItem>;
   createBulkInspectionItems(items: InsertReceptionInspectionItem[]): Promise<ReceptionInspectionItem[]>;
+  
+  // Equipment Inspections
+  getInspectionByReceptionId(receptionId: string): Promise<EquipmentInspection | undefined>;
+  getInspectionsByInspector(inspectorId: string): Promise<EquipmentInspection[]>;
+  getInspectionsByPrefix(prefix: string): Promise<EquipmentInspection[]>;
+  createInspection(data: InsertEquipmentInspection): Promise<EquipmentInspection>;
+  updateInspection(id: string, data: Partial<InsertEquipmentInspection>): Promise<EquipmentInspection>;
+  
+  // Inspection Checklist Items
+  getChecklistItemsByInspection(inspectionId: string): Promise<InspectionChecklistItem[]>;
+  createChecklistItem(data: InsertInspectionChecklistItem): Promise<InspectionChecklistItem>;
+  createBulkChecklistItems(items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]>;
+  updateChecklistItem(id: string, data: Partial<InsertInspectionChecklistItem>): Promise<InspectionChecklistItem>;
   
   // Damage Reports
   getDamageReportsByReception(receptionId: string): Promise<DamageReport[]>;
@@ -1287,6 +1306,74 @@ export class DatabaseStorage implements IStorage {
     if (items.length === 0) return [];
     const results = await db.insert(receptionInspectionItems).values(items).returning();
     return results;
+  }
+
+  // Equipment Inspections
+  async getInspectionByReceptionId(receptionId: string): Promise<EquipmentInspection | undefined> {
+    const [result] = await db
+      .select()
+      .from(equipmentInspections)
+      .where(eq(equipmentInspections.receptionId, receptionId));
+    return result || undefined;
+  }
+
+  async getInspectionsByInspector(inspectorId: string): Promise<EquipmentInspection[]> {
+    return await db
+      .select()
+      .from(equipmentInspections)
+      .where(eq(equipmentInspections.inspectorId, inspectorId))
+      .orderBy(desc(equipmentInspections.inspectionDate));
+  }
+
+  async getInspectionsByPrefix(prefix: string): Promise<EquipmentInspection[]> {
+    return await db
+      .select()
+      .from(equipmentInspections)
+      .where(ilike(equipmentInspections.inspectionNumber, `${prefix}%`))
+      .orderBy(desc(equipmentInspections.inspectionNumber));
+  }
+
+  async createInspection(data: InsertEquipmentInspection): Promise<EquipmentInspection> {
+    const [result] = await db.insert(equipmentInspections).values(data).returning();
+    return result;
+  }
+
+  async updateInspection(id: string, data: Partial<InsertEquipmentInspection>): Promise<EquipmentInspection> {
+    const [result] = await db
+      .update(equipmentInspections)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(equipmentInspections.id, id))
+      .returning();
+    return result;
+  }
+
+  // Inspection Checklist Items
+  async getChecklistItemsByInspection(inspectionId: string): Promise<InspectionChecklistItem[]> {
+    return await db
+      .select()
+      .from(inspectionChecklistItems)
+      .where(eq(inspectionChecklistItems.inspectionId, inspectionId))
+      .orderBy(inspectionChecklistItems.itemNumber);
+  }
+
+  async createChecklistItem(data: InsertInspectionChecklistItem): Promise<InspectionChecklistItem> {
+    const [result] = await db.insert(inspectionChecklistItems).values(data).returning();
+    return result;
+  }
+
+  async createBulkChecklistItems(items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]> {
+    if (items.length === 0) return [];
+    const results = await db.insert(inspectionChecklistItems).values(items).returning();
+    return results;
+  }
+
+  async updateChecklistItem(id: string, data: Partial<InsertInspectionChecklistItem>): Promise<InspectionChecklistItem> {
+    const [result] = await db
+      .update(inspectionChecklistItems)
+      .set(data)
+      .where(eq(inspectionChecklistItems.id, id))
+      .returning();
+    return result;
   }
 
   // Damage Reports

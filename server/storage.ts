@@ -234,6 +234,7 @@ export interface IStorage {
   getInspectionByReceptionId(receptionId: string): Promise<EquipmentInspection | undefined>;
   getInspectionsByInspector(inspectorId: string): Promise<EquipmentInspection[]>;
   getInspectionsByPrefix(prefix: string): Promise<EquipmentInspection[]>;
+  getAllCompletedInspections(): Promise<any[]>;
   createInspection(data: InsertEquipmentInspection): Promise<EquipmentInspection>;
   updateInspection(id: string, data: Partial<InsertEquipmentInspection>): Promise<EquipmentInspection>;
   
@@ -1353,6 +1354,51 @@ export class DatabaseStorage implements IStorage {
       .where(eq(equipmentInspections.id, id))
       .returning();
     return result;
+  }
+
+  async getAllCompletedInspections(): Promise<any[]> {
+    const results = await db
+      .select({
+        id: equipmentInspections.id,
+        inspectionNumber: equipmentInspections.inspectionNumber,
+        receptionId: equipmentInspections.receptionId,
+        inspectorId: equipmentInspections.inspectorId,
+        serviceType: equipmentInspections.serviceType,
+        status: equipmentInspections.status,
+        overallCondition: equipmentInspections.overallCondition,
+        findings: equipmentInspections.findings,
+        recommendations: equipmentInspections.recommendations,
+        completedAt: equipmentInspections.completedAt,
+        inspectionDate: equipmentInspections.inspectionDate,
+        reception: equipmentReceptions,
+        inspector: employees,
+      })
+      .from(equipmentInspections)
+      .leftJoin(equipmentReceptions, eq(equipmentInspections.receptionId, equipmentReceptions.id))
+      .leftJoin(employees, eq(equipmentInspections.inspectorId, employees.id))
+      .where(eq(equipmentInspections.status, "completed"))
+      .orderBy(desc(equipmentInspections.completedAt));
+    
+    // Fetch equipment details for each reception
+    const enrichedResults = await Promise.all(
+      results.map(async (result) => {
+        if (result.reception) {
+          const equipment = result.reception.equipmentId 
+            ? await this.getEquipmentById(result.reception.equipmentId)
+            : null;
+          return {
+            ...result,
+            reception: {
+              ...result.reception,
+              equipment,
+            },
+          };
+        }
+        return result;
+      })
+    );
+
+    return enrichedResults;
   }
 
   // Inspection Checklist Items

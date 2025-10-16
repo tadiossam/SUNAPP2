@@ -1286,6 +1286,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all completed inspections
+  app.get("/api/inspections/completed", async (req, res) => {
+    try {
+      const inspections = await storage.getAllCompletedInspections();
+      res.json(inspections);
+    } catch (error) {
+      console.error("Error fetching completed inspections:", error);
+      res.status(500).json({ error: "Failed to fetch completed inspections" });
+    }
+  });
+
   // Update inspection
   app.patch("/api/inspections/:id", async (req, res) => {
     try {

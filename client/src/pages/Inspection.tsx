@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -39,6 +40,7 @@ interface ChecklistItemState {
 }
 
 export default function Inspection() {
+  const [activeTab, setActiveTab] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedReception, setSelectedReception] = useState<EquipmentReceptionWithDetails | null>(null);
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
@@ -55,10 +57,17 @@ export default function Inspection() {
   });
 
   const currentUser = (authData as any)?.user;
+  const isAdmin = currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "ceo";
 
   // Fetch all equipment receptions with inspection officers assigned
   const { data: allReceptions = [], isLoading } = useQuery<EquipmentReceptionWithDetails[]>({
     queryKey: ["/api/equipment-receptions"],
+    enabled: !!currentUser?.id,
+  });
+
+  // Fetch all completed inspections
+  const { data: completedInspections = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspections/completed"],
     enabled: !!currentUser?.id,
   });
 
@@ -302,93 +311,160 @@ export default function Inspection() {
         <div>
           <h1 className="text-3xl font-bold">Equipment Inspections</h1>
           <p className="text-muted-foreground">
-            View all equipment awaiting inspection by assigned officers
+            View all equipment inspections - pending and completed
           </p>
         </div>
-        <Badge variant="secondary" className="text-lg px-4 py-2">
-          {filteredReceptions.length} Awaiting Inspection
-        </Badge>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by reception number, plant number, or equipment..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-          data-testid="input-search-inspections"
-        />
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="pending" data-testid="tab-pending-inspections">
+            Pending Inspections
+            <Badge variant="secondary" className="ml-2">
+              {filteredReceptions.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="completed" data-testid="tab-completed-inspections">
+            Completed Inspections
+            <Badge variant="secondary" className="ml-2">
+              {completedInspections.length}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Inspections List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Inspections with Assigned Officers</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredReceptions.length === 0 ? (
-            <div className="text-center py-12">
-              <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">
-                {assignedReceptions.length === 0
-                  ? "No equipment receptions with assigned inspection officers yet"
-                  : "No inspections match your search"}
-              </p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reception Number</TableHead>
-                  <TableHead>Equipment</TableHead>
-                  <TableHead>Plant Number</TableHead>
-                  <TableHead>Inspection Officer</TableHead>
-                  <TableHead>Service Type</TableHead>
-                  <TableHead>Arrival Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredReceptions.map((reception) => (
-                  <TableRow key={reception.id}>
-                    <TableCell className="font-medium" data-testid={`text-reception-${reception.id}`}>
-                      {reception.receptionNumber}
-                    </TableCell>
-                    <TableCell>{reception.equipment?.model || "N/A"}</TableCell>
-                    <TableCell>{reception.plantNumber || "N/A"}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{reception.inspectionOfficer?.fullName || "Not Assigned"}</span>
-                        <span className="text-xs text-muted-foreground">{reception.inspectionOfficer?.role || ""}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={reception.serviceType === "long_term" ? "destructive" : "secondary"}>
-                        {reception.serviceType === "long_term" ? "Long Term" : "Short Term"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {reception.arrivalDate ? new Date(reception.arrivalDate).toLocaleDateString() : "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() => handleStartInspection(reception)}
-                        data-testid={`button-inspect-${reception.id}`}
-                      >
-                        <ClipboardCheck className="h-4 w-4 mr-2" />
-                        Start Inspection
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        {/* Pending Inspections Tab */}
+        <TabsContent value="pending" className="space-y-4 mt-4">
+          {/* Search */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by reception number, plant number, or equipment..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-inspections"
+            />
+          </div>
+
+          {/* Pending Inspections List */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Pending Inspections</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredReceptions.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">
+                    {assignedReceptions.length === 0
+                      ? "No equipment receptions with assigned inspection officers yet"
+                      : "No inspections match your search"}
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Reception Number</TableHead>
+                      <TableHead>Equipment</TableHead>
+                      <TableHead>Plant Number</TableHead>
+                      <TableHead>Inspection Officer</TableHead>
+                      <TableHead>Service Type</TableHead>
+                      <TableHead>Arrival Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReceptions.map((reception) => (
+                      <TableRow key={reception.id}>
+                        <TableCell className="font-medium" data-testid={`text-reception-${reception.id}`}>
+                          {reception.receptionNumber}
+                        </TableCell>
+                        <TableCell>{reception.equipment?.model || "N/A"}</TableCell>
+                        <TableCell>{reception.plantNumber || "N/A"}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{reception.inspectionOfficer?.fullName || "Not Assigned"}</span>
+                            <span className="text-xs text-muted-foreground">{reception.inspectionOfficer?.role || ""}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={reception.serviceType === "long_term" ? "destructive" : "secondary"}>
+                            {reception.serviceType === "long_term" ? "Long Term" : "Short Term"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {reception.arrivalDate ? new Date(reception.arrivalDate).toLocaleDateString() : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            onClick={() => handleStartInspection(reception)}
+                            data-testid={`button-inspect-${reception.id}`}
+                          >
+                            <ClipboardCheck className="h-4 w-4 mr-2" />
+                            Start Inspection
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Completed Inspections Tab */}
+        <TabsContent value="completed" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed Inspections</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {completedInspections.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">
+                    No completed inspections yet
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Inspection Number</TableHead>
+                      <TableHead>Equipment</TableHead>
+                      <TableHead>Inspector</TableHead>
+                      <TableHead>Service Type</TableHead>
+                      <TableHead>Completed Date</TableHead>
+                      <TableHead>Overall Condition</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {completedInspections.map((inspection: any) => (
+                      <TableRow key={inspection.id}>
+                        <TableCell className="font-medium">{inspection.inspectionNumber}</TableCell>
+                        <TableCell>{inspection.reception?.equipment?.model || "N/A"}</TableCell>
+                        <TableCell>{inspection.inspector?.fullName || "N/A"}</TableCell>
+                        <TableCell>
+                          <Badge variant={inspection.serviceType === "long_term" ? "destructive" : "secondary"}>
+                            {inspection.serviceType === "long_term" ? "Long Term" : "Short Term"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {inspection.completedAt ? new Date(inspection.completedAt).toLocaleDateString() : "N/A"}
+                        </TableCell>
+                        <TableCell>{inspection.overallCondition || "N/A"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Inspection Dialog */}
       <Dialog open={showInspectionDialog} onOpenChange={setShowInspectionDialog}>

@@ -232,6 +232,7 @@ export interface IStorage {
   createBulkInspectionItems(items: InsertReceptionInspectionItem[]): Promise<ReceptionInspectionItem[]>;
   
   // Equipment Inspections
+  getInspectionById(id: string): Promise<EquipmentInspection | undefined>;
   getInspectionByReceptionId(receptionId: string): Promise<EquipmentInspection | undefined>;
   getInspectionsByInspector(inspectorId: string): Promise<EquipmentInspection[]>;
   getInspectionsByPrefix(prefix: string): Promise<EquipmentInspection[]>;
@@ -1323,6 +1324,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Equipment Inspections
+  async getInspectionById(id: string): Promise<EquipmentInspection | undefined> {
+    const [result] = await db
+      .select()
+      .from(equipmentInspections)
+      .where(eq(equipmentInspections.id, id));
+    return result || undefined;
+  }
+
   async getInspectionByReceptionId(receptionId: string): Promise<EquipmentInspection | undefined> {
     const [result] = await db
       .select()

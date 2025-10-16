@@ -1817,6 +1817,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertApprovalSchema.parse(req.body);
       const approval = await storage.updateApproval(req.params.id, validatedData);
+      
+      // If inspection approval is approved, auto-create work order
+      if (approval.approvalType === "inspection" && approval.status === "approved" && approval.referenceId) {
+        try {
+          const inspection = await storage.getInspectionById(approval.referenceId);
+          if (inspection && inspection.receptionId) {
+            const reception = await storage.getEquipmentReceptionById(inspection.receptionId);
+            if (reception) {
+              // Auto-generate work order number
+              const now = new Date();
+              const year = now.getFullYear();
+              const existingWorkOrders = await storage.getAllWorkOrders();
+              const currentYearWorkOrders = existingWorkOrders.filter(wo => 
+                wo.workOrderNumber?.startsWith(`WO-${year}`)
+              );
+              const nextNumber = currentYearWorkOrders.length + 1;
+              const workOrderNumber = `WO-${year}-${String(nextNumber).padStart(3, '0')}`;
+
+              // Determine work type from inspection findings
+              const workType = inspection.overallCondition === "Poor" ? "Major Repair" : "Routine Maintenance";
+
+              // Create work order
+              await storage.createWorkOrder({
+                workOrderNumber,
+                equipmentId: reception.equipmentId,
+                garageId: reception.garageId || undefined,
+                workType,
+                priority: inspection.overallCondition === "Poor" ? "High" : "Medium",
+                description: `Work order auto-created from approved inspection ${inspection.inspectionNumber}`,
+                estimatedDuration: null,
+                scheduledStartDate: new Date().toISOString(),
+                inspectionId: inspection.id,
+                receptionId: reception.id,
+                status: "pending",
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error auto-creating work order from inspection:", error);
+          // Don't fail the approval update if work order creation fails
+        }
+      }
+
       res.json(approval);
     } catch (error) {
       console.error("Error updating approval:", error);

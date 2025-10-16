@@ -34,7 +34,8 @@ import {
   type Equipment, 
   type InsertEquipment,
   type EquipmentCategory,
-  type InsertEquipmentCategory 
+  type InsertEquipmentCategory,
+  type Employee 
 } from "@shared/schema";
 import type { 
   MaintenanceRecordWithDetails, 
@@ -63,6 +64,11 @@ export default function EquipmentPage() {
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
+  // Driver selection state
+  const [driverDialogOpen, setDriverDialogOpen] = useState(false);
+  const [driverSearchTerm, setDriverSearchTerm] = useState("");
+  const [selectedDriver, setSelectedDriver] = useState<Employee | null>(null);
+  
   // Import/Export state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +85,7 @@ export default function EquipmentPage() {
     machineSerial: "",
     plantNumber: "",
     projectArea: "",
+    assignedDriverId: null,
     remarks: "",
   });
 
@@ -97,6 +104,10 @@ export default function EquipmentPage() {
 
   const { data: categories } = useQuery<EquipmentCategory[]>({
     queryKey: ["/api/equipment-categories"],
+  });
+
+  const { data: employees } = useQuery<Employee[]>({
+    queryKey: ["/api/employees"],
   });
 
   const filteredEquipment = equipment?.filter((item) => {
@@ -247,9 +258,11 @@ export default function EquipmentPage() {
       machineSerial: "",
       plantNumber: "",
       projectArea: "",
+      assignedDriverId: null,
       price: null,
       remarks: "",
     });
+    setSelectedDriver(null);
     setEditingEquipment(null);
     setIsCreateDialogOpen(false);
   };
@@ -283,14 +296,34 @@ export default function EquipmentPage() {
       machineSerial: equip.machineSerial || "",
       plantNumber: equip.plantNumber || "",
       projectArea: equip.projectArea || "",
+      assignedDriverId: equip.assignedDriverId || null,
       remarks: equip.remarks || "",
     });
+    
+    // Find and set the assigned driver
+    if (equip.assignedDriverId && employees) {
+      const driver = employees.find(emp => emp.id === equip.assignedDriverId);
+      setSelectedDriver(driver || null);
+    } else {
+      setSelectedDriver(null);
+    }
+    
     setEditingEquipment(equip);
     setIsCreateDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
     setDeleteConfirmId(id);
+  };
+
+  const handleDriverSelect = (driver: Employee) => {
+    setSelectedDriver(driver);
+    setFormData({
+      ...formData,
+      assignedDriverId: driver.id,
+    });
+    setDriverDialogOpen(false);
+    setDriverSearchTerm("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -719,6 +752,25 @@ export default function EquipmentPage() {
                   data-testid="input-project-area"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Assigned Driver</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                  onClick={() => setDriverDialogOpen(true)}
+                  data-testid="button-select-assigned-driver"
+                >
+                  {selectedDriver ? (
+                    <span className="truncate">
+                      {selectedDriver.fullName} ({selectedDriver.employeeId})
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">Click to Select Driver</span>
+                  )}
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -822,6 +874,62 @@ export default function EquipmentPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Driver Selection Dialog */}
+      <Dialog open={driverDialogOpen} onOpenChange={setDriverDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Select Assigned Driver</DialogTitle>
+            <DialogDescription>
+              Choose the driver to assign to this equipment
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <Input
+              placeholder="Search by name, ID, or role..."
+              value={driverSearchTerm}
+              onChange={(e) => setDriverSearchTerm(e.target.value)}
+              data-testid="input-search-driver"
+            />
+            
+            <div className="border rounded-lg max-h-[400px] overflow-y-auto">
+              <div className="divide-y">
+                {employees
+                  ?.filter((emp) => {
+                    if (!driverSearchTerm) return true;
+                    const searchLower = driverSearchTerm.toLowerCase();
+                    return (
+                      emp.fullName.toLowerCase().includes(searchLower) ||
+                      emp.employeeId?.toLowerCase().includes(searchLower) ||
+                      emp.role?.toLowerCase().includes(searchLower)
+                    );
+                  })
+                  .map((driver) => (
+                    <div
+                      key={driver.id}
+                      className="p-4 hover-elevate cursor-pointer"
+                      onClick={() => handleDriverSelect(driver)}
+                      data-testid={`driver-row-${driver.id}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium">{driver.fullName}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {driver.employeeId} • {driver.role}
+                          </div>
+                        </div>
+                        {selectedDriver?.id === driver.id && (
+                          <Badge variant="default">Selected</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

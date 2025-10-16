@@ -26,6 +26,7 @@ export const equipment = pgTable("equipment", {
   machineSerial: text("machine_serial"),
   plantNumber: text("plant_number"), // Plant/site number where equipment is assigned
   projectArea: text("project_area"), // Project area where equipment operates
+  assignedDriverId: varchar("assigned_driver_id").references(() => employees.id, { onDelete: "set null" }), // Driver assigned to this equipment
   price: decimal("price", { precision: 12, scale: 2 }), // Equipment price in USD
   remarks: text("remarks"), // Notes, missing data info, special conditions
   createdAt: timestamp("created_at").defaultNow().notNull(),

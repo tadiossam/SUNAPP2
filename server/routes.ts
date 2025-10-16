@@ -1198,6 +1198,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single equipment reception (authenticated users can view)
+  app.get("/api/equipment-receptions/:id", async (req, res) => {
+    try {
+      const reception = await storage.getReceptionById(req.params.id);
+      if (!reception) {
+        return res.status(404).json({ error: "Reception not found" });
+      }
+      res.json(reception);
+    } catch (error) {
+      console.error("Error fetching equipment reception:", error);
+      res.status(500).json({ error: "Failed to fetch equipment reception" });
+    }
+  });
+
   app.post("/api/equipment-receptions", async (req, res) => {
     try {
       // Generate reception number
@@ -1286,6 +1300,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating inspection:", error);
       res.status(400).json({ error: "Failed to create inspection" });
+    }
+  });
+
+  // Get single inspection by ID (authenticated users can view)
+  app.get("/api/inspections/:id", async (req, res) => {
+    try {
+      const inspection = await storage.getInspectionById(req.params.id);
+      if (!inspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+      res.json(inspection);
+    } catch (error) {
+      console.error("Error fetching inspection:", error);
+      res.status(500).json({ error: "Failed to fetch inspection" });
     }
   });
 

@@ -40,6 +40,8 @@ type WorkOrder = {
   scheduledDate: string | null;
   notes?: string | null;
   requiredParts?: WorkOrderRequiredPart[];
+  inspectionId?: string | null;
+  receptionId?: string | null;
   createdAt: string;
 };
 
@@ -75,6 +77,10 @@ export default function WorkOrdersPage() {
   const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
   const [tempSelectedEmployees, setTempSelectedEmployees] = useState<string[]>([]);
 
+  // Inspection and Maintenance detail dialogs
+  const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
+  const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
+
   const { data: workOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders"],
   });
@@ -93,6 +99,28 @@ export default function WorkOrdersPage() {
 
   const { data: spareParts } = useQuery<SparePart[]>({
     queryKey: ["/api/parts"],
+  });
+
+  // Fetch inspection details when viewing
+  const { data: inspectionDetails, isLoading: isLoadingInspection } = useQuery<any>({
+    queryKey: ["/api/inspections", viewingInspectionId],
+    queryFn: async () => {
+      if (!viewingInspectionId) return null;
+      const response = await apiRequest("GET", `/api/inspections/${viewingInspectionId}`);
+      return response.json();
+    },
+    enabled: !!viewingInspectionId,
+  });
+
+  // Fetch reception details when viewing
+  const { data: receptionDetails, isLoading: isLoadingReception } = useQuery<any>({
+    queryKey: ["/api/equipment-receptions", viewingReceptionId],
+    queryFn: async () => {
+      if (!viewingReceptionId) return null;
+      const response = await apiRequest("GET", `/api/equipment-receptions/${viewingReceptionId}`);
+      return response.json();
+    },
+    enabled: !!viewingReceptionId,
   });
 
   // Auto-generate work order number when dialog opens (only for new work orders)
@@ -516,6 +544,37 @@ export default function WorkOrdersPage() {
                     </div>
                   )}
                 </div>
+                
+                {/* Linked Documents - Show buttons for inspection and reception */}
+                {(wo.inspectionId || wo.receptionId) && (
+                  <div className="flex gap-2 pt-2 border-t">
+                    {wo.inspectionId && (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setViewingInspectionId(wo.inspectionId!)}
+                        className="flex-1"
+                        data-testid={`button-view-inspection-${wo.id}`}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                        View Inspection
+                      </Button>
+                    )}
+                    {wo.receptionId && (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setViewingReceptionId(wo.receptionId!)}
+                        className="flex-1"
+                        data-testid={`button-view-reception-${wo.id}`}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                        View Maintenance
+                      </Button>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-2 border-t">
                   <Button 
                     size="sm" 
@@ -1065,6 +1124,138 @@ export default function WorkOrdersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Inspection Details Dialog */}
+      <Dialog open={!!viewingInspectionId} onOpenChange={(open) => !open && setViewingInspectionId(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-inspection-details">
+          <DialogHeader>
+            <DialogTitle>Inspection Details</DialogTitle>
+            <DialogDescription>
+              View complete inspection information
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingInspection ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Loading inspection details...</div>
+            </div>
+          ) : inspectionDetails ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Inspection Number</Label>
+                  <p className="font-medium">{inspectionDetails.inspectionNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Service Type</Label>
+                  <p className="font-medium">{inspectionDetails.serviceType}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Overall Condition</Label>
+                  <Badge className={
+                    inspectionDetails.overallCondition === "Good" ? "bg-green-500" :
+                    inspectionDetails.overallCondition === "Fair" ? "bg-yellow-500" : "bg-red-500"
+                  }>
+                    {inspectionDetails.overallCondition}
+                  </Badge>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge>{inspectionDetails.status}</Badge>
+                </div>
+              </div>
+              
+              {inspectionDetails.findings && (
+                <div>
+                  <Label className="text-muted-foreground">Findings</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.findings}</p>
+                </div>
+              )}
+              
+              {inspectionDetails.recommendations && (
+                <div>
+                  <Label className="text-muted-foreground">Recommendations</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.recommendations}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">No inspection data available</div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Maintenance/Reception Details Dialog */}
+      <Dialog open={!!viewingReceptionId} onOpenChange={(open) => !open && setViewingReceptionId(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-reception-details">
+          <DialogHeader>
+            <DialogTitle>Maintenance Check-in Details</DialogTitle>
+            <DialogDescription>
+              View equipment reception and maintenance information
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingReception ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Loading maintenance details...</div>
+            </div>
+          ) : receptionDetails ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Reception Number</Label>
+                  <p className="font-medium">{receptionDetails.receptionNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Plant Number</Label>
+                  <p className="font-medium">{receptionDetails.plantNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Arrival Date</Label>
+                  <p className="font-medium">{new Date(receptionDetails.arrivalDate).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Kilometrage</Label>
+                  <p className="font-medium">{receptionDetails.kilometrage} km</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Fuel Level</Label>
+                  <Badge>{receptionDetails.fuelLevel}</Badge>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge>{receptionDetails.status}</Badge>
+                </div>
+              </div>
+              
+              {receptionDetails.reasonForMaintenance && (
+                <div>
+                  <Label className="text-muted-foreground">Reason for Maintenance</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reasonForMaintenance}</p>
+                </div>
+              )}
+              
+              {receptionDetails.reportedIssues && (
+                <div>
+                  <Label className="text-muted-foreground">Reported Issues</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reportedIssues}</p>
+                </div>
+              )}
+
+              {receptionDetails.adminIssues && (
+                <div>
+                  <Label className="text-muted-foreground">Admin Review Notes</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.adminIssues}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">No maintenance data available</div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

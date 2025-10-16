@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Users, Plus, Phone, Mail, Briefcase, Upload, User } from "lucide-react";
+import { Users, Plus, Phone, Mail, Briefcase, Upload, User, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -21,6 +21,8 @@ export default function Employees() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,6 +42,37 @@ export default function Employees() {
       toast({
         title: t("addEmployee"),
         description: "Employee created successfully",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: InsertEmployee }) => {
+      return await apiRequest("PUT", `/api/employees/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setIsEditDialogOpen(false);
+      setSelectedEmployee(null);
+      editForm.reset();
+      toast({
+        title: "Employee Updated",
+        description: "Employee information has been successfully updated.",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/employees/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setIsDeleteDialogOpen(false);
+      setSelectedEmployee(null);
+      toast({
+        title: "Employee Deleted",
+        description: "Employee has been successfully deleted.",
       });
     },
   });
@@ -98,8 +131,52 @@ export default function Employees() {
     },
   });
 
+  const editForm = useForm<InsertEmployee>({
+    resolver: zodResolver(insertEmployeeSchema),
+    defaultValues: {
+      employeeId: "",
+      fullName: "",
+      username: "",
+      password: "",
+      role: "wash_employee",
+      phoneNumber: "",
+      email: "",
+    },
+  });
+
   const onSubmit = (data: InsertEmployee) => {
     createMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: InsertEmployee) => {
+    if (selectedEmployee) {
+      updateMutation.mutate({ id: selectedEmployee.id, data });
+    }
+  };
+
+  const handleEditClick = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    editForm.reset({
+      employeeId: employee.employeeId,
+      fullName: employee.fullName,
+      username: employee.username || "",
+      password: "", // Don't populate password for security
+      role: employee.role,
+      phoneNumber: employee.phoneNumber || "",
+      email: employee.email || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedEmployee) {
+      deleteMutation.mutate(selectedEmployee.id);
+    }
   };
 
   const getRoleBadgeVariant = (role: string) => {

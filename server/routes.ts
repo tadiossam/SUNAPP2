@@ -31,7 +31,7 @@ import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
-import { isCEO, isCEOOrAdmin, verifyCredentials, generateToken } from "./auth";
+import { isCEO, isCEOOrAdmin, isAuthenticated, verifyCredentials, generateToken } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import express from "express";
@@ -1797,13 +1797,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create inspection approval (specialized endpoint for inspection workflow)
-  app.post("/api/approvals/inspection", async (req, res) => {
+  app.post("/api/approvals/inspection", isAuthenticated, async (req, res) => {
     try {
       const { inspectionId, inspectionNumber, equipmentInfo, overallCondition, findings, recommendations } = req.body;
-      
-      if (!req.user || !req.user.id) {
-        return res.status(401).json({ error: "User not authenticated" });
-      }
 
       // Find an admin or supervisor to assign the approval to
       const admins = await storage.getAllEmployees("admin");
@@ -1817,7 +1813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvalType: "inspection",
         referenceId: inspectionId,
         referenceNumber: inspectionNumber,
-        requestedById: req.user.id,
+        requestedById: req.user!.id,
         assignedToId: assignedTo,
         description: `Inspection ${inspectionNumber} completed for ${equipmentInfo}`,
         requestNotes: `Overall Condition: ${overallCondition}\n\nFindings: ${findings || "None"}\n\nRecommendations: ${recommendations || "None"}`,

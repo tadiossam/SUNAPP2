@@ -24,6 +24,8 @@ import {
   insertRepairEstimateSchema,
   insertPartsRequestSchema,
   insertApprovalSchema,
+  insertEquipmentInspectionSchema,
+  insertInspectionChecklistItemSchema,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -1226,6 +1228,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching my inspections:", error);
       res.status(500).json({ error: "Failed to fetch inspections" });
+    }
+  });
+
+  // Equipment Inspections
+  // Create new inspection with auto-generated inspection number
+  app.post("/api/inspections", async (req, res) => {
+    try {
+      const currentYear = new Date().getFullYear();
+      const prefix = `INS-${currentYear}-`;
+      
+      // Get existing inspections for this year
+      const existingInspections = await storage.getInspectionsByPrefix(prefix);
+      
+      // Generate next inspection number
+      const nextNumber = (existingInspections.length + 1).toString().padStart(3, '0');
+      const inspectionNumber = `${prefix}${nextNumber}`;
+      
+      const validatedData = insertEquipmentInspectionSchema.parse({
+        ...req.body,
+        inspectionNumber,
+        inspectionDate: req.body.inspectionDate ? new Date(req.body.inspectionDate) : new Date(),
+      });
+      
+      const inspection = await storage.createInspection(validatedData);
+      res.status(201).json(inspection);
+    } catch (error) {
+      console.error("Error creating inspection:", error);
+      res.status(400).json({ error: "Failed to create inspection" });
+    }
+  });
+
+  // Get inspection by reception ID
+  app.get("/api/inspections/by-reception/:receptionId", async (req, res) => {
+    try {
+      const inspection = await storage.getInspectionByReceptionId(req.params.receptionId);
+      if (!inspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+      res.json(inspection);
+    } catch (error) {
+      console.error("Error fetching inspection:", error);
+      res.status(500).json({ error: "Failed to fetch inspection" });
+    }
+  });
+
+  // Update inspection
+  app.patch("/api/inspections/:id", async (req, res) => {
+    try {
+      const updatedInspection = await storage.updateInspection(req.params.id, req.body);
+      res.json(updatedInspection);
+    } catch (error) {
+      console.error("Error updating inspection:", error);
+      res.status(400).json({ error: "Failed to update inspection" });
+    }
+  });
+
+  // Inspection Checklist Items
+  // Get checklist items for an inspection
+  app.get("/api/inspections/:inspectionId/checklist", async (req, res) => {
+    try {
+      const items = await storage.getChecklistItemsByInspection(req.params.inspectionId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching checklist items:", error);
+      res.status(500).json({ error: "Failed to fetch checklist items" });
+    }
+  });
+
+  // Create bulk checklist items
+  app.post("/api/inspections/:inspectionId/checklist/bulk", async (req, res) => {
+    try {
+      const items = await storage.createBulkChecklistItems(req.body.items);
+      res.status(201).json(items);
+    } catch (error) {
+      console.error("Error creating checklist items:", error);
+      res.status(400).json({ error: "Failed to create checklist items" });
+    }
+  });
+
+  // Update single checklist item
+  app.patch("/api/checklist-items/:id", async (req, res) => {
+    try {
+      const updatedItem = await storage.updateChecklistItem(req.params.id, req.body);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating checklist item:", error);
+      res.status(400).json({ error: "Failed to update checklist item" });
     }
   });
 

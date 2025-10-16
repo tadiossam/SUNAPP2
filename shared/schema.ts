@@ -24,6 +24,8 @@ export const equipment = pgTable("equipment", {
   assetNo: text("asset_no"),
   newAssetNo: text("new_asset_no"),
   machineSerial: text("machine_serial"),
+  plantNumber: text("plant_number"), // Plant/site number where equipment is assigned
+  projectArea: text("project_area"), // Project area where equipment operates
   price: decimal("price", { precision: 12, scale: 2 }), // Equipment price in USD
   remarks: text("remarks"), // Notes, missing data info, special conditions
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -533,15 +535,14 @@ export const equipmentReceptions = pgTable("equipment_receptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   receptionNumber: text("reception_number").notNull().unique(), // REC-2025-001
   equipmentId: varchar("equipment_id").notNull().references(() => equipment.id),
-  garageId: varchar("garage_id").notNull().references(() => garages.id),
-  dropOffTime: timestamp("drop_off_time").notNull().defaultNow(),
-  operatorHours: decimal("operator_hours", { precision: 10, scale: 2 }), // Equipment hours at drop-off
+  plantNumber: text("plant_number"), // Auto-populated from equipment
+  projectArea: text("project_area"), // Auto-populated from equipment
+  arrivalDate: timestamp("arrival_date").notNull(), // Date of arrival (default today, user can change)
+  kilometreRiding: decimal("kilometre_riding", { precision: 10, scale: 2 }), // Kilometrage at drop-off
   fuelLevel: text("fuel_level"), // "full", "3/4", "1/2", "1/4", "empty"
-  fluidLevels: text("fluid_levels"), // JSON: { oil: "ok", hydraulic: "low", coolant: "ok" }
+  reasonOfMaintenance: text("reason_of_maintenance").notNull(), // "Service", "Accident", "Damage"
   issuesReported: text("issues_reported"), // Driver's reported problems
-  visualDamageSummary: text("visual_damage_summary"),
-  conditionGrade: text("condition_grade"), // "excellent", "good", "fair", "poor", "critical"
-  driverName: text("driver_name"),
+  driverId: varchar("driver_id").notNull().references(() => employees.id), // Driver who dropped off equipment
   driverSignature: text("driver_signature"), // Base64 or URL to signature image
   mechanicId: varchar("mechanic_id").references(() => employees.id),
   status: text("status").notNull().default("driver_submitted"), // driver_submitted, awaiting_mechanic, inspection_complete, work_order_created, closed

@@ -1155,8 +1155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Equipment Reception endpoints
-  app.get("/api/equipment-receptions", async (_req, res) => {
+  // Equipment Reception endpoints (admin only - full access)
+  app.get("/api/equipment-receptions", isCEOOrAdmin, async (_req, res) => {
     try {
       const receptions = await storage.getAllReceptions();
       res.json(receptions);
@@ -1204,6 +1204,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating equipment reception:", error);
       res.status(400).json({ error: "Failed to update equipment reception" });
+    }
+  });
+
+  // Get equipment receptions assigned to current user (for inspection officers)
+  app.get("/api/my-inspections", async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const allReceptions = await storage.getAllReceptions();
+      const myInspections = allReceptions.filter(
+        (reception) => 
+          reception.inspectionOfficerId === userId &&
+          reception.status === "awaiting_mechanic"
+      );
+      
+      res.json(myInspections);
+    } catch (error) {
+      console.error("Error fetching my inspections:", error);
+      res.status(500).json({ error: "Failed to fetch inspections" });
     }
   });
 

@@ -33,17 +33,11 @@ export default function Inspection() {
 
   const currentUser = (authData as any)?.user;
 
-  // Fetch all equipment receptions
-  const { data: allReceptions = [], isLoading } = useQuery<EquipmentReceptionWithDetails[]>({
-    queryKey: ["/api/equipment-receptions"],
+  // Fetch equipment receptions assigned to current user only
+  const { data: assignedReceptions = [], isLoading } = useQuery<EquipmentReceptionWithDetails[]>({
+    queryKey: ["/api/my-inspections"],
+    enabled: !!currentUser?.id,
   });
-
-  // Filter receptions assigned to current user
-  const assignedReceptions = allReceptions.filter(
-    (reception) => 
-      reception.inspectionOfficerId === currentUser?.id &&
-      reception.status === "awaiting_mechanic"
-  );
 
   const filteredReceptions = assignedReceptions.filter((reception) => {
     if (!searchTerm) return true;

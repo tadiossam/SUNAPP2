@@ -102,7 +102,21 @@ I prefer iterative development with clear communication at each stage. Please as
   - **Auto-generated Reception Numbers**: Format REC-YYYY-XXX (e.g., REC-2025-001)
   - **Reception Tracking**: View all equipment check-ins with status badges (Driver Submitted, Awaiting Mechanic, Inspection Complete, Work Order Created, Closed)
   - **Workflow Diagram Integration**: Embedded visual workflow showing complete process from truck yard entry to repair completion
-  - **Future Features**: Mechanic inspection checklist, visual damage reporting with diagram marking, photo documentation, repair estimates, automatic work order creation
+- **Equipment Maintenances Workflow** (/equipment-maintenances):
+  - **Admin Review Page**: Admin reviews all driver check-in submissions
+  - **Edit Dialog**: Admin can review and update equipment reception details:
+    - Service Type selection (Long Term / Short Term) via radio buttons
+    - Admin Issues Reported textarea for additional notes beyond driver's submission
+    - Inspection Officer assignment via employee selection dialog
+    - Status automatically updates to "awaiting_mechanic" when inspection officer is assigned
+  - **Secure Access**: Admin-only access to full equipment receptions list
+  - **Backend**: PATCH `/api/equipment-receptions/:id` endpoint for updating receptions with new fields
+- **Equipment Inspection** (/inspection):
+  - **Inspection Officer View**: Lists only equipment receptions assigned to logged-in inspection officer
+  - **Secure Filtering**: Backend endpoint `/api/my-inspections` filters by current user ID and "awaiting_mechanic" status
+  - **Inspection Details**: Shows equipment details, driver reported issues, admin notes, service type
+  - **Access Control**: Non-admin users can only see their assigned inspections (role-based filtering at backend)
+  - **Future Features**: Inspection checklist, damage documentation with photos, repair estimates, work order creation
 - **Approval System**: Multi-level approval workflow for job orders, completions, parts requests based on department hierarchy, approval limit controls, pending approvals dashboard, escalation.
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
 - **Attendance Device Integration** (/admin):

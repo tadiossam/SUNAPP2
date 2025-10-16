@@ -51,7 +51,15 @@ export default function EquipmentMaintenances() {
 
   // Update reception mutation
   const updateReceptionMutation = useMutation({
-    mutationFn: async (data: { id: string; updates: any }) => {
+    mutationFn: async (data: { 
+      id: string; 
+      updates: { 
+        serviceType?: string; 
+        adminIssuesReported?: string; 
+        inspectionOfficerId?: string;
+        status?: string;
+      } 
+    }) => {
       return await apiRequest("PATCH", `/api/equipment-receptions/${data.id}`, data.updates);
     },
     onSuccess: () => {

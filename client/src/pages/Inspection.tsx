@@ -45,6 +45,7 @@ export default function Inspection() {
   const [selectedReception, setSelectedReception] = useState<EquipmentReceptionWithDetails | null>(null);
   const [showInspectionDialog, setShowInspectionDialog] = useState(false);
   const [inspectionId, setInspectionId] = useState<string | null>(null);
+  const [currentInspection, setCurrentInspection] = useState<any>(null);
   const [checklistItems, setChecklistItems] = useState<ChecklistItemState[]>([]);
   const [overallCondition, setOverallCondition] = useState("");
   const [findings, setFindings] = useState("");
@@ -59,9 +60,9 @@ export default function Inspection() {
   const currentUser = (authData as any)?.user;
   const isAdmin = currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "ceo";
 
-  // Fetch all equipment receptions with inspection officers assigned
+  // Fetch equipment receptions - admins get all, regular users get their assigned ones
   const { data: allReceptions = [], isLoading } = useQuery<EquipmentReceptionWithDetails[]>({
-    queryKey: ["/api/equipment-receptions"],
+    queryKey: isAdmin ? ["/api/equipment-receptions"] : ["/api/my-inspections"],
     enabled: !!currentUser?.id,
   });
 
@@ -71,10 +72,13 @@ export default function Inspection() {
     enabled: !!currentUser?.id,
   });
 
-  // Filter to show only receptions with inspection officer assigned
-  const assignedReceptions = allReceptions.filter(
-    (reception) => reception.inspectionOfficerId !== null && reception.inspectionOfficerId !== undefined
-  );
+  // For admins, filter to show only receptions with inspection officer assigned
+  // For regular users, /api/my-inspections already returns only their assigned inspections
+  const assignedReceptions = isAdmin 
+    ? allReceptions.filter(
+        (reception) => reception.inspectionOfficerId !== null && reception.inspectionOfficerId !== undefined
+      )
+    : allReceptions;
 
   const filteredReceptions = assignedReceptions.filter((reception) => {
     if (!searchTerm) return true;
@@ -94,6 +98,7 @@ export default function Inspection() {
     },
     onSuccess: (data) => {
       setInspectionId(data.id);
+      setCurrentInspection(data);
       toast({
         title: "Inspection Started",
         description: `Inspection ${data.inspectionNumber} has been created.`,

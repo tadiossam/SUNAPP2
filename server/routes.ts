@@ -1303,21 +1303,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get single inspection by ID (authenticated users can view)
-  app.get("/api/inspections/:id", async (req, res) => {
+  // Get all completed inspections (must be before /:id route)
+  app.get("/api/inspections/completed", async (req, res) => {
     try {
-      const inspection = await storage.getInspectionById(req.params.id);
-      if (!inspection) {
-        return res.status(404).json({ error: "Inspection not found" });
-      }
-      res.json(inspection);
+      const inspections = await storage.getAllCompletedInspections();
+      res.json(inspections);
     } catch (error) {
-      console.error("Error fetching inspection:", error);
-      res.status(500).json({ error: "Failed to fetch inspection" });
+      console.error("Error fetching completed inspections:", error);
+      res.status(500).json({ error: "Failed to fetch completed inspections" });
     }
   });
 
-  // Get inspection by reception ID
+  // Get inspection by reception ID (must be before /:id route)
   app.get("/api/inspections/by-reception/:receptionId", async (req, res) => {
     try {
       const inspection = await storage.getInspectionByReceptionId(req.params.receptionId);
@@ -1331,14 +1328,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all completed inspections
-  app.get("/api/inspections/completed", async (req, res) => {
+  // Get single inspection by ID (authenticated users can view)
+  app.get("/api/inspections/:id", async (req, res) => {
     try {
-      const inspections = await storage.getAllCompletedInspections();
-      res.json(inspections);
+      const inspection = await storage.getInspectionById(req.params.id);
+      if (!inspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+      res.json(inspection);
     } catch (error) {
-      console.error("Error fetching completed inspections:", error);
-      res.status(500).json({ error: "Failed to fetch completed inspections" });
+      console.error("Error fetching inspection:", error);
+      res.status(500).json({ error: "Failed to fetch inspection" });
     }
   });
 
@@ -1801,7 +1801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { inspectionId, inspectionNumber, equipmentInfo, overallCondition, findings, recommendations } = req.body;
       
-      if (!req.user || !req.user.employeeId) {
+      if (!req.user || !req.user.id) {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
@@ -1817,7 +1817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvalType: "inspection",
         referenceId: inspectionId,
         referenceNumber: inspectionNumber,
-        requestedById: req.user.employeeId,
+        requestedById: req.user.id,
         assignedToId: assignedTo,
         description: `Inspection ${inspectionNumber} completed for ${equipmentInfo}`,
         requestNotes: `Overall Condition: ${overallCondition}\n\nFindings: ${findings || "None"}\n\nRecommendations: ${recommendations || "None"}`,
@@ -1851,7 +1851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const inspection = await storage.getInspectionById(approval.referenceId);
           if (inspection && inspection.receptionId) {
-            const reception = await storage.getEquipmentReceptionById(inspection.receptionId);
+            const reception = await storage.getReceptionById(inspection.receptionId);
             if (reception) {
               // Auto-generate work order number
               const now = new Date();

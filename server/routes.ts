@@ -1848,11 +1848,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertApprovalSchema.parse(req.body);
       const approval = await storage.updateApproval(req.params.id, validatedData);
       
-      // If inspection approval is approved, auto-create work order
+      // If inspection approval is approved, update inspection status and auto-create work order
       if (approval.approvalType === "inspection" && approval.status === "approved" && approval.referenceId) {
         try {
           const inspection = await storage.getInspectionById(approval.referenceId);
           if (inspection && inspection.receptionId) {
+            // Update inspection status to "completed"
+            await storage.updateInspection(inspection.id, { status: "completed" });
+            
             const reception = await storage.getReceptionById(inspection.receptionId);
             if (reception) {
               // Auto-generate work order number

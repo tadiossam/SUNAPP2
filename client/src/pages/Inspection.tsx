@@ -293,7 +293,7 @@ export default function Inspection() {
     await submitInspectionMutation.mutateAsync({
       id: inspectionId,
       data: {
-        status: "completed",
+        status: "waiting_for_approval",
         overallCondition,
         findings,
         recommendations,

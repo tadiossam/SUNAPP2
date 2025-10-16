@@ -340,7 +340,9 @@ export const employees = pgTable("employees", {
   employeeId: text("employee_id").notNull().unique(), // Company employee ID
   deviceUserId: text("device_user_id").unique(), // ZKTeco attendance device user ID
   fullName: text("full_name").notNull(),
-  role: text("role").notNull(), // "mechanic", "wash_employee", "supervisor", "painter", "body_worker", "electrician", "technician"
+  username: text("username").unique(), // Login username (optional for employees without system access)
+  password: text("password"), // Hashed password (optional for employees without system access)
+  role: text("role").notNull(), // "mechanic", "wash_employee", "supervisor", "painter", "body_worker", "electrician", "technician", "admin", "ceo", "user"
   specialty: text("specialty"), // For mechanics: "Engine", "Hydraulic", "Electrical"
   phoneNumber: text("phone_number"),
   email: text("email"),

@@ -1768,6 +1768,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create inspection approval (specialized endpoint for inspection workflow)
+  app.post("/api/approvals/inspection", async (req, res) => {
+    try {
+      const { inspectionId, inspectionNumber, equipmentInfo, overallCondition, findings, recommendations } = req.body;
+      
+      if (!req.user || !req.user.employeeId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Find an admin or supervisor to assign the approval to
+      const admins = await storage.getAllEmployees("admin");
+      const assignedTo = admins[0]?.id;
+
+      if (!assignedTo) {
+        return res.status(400).json({ error: "No admin available to approve inspection" });
+      }
+
+      const approval = await storage.createApproval({
+        approvalType: "inspection",
+        referenceId: inspectionId,
+        referenceNumber: inspectionNumber,
+        requestedById: req.user.employeeId,
+        assignedToId: assignedTo,
+        description: `Inspection ${inspectionNumber} completed for ${equipmentInfo}`,
+        requestNotes: `Overall Condition: ${overallCondition}\n\nFindings: ${findings || "None"}\n\nRecommendations: ${recommendations || "None"}`,
+      });
+
+      res.status(201).json(approval);
+    } catch (error) {
+      console.error("Error creating inspection approval:", error);
+      res.status(500).json({ error: "Failed to create inspection approval" });
+    }
+  });
+
   app.post("/api/approvals", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = insertApprovalSchema.parse(req.body);

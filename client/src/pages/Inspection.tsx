@@ -279,12 +279,12 @@ export default function Inspection() {
   };
 
   const handleSubmitInspection = async () => {
-    if (!inspectionId) return;
+    if (!inspectionId || !selectedReception) return;
 
     // Save all data first
     await handleSaveProgress();
 
-    // Submit inspection
+    // Submit inspection and create approval request
     await submitInspectionMutation.mutateAsync({
       id: inspectionId,
       data: {
@@ -293,6 +293,17 @@ export default function Inspection() {
         findings,
         recommendations,
       },
+    });
+
+    // Create approval request for the completed inspection
+    // Backend will auto-assign requestedById from session and find appropriate approver
+    await apiRequest("POST", "/api/approvals/inspection", {
+      inspectionId,
+      inspectionNumber: currentInspection?.inspectionNumber,
+      equipmentInfo: `${selectedReception.equipment?.model || "equipment"} (${selectedReception.plantNumber})`,
+      overallCondition,
+      findings,
+      recommendations,
     });
   };
 

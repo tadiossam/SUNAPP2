@@ -364,6 +364,8 @@ export const workOrders = pgTable("work_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workOrderNumber: text("work_order_number").notNull().unique(), // WO-2025-001
   equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
+  inspectionId: varchar("inspection_id"), // Link to inspection if created from inspection (FK added via migration)
+  receptionId: varchar("reception_id"), // Link to maintenance/reception form (FK added via migration)
   garageId: varchar("garage_id").references(() => garages.id),
   repairBayId: varchar("repair_bay_id").references(() => repairBays.id),
   assignedToIds: text("assigned_to_ids").array(), // Array of assigned employee IDs (team assignment)
@@ -680,7 +682,7 @@ export const partsRequests = pgTable("parts_requests", {
 // Approvals - Universal approval tracking for all approval workflows
 export const approvals = pgTable("approvals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  approvalType: text("approval_type").notNull(), // "work_order", "work_order_completion", "parts_request", "repair_estimate"
+  approvalType: text("approval_type").notNull(), // "work_order", "work_order_completion", "parts_request", "repair_estimate", "inspection"
   referenceId: varchar("reference_id").notNull(), // ID of the work order, parts request, etc.
   referenceNumber: text("reference_number"), // WO-2025-001, PR-2025-001, etc.
   requestedById: varchar("requested_by_id").notNull().references(() => employees.id),

@@ -77,6 +77,8 @@ export default function EquipmentPage() {
     assetNo: "",
     newAssetNo: "",
     machineSerial: "",
+    plantNumber: "",
+    projectArea: "",
     remarks: "",
   });
 
@@ -243,6 +245,8 @@ export default function EquipmentPage() {
       assetNo: "",
       newAssetNo: "",
       machineSerial: "",
+      plantNumber: "",
+      projectArea: "",
       price: null,
       remarks: "",
     });
@@ -277,6 +281,8 @@ export default function EquipmentPage() {
       assetNo: equip.assetNo || "",
       newAssetNo: equip.newAssetNo || "",
       machineSerial: equip.machineSerial || "",
+      plantNumber: equip.plantNumber || "",
+      projectArea: equip.projectArea || "",
       remarks: equip.remarks || "",
     });
     setEditingEquipment(equip);
@@ -689,6 +695,28 @@ export default function EquipmentPage() {
                   onChange={(e) => setFormData({ ...formData, machineSerial: e.target.value })}
                   placeholder="e.g., CAT12345X"
                   data-testid="input-machine-serial"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plantNumber">Plant Number</Label>
+                <Input
+                  id="plantNumber"
+                  value={formData.plantNumber || ""}
+                  onChange={(e) => setFormData({ ...formData, plantNumber: e.target.value })}
+                  placeholder="e.g., PLT-001"
+                  data-testid="input-plant-number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="projectArea">Project Area</Label>
+                <Input
+                  id="projectArea"
+                  value={formData.projectArea || ""}
+                  onChange={(e) => setFormData({ ...formData, projectArea: e.target.value })}
+                  placeholder="e.g., Site A, Zone 3"
+                  data-testid="input-project-area"
                 />
               </div>
             </div>

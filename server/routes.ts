@@ -1179,7 +1179,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         receptionNumber,
         status: "driver_submitted",
-        operatorHours: req.body.operatorHours ? parseFloat(req.body.operatorHours) : null,
+        arrivalDate: req.body.arrivalDate ? new Date(req.body.arrivalDate) : new Date(),
+        kilometreRiding: req.body.kilometreRiding ? parseFloat(req.body.kilometreRiding) : null,
       });
       
       const reception = await storage.createReception(validatedData);

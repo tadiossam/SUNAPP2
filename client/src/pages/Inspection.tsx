@@ -190,7 +190,7 @@ export default function Inspection() {
         await createInspectionMutation.mutateAsync({
           receptionId: reception.id,
           serviceType: reception.serviceType,
-          inspectorId: currentUser.id,
+          inspectorId: reception.inspectionOfficerId, // Use the assigned inspection officer ID
           status: "in_progress",
         });
         initializeChecklist(reception.serviceType || "short_term");

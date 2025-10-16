@@ -656,6 +656,38 @@ export const approvals = pgTable("approvals", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============ ATTENDANCE DEVICE INTEGRATION ============
+
+// Device Settings - Store attendance device configuration
+export const attendanceDeviceSettings = pgTable("attendance_device_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deviceName: text("device_name").notNull(), // iFace990 Plus
+  deviceModel: text("device_model"), // Device model/type
+  serialNumber: text("serial_number"), // CKPG222360158
+  ipAddress: text("ip_address").notNull(), // 192.168.40.2
+  port: integer("port").notNull().default(4370), // Default ZKTeco port
+  timeout: integer("timeout").default(5000), // Connection timeout in ms
+  isActive: boolean("is_active").default(true), // Whether this device is currently active
+  lastSyncAt: timestamp("last_sync_at"), // Last successful sync timestamp
+  lastImportAt: timestamp("last_import_at"), // Last full import timestamp
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Device Import Log - Track import/sync operations
+export const deviceImportLogs = pgTable("device_import_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deviceId: varchar("device_id").notNull().references(() => attendanceDeviceSettings.id, { onDelete: "cascade" }),
+  operationType: text("operation_type").notNull(), // "import" or "sync"
+  status: text("status").notNull(), // "success", "failed", "partial"
+  usersImported: integer("users_imported").default(0),
+  usersUpdated: integer("users_updated").default(0),
+  usersSkipped: integer("users_skipped").default(0),
+  errorMessage: text("error_message"),
+  importData: text("import_data"), // JSON data of imported users
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations for garage management
 export const garagesRelations = relations(garages, ({ many }) => ({
   repairBays: many(repairBays),
@@ -938,3 +970,21 @@ export type ApprovalWithDetails = Approval & {
   assignedTo?: Employee;
   escalatedTo?: Employee;
 };
+
+// Insert schemas for attendance device
+export const insertAttendanceDeviceSettingsSchema = createInsertSchema(attendanceDeviceSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDeviceImportLogSchema = createInsertSchema(deviceImportLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Select types for attendance device
+export type AttendanceDeviceSettings = typeof attendanceDeviceSettings.$inferSelect;
+export type InsertAttendanceDeviceSettings = z.infer<typeof insertAttendanceDeviceSettingsSchema>;
+export type DeviceImportLog = typeof deviceImportLogs.$inferSelect;
+export type InsertDeviceImportLog = z.infer<typeof insertDeviceImportLogSchema>;

@@ -106,23 +106,25 @@ export default function EquipmentReception() {
           driverId: assignedDriver.id,
         });
       } else {
-        // Equipment has assignedDriverId but driver not found
+        // Equipment has assignedDriverId but driver not found - explicitly clear driverId
         setSelectedDriver(null);
         setDriverFormData({
           ...driverFormData,
           equipmentId: equip.id,
           plantNumber: equip.plantNumber || "",
           projectArea: equip.projectArea || "",
+          driverId: "", // Explicitly clear to prevent stale data
         });
       }
     } else {
-      // No assigned driver
+      // No assigned driver - explicitly clear driverId
       setSelectedDriver(null);
       setDriverFormData({
         ...driverFormData,
         equipmentId: equip.id,
         plantNumber: equip.plantNumber || "",
         projectArea: equip.projectArea || "",
+        driverId: "", // Explicitly clear to prevent stale data
       });
     }
     

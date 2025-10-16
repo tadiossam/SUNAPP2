@@ -621,6 +621,38 @@ export const repairEstimates = pgTable("repair_estimates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Equipment Inspections - Formal inspection records with auto-generated numbers
+export const equipmentInspections = pgTable("equipment_inspections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inspectionNumber: text("inspection_number").notNull().unique(), // INS-YYYY-XXX
+  receptionId: varchar("reception_id").notNull().references(() => equipmentReceptions.id, { onDelete: "cascade" }),
+  serviceType: text("service_type").notNull(), // "long_term", "short_term"
+  inspectorId: varchar("inspector_id").notNull().references(() => employees.id),
+  inspectionDate: timestamp("inspection_date").defaultNow().notNull(),
+  status: text("status").notNull().default("in_progress"), // in_progress, completed, approved
+  overallCondition: text("overall_condition"), // "excellent", "good", "fair", "poor", "critical"
+  findings: text("findings"), // General findings/notes
+  recommendations: text("recommendations"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Inspection Checklist Items - Individual checklist responses for inspections
+export const inspectionChecklistItems = pgTable("inspection_checklist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inspectionId: varchar("inspection_id").notNull().references(() => equipmentInspections.id, { onDelete: "cascade" }),
+  itemNumber: integer("item_number").notNull(), // Sequential number in checklist
+  itemDescription: text("item_description").notNull(), // Amharic item text
+  hasItem: boolean("has_item"), // አለዉ
+  doesNotHave: boolean("does_not_have"), // የለዉም
+  isWorking: boolean("is_working"), // የሚሰራ
+  notWorking: boolean("not_working"), // የማይሰራ
+  isBroken: boolean("is_broken"), // የተሰበረ
+  isCracked: boolean("is_cracked"), // የተሰነጠቀ
+  additionalComments: text("additional_comments"), // ተጨማሪ አስተያየት
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ============ APPROVAL SYSTEM ============
 
 // Parts Requests - When parts are needed for work orders
@@ -913,6 +945,17 @@ export const insertRepairEstimateSchema = createInsertSchema(repairEstimates).om
   createdAt: true,
 });
 
+export const insertEquipmentInspectionSchema = createInsertSchema(equipmentInspections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInspectionChecklistItemSchema = createInsertSchema(inspectionChecklistItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Insert schemas for approval system
 export const insertPartsRequestSchema = createInsertSchema(partsRequests).omit({
   id: true,
@@ -947,6 +990,10 @@ export type DamageReport = typeof damageReports.$inferSelect;
 export type InsertDamageReport = z.infer<typeof insertDamageReportSchema>;
 export type RepairEstimate = typeof repairEstimates.$inferSelect;
 export type InsertRepairEstimate = z.infer<typeof insertRepairEstimateSchema>;
+export type EquipmentInspection = typeof equipmentInspections.$inferSelect;
+export type InsertEquipmentInspection = z.infer<typeof insertEquipmentInspectionSchema>;
+export type InspectionChecklistItem = typeof inspectionChecklistItems.$inferSelect;
+export type InsertInspectionChecklistItem = z.infer<typeof insertInspectionChecklistItemSchema>;
 
 // Extended types with relations for reception
 export type EquipmentReceptionWithDetails = EquipmentReception & {

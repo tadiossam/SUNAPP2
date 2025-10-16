@@ -546,6 +546,12 @@ export const equipmentReceptions = pgTable("equipment_receptions", {
   issuesReported: text("issues_reported"), // Driver's reported problems
   driverId: varchar("driver_id").notNull().references(() => employees.id), // Driver who dropped off equipment
   driverSignature: text("driver_signature"), // Base64 or URL to signature image
+  
+  // Admin processing fields
+  serviceType: text("service_type"), // "long_term", "short_term"
+  adminIssuesReported: text("admin_issues_reported"), // Issues reported by Administration Officer
+  inspectionOfficerId: varchar("inspection_officer_id").references(() => employees.id), // Assigned inspection officer
+  
   mechanicId: varchar("mechanic_id").references(() => employees.id),
   status: text("status").notNull().default("driver_submitted"), // driver_submitted, awaiting_mechanic, inspection_complete, work_order_created, closed
   workOrderId: varchar("work_order_id").references(() => workOrders.id),

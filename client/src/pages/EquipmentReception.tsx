@@ -92,12 +92,40 @@ export default function EquipmentReception() {
   // Handle equipment selection
   const handleEquipmentSelect = (equip: Equipment) => {
     setSelectedEquipment(equip);
-    setDriverFormData({
-      ...driverFormData,
-      equipmentId: equip.id,
-      plantNumber: equip.plantNumber || "",
-      projectArea: equip.projectArea || "",
-    });
+    
+    // Auto-fetch assigned driver if equipment has one
+    if (equip.assignedDriverId && employees) {
+      const assignedDriver = employees.find(emp => emp.id === equip.assignedDriverId);
+      if (assignedDriver) {
+        setSelectedDriver(assignedDriver);
+        setDriverFormData({
+          ...driverFormData,
+          equipmentId: equip.id,
+          plantNumber: equip.plantNumber || "",
+          projectArea: equip.projectArea || "",
+          driverId: assignedDriver.id,
+        });
+      } else {
+        // Equipment has assignedDriverId but driver not found
+        setSelectedDriver(null);
+        setDriverFormData({
+          ...driverFormData,
+          equipmentId: equip.id,
+          plantNumber: equip.plantNumber || "",
+          projectArea: equip.projectArea || "",
+        });
+      }
+    } else {
+      // No assigned driver
+      setSelectedDriver(null);
+      setDriverFormData({
+        ...driverFormData,
+        equipmentId: equip.id,
+        plantNumber: equip.plantNumber || "",
+        projectArea: equip.projectArea || "",
+      });
+    }
+    
     setEquipmentDialogOpen(false);
     setEquipmentSearchTerm("");
   };

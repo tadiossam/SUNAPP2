@@ -148,11 +148,15 @@ export default function Inspection() {
     
     // Check if inspection already exists
     try {
-      const existingInspection = await apiRequest("GET", `/api/inspections/by-reception/${reception.id}`);
-      if (existingInspection) {
+      const response = await apiRequest("GET", `/api/inspections/by-reception/${reception.id}`);
+      const existingInspection = await response.json();
+      
+      if (existingInspection && existingInspection.id) {
         setInspectionId(existingInspection.id);
         // Load existing checklist items
-        const items = await apiRequest("GET", `/api/inspections/${existingInspection.id}/checklist`);
+        const itemsResponse = await apiRequest("GET", `/api/inspections/${existingInspection.id}/checklist`);
+        const items = await itemsResponse.json();
+        
         if (items && items.length > 0) {
           setChecklistItems(items.map((item: any) => ({
             itemNumber: item.itemNumber,
@@ -166,29 +170,33 @@ export default function Inspection() {
             additionalComments: item.additionalComments || "",
           })));
         } else {
-          initializeChecklist(reception.serviceType);
+          initializeChecklist(reception.serviceType || "short_term");
         }
         setOverallCondition(existingInspection.overallCondition || "");
         setFindings(existingInspection.findings || "");
         setRecommendations(existingInspection.recommendations || "");
-      } else {
-        // Create new inspection
+      }
+      setShowInspectionDialog(true);
+    } catch (error) {
+      // If inspection doesn't exist (404), create new one
+      console.log("No existing inspection found, creating new one");
+      try {
         await createInspectionMutation.mutateAsync({
           receptionId: reception.id,
           serviceType: reception.serviceType,
           inspectorId: currentUser.id,
           status: "in_progress",
         });
-        initializeChecklist(reception.serviceType);
+        initializeChecklist(reception.serviceType || "short_term");
+        setShowInspectionDialog(true);
+      } catch (createError) {
+        console.error("Error creating inspection:", createError);
+        toast({
+          title: "Error",
+          description: "Failed to create inspection",
+          variant: "destructive",
+        });
       }
-      setShowInspectionDialog(true);
-    } catch (error) {
-      console.error("Error loading inspection:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load inspection",
-        variant: "destructive",
-      });
     }
   };
 

@@ -24,8 +24,10 @@ export default function Garages() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGarage, setEditingGarage] = useState<GarageWithDetails | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isBayDialogOpen, setIsBayDialogOpen] = useState(false);
-  const [selectedGarageForBay, setSelectedGarageForBay] = useState<GarageWithDetails | null>(null);
+  const [isWorkshopDialogOpen, setIsWorkshopDialogOpen] = useState(false);
+  const [selectedGarageForWorkshop, setSelectedGarageForWorkshop] = useState<GarageWithDetails | null>(null);
+  const [editingWorkshop, setEditingWorkshop] = useState<any | null>(null);
+  const [isEditWorkshopDialogOpen, setIsEditWorkshopDialogOpen] = useState(false);
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
     queryKey: ["/api/garages"],
@@ -38,6 +40,11 @@ export default function Garages() {
 
   // Check if user is CEO or Admin
   const isCEOorAdmin = authData?.user?.role === "CEO" || authData?.user?.role === "admin";
+
+  // Get employees for foreman selection
+  const { data: employees } = useQuery<any[]>({
+    queryKey: ["/api/employees"],
+  });
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertGarage) => {
@@ -91,18 +98,47 @@ export default function Garages() {
     },
   });
 
-  const createBayMutation = useMutation({
+  const createWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/repair-bays", data);
+      return await apiRequest("POST", "/api/workshops", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
-      setIsBayDialogOpen(false);
-      setSelectedGarageForBay(null);
-      bayForm.reset();
+      setIsWorkshopDialogOpen(false);
+      setSelectedGarageForWorkshop(null);
+      workshopForm.reset();
       toast({
-        title: "Shop/Bay added",
-        description: "Repair bay has been successfully added to the garage.",
+        title: "Workshop created",
+        description: "Workshop has been successfully added to the garage.",
+      });
+    },
+  });
+
+  const updateWorkshopMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest("PUT", `/api/workshops/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      setIsEditWorkshopDialogOpen(false);
+      setEditingWorkshop(null);
+      editWorkshopForm.reset();
+      toast({
+        title: "Workshop updated",
+        description: "Workshop has been successfully updated.",
+      });
+    },
+  });
+
+  const deleteWorkshopMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/workshops/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      toast({
+        title: "Workshop deleted",
+        description: "Workshop has been successfully deleted.",
       });
     },
   });
@@ -133,12 +169,19 @@ export default function Garages() {
     },
   });
 
-  const bayForm = useForm({
+  const workshopForm = useForm({
     defaultValues: {
-      bayNumber: "",
-      bayType: "heavy_equipment",
-      status: "available",
-      notes: "",
+      name: "",
+      foremanId: "",
+      description: "",
+    },
+  });
+
+  const editWorkshopForm = useForm({
+    defaultValues: {
+      name: "",
+      foremanId: "",
+      description: "",
     },
   });
 
@@ -152,11 +195,20 @@ export default function Garages() {
     }
   };
 
-  const onBaySubmit = (data: any) => {
-    if (selectedGarageForBay) {
-      createBayMutation.mutate({
+  const onWorkshopSubmit = (data: any) => {
+    if (selectedGarageForWorkshop) {
+      createWorkshopMutation.mutate({
         ...data,
-        garageId: selectedGarageForBay.id,
+        garageId: selectedGarageForWorkshop.id,
+      });
+    }
+  };
+
+  const onEditWorkshopSubmit = (data: any) => {
+    if (editingWorkshop) {
+      updateWorkshopMutation.mutate({
+        id: editingWorkshop.id,
+        data,
       });
     }
   };
@@ -175,9 +227,25 @@ export default function Garages() {
     setIsEditDialogOpen(true);
   };
 
-  const handleAddBay = (garage: GarageWithDetails) => {
-    setSelectedGarageForBay(garage);
-    setIsBayDialogOpen(true);
+  const handleAddWorkshop = (garage: GarageWithDetails) => {
+    setSelectedGarageForWorkshop(garage);
+    setIsWorkshopDialogOpen(true);
+  };
+
+  const handleEditWorkshop = (workshop: any) => {
+    setEditingWorkshop(workshop);
+    editWorkshopForm.reset({
+      name: workshop.name,
+      foremanId: workshop.foremanId || "",
+      description: workshop.description || "",
+    });
+    setIsEditWorkshopDialogOpen(true);
+  };
+
+  const handleDeleteWorkshop = (workshopId: string) => {
+    if (confirm("Are you sure you want to delete this workshop?")) {
+      deleteWorkshopMutation.mutate(workshopId);
+    }
   };
 
   if (isLoading) {
@@ -367,18 +435,54 @@ export default function Garages() {
                     {t("capacity")}: {garage.capacity}
                   </span>
                 </div>
-                {garage.repairBays && garage.repairBays.length > 0 && (
+                {garage.workshops && garage.workshops.length > 0 && (
                   <div className="pt-2 border-t">
-                    <p className="text-sm font-medium mb-2">{t("repairBays")}: {garage.repairBays.length}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {garage.repairBays.map((bay) => (
-                        <Badge
-                          key={bay.id}
-                          variant={bay.status === "available" ? "default" : "secondary"}
-                          data-testid={`badge-bay-${bay.id}`}
-                        >
-                          {bay.bayNumber}
-                        </Badge>
+                    <p className="text-sm font-medium mb-2">Workshops: {garage.workshops.length}</p>
+                    <div className="space-y-2">
+                      {garage.workshops.map((workshop: any) => (
+                        <Card key={workshop.id} className="p-2" data-testid={`card-workshop-${workshop.id}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{workshop.name}</p>
+                              {workshop.foremanId && employees?.find((e) => e.id === workshop.foremanId) && (
+                                <p className="text-xs text-muted-foreground">
+                                  Foreman: {employees.find((e) => e.id === workshop.foremanId)?.fullName}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Members: {workshop.membersList?.length || 0}
+                              </p>
+                            </div>
+                            {isCEOorAdmin && (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditWorkshop(workshop);
+                                  }}
+                                  data-testid={`button-edit-workshop-${workshop.id}`}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteWorkshop(workshop.id);
+                                  }}
+                                  data-testid={`button-delete-workshop-${workshop.id}`}
+                                >
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
                       ))}
                     </div>
                   </div>
@@ -388,11 +492,11 @@ export default function Garages() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => handleAddBay(garage)}
-                      data-testid={`button-add-bay-${garage.id}`}
+                      onClick={() => handleAddWorkshop(garage)}
+                      data-testid={`button-add-workshop-${garage.id}`}
                     >
                       <Wrench className="h-4 w-4 mr-2" />
-                      Add Shop
+                      Add Workshop
                     </Button>
                   )}
                   <Button
@@ -509,25 +613,25 @@ export default function Garages() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Shop/Bay Dialog */}
-      <Dialog open={isBayDialogOpen} onOpenChange={setIsBayDialogOpen}>
+      {/* Add Workshop Dialog */}
+      <Dialog open={isWorkshopDialogOpen} onOpenChange={setIsWorkshopDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Shop/Bay to {selectedGarageForBay?.name}</DialogTitle>
+            <DialogTitle>Add Workshop to {selectedGarageForWorkshop?.name}</DialogTitle>
           </DialogHeader>
-          <Form {...bayForm}>
-            <form onSubmit={bayForm.handleSubmit(onBaySubmit)} className="space-y-4">
+          <Form {...workshopForm}>
+            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="space-y-4">
               <FormField
-                control={bayForm.control}
-                name="bayNumber"
+                control={workshopForm.control}
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Shop/Bay Number</FormLabel>
+                    <FormLabel>Workshop Name</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
-                        data-testid="input-bay-number"
-                        placeholder="e.g., Bay 1, A-1, Shop 1"
+                        data-testid="input-workshop-name"
+                        placeholder="e.g., Engine Workshop, Hydraulics Shop"
                       />
                     </FormControl>
                     <FormMessage />
@@ -535,22 +639,23 @@ export default function Garages() {
                 )}
               />
               <FormField
-                control={bayForm.control}
-                name="bayType"
+                control={workshopForm.control}
+                name="foremanId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Bay Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>Foreman (Boss)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger data-testid="select-bay-type">
-                          <SelectValue placeholder="Select bay type" />
+                        <SelectTrigger data-testid="select-workshop-foreman">
+                          <SelectValue placeholder="Select foreman" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="heavy_equipment">Heavy Equipment</SelectItem>
-                        <SelectItem value="light_vehicle">Light Vehicle</SelectItem>
-                        <SelectItem value="diagnostic">Diagnostic</SelectItem>
-                        <SelectItem value="wash">Wash</SelectItem>
+                        {employees?.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.fullName} - {employee.role}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -558,39 +663,16 @@ export default function Garages() {
                 )}
               />
               <FormField
-                control={bayForm.control}
-                name="status"
+                control={workshopForm.control}
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-bay-status">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="available">Available</SelectItem>
-                        <SelectItem value="occupied">Occupied</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={bayForm.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormLabel>Description (Optional)</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
-                        data-testid="input-bay-notes"
-                        placeholder="Additional notes about this bay"
+                        data-testid="input-workshop-description"
+                        placeholder="Workshop description"
                       />
                     </FormControl>
                     <FormMessage />
@@ -600,10 +682,90 @@ export default function Garages() {
               <DialogFooter>
                 <Button
                   type="submit"
-                  data-testid="button-submit-bay"
-                  disabled={createBayMutation.isPending}
+                  data-testid="button-submit-workshop"
+                  disabled={createWorkshopMutation.isPending}
                 >
-                  {createBayMutation.isPending ? t("loading") : "Add Shop/Bay"}
+                  {createWorkshopMutation.isPending ? t("loading") : "Add Workshop"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Workshop Dialog */}
+      <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Workshop</DialogTitle>
+          </DialogHeader>
+          <Form {...editWorkshopForm}>
+            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
+              <FormField
+                control={editWorkshopForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Workshop Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-edit-workshop-name"
+                        placeholder="Workshop name"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editWorkshopForm.control}
+                name="foremanId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Foreman (Boss)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-workshop-foreman">
+                          <SelectValue placeholder="Select foreman" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {employees?.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.fullName} - {employee.role}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editWorkshopForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-edit-workshop-description"
+                        placeholder="Workshop description"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  data-testid="button-submit-edit-workshop"
+                  disabled={updateWorkshopMutation.isPending}
+                >
+                  {updateWorkshopMutation.isPending ? t("loading") : t("save")}
                 </Button>
               </DialogFooter>
             </form>

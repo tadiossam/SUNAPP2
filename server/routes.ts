@@ -11,7 +11,8 @@ import {
   insertPartsUsageHistorySchema,
   insertOperatingBehaviorReportSchema,
   insertGarageSchema,
-  insertRepairBaySchema,
+  insertWorkshopSchema,
+  insertWorkshopMemberSchema,
   insertEmployeeSchema,
   insertWorkOrderSchema,
   insertStandardOperatingProcedureSchema,
@@ -892,36 +893,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Repair Bays
-  app.get("/api/garages/:garageId/bays", async (req, res) => {
+  // Workshops
+  app.get("/api/garages/:garageId/workshops", async (req, res) => {
     try {
-      const bays = await storage.getRepairBaysByGarage(req.params.garageId);
-      res.json(bays);
+      const workshopsList = await storage.getWorkshopsByGarage(req.params.garageId);
+      res.json(workshopsList);
     } catch (error) {
-      console.error("Error fetching repair bays:", error);
-      res.status(500).json({ error: "Failed to fetch repair bays" });
+      console.error("Error fetching workshops:", error);
+      res.status(500).json({ error: "Failed to fetch workshops" });
     }
   });
 
-  app.post("/api/repair-bays", isCEOOrAdmin, async (req, res) => {
+  app.post("/api/workshops", isCEOOrAdmin, async (req, res) => {
     try {
-      const validatedData = insertRepairBaySchema.parse(req.body);
-      const bay = await storage.createRepairBay(validatedData);
-      res.status(201).json(bay);
+      const validatedData = insertWorkshopSchema.parse(req.body);
+      const workshop = await storage.createWorkshop(validatedData);
+      res.status(201).json(workshop);
     } catch (error) {
-      console.error("Error creating repair bay:", error);
-      res.status(400).json({ error: "Invalid repair bay data" });
+      console.error("Error creating workshop:", error);
+      res.status(400).json({ error: "Invalid workshop data" });
     }
   });
 
-  app.put("/api/repair-bays/:id", isCEOOrAdmin, async (req, res) => {
+  app.put("/api/workshops/:id", isCEOOrAdmin, async (req, res) => {
     try {
-      const validatedData = insertRepairBaySchema.parse(req.body);
-      const bay = await storage.updateRepairBay(req.params.id, validatedData);
-      res.json(bay);
+      const validatedData = insertWorkshopSchema.parse(req.body);
+      const workshop = await storage.updateWorkshop(req.params.id, validatedData);
+      res.json(workshop);
     } catch (error) {
-      console.error("Error updating repair bay:", error);
-      res.status(400).json({ error: "Failed to update repair bay" });
+      console.error("Error updating workshop:", error);
+      res.status(400).json({ error: "Failed to update workshop" });
+    }
+  });
+
+  app.delete("/api/workshops/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteWorkshop(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting workshop:", error);
+      res.status(500).json({ error: "Failed to delete workshop" });
+    }
+  });
+
+  // Workshop Members
+  app.post("/api/workshops/:workshopId/members", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = insertWorkshopMemberSchema.parse({
+        ...req.body,
+        workshopId: req.params.workshopId,
+      });
+      const member = await storage.addWorkshopMember(validatedData);
+      res.status(201).json(member);
+    } catch (error) {
+      console.error("Error adding workshop member:", error);
+      res.status(400).json({ error: "Failed to add workshop member" });
+    }
+  });
+
+  app.delete("/api/workshops/:workshopId/members/:employeeId", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.removeWorkshopMember(req.params.workshopId, req.params.employeeId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing workshop member:", error);
+      res.status(500).json({ error: "Failed to remove workshop member" });
+    }
+  });
+
+  app.get("/api/workshops/:workshopId/members", async (req, res) => {
+    try {
+      const members = await storage.getWorkshopMembers(req.params.workshopId);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching workshop members:", error);
+      res.status(500).json({ error: "Failed to fetch workshop members" });
     }
   });
 

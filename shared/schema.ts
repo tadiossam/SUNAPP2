@@ -322,17 +322,26 @@ export const garages = pgTable("garages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Repair Bays within garages
-export const repairBays = pgTable("repair_bays", {
+// Workshops within garages
+export const workshops = pgTable("workshops", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   garageId: varchar("garage_id").notNull().references(() => garages.id, { onDelete: "cascade" }),
-  bayNumber: text("bay_number").notNull(), // "Bay 1", "A-1", etc.
-  bayType: text("bay_type").notNull(), // "heavy_equipment", "light_vehicle", "diagnostic", "wash"
-  status: text("status").notNull().default("available"), // available, occupied, maintenance, closed
-  currentEquipmentId: varchar("current_equipment_id").references(() => equipment.id),
-  notes: text("notes"),
+  name: text("name").notNull(), // "Engine Workshop", "Hydraulics Shop", etc.
+  foremanId: varchar("foreman_id").references(() => employees.id, { onDelete: "set null" }), // Workshop foreman/boss
+  description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Workshop members - junction table for workshop team members
+export const workshopMembers = pgTable("workshop_members", {
+  workshopId: varchar("workshop_id").notNull().references(() => workshops.id, { onDelete: "cascade" }),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+  role: text("role"), // "mechanic", "assistant", "specialist", etc.
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.workshopId, table.employeeId] }),
+}));
 
 // Employees table - Comprehensive employee management (mechanics, wash staff, etc.)
 export const employees = pgTable("employees", {
@@ -367,7 +376,7 @@ export const workOrders = pgTable("work_orders", {
   inspectionId: varchar("inspection_id"), // Link to inspection if created from inspection (FK added via migration)
   receptionId: varchar("reception_id"), // Link to maintenance/reception form (FK added via migration)
   garageId: varchar("garage_id").references(() => garages.id),
-  repairBayId: varchar("repair_bay_id").references(() => repairBays.id),
+  workshopId: varchar("workshop_id").references(() => workshops.id),
   assignedToIds: text("assigned_to_ids").array(), // Array of assigned employee IDs (team assignment)
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   workType: text("work_type").notNull(), // "repair", "maintenance", "inspection", "wash"
@@ -445,7 +454,7 @@ export const equipmentLocations = pgTable("equipment_locations", {
   equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
   garageId: varchar("garage_id").references(() => garages.id),
   locationStatus: text("location_status").notNull().default("in_field"), // in_field, in_garage, in_repair, in_wash, transported
-  repairBayId: varchar("repair_bay_id").references(() => repairBays.id),
+  workshopId: varchar("workshop_id").references(() => workshops.id),
   arrivedAt: timestamp("arrived_at").notNull().defaultNow(),
   departedAt: timestamp("departed_at"),
   notes: text("notes"),
@@ -733,24 +742,36 @@ export const deviceImportLogs = pgTable("device_import_logs", {
 
 // Relations for garage management
 export const garagesRelations = relations(garages, ({ many }) => ({
-  repairBays: many(repairBays),
+  workshops: many(workshops),
   employees: many(employees),
   workOrders: many(workOrders),
   partsLocations: many(partsStorageLocations),
   equipmentLocations: many(equipmentLocations),
 }));
 
-export const repairBaysRelations = relations(repairBays, ({ one, many }) => ({
+export const workshopsRelations = relations(workshops, ({ one, many }) => ({
   garage: one(garages, {
-    fields: [repairBays.garageId],
+    fields: [workshops.garageId],
     references: [garages.id],
   }),
-  currentEquipment: one(equipment, {
-    fields: [repairBays.currentEquipmentId],
-    references: [equipment.id],
+  foreman: one(employees, {
+    fields: [workshops.foremanId],
+    references: [employees.id],
   }),
+  members: many(workshopMembers),
   workOrders: many(workOrders),
   equipmentLocations: many(equipmentLocations),
+}));
+
+export const workshopMembersRelations = relations(workshopMembers, ({ one }) => ({
+  workshop: one(workshops, {
+    fields: [workshopMembers.workshopId],
+    references: [workshops.id],
+  }),
+  employee: one(employees, {
+    fields: [workshopMembers.employeeId],
+    references: [employees.id],
+  }),
 }));
 
 export const employeesRelations = relations(employees, ({ one, many }) => ({
@@ -770,9 +791,9 @@ export const workOrdersRelations = relations(workOrders, ({ one }) => ({
     fields: [workOrders.garageId],
     references: [garages.id],
   }),
-  repairBay: one(repairBays, {
-    fields: [workOrders.repairBayId],
-    references: [repairBays.id],
+  workshop: one(workshops, {
+    fields: [workOrders.workshopId],
+    references: [workshops.id],
   }),
   createdBy: one(users, {
     fields: [workOrders.createdById],
@@ -801,9 +822,9 @@ export const equipmentLocationsRelations = relations(equipmentLocations, ({ one 
     fields: [equipmentLocations.garageId],
     references: [garages.id],
   }),
-  repairBay: one(repairBays, {
-    fields: [equipmentLocations.repairBayId],
-    references: [repairBays.id],
+  workshop: one(workshops, {
+    fields: [equipmentLocations.workshopId],
+    references: [workshops.id],
   }),
 }));
 
@@ -813,9 +834,13 @@ export const insertGarageSchema = createInsertSchema(garages).omit({
   createdAt: true,
 });
 
-export const insertRepairBaySchema = createInsertSchema(repairBays).omit({
+export const insertWorkshopSchema = createInsertSchema(workshops).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertWorkshopMemberSchema = createInsertSchema(workshopMembers).omit({
+  assignedAt: true,
 });
 
 export const insertEmployeeSchema = createInsertSchema(employees).omit({
@@ -855,8 +880,10 @@ export const insertEquipmentLocationSchema = createInsertSchema(equipmentLocatio
 // Select types for garage management
 export type Garage = typeof garages.$inferSelect;
 export type InsertGarage = z.infer<typeof insertGarageSchema>;
-export type RepairBay = typeof repairBays.$inferSelect;
-export type InsertRepairBay = z.infer<typeof insertRepairBaySchema>;
+export type Workshop = typeof workshops.$inferSelect;
+export type WorkshopMember = typeof workshopMembers.$inferSelect;
+export type InsertWorkshop = z.infer<typeof insertWorkshopSchema>;
+export type InsertWorkshopMember = z.infer<typeof insertWorkshopMemberSchema>;
 export type Employee = typeof employees.$inferSelect;
 export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
 export type WorkOrder = typeof workOrders.$inferSelect;
@@ -872,7 +899,7 @@ export type InsertEquipmentLocation = z.infer<typeof insertEquipmentLocationSche
 
 // Extended types with relations
 export type GarageWithDetails = Garage & {
-  repairBays?: RepairBay[];
+  workshops?: Workshop[];
   employees?: Employee[];
   workOrders?: WorkOrder[];
 };
@@ -880,15 +907,17 @@ export type GarageWithDetails = Garage & {
 export type WorkOrderWithDetails = WorkOrder & {
   equipment?: Equipment;
   garage?: Garage;
-  repairBay?: RepairBay;
+  workshop?: Workshop;
   assignedToList?: Employee[]; // Array of assigned employees (team)
   createdBy?: User;
   requiredParts?: WorkOrderRequiredPart[];
 };
 
-export type RepairBayWithDetails = RepairBay & {
+export type WorkshopWithDetails = Workshop & {
   garage?: Garage;
-  currentEquipment?: Equipment;
+  foreman?: Employee;
+  members?: WorkshopMember[];
+  membersList?: Employee[]; // Populated list of actual employee objects
 };
 
 export type PartsStorageLocationWithDetails = PartsStorageLocation & {

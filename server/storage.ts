@@ -9,7 +9,8 @@ import {
   operatingBehaviorReports,
   users,
   garages,
-  repairBays,
+  workshops,
+  workshopMembers,
   employees,
   workOrders,
   workOrderRequiredParts,
@@ -47,9 +48,11 @@ import {
   type Garage,
   type InsertGarage,
   type GarageWithDetails,
-  type RepairBay,
-  type InsertRepairBay,
-  type RepairBayWithDetails,
+  type Workshop,
+  type InsertWorkshop,
+  type WorkshopWithDetails,
+  type WorkshopMember,
+  type InsertWorkshopMember,
   type Employee,
   type InsertEmployee,
   type WorkOrder,
@@ -172,9 +175,13 @@ export interface IStorage {
   deleteGarage(id: string): Promise<void>;
 
   // Repair Bays
-  getRepairBaysByGarage(garageId: string): Promise<RepairBayWithDetails[]>;
-  createRepairBay(data: InsertRepairBay): Promise<RepairBay>;
-  updateRepairBay(id: string, data: Partial<InsertRepairBay>): Promise<RepairBay>;
+  getWorkshopsByGarage(garageId: string): Promise<WorkshopWithDetails[]>;
+  createWorkshop(data: InsertWorkshop): Promise<Workshop>;
+  updateWorkshop(id: string, data: Partial<InsertWorkshop>): Promise<Workshop>;
+  deleteWorkshop(id: string): Promise<void>;
+  addWorkshopMember(data: InsertWorkshopMember): Promise<WorkshopMember>;
+  removeWorkshopMember(workshopId: string, employeeId: string): Promise<void>;
+  getWorkshopMembers(workshopId: string): Promise<Employee[]>;
 
   // Employees
   getAllEmployees(role?: string, garageId?: string): Promise<Employee[]>;
@@ -750,13 +757,13 @@ export class DatabaseStorage implements IStorage {
     const [garage] = await db.select().from(garages).where(eq(garages.id, id));
     if (!garage) return undefined;
 
-    const bays = await db.select().from(repairBays).where(eq(repairBays.garageId, id));
+    const workshopsList = await db.select().from(workshops).where(eq(workshops.garageId, id));
     const employeesList = await db.select().from(employees).where(eq(employees.garageId, id));
     const orders = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
 
     return {
       ...garage,
-      repairBays: bays,
+      workshops: workshopsList,
       employees: employeesList,
       workOrders: orders,
     };
@@ -802,32 +809,70 @@ export class DatabaseStorage implements IStorage {
     await db.delete(garages).where(eq(garages.id, id));
   }
 
-  // Repair Bays
-  async getRepairBaysByGarage(garageId: string): Promise<RepairBayWithDetails[]> {
-    const bays = await db.select().from(repairBays).where(eq(repairBays.garageId, garageId));
+  // Workshops
+  async getWorkshopsByGarage(garageId: string): Promise<WorkshopWithDetails[]> {
+    const workshopsList = await db.select().from(workshops).where(eq(workshops.garageId, garageId));
     
-    const baysWithDetails = await Promise.all(
-      bays.map(async (bay) => {
-        const [garage] = await db.select().from(garages).where(eq(garages.id, bay.garageId));
-        let currentEquipment = undefined;
-        if (bay.currentEquipmentId) {
-          [currentEquipment] = await db.select().from(equipment).where(eq(equipment.id, bay.currentEquipmentId));
+    const workshopsWithDetails = await Promise.all(
+      workshopsList.map(async (workshop) => {
+        const [garage] = await db.select().from(garages).where(eq(garages.id, workshop.garageId));
+        let foreman = undefined;
+        if (workshop.foremanId) {
+          [foreman] = await db.select().from(employees).where(eq(employees.id, workshop.foremanId));
         }
-        return { ...bay, garage, currentEquipment };
+        
+        // Get workshop members
+        const memberRecords = await db.select().from(workshopMembers).where(eq(workshopMembers.workshopId, workshop.id));
+        const membersList = await Promise.all(
+          memberRecords.map(async (member) => {
+            const [employee] = await db.select().from(employees).where(eq(employees.id, member.employeeId));
+            return employee;
+          })
+        );
+        
+        return { ...workshop, garage, foreman, members: memberRecords, membersList };
       })
     );
     
-    return baysWithDetails;
+    return workshopsWithDetails;
   }
 
-  async createRepairBay(data: InsertRepairBay): Promise<RepairBay> {
-    const [result] = await db.insert(repairBays).values(data).returning();
+  async createWorkshop(data: InsertWorkshop): Promise<Workshop> {
+    const [result] = await db.insert(workshops).values(data).returning();
     return result;
   }
 
-  async updateRepairBay(id: string, data: Partial<InsertRepairBay>): Promise<RepairBay> {
-    const [result] = await db.update(repairBays).set(data).where(eq(repairBays.id, id)).returning();
+  async updateWorkshop(id: string, data: Partial<InsertWorkshop>): Promise<Workshop> {
+    const [result] = await db.update(workshops).set(data).where(eq(workshops.id, id)).returning();
     return result;
+  }
+
+  async deleteWorkshop(id: string): Promise<void> {
+    await db.delete(workshops).where(eq(workshops.id, id));
+  }
+
+  async addWorkshopMember(data: InsertWorkshopMember): Promise<WorkshopMember> {
+    const [result] = await db.insert(workshopMembers).values(data).returning();
+    return result;
+  }
+
+  async removeWorkshopMember(workshopId: string, employeeId: string): Promise<void> {
+    await db.delete(workshopMembers)
+      .where(and(
+        eq(workshopMembers.workshopId, workshopId),
+        eq(workshopMembers.employeeId, employeeId)
+      ));
+  }
+
+  async getWorkshopMembers(workshopId: string): Promise<Employee[]> {
+    const memberRecords = await db.select().from(workshopMembers).where(eq(workshopMembers.workshopId, workshopId));
+    const membersList = await Promise.all(
+      memberRecords.map(async (member) => {
+        const [employee] = await db.select().from(employees).where(eq(employees.id, member.employeeId));
+        return employee;
+      })
+    );
+    return membersList.filter(Boolean) as Employee[];
   }
 
   // Employees
@@ -896,9 +941,9 @@ export class DatabaseStorage implements IStorage {
         if (order.garageId) {
           [garage] = await db.select().from(garages).where(eq(garages.id, order.garageId));
         }
-        let repairBay = undefined;
-        if (order.repairBayId) {
-          [repairBay] = await db.select().from(repairBays).where(eq(repairBays.id, order.repairBayId));
+        let workshop = undefined;
+        if (order.workshopId) {
+          [workshop] = await db.select().from(workshops).where(eq(workshops.id, order.workshopId));
         }
         
         // Get assigned employees from assignedToIds array
@@ -919,7 +964,7 @@ export class DatabaseStorage implements IStorage {
           ...order,
           equipment: equipmentData,
           garage,
-          repairBay,
+          workshop,
           assignedToList,
           createdBy,
           requiredParts,
@@ -939,9 +984,9 @@ export class DatabaseStorage implements IStorage {
     if (order.garageId) {
       [garage] = await db.select().from(garages).where(eq(garages.id, order.garageId));
     }
-    let repairBay = undefined;
-    if (order.repairBayId) {
-      [repairBay] = await db.select().from(repairBays).where(eq(repairBays.id, order.repairBayId));
+    let workshop = undefined;
+    if (order.workshopId) {
+      [workshop] = await db.select().from(workshops).where(eq(workshops.id, order.workshopId));
     }
     
     // Get assigned employees from assignedToIds array
@@ -962,7 +1007,7 @@ export class DatabaseStorage implements IStorage {
       ...order,
       equipment: equipmentData,
       garage,
-      repairBay,
+      workshop,
       assignedToList,
       createdBy,
       requiredParts,

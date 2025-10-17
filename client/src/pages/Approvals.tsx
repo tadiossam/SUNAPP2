@@ -87,9 +87,14 @@ export default function ApprovalsPage() {
   
   const currentUser = (authData as any)?.user;
 
-  // Fetch pending approvals (for current user if logged in as supervisor)
+  // Fetch pending approvals assigned to current user
+  const approvalsQueryKey = currentUser?.id 
+    ? [`/api/approvals?status=pending&assignedToId=${currentUser.id}`]
+    : ["/api/approvals?status=pending"];
+  
   const { data: approvals, isLoading: loadingApprovals } = useQuery<Approval[]>({
-    queryKey: ["/api/approvals?status=pending"],
+    queryKey: approvalsQueryKey,
+    enabled: !!currentUser,
   });
 
   // Fetch work orders pending approval
@@ -154,7 +159,9 @@ export default function ApprovalsPage() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
+      queryClient.invalidateQueries({ predicate: (query) => 
+        query.queryKey[0]?.toString().startsWith("/api/approvals") ?? false
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/inspections/completed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
       toast({ title: t("success"), description: "Approval processed successfully" });

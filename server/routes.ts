@@ -1963,12 +1963,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.createWorkOrder({
                 workOrderNumber,
                 equipmentId: reception.equipmentId,
-                garageId: reception.garageId || undefined,
                 workType,
                 priority: inspection.overallCondition === "Poor" ? "High" : "Medium",
                 description: `Work order auto-created from approved inspection ${inspection.inspectionNumber}`,
-                estimatedDuration: null,
-                scheduledStartDate: new Date().toISOString(),
+                scheduledDate: new Date(),
                 inspectionId: inspection.id,
                 receptionId: reception.id,
                 status: "pending",

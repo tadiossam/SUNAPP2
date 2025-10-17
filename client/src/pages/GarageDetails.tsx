@@ -16,12 +16,16 @@ import {
   XCircle,
   Activity
 } from "lucide-react";
-import type { Garage, RepairBay, Employee, WorkOrder } from "@shared/schema";
+import type { Garage, RepairBay, Employee, WorkOrder, Workshop } from "@shared/schema";
 
 type GarageWithDetails = Garage & {
   repairBays?: RepairBay[];
   employees?: Employee[];
   workOrders?: WorkOrder[];
+  workshops?: (Workshop & { 
+    foreman?: Employee; 
+    membersList?: Employee[];
+  })[];
 };
 
 export default function GarageDetails() {
@@ -190,6 +194,37 @@ export default function GarageDetails() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Workshops Section */}
+      {garage.workshops && garage.workshops.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5" />
+              Workshops ({garage.workshops.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {garage.workshops.map((workshop) => (
+                <Card key={workshop.id} className="p-4" data-testid={`workshop-card-${workshop.id}`}>
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">{workshop.name}</h4>
+                    {workshop.foreman && (
+                      <p className="text-sm text-muted-foreground">
+                        Foreman: {workshop.foreman.fullName}
+                      </p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      Members: {workshop.membersList?.length || 0}
+                    </p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

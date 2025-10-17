@@ -907,12 +907,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/workshops", isCEOOrAdmin, async (req, res) => {
     try {
       const { memberIds, ...workshopData } = req.body;
+      console.log("[Workshop Create] Request body:", JSON.stringify(req.body));
       const validatedData = insertWorkshopSchema.parse(workshopData);
       const workshop = await storage.createWorkshop(validatedData);
+      console.log("[Workshop Create] Created workshop ID:", workshop.id);
       
       // Add members if provided
       if (memberIds && Array.isArray(memberIds)) {
+        console.log("[Workshop Create] Adding", memberIds.length, "members to workshop", workshop.id);
         for (const employeeId of memberIds) {
+          console.log("[Workshop Create] Adding member:", employeeId, "to workshop:", workshop.id);
           await storage.addWorkshopMember({
             workshopId: workshop.id,
             employeeId: employeeId,

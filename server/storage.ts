@@ -757,7 +757,8 @@ export class DatabaseStorage implements IStorage {
     const [garage] = await db.select().from(garages).where(eq(garages.id, id));
     if (!garage) return undefined;
 
-    const workshopsList = await db.select().from(workshops).where(eq(workshops.garageId, id));
+    // Fetch workshops with full details (foreman and members)
+    const workshopsList = await this.getWorkshopsByGarage(id);
     const employeesList = await db.select().from(employees).where(eq(employees.garageId, id));
     const orders = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
 

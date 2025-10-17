@@ -1,31 +1,19 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Clock, ArrowUp, AlertTriangle, FileText } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, FileText, ClipboardCheck } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
-
-interface PartsRequest {
-  id: string;
-  requestNumber: string;
-  workOrderId?: string;
-  totalCost: string;
-  urgency: string;
-  justification?: string;
-  approvalStatus: string;
-  status: string;
-  createdAt: string;
-  requestedBy?: { fullName: string; employeeId: string };
-  workOrder?: { workOrderNumber: string; description: string };
-}
+import {  Separator } from "@/components/ui/separator";
 
 interface Approval {
   id: string;
@@ -47,23 +35,57 @@ interface WorkOrder {
   description: string;
   approvalStatus: string;
   estimatedCost?: string;
+  priority?: string;
+  workType?: string;
+  equipmentId?: string;
+  equipment?: { equipmentId: string; name: string };
   assignedToId?: string;
+  assignedTo?: { fullName: string };
   createdAt: string;
+}
+
+interface Inspection {
+  id: string;
+  inspectionNumber: string;
+  status: string;
+  approvalStatus: string;
+  serviceType: string;
+  inspectorId?: string;
+  inspector?: { fullName: string };
+  receptionId: string;
+  reception?: {
+    receptionNumber: string;
+    equipmentId: string;
+    equipment?: { equipmentId: string; name: string };
+  };
+  createdAt: string;
+}
+
+interface ChecklistItem {
+  id: string;
+  inspectionId: string;
+  itemNumber: number;
+  itemNameAmharic: string;
+  status: string;
+  comments?: string;
 }
 
 export default function ApprovalsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const [selectedRequest, setSelectedRequest] = useState<PartsRequest | null>(null);
   const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
+  const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [dialogAction, setDialogAction] = useState<"approve" | "reject" | null>(null);
+  const [viewDetailType, setViewDetailType] = useState<"inspection" | "workorder" | null>(null);
 
-  // Fetch parts requests
-  const { data: partsRequests, isLoading: loadingRequests } = useQuery<PartsRequest[]>({
-    queryKey: ["/api/parts-requests"],
+  // Get authenticated user
+  const { data: authData } = useQuery({
+    queryKey: ["/api/auth/me"],
   });
+  
+  const currentUser = (authData as any)?.user;
 
   // Fetch pending approvals (for current user if logged in as supervisor)
   const { data: approvals, isLoading: loadingApprovals } = useQuery<Approval[]>({
@@ -75,44 +97,21 @@ export default function ApprovalsPage() {
     queryKey: ["/api/work-orders"],
   });
 
+  // Fetch completed inspections (those that can be approved)
+  const { data: allInspections, isLoading: loadingInspections } = useQuery<Inspection[]>({
+    queryKey: ["/api/inspections/completed"],
+  });
+
+  // Fetch checklist items for selected inspection
+  const { data: checklistItems } = useQuery<ChecklistItem[]>({
+    queryKey: ["/api/inspections", selectedInspection?.id, "checklist"],
+    enabled: !!selectedInspection?.id,
+  });
+
+  // Filter approvals by type
+  const inspectionApprovals = approvals?.filter(a => a.approvalType === "inspection") || [];
   const pendingWorkOrders = workOrders?.filter(wo => wo.approvalStatus === "pending") || [];
-  const pendingPartsRequests = partsRequests?.filter(pr => pr.approvalStatus === "pending") || [];
-
-  // Approve Parts Request Mutation
-  const approvePartsMutation = useMutation({
-    mutationFn: async ({ id, approvedById, notes }: { id: string; approvedById: string; notes: string }) => {
-      return await apiRequest("POST", `/api/parts-requests/${id}/approve`, { approvedById, notes });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/parts-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
-      toast({ title: t("success"), description: t("partsRequestApproved") });
-      setSelectedRequest(null);
-      setApprovalNotes("");
-      setDialogAction(null);
-    },
-    onError: () => {
-      toast({ title: t("error"), description: t("failedToApprove"), variant: "destructive" });
-    },
-  });
-
-  // Reject Parts Request Mutation
-  const rejectPartsMutation = useMutation({
-    mutationFn: async ({ id, approvedById, notes }: { id: string; approvedById: string; notes: string }) => {
-      return await apiRequest("POST", `/api/parts-requests/${id}/reject`, { approvedById, notes });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/parts-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
-      toast({ title: t("success"), description: t("partsRequestRejected") });
-      setSelectedRequest(null);
-      setApprovalNotes("");
-      setDialogAction(null);
-    },
-    onError: () => {
-      toast({ title: t("error"), description: t("failedToReject"), variant: "destructive" });
-    },
-  });
+  const pendingInspections = allInspections?.filter(insp => insp.approvalStatus === "pending") || [];
 
   // Approve Work Order Mutation
   const approveWorkOrderMutation = useMutation({
@@ -168,11 +167,6 @@ export default function ApprovalsPage() {
     },
   });
 
-  const handlePartsAction = (request: PartsRequest, action: "approve" | "reject") => {
-    setSelectedRequest(request);
-    setDialogAction(action);
-  };
-
   const handleApprovalAction = (approval: Approval, action: "approve" | "reject") => {
     setSelectedApproval(approval);
     setDialogAction(action);
@@ -184,16 +178,19 @@ export default function ApprovalsPage() {
   };
 
   const confirmAction = () => {
-    // Note: In production, get the actual logged-in supervisor/user ID
-    const approvedById = "placeholder-supervisor-id";
+    // Get the actual logged-in user ID from auth context
+    if (!currentUser?.id) {
+      toast({
+        title: t("error"),
+        description: "User not authenticated",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    if (selectedRequest && dialogAction) {
-      if (dialogAction === "approve") {
-        approvePartsMutation.mutate({ id: selectedRequest.id, approvedById, notes: approvalNotes });
-      } else {
-        rejectPartsMutation.mutate({ id: selectedRequest.id, approvedById, notes: approvalNotes });
-      }
-    } else if (selectedWorkOrder && dialogAction) {
+    const approvedById = currentUser.id;
+
+    if (selectedWorkOrder && dialogAction) {
       if (dialogAction === "approve") {
         approveWorkOrderMutation.mutate({ id: selectedWorkOrder.id, approvedById, notes: approvalNotes });
       } else {
@@ -205,24 +202,8 @@ export default function ApprovalsPage() {
     }
   };
 
-  const getUrgencyBadge = (urgency: string) => {
-    const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
-      critical: { variant: "destructive", icon: AlertTriangle },
-      high: { variant: "default", icon: ArrowUp },
-      normal: { variant: "secondary", icon: Clock },
-      low: { variant: "outline", icon: Clock },
-    };
-    const config = variants[urgency] || variants.normal;
-    const Icon = config.icon;
-    return (
-      <Badge variant={config.variant} className="gap-1">
-        <Icon className="h-3 w-3" />
-        {urgency.toUpperCase()}
-      </Badge>
-    );
-  };
-
-  const getPriorityBadge = (priority: string) => {
+  const getPriorityBadge = (priority?: string) => {
+    if (!priority) return null;
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       urgent: "destructive",
       high: "default",
@@ -230,6 +211,26 @@ export default function ApprovalsPage() {
       low: "outline",
     };
     return <Badge variant={variants[priority] || "secondary"}>{priority.toUpperCase()}</Badge>;
+  };
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+      completed: "default",
+      pending: "secondary",
+      approved: "default",
+      rejected: "destructive",
+    };
+    return <Badge variant={variants[status] || "secondary"}>{status.toUpperCase()}</Badge>;
+  };
+
+  const openInspectionDetail = (inspection: Inspection) => {
+    setSelectedInspection(inspection);
+    setViewDetailType("inspection");
+  };
+
+  const openWorkOrderDetail = (workOrder: WorkOrder) => {
+    setSelectedWorkOrder(workOrder);
+    setViewDetailType("workorder");
   };
 
   return (
@@ -246,27 +247,26 @@ export default function ApprovalsPage() {
           </div>
           <Badge variant="outline" className="gap-2">
             <Clock className="h-3.5 w-3.5" />
-            {pendingPartsRequests.length + pendingWorkOrders.length} {t("pending")}
+            {pendingInspections.length + pendingWorkOrders.length} {t("pending")}
           </Badge>
         </div>
 
-        <Tabs defaultValue="parts" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="parts" data-testid="tab-parts-requests">
-              {t("partsRequests")} ({pendingPartsRequests.length})
+        <Tabs defaultValue="inspections" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="inspections" data-testid="tab-inspections">
+              <ClipboardCheck className="h-4 w-4 mr-2" />
+              Inspections ({pendingInspections.length})
             </TabsTrigger>
             <TabsTrigger value="work-orders" data-testid="tab-work-orders">
+              <FileText className="h-4 w-4 mr-2" />
               {t("workOrders")} ({pendingWorkOrders.length})
-            </TabsTrigger>
-            <TabsTrigger value="all-approvals" data-testid="tab-all-approvals">
-              {t("allApprovals")} ({approvals?.length || 0})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="parts" className="space-y-4">
-            {loadingRequests ? (
+          <TabsContent value="inspections" className="space-y-4">
+            {loadingInspections ? (
               <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
+                {[1, 2].map((i) => (
                   <Card key={i}>
                     <CardContent className="p-6">
                       <Skeleton className="h-20 w-full" />
@@ -274,54 +274,73 @@ export default function ApprovalsPage() {
                   </Card>
                 ))}
               </div>
-            ) : pendingPartsRequests.length === 0 ? (
+            ) : pendingInspections.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">{t("noPartsRequestsPending")}</p>
+                  <p className="text-muted-foreground">No inspections pending approval</p>
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-3">
-                {pendingPartsRequests.map((request) => (
-                  <Card key={request.id} data-testid={`card-parts-request-${request.id}`}>
+                {pendingInspections.map((inspection) => (
+                  <Card key={inspection.id} data-testid={`card-inspection-${inspection.id}`}>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-4">
                         <div className="space-y-1">
                           <CardTitle className="text-base font-semibold">
-                            {request.requestNumber}
+                            {inspection.inspectionNumber}
                           </CardTitle>
                           <p className="text-sm text-muted-foreground">
-                            {request.workOrder?.workOrderNumber} - {request.workOrder?.description}
+                            {inspection.reception?.equipment?.equipmentId} - {inspection.reception?.equipment?.name}
                           </p>
                         </div>
-                        {getUrgencyBadge(request.urgency)}
+                        {getStatusBadge(inspection.status)}
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid gap-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t("requestedBy")}:</span>
-                          <span className="font-medium">{request.requestedBy?.fullName}</span>
+                          <span className="text-muted-foreground">Service Type:</span>
+                          <span className="capitalize">{inspection.serviceType?.replace("_", " ")}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t("totalCost")}:</span>
-                          <span className="font-mono font-semibold">${request.totalCost}</span>
+                          <span className="text-muted-foreground">Inspector:</span>
+                          <span>{inspection.inspector?.fullName || "N/A"}</span>
                         </div>
-                        {request.justification && (
-                          <div className="mt-2">
-                            <span className="text-muted-foreground">{t("justification")}:</span>
-                            <p className="mt-1 text-sm">{request.justification}</p>
-                          </div>
-                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Reception:</span>
+                          <span>{inspection.reception?.receptionNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Created:</span>
+                          <span>{new Date(inspection.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
                       <div className="flex gap-2 pt-2">
                         <Button
                           size="sm"
-                          variant="default"
+                          variant="outline"
                           className="flex-1"
-                          onClick={() => handlePartsAction(request, "approve")}
-                          data-testid={`button-approve-${request.id}`}
+                          onClick={() => openInspectionDetail(inspection)}
+                          data-testid={`button-view-inspection-${inspection.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => {
+                            // Find the corresponding approval for this inspection
+                            const approval = approvals?.find(
+                              a => a.approvalType === "inspection" && a.referenceId === inspection.id
+                            );
+                            if (approval) {
+                              handleApprovalAction(approval, "approve");
+                            }
+                          }}
+                          data-testid={`button-approve-inspection-${inspection.id}`}
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
                           {t("approve")}
@@ -329,9 +348,15 @@ export default function ApprovalsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1"
-                          onClick={() => handlePartsAction(request, "reject")}
-                          data-testid={`button-reject-${request.id}`}
+                          onClick={() => {
+                            const approval = approvals?.find(
+                              a => a.approvalType === "inspection" && a.referenceId === inspection.id
+                            );
+                            if (approval) {
+                              handleApprovalAction(approval, "reject");
+                            }
+                          }}
+                          data-testid={`button-reject-inspection-${inspection.id}`}
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           {t("reject")}
@@ -374,10 +399,29 @@ export default function ApprovalsPage() {
                           </CardTitle>
                           <p className="text-sm text-muted-foreground">{workOrder.description}</p>
                         </div>
+                        {getPriorityBadge(workOrder.priority)}
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="grid gap-2 text-sm">
+                        {workOrder.equipment && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Equipment:</span>
+                            <span>{workOrder.equipment.equipmentId} - {workOrder.equipment.name}</span>
+                          </div>
+                        )}
+                        {workOrder.workType && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Work Type:</span>
+                            <span className="capitalize">{workOrder.workType.replace("_", " ")}</span>
+                          </div>
+                        )}
+                        {workOrder.assignedTo && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Assigned To:</span>
+                            <span>{workOrder.assignedTo.fullName}</span>
+                          </div>
+                        )}
                         {workOrder.estimatedCost && (
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">{t("estimatedCost")}:</span>
@@ -392,8 +436,17 @@ export default function ApprovalsPage() {
                       <div className="flex gap-2 pt-2">
                         <Button
                           size="sm"
-                          variant="default"
+                          variant="outline"
                           className="flex-1"
+                          onClick={() => openWorkOrderDetail(workOrder)}
+                          data-testid={`button-view-wo-${workOrder.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
                           onClick={() => handleWorkOrderAction(workOrder, "approve")}
                           data-testid={`button-approve-wo-${workOrder.id}`}
                         >
@@ -403,94 +456,8 @@ export default function ApprovalsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1"
                           onClick={() => handleWorkOrderAction(workOrder, "reject")}
                           data-testid={`button-reject-wo-${workOrder.id}`}
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          {t("reject")}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="all-approvals" className="space-y-4">
-            {loadingApprovals ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => (
-                  <Card key={i}>
-                    <CardContent className="p-6">
-                      <Skeleton className="h-20 w-full" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : !approvals || approvals.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">{t("noApprovalsPending")}</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {approvals.map((approval) => (
-                  <Card key={approval.id} data-testid={`card-approval-${approval.id}`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1">
-                          <CardTitle className="text-base font-semibold">
-                            {approval.referenceNumber}
-                          </CardTitle>
-                          <p className="text-sm text-muted-foreground">{approval.description}</p>
-                        </div>
-                        {getPriorityBadge(approval.priority)}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid gap-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t("type")}:</span>
-                          <span className="capitalize">{approval.approvalType.replace("_", " ")}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t("requestedBy")}:</span>
-                          <span>{approval.requestedBy.fullName}</span>
-                        </div>
-                        {approval.amount && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">{t("amount")}:</span>
-                            <span className="font-mono font-semibold">${approval.amount}</span>
-                          </div>
-                        )}
-                        {approval.requestNotes && (
-                          <div className="mt-2">
-                            <span className="text-muted-foreground">Notes:</span>
-                            <p className="mt-1 text-sm whitespace-pre-line">{approval.requestNotes}</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="flex-1"
-                          onClick={() => handleApprovalAction(approval, "approve")}
-                          data-testid={`button-approve-approval-${approval.id}`}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          {t("approve")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => handleApprovalAction(approval, "reject")}
-                          data-testid={`button-reject-approval-${approval.id}`}
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           {t("reject")}
@@ -506,18 +473,13 @@ export default function ApprovalsPage() {
       </div>
 
       {/* Approval/Rejection Dialog */}
-      <Dialog open={!!dialogAction} onOpenChange={() => { setDialogAction(null); setApprovalNotes(""); }}>
+      <Dialog open={!!dialogAction && !viewDetailType} onOpenChange={() => { setDialogAction(null); setApprovalNotes(""); }}>
         <DialogContent data-testid="dialog-approval-action">
           <DialogHeader>
             <DialogTitle>
               {dialogAction === "approve" ? t("confirmApproval") : t("confirmRejection")}
             </DialogTitle>
             <DialogDescription>
-              {selectedRequest && (
-                <>
-                  {t("requestNumber")}: {selectedRequest.requestNumber} - ${selectedRequest.totalCost}
-                </>
-              )}
               {selectedWorkOrder && (
                 <>
                   {t("workOrder")}: {selectedWorkOrder.workOrderNumber}
@@ -538,6 +500,7 @@ export default function ApprovalsPage() {
                 placeholder={t("addNotesHere")}
                 value={approvalNotes}
                 onChange={(e) => setApprovalNotes(e.target.value)}
+                rows={4}
                 data-testid="textarea-approval-notes"
               />
             </div>
@@ -553,26 +516,160 @@ export default function ApprovalsPage() {
             <Button
               variant={dialogAction === "approve" ? "default" : "destructive"}
               onClick={confirmAction}
-              disabled={
-                approvePartsMutation.isPending ||
-                rejectPartsMutation.isPending ||
-                approveWorkOrderMutation.isPending ||
-                rejectWorkOrderMutation.isPending ||
-                approveApprovalMutation.isPending
-              }
               data-testid="button-confirm-action"
             >
-              {dialogAction === "approve" ? (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {t("approve")}
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  {t("reject")}
-                </>
-              )}
+              {dialogAction === "approve" ? t("approve") : t("reject")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inspection Detail Dialog */}
+      <Dialog open={viewDetailType === "inspection"} onOpenChange={() => { setViewDetailType(null); setSelectedInspection(null); }}>
+        <DialogContent className="max-w-3xl max-h-[80vh]" data-testid="dialog-inspection-detail">
+          <DialogHeader>
+            <DialogTitle>Inspection Details: {selectedInspection?.inspectionNumber}</DialogTitle>
+            <DialogDescription>
+              Complete inspection information including checklist
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-6">
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Equipment</Label>
+                    <p className="font-medium">{selectedInspection?.reception?.equipment?.equipmentId} - {selectedInspection?.reception?.equipment?.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Reception Number</Label>
+                    <p className="font-medium">{selectedInspection?.reception?.receptionNumber}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Service Type</Label>
+                    <p className="font-medium capitalize">{selectedInspection?.serviceType?.replace("_", " ")}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Inspector</Label>
+                    <p className="font-medium">{selectedInspection?.inspector?.fullName || "N/A"}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Status</Label>
+                    <div className="mt-1">{getStatusBadge(selectedInspection?.status || "")}</div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Created At</Label>
+                    <p className="font-medium">{new Date(selectedInspection?.createdAt || "").toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Inspection Checklist</h3>
+                {checklistItems && checklistItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {checklistItems.map((item) => (
+                      <Card key={item.id}>
+                        <CardHeader className="p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <CardTitle className="text-sm font-medium">
+                                {item.itemNumber}. {item.itemNameAmharic}
+                              </CardTitle>
+                              {item.comments && (
+                                <CardDescription className="mt-2">{item.comments}</CardDescription>
+                              )}
+                            </div>
+                            {getStatusBadge(item.status)}
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No checklist items found</p>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button onClick={() => { setViewDetailType(null); setSelectedInspection(null); }}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Work Order Detail Dialog */}
+      <Dialog open={viewDetailType === "workorder"} onOpenChange={() => { setViewDetailType(null); setSelectedWorkOrder(null); }}>
+        <DialogContent className="max-w-3xl max-h-[80vh]" data-testid="dialog-workorder-detail">
+          <DialogHeader>
+            <DialogTitle>Work Order Details: {selectedWorkOrder?.workOrderNumber}</DialogTitle>
+            <DialogDescription>
+              Complete work order information
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-4">
+              <div className="grid gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Description</Label>
+                  <p className="font-medium">{selectedWorkOrder?.description}</p>
+                </div>
+                {selectedWorkOrder?.equipment && (
+                  <div>
+                    <Label className="text-muted-foreground">Equipment</Label>
+                    <p className="font-medium">{selectedWorkOrder.equipment.equipmentId} - {selectedWorkOrder.equipment.name}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedWorkOrder?.workType && (
+                    <div>
+                      <Label className="text-muted-foreground">Work Type</Label>
+                      <p className="font-medium capitalize">{selectedWorkOrder.workType.replace("_", " ")}</p>
+                    </div>
+                  )}
+                  {selectedWorkOrder?.priority && (
+                    <div>
+                      <Label className="text-muted-foreground">Priority</Label>
+                      <div className="mt-1">{getPriorityBadge(selectedWorkOrder.priority)}</div>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedWorkOrder?.assignedTo && (
+                    <div>
+                      <Label className="text-muted-foreground">Assigned To</Label>
+                      <p className="font-medium">{selectedWorkOrder.assignedTo.fullName}</p>
+                    </div>
+                  )}
+                  {selectedWorkOrder?.estimatedCost && (
+                    <div>
+                      <Label className="text-muted-foreground">Estimated Cost</Label>
+                      <p className="font-medium font-mono">${selectedWorkOrder.estimatedCost}</p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Approval Status</Label>
+                  <div className="mt-1">{getStatusBadge(selectedWorkOrder?.approvalStatus || "")}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Created At</Label>
+                  <p className="font-medium">{new Date(selectedWorkOrder?.createdAt || "").toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter>
+            <Button onClick={() => { setViewDetailType(null); setSelectedWorkOrder(null); }}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

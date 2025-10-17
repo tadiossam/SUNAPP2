@@ -221,13 +221,16 @@ export default function ApprovalsPage() {
   };
 
   const getStatusBadge = (status: string) => {
+    if (!status) return <Badge variant="secondary">N/A</Badge>;
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       completed: "default",
       pending: "secondary",
       approved: "default",
       rejected: "destructive",
+      waiting_for_approval: "secondary",
+      in_progress: "outline",
     };
-    return <Badge variant={variants[status] || "secondary"}>{status.toUpperCase()}</Badge>;
+    return <Badge variant={variants[status] || "secondary"}>{status.toUpperCase().replace(/_/g, " ")}</Badge>;
   };
 
   const openInspectionDetail = (inspection: Inspection) => {

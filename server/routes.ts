@@ -906,8 +906,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/workshops", isCEOOrAdmin, async (req, res) => {
     try {
-      const validatedData = insertWorkshopSchema.parse(req.body);
+      const { memberIds, ...workshopData } = req.body;
+      const validatedData = insertWorkshopSchema.parse(workshopData);
       const workshop = await storage.createWorkshop(validatedData);
+      
+      // Add members if provided
+      if (memberIds && Array.isArray(memberIds)) {
+        for (const employeeId of memberIds) {
+          await storage.addWorkshopMember({
+            workshopId: workshop.id,
+            employeeId: employeeId,
+          });
+        }
+      }
+      
       res.status(201).json(workshop);
     } catch (error) {
       console.error("Error creating workshop:", error);
@@ -917,8 +929,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/workshops/:id", isCEOOrAdmin, async (req, res) => {
     try {
-      const validatedData = insertWorkshopSchema.parse(req.body);
+      const { memberIds, ...workshopData } = req.body;
+      const validatedData = insertWorkshopSchema.parse(workshopData);
       const workshop = await storage.updateWorkshop(req.params.id, validatedData);
+      
+      // Update members if provided
+      if (memberIds && Array.isArray(memberIds)) {
+        // Get existing members
+        const existingMembers = await storage.getWorkshopMembers(req.params.id);
+        const existingMemberIds = existingMembers.map(m => m.id);
+        
+        // Remove members that are not in the new list
+        for (const existingId of existingMemberIds) {
+          if (!memberIds.includes(existingId)) {
+            await storage.removeWorkshopMember(req.params.id, existingId);
+          }
+        }
+        
+        // Add new members
+        for (const employeeId of memberIds) {
+          if (!existingMemberIds.includes(employeeId)) {
+            await storage.addWorkshopMember({
+              workshopId: req.params.id,
+              employeeId: employeeId,
+            });
+          }
+        }
+      }
+      
       res.json(workshop);
     } catch (error) {
       console.error("Error updating workshop:", error);

@@ -174,6 +174,7 @@ export default function Garages() {
       name: "",
       foremanId: "",
       description: "",
+      memberIds: [] as string[],
     },
   });
 
@@ -182,6 +183,7 @@ export default function Garages() {
       name: "",
       foremanId: "",
       description: "",
+      memberIds: [] as string[],
     },
   });
 
@@ -197,18 +199,24 @@ export default function Garages() {
 
   const onWorkshopSubmit = (data: any) => {
     if (selectedGarageForWorkshop) {
+      const { memberIds, ...workshopData } = data;
       createWorkshopMutation.mutate({
-        ...data,
+        ...workshopData,
         garageId: selectedGarageForWorkshop.id,
+        memberIds: memberIds || [],
       });
     }
   };
 
   const onEditWorkshopSubmit = (data: any) => {
     if (editingWorkshop) {
+      const { memberIds, ...workshopData } = data;
       updateWorkshopMutation.mutate({
         id: editingWorkshop.id,
-        data,
+        data: {
+          ...workshopData,
+          memberIds: memberIds || [],
+        },
       });
     }
   };
@@ -234,10 +242,12 @@ export default function Garages() {
 
   const handleEditWorkshop = (workshop: any) => {
     setEditingWorkshop(workshop);
+    const memberIds = workshop.membersList?.map((m: any) => m.id) || [];
     editWorkshopForm.reset({
       name: workshop.name,
       foremanId: workshop.foremanId || "",
       description: workshop.description || "",
+      memberIds: memberIds,
     });
     setIsEditWorkshopDialogOpen(true);
   };
@@ -314,28 +324,6 @@ export default function Garages() {
                           placeholder={t("location")}
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-garage-type">
-                            <SelectValue placeholder="Select garage type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="workshop">Workshop</SelectItem>
-                          <SelectItem value="field_station">Field Station</SelectItem>
-                          <SelectItem value="warehouse">Warehouse</SelectItem>
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -679,6 +667,35 @@ export default function Garages() {
                   </FormItem>
                 )}
               />
+              <div className="space-y-2">
+                <FormLabel>Workshop Members (Optional)</FormLabel>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+                  {employees?.filter(e => e.id !== workshopForm.watch('foremanId')).map((employee) => (
+                    <div key={employee.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`member-${employee.id}`}
+                        data-testid={`checkbox-member-${employee.id}`}
+                        className="h-4 w-4 rounded border-gray-300"
+                        onChange={(e) => {
+                          const currentMembers = workshopForm.watch('memberIds') || [];
+                          if (e.target.checked) {
+                            workshopForm.setValue('memberIds', [...currentMembers, employee.id]);
+                          } else {
+                            workshopForm.setValue('memberIds', currentMembers.filter(id => id !== employee.id));
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor={`member-${employee.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {employee.fullName} - {employee.role}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <DialogFooter>
                 <Button
                   type="submit"
@@ -759,6 +776,40 @@ export default function Garages() {
                   </FormItem>
                 )}
               />
+              <div className="space-y-2">
+                <FormLabel>Workshop Members (Optional)</FormLabel>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
+                  {employees?.filter(e => e.id !== editWorkshopForm.watch('foremanId')).map((employee) => {
+                    const currentMembers = editWorkshopForm.watch('memberIds') || [];
+                    const isChecked = currentMembers.includes(employee.id);
+                    return (
+                      <div key={employee.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-member-${employee.id}`}
+                          data-testid={`checkbox-edit-member-${employee.id}`}
+                          className="h-4 w-4 rounded border-gray-300"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const currentMembers = editWorkshopForm.watch('memberIds') || [];
+                            if (e.target.checked) {
+                              editWorkshopForm.setValue('memberIds', [...currentMembers, employee.id]);
+                            } else {
+                              editWorkshopForm.setValue('memberIds', currentMembers.filter(id => id !== employee.id));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`edit-member-${employee.id}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {employee.fullName} - {employee.role}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               <DialogFooter>
                 <Button
                   type="submit"

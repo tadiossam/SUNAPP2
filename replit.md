@@ -21,7 +21,7 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **3D Models Library**: Interactive viewer with upload and 360-degree rotation.
 - **Maintenance Information System**: Instructions, tutorials, tools lists, and time estimates.
 - **CEO Access Control**: CEO-only access for equipment management.
-- **Garage Management**: Garages/workshops with capacity, repair bays, employee management (mechanic, painter, etc.), work order system, SOPs, and parts storage location tracking.
+- **Garage Management**: Garages serve as main categories. Each garage has a name, location, and capacity. Garages can contain multiple workshops. Workshop management includes workshop creation with name, foreman (boss) selection, optional description, and member selection (team members). Workshop cards display foreman name and total member count. Full CRUD operations for both garages and workshops with proper dependency checks.
 - **Employee Management & Authentication**: Employee login with system roles (CEO, Admin, User), bcrypt for password hashing, and dual authentication checking user and employee tables.
 - **Work Order Management**: Full CRUD, auto-generated numbers (WO-YYYY-XXX), equipment/garage/employee assignment, priority levels, work types, multi-person team assignment via dialog, spare parts selection via catalog dialog, automatic cost calculation, and required parts persistence.
 - **Equipment Reception/Check-in**: Driver drop-off workflow with equipment unit selection, driver selection, arrival date, kilometrage, fuel level, reason for maintenance, reported issues, and auto-generated reception numbers (REC-YYYY-XXX). Tracking of check-ins with status badges.

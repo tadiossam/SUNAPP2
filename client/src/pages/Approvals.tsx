@@ -174,6 +174,42 @@ export default function ApprovalsPage() {
     },
   });
 
+  // Approve Inspection Mutation
+  const approveInspectionMutation = useMutation({
+    mutationFn: async ({ id, approvedById, notes }: { id: string; approvedById: string; notes?: string }) => {
+      return await apiRequest("POST", `/api/inspections/${id}/approve`, { approvedById, notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections"] });
+      toast({ title: t("success"), description: "Inspection approved successfully" });
+      setSelectedInspection(null);
+      setApprovalNotes("");
+      setDialogAction(null);
+      setViewDetailType(null);
+    },
+    onError: () => {
+      toast({ title: t("error"), description: t("failedToApprove"), variant: "destructive" });
+    },
+  });
+
+  // Reject Inspection Mutation
+  const rejectInspectionMutation = useMutation({
+    mutationFn: async ({ id, approvedById, notes }: { id: string; approvedById: string; notes?: string }) => {
+      return await apiRequest("POST", `/api/inspections/${id}/reject`, { approvedById, notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections"] });
+      toast({ title: t("success"), description: "Inspection rejected" });
+      setSelectedInspection(null);
+      setApprovalNotes("");
+      setDialogAction(null);
+      setViewDetailType(null);
+    },
+    onError: () => {
+      toast({ title: t("error"), description: t("failedToReject"), variant: "destructive" });
+    },
+  });
+
   const handleApprovalAction = (approval: Approval, action: "approve" | "reject") => {
     setSelectedApproval(approval);
     setDialogAction(action);
@@ -619,15 +655,23 @@ export default function ApprovalsPage() {
             <Button
               variant="destructive"
               onClick={() => {
-                const approval = approvals?.find(
-                  a => a.approvalType === "inspection" && a.referenceId === selectedInspection?.id
-                );
-                if (approval) {
-                  setViewDetailType(null);
-                  setSelectedInspection(null);
-                  handleApprovalAction(approval, "reject");
+                if (!currentUser?.id) {
+                  toast({
+                    title: t("error"),
+                    description: "User not authenticated",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                if (selectedInspection?.id) {
+                  rejectInspectionMutation.mutate({ 
+                    id: selectedInspection.id, 
+                    approvedById: currentUser.id,
+                    notes: approvalNotes
+                  });
                 }
               }}
+              disabled={rejectInspectionMutation.isPending}
               data-testid="button-reject-inspection-detail"
             >
               <XCircle className="h-4 w-4 mr-2" />
@@ -636,15 +680,23 @@ export default function ApprovalsPage() {
             <Button
               variant="default"
               onClick={() => {
-                const approval = approvals?.find(
-                  a => a.approvalType === "inspection" && a.referenceId === selectedInspection?.id
-                );
-                if (approval) {
-                  setViewDetailType(null);
-                  setSelectedInspection(null);
-                  handleApprovalAction(approval, "approve");
+                if (!currentUser?.id) {
+                  toast({
+                    title: t("error"),
+                    description: "User not authenticated",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                if (selectedInspection?.id) {
+                  approveInspectionMutation.mutate({ 
+                    id: selectedInspection.id, 
+                    approvedById: currentUser.id,
+                    notes: approvalNotes
+                  });
                 }
               }}
+              disabled={approveInspectionMutation.isPending}
               data-testid="button-approve-inspection-detail"
             >
               <CheckCircle className="h-4 w-4 mr-2" />

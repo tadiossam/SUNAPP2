@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Building2, Plus, MapPin, Users, Trash2, Eye } from "lucide-react";
+import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,10 @@ export default function Garages() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingGarage, setEditingGarage] = useState<GarageWithDetails | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isBayDialogOpen, setIsBayDialogOpen] = useState(false);
+  const [selectedGarageForBay, setSelectedGarageForBay] = useState<GarageWithDetails | null>(null);
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
     queryKey: ["/api/garages"],
@@ -50,6 +54,22 @@ export default function Garages() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: InsertGarage }) => {
+      return await apiRequest("PUT", `/api/garages/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      setIsEditDialogOpen(false);
+      setEditingGarage(null);
+      editForm.reset();
+      toast({
+        title: "Garage updated",
+        description: "Garage has been successfully updated.",
+      });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/garages/${id}`);
@@ -71,6 +91,22 @@ export default function Garages() {
     },
   });
 
+  const createBayMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/repair-bays", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      setIsBayDialogOpen(false);
+      setSelectedGarageForBay(null);
+      bayForm.reset();
+      toast({
+        title: "Shop/Bay added",
+        description: "Repair bay has been successfully added to the garage.",
+      });
+    },
+  });
+
   const form = useForm<InsertGarage>({
     resolver: zodResolver(insertGarageSchema),
     defaultValues: {
@@ -84,8 +120,64 @@ export default function Garages() {
     },
   });
 
+  const editForm = useForm<InsertGarage>({
+    resolver: zodResolver(insertGarageSchema),
+    defaultValues: {
+      name: "",
+      location: "",
+      type: "workshop",
+      capacity: 0,
+      contactPerson: "",
+      phoneNumber: "",
+      isActive: true,
+    },
+  });
+
+  const bayForm = useForm({
+    defaultValues: {
+      bayNumber: "",
+      bayType: "heavy_equipment",
+      status: "available",
+      notes: "",
+    },
+  });
+
   const onSubmit = (data: InsertGarage) => {
     createMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: InsertGarage) => {
+    if (editingGarage) {
+      updateMutation.mutate({ id: editingGarage.id, data });
+    }
+  };
+
+  const onBaySubmit = (data: any) => {
+    if (selectedGarageForBay) {
+      createBayMutation.mutate({
+        ...data,
+        garageId: selectedGarageForBay.id,
+      });
+    }
+  };
+
+  const handleEdit = (garage: GarageWithDetails) => {
+    setEditingGarage(garage);
+    editForm.reset({
+      name: garage.name,
+      location: garage.location,
+      type: garage.type,
+      capacity: garage.capacity || 0,
+      contactPerson: garage.contactPerson || "",
+      phoneNumber: garage.phoneNumber || "",
+      isActive: garage.isActive,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleAddBay = (garage: GarageWithDetails) => {
+    setSelectedGarageForBay(garage);
+    setIsBayDialogOpen(true);
   };
 
   if (isLoading) {
@@ -231,21 +323,35 @@ export default function Garages() {
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />
                     {isCEOorAdmin && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm("Are you sure you want to delete this garage?")) {
-                            deleteMutation.mutate(garage.id);
-                          }
-                        }}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-garage-${garage.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(garage);
+                          }}
+                          data-testid={`button-edit-garage-${garage.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm("Are you sure you want to delete this garage?")) {
+                              deleteMutation.mutate(garage.id);
+                            }
+                          }}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-delete-garage-${garage.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardTitle>
@@ -278,6 +384,17 @@ export default function Garages() {
                   </div>
                 )}
                 <div className="flex gap-2 pt-2">
+                  {isCEOorAdmin && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleAddBay(garage)}
+                      data-testid={`button-add-bay-${garage.id}`}
+                    >
+                      <Wrench className="h-4 w-4 mr-2" />
+                      Add Shop
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="outline"
@@ -294,6 +411,205 @@ export default function Garages() {
           ))}
         </div>
       )}
+
+      {/* Edit Garage Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Garage</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("garageName")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-edit-garage-name"
+                        placeholder={t("garageName")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("location")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-edit-garage-location"
+                        placeholder={t("location")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-garage-type">
+                          <SelectValue placeholder="Select garage type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="workshop">Workshop</SelectItem>
+                        <SelectItem value="field_station">Field Station</SelectItem>
+                        <SelectItem value="warehouse">Warehouse</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="capacity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("capacity")}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        data-testid="input-edit-garage-capacity"
+                        placeholder={t("capacity")}
+                        value={field.value || 0}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  data-testid="button-submit-edit-garage"
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? t("loading") : t("save")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Shop/Bay Dialog */}
+      <Dialog open={isBayDialogOpen} onOpenChange={setIsBayDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Shop/Bay to {selectedGarageForBay?.name}</DialogTitle>
+          </DialogHeader>
+          <Form {...bayForm}>
+            <form onSubmit={bayForm.handleSubmit(onBaySubmit)} className="space-y-4">
+              <FormField
+                control={bayForm.control}
+                name="bayNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Shop/Bay Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-bay-number"
+                        placeholder="e.g., Bay 1, A-1, Shop 1"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={bayForm.control}
+                name="bayType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bay Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-bay-type">
+                          <SelectValue placeholder="Select bay type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="heavy_equipment">Heavy Equipment</SelectItem>
+                        <SelectItem value="light_vehicle">Light Vehicle</SelectItem>
+                        <SelectItem value="diagnostic">Diagnostic</SelectItem>
+                        <SelectItem value="wash">Wash</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={bayForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-bay-status">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="available">Available</SelectItem>
+                        <SelectItem value="occupied">Occupied</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={bayForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-bay-notes"
+                        placeholder="Additional notes about this bay"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  data-testid="button-submit-bay"
+                  disabled={createBayMutation.isPending}
+                >
+                  {createBayMutation.isPending ? t("loading") : "Add Shop/Bay"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

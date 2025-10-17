@@ -848,6 +848,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteWorkshop(id: string): Promise<void> {
+    // Check if workshop exists
+    const [workshop] = await db.select().from(workshops).where(eq(workshops.id, id));
+    if (!workshop) {
+      throw new Error("Workshop not found");
+    }
+
+    // Check for dependencies
+    const workOrdersList = await db.select().from(workOrders).where(eq(workOrders.workshopId, id));
+    
+    if (workOrdersList.length > 0) {
+      throw new Error("Cannot delete workshop: has active work orders");
+    }
+
+    // Delete workshop members first (though CASCADE should handle this)
+    await db.delete(workshopMembers).where(eq(workshopMembers.workshopId, id));
+    
+    // Delete the workshop
     await db.delete(workshops).where(eq(workshops.id, id));
   }
 

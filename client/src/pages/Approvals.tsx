@@ -117,6 +117,7 @@ export default function ApprovalsPage() {
   const inspectionApprovals = approvals?.filter(a => a.approvalType === "inspection") || [];
   const pendingWorkOrders = workOrders?.filter(wo => wo.approvalStatus === "pending") || [];
   const pendingInspections = allInspections?.filter(insp => insp.status === "waiting_for_approval") || [];
+  const completedInspections = allInspections?.filter(insp => insp.status === "completed") || [];
 
   // Approve Work Order Mutation
   const approveWorkOrderMutation = useMutation({
@@ -298,10 +299,14 @@ export default function ApprovalsPage() {
         </div>
 
         <Tabs defaultValue="inspections" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="inspections" data-testid="tab-inspections">
               <ClipboardCheck className="h-4 w-4 mr-2" />
-              Inspections ({pendingInspections.length})
+              Waiting For Approval ({pendingInspections.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" data-testid="tab-completed">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Completed ({completedInspections.length})
             </TabsTrigger>
             <TabsTrigger value="work-orders" data-testid="tab-work-orders">
               <FileText className="h-4 w-4 mr-2" />
@@ -378,14 +383,20 @@ export default function ApprovalsPage() {
                           size="sm"
                           variant="default"
                           onClick={() => {
-                            // Find the corresponding approval for this inspection
-                            const approval = approvals?.find(
-                              a => a.approvalType === "inspection" && a.referenceId === inspection.id
-                            );
-                            if (approval) {
-                              handleApprovalAction(approval, "approve");
+                            if (!currentUser?.id) {
+                              toast({
+                                title: t("error"),
+                                description: "User not authenticated",
+                                variant: "destructive",
+                              });
+                              return;
                             }
+                            approveInspectionMutation.mutate({ 
+                              id: inspection.id, 
+                              approvedById: currentUser.id 
+                            });
                           }}
+                          disabled={approveInspectionMutation.isPending}
                           data-testid={`button-approve-inspection-${inspection.id}`}
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
@@ -395,17 +406,97 @@ export default function ApprovalsPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            const approval = approvals?.find(
-                              a => a.approvalType === "inspection" && a.referenceId === inspection.id
-                            );
-                            if (approval) {
-                              handleApprovalAction(approval, "reject");
+                            if (!currentUser?.id) {
+                              toast({
+                                title: t("error"),
+                                description: "User not authenticated",
+                                variant: "destructive",
+                              });
+                              return;
                             }
+                            rejectInspectionMutation.mutate({ 
+                              id: inspection.id, 
+                              approvedById: currentUser.id 
+                            });
                           }}
+                          disabled={rejectInspectionMutation.isPending}
                           data-testid={`button-reject-inspection-${inspection.id}`}
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           {t("reject")}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="completed" className="space-y-4">
+            {loadingInspections ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="p-6">
+                      <Skeleton className="h-20 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : completedInspections.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No completed inspections</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {completedInspections.map((inspection) => (
+                  <Card key={inspection.id} data-testid={`card-completed-inspection-${inspection.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <CardTitle className="text-base font-semibold">
+                            {inspection.inspectionNumber}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {inspection.reception?.equipment?.equipmentId} - {inspection.reception?.equipment?.name}
+                          </p>
+                        </div>
+                        {getStatusBadge(inspection.status)}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid gap-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Service Type:</span>
+                          <span className="capitalize">{inspection.serviceType?.replace("_", " ")}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Inspector:</span>
+                          <span>{inspection.inspector?.fullName || "N/A"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Reception:</span>
+                          <span>{inspection.reception?.receptionNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Created:</span>
+                          <span>{new Date(inspection.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => openInspectionDetail(inspection)}
+                          data-testid={`button-view-completed-inspection-${inspection.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
                         </Button>
                       </div>
                     </CardContent>

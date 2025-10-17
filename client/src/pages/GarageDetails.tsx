@@ -42,7 +42,7 @@ import {
 import type { Garage, WorkOrder, Workshop, Employee } from "@shared/schema";
 import { insertWorkshopSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import EmployeeSearchDialog from "@/components/EmployeeSearchDialog";
+import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 
 type GarageWithDetails = Garage & {
   workOrders?: WorkOrder[];
@@ -662,10 +662,9 @@ export default function GarageDetails() {
         mode="single"
         title="Select Foreman"
         selectedIds={selectedForemanId ? [selectedForemanId] : []}
-        onConfirm={(ids) => {
+        onSelect={(ids) => {
           setSelectedForemanId(ids[0] || "");
           workshopForm.setValue("foremanId", ids[0] || "");
-          setIsForemanSearchOpen(false);
         }}
       />
 
@@ -676,10 +675,9 @@ export default function GarageDetails() {
         title="Select Team Members"
         selectedIds={selectedMemberIds}
         excludeIds={selectedForemanId ? [selectedForemanId] : []}
-        onConfirm={(ids) => {
+        onSelect={(ids) => {
           setSelectedMemberIds(ids);
           workshopForm.setValue("memberIds", ids);
-          setIsMembersSearchOpen(false);
         }}
       />
 
@@ -690,10 +688,9 @@ export default function GarageDetails() {
         mode="single"
         title="Select Foreman"
         selectedIds={editSelectedForemanId ? [editSelectedForemanId] : []}
-        onConfirm={(ids) => {
+        onSelect={(ids) => {
           setEditSelectedForemanId(ids[0] || "");
           editWorkshopForm.setValue("foremanId", ids[0] || "");
-          setIsEditForemanSearchOpen(false);
         }}
       />
 
@@ -704,10 +701,9 @@ export default function GarageDetails() {
         title="Select Team Members"
         selectedIds={editSelectedMemberIds}
         excludeIds={editSelectedForemanId ? [editSelectedForemanId] : []}
-        onConfirm={(ids) => {
+        onSelect={(ids) => {
           setEditSelectedMemberIds(ids);
           editWorkshopForm.setValue("memberIds", ids);
-          setIsEditMembersSearchOpen(false);
         }}
       />
     </div>

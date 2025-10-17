@@ -122,9 +122,9 @@ export default function Inspection() {
   // For regular users, /api/my-inspections already returns only their assigned inspections
   const assignedReceptions = isAdmin 
     ? allReceptions.filter(
-        (reception) => reception.inspectionOfficerId !== null && reception.inspectionOfficerId !== undefined
+        (reception) => reception.inspectionOfficerId !== null && reception.inspectionOfficerId !== undefined && reception.status !== "canceled"
       )
-    : allReceptions;
+    : allReceptions.filter((reception) => reception.status !== "canceled");
 
   const filteredReceptions = assignedReceptions.filter((reception) => {
     if (!searchTerm) return true;

@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench } from "lucide-react";
+import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertGarageSchema, type InsertGarage, type GarageWithDetails } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 
 export default function Garages() {
   const { t } = useLanguage();
@@ -28,6 +29,12 @@ export default function Garages() {
   const [selectedGarageForWorkshop, setSelectedGarageForWorkshop] = useState<GarageWithDetails | null>(null);
   const [editingWorkshop, setEditingWorkshop] = useState<any | null>(null);
   const [isEditWorkshopDialogOpen, setIsEditWorkshopDialogOpen] = useState(false);
+  
+  // Employee search dialog states
+  const [isForemanSearchOpen, setIsForemanSearchOpen] = useState(false);
+  const [isMemberSearchOpen, setIsMemberSearchOpen] = useState(false);
+  const [isEditForemanSearchOpen, setIsEditForemanSearchOpen] = useState(false);
+  const [isEditMemberSearchOpen, setIsEditMemberSearchOpen] = useState(false);
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
     queryKey: ["/api/garages"],
@@ -629,26 +636,27 @@ export default function Garages() {
               <FormField
                 control={workshopForm.control}
                 name="foremanId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Foreman (Boss)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                render={({ field }) => {
+                  const selectedForeman = employees?.find(e => e.id === field.value);
+                  return (
+                    <FormItem>
+                      <FormLabel>Foreman (Boss) *</FormLabel>
                       <FormControl>
-                        <SelectTrigger data-testid="select-workshop-foreman">
-                          <SelectValue placeholder="Select foreman" />
-                        </SelectTrigger>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => setIsForemanSearchOpen(true)}
+                          data-testid="button-select-foreman"
+                        >
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          {selectedForeman ? `${selectedForeman.fullName} - ${selectedForeman.role}` : "Select foreman"}
+                        </Button>
                       </FormControl>
-                      <SelectContent>
-                        {employees?.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.fullName} - {employee.role}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               <FormField
                 control={workshopForm.control}
@@ -668,33 +676,19 @@ export default function Garages() {
                 )}
               />
               <div className="space-y-2">
-                <FormLabel>Workshop Members (Optional)</FormLabel>
-                <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
-                  {employees?.filter(e => e.id !== workshopForm.watch('foremanId')).map((employee) => (
-                    <div key={employee.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`member-${employee.id}`}
-                        data-testid={`checkbox-member-${employee.id}`}
-                        className="h-4 w-4 rounded border-gray-300"
-                        onChange={(e) => {
-                          const currentMembers = workshopForm.watch('memberIds') || [];
-                          if (e.target.checked) {
-                            workshopForm.setValue('memberIds', [...currentMembers, employee.id]);
-                          } else {
-                            workshopForm.setValue('memberIds', currentMembers.filter(id => id !== employee.id));
-                          }
-                        }}
-                      />
-                      <label
-                        htmlFor={`member-${employee.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                      >
-                        {employee.fullName} - {employee.role}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+                <FormLabel>Workshop Members *</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setIsMemberSearchOpen(true)}
+                  data-testid="button-select-members"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  {workshopForm.watch('memberIds')?.length 
+                    ? `${workshopForm.watch('memberIds')?.length} member(s) selected`
+                    : "Select team members"}
+                </Button>
               </div>
               <DialogFooter>
                 <Button
@@ -738,26 +732,27 @@ export default function Garages() {
               <FormField
                 control={editWorkshopForm.control}
                 name="foremanId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Foreman (Boss)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                render={({ field }) => {
+                  const selectedForeman = employees?.find(e => e.id === field.value);
+                  return (
+                    <FormItem>
+                      <FormLabel>Foreman (Boss) *</FormLabel>
                       <FormControl>
-                        <SelectTrigger data-testid="select-edit-workshop-foreman">
-                          <SelectValue placeholder="Select foreman" />
-                        </SelectTrigger>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => setIsEditForemanSearchOpen(true)}
+                          data-testid="button-edit-select-foreman"
+                        >
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          {selectedForeman ? `${selectedForeman.fullName} - ${selectedForeman.role}` : "Select foreman"}
+                        </Button>
                       </FormControl>
-                      <SelectContent>
-                        {employees?.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.fullName} - {employee.role}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
               <FormField
                 control={editWorkshopForm.control}
@@ -777,38 +772,19 @@ export default function Garages() {
                 )}
               />
               <div className="space-y-2">
-                <FormLabel>Workshop Members (Optional)</FormLabel>
-                <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2">
-                  {employees?.filter(e => e.id !== editWorkshopForm.watch('foremanId')).map((employee) => {
-                    const currentMembers = editWorkshopForm.watch('memberIds') || [];
-                    const isChecked = currentMembers.includes(employee.id);
-                    return (
-                      <div key={employee.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`edit-member-${employee.id}`}
-                          data-testid={`checkbox-edit-member-${employee.id}`}
-                          className="h-4 w-4 rounded border-gray-300"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            const currentMembers = editWorkshopForm.watch('memberIds') || [];
-                            if (e.target.checked) {
-                              editWorkshopForm.setValue('memberIds', [...currentMembers, employee.id]);
-                            } else {
-                              editWorkshopForm.setValue('memberIds', currentMembers.filter(id => id !== employee.id));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`edit-member-${employee.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          {employee.fullName} - {employee.role}
-                        </label>
-                      </div>
-                    );
-                  })}
-                </div>
+                <FormLabel>Workshop Members *</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setIsEditMemberSearchOpen(true)}
+                  data-testid="button-edit-select-members"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  {editWorkshopForm.watch('memberIds')?.length 
+                    ? `${editWorkshopForm.watch('memberIds')?.length} member(s) selected`
+                    : "Select team members"}
+                </Button>
               </div>
               <DialogFooter>
                 <Button
@@ -823,6 +799,62 @@ export default function Garages() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Employee Search Dialogs for Create Workshop */}
+      <EmployeeSearchDialog
+        open={isForemanSearchOpen}
+        onOpenChange={setIsForemanSearchOpen}
+        mode="single"
+        title="Select Foreman"
+        description="Choose a foreman/boss for this workshop"
+        selectedIds={workshopForm.watch('foremanId') ? [workshopForm.watch('foremanId')] : []}
+        onSelect={(ids) => {
+          if (ids.length > 0) {
+            workshopForm.setValue('foremanId', ids[0]);
+          }
+        }}
+      />
+
+      <EmployeeSearchDialog
+        open={isMemberSearchOpen}
+        onOpenChange={setIsMemberSearchOpen}
+        mode="multiple"
+        title="Select Team Members"
+        description="Choose team members for this workshop"
+        selectedIds={workshopForm.watch('memberIds') || []}
+        excludeIds={workshopForm.watch('foremanId') ? [workshopForm.watch('foremanId')] : []}
+        onSelect={(ids) => {
+          workshopForm.setValue('memberIds', ids);
+        }}
+      />
+
+      {/* Employee Search Dialogs for Edit Workshop */}
+      <EmployeeSearchDialog
+        open={isEditForemanSearchOpen}
+        onOpenChange={setIsEditForemanSearchOpen}
+        mode="single"
+        title="Select Foreman"
+        description="Choose a foreman/boss for this workshop"
+        selectedIds={editWorkshopForm.watch('foremanId') ? [editWorkshopForm.watch('foremanId')] : []}
+        onSelect={(ids) => {
+          if (ids.length > 0) {
+            editWorkshopForm.setValue('foremanId', ids[0]);
+          }
+        }}
+      />
+
+      <EmployeeSearchDialog
+        open={isEditMemberSearchOpen}
+        onOpenChange={setIsEditMemberSearchOpen}
+        mode="multiple"
+        title="Select Team Members"
+        description="Choose team members for this workshop"
+        selectedIds={editWorkshopForm.watch('memberIds') || []}
+        excludeIds={editWorkshopForm.watch('foremanId') ? [editWorkshopForm.watch('foremanId')] : []}
+        onSelect={(ids) => {
+          editWorkshopForm.setValue('memberIds', ids);
+        }}
+      />
     </div>
   );
 }

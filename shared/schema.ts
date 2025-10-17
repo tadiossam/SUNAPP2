@@ -327,7 +327,7 @@ export const workshops = pgTable("workshops", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   garageId: varchar("garage_id").notNull().references(() => garages.id, { onDelete: "cascade" }),
   name: text("name").notNull(), // "Engine Workshop", "Hydraulics Shop", etc.
-  foremanId: varchar("foreman_id").references(() => employees.id, { onDelete: "set null" }), // Workshop foreman/boss
+  foremanId: varchar("foreman_id").notNull().references(() => employees.id, { onDelete: "restrict" }), // Workshop foreman/boss (REQUIRED)
   description: text("description"),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

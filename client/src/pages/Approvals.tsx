@@ -605,9 +605,47 @@ export default function ApprovalsPage() {
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter>
-            <Button onClick={() => { setViewDetailType(null); setSelectedInspection(null); }}>
+          <DialogFooter className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => { setViewDetailType(null); setSelectedInspection(null); }}
+              data-testid="button-close-inspection-detail"
+            >
               Close
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const approval = approvals?.find(
+                  a => a.approvalType === "inspection" && a.referenceId === selectedInspection?.id
+                );
+                if (approval) {
+                  setViewDetailType(null);
+                  setSelectedInspection(null);
+                  handleApprovalAction(approval, "reject");
+                }
+              }}
+              data-testid="button-reject-inspection-detail"
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Reject
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                const approval = approvals?.find(
+                  a => a.approvalType === "inspection" && a.referenceId === selectedInspection?.id
+                );
+                if (approval) {
+                  setViewDetailType(null);
+                  setSelectedInspection(null);
+                  handleApprovalAction(approval, "approve");
+                }
+              }}
+              data-testid="button-approve-inspection-detail"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Approve
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -102,9 +102,9 @@ export default function ApprovalsPage() {
     queryKey: ["/api/work-orders"],
   });
 
-  // Fetch completed inspections (those that can be approved)
+  // Fetch all inspections (to filter by status)
   const { data: allInspections, isLoading: loadingInspections } = useQuery<Inspection[]>({
-    queryKey: ["/api/inspections/completed"],
+    queryKey: ["/api/inspections"],
   });
 
   // Fetch checklist items for selected inspection
@@ -162,7 +162,7 @@ export default function ApprovalsPage() {
       queryClient.invalidateQueries({ predicate: (query) => 
         query.queryKey[0]?.toString().startsWith("/api/approvals") ?? false
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/inspections/completed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections"] });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
       toast({ title: t("success"), description: "Approval processed successfully" });
       setSelectedApproval(null);

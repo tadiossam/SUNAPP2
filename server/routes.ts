@@ -1836,6 +1836,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use the inspector's ID as the requester (inspector is always an employee)
       const requestedById = inspection.inspectorId;
 
+      // Update inspection status to "waiting_for_approval" when submitted
+      await storage.updateInspection(inspectionId, { status: "waiting_for_approval" });
+
       const approval = await storage.createApproval({
         approvalType: "inspection",
         referenceId: inspectionId,

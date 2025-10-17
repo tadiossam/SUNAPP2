@@ -106,6 +106,12 @@ export default function Inspection() {
     (insp: any) => insp.status === "waiting_for_approval" || insp.approvalStatus === "pending"
   );
 
+  // Fetch canceled inspections
+  const { data: canceledInspections = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspections/canceled"],
+    enabled: !!currentUser?.id,
+  });
+
   // Fetch checklist items for viewing inspection
   const { data: viewingChecklistItems = [] } = useQuery<any[]>({
     queryKey: ["/api/inspection-checklist-items", viewingInspection?.id],
@@ -203,6 +209,31 @@ export default function Inspection() {
       toast({
         title: "Error",
         description: "Failed to submit inspection",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Cancel inspection mutation
+  const cancelInspectionMutation = useMutation({
+    mutationFn: async (receptionId: string) => {
+      return await apiRequest("POST", `/api/receptions/${receptionId}/cancel`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment-receptions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections/canceled"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-inspections"] });
+      toast({
+        title: "Inspection Canceled",
+        description: "Inspection has been canceled successfully",
+      });
+      setActiveTab("canceled");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to cancel inspection",
         variant: "destructive",
       });
     },
@@ -391,7 +422,7 @@ export default function Inspection() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pending" data-testid="tab-pending-inspections">
             Pending Inspections
             <Badge variant="secondary" className="ml-2">
@@ -408,6 +439,12 @@ export default function Inspection() {
             Completed Inspections
             <Badge variant="secondary" className="ml-2">
               {completedInspections.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="canceled" data-testid="tab-canceled-inspections">
+            Canceled Inspections
+            <Badge variant="secondary" className="ml-2">
+              {canceledInspections.length}
             </Badge>
           </TabsTrigger>
         </TabsList>
@@ -477,14 +514,25 @@ export default function Inspection() {
                           {reception.arrivalDate ? new Date(reception.arrivalDate).toLocaleDateString() : "N/A"}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            onClick={() => handleStartInspection(reception)}
-                            data-testid={`button-inspect-${reception.id}`}
-                          >
-                            <ClipboardCheck className="h-4 w-4 mr-2" />
-                            Start Inspection
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleStartInspection(reception)}
+                              data-testid={`button-inspect-${reception.id}`}
+                            >
+                              <ClipboardCheck className="h-4 w-4 mr-2" />
+                              Start Inspection
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => cancelInspectionMutation.mutate(reception.id)}
+                              disabled={cancelInspectionMutation.isPending}
+                              data-testid={`button-cancel-${reception.id}`}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -615,6 +663,73 @@ export default function Inspection() {
                               setShowViewDialog(true);
                             }}
                             data-testid={`button-view-inspection-${inspection.id}`}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Canceled Inspections Tab */}
+        <TabsContent value="canceled" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Canceled Inspections</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {canceledInspections.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">
+                    No canceled inspections
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Inspection Number</TableHead>
+                      <TableHead>Equipment</TableHead>
+                      <TableHead>Inspector</TableHead>
+                      <TableHead>Service Type</TableHead>
+                      <TableHead>Canceled Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {canceledInspections.map((inspection: any) => (
+                      <TableRow key={inspection.id}>
+                        <TableCell className="font-medium">{inspection.inspectionNumber}</TableCell>
+                        <TableCell>{inspection.reception?.equipment?.model || "N/A"}</TableCell>
+                        <TableCell>{inspection.inspector?.fullName || "N/A"}</TableCell>
+                        <TableCell>
+                          <Badge variant={inspection.serviceType === "long_term" ? "destructive" : "secondary"}>
+                            {inspection.serviceType === "long_term" ? "Long Term" : "Short Term"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {inspection.updatedAt ? new Date(inspection.updatedAt).toLocaleDateString() : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="destructive">Canceled</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setViewingInspection(inspection);
+                              setShowViewDialog(true);
+                            }}
+                            data-testid={`button-view-canceled-inspection-${inspection.id}`}
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             View Details

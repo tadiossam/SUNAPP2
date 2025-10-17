@@ -620,6 +620,7 @@ export const equipmentInspections = pgTable("equipment_inspections", {
   receptionId: varchar("reception_id").notNull().references(() => equipmentReceptions.id, { onDelete: "cascade" }),
   serviceType: text("service_type").notNull(), // "long_term", "short_term"
   inspectorId: varchar("inspector_id").notNull().references(() => employees.id),
+  approverId: varchar("approver_id").references(() => employees.id), // Selected approver for this inspection
   inspectionDate: timestamp("inspection_date").defaultNow().notNull(),
   status: text("status").notNull().default("in_progress"), // in_progress, completed, approved
   overallCondition: text("overall_condition"), // "excellent", "good", "fair", "poor", "critical"

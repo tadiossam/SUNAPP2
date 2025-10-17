@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -50,6 +57,7 @@ export default function Inspection() {
   const [overallCondition, setOverallCondition] = useState("");
   const [findings, setFindings] = useState("");
   const [recommendations, setRecommendations] = useState("");
+  const [approverId, setApproverId] = useState<string>("");
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [viewingInspection, setViewingInspection] = useState<any>(null);
   const { toast } = useToast();
@@ -61,6 +69,19 @@ export default function Inspection() {
 
   const currentUser = (authData as any)?.user;
   const isAdmin = currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "ceo";
+
+  // Fetch all employees
+  const { data: allEmployees = [] } = useQuery<any[]>({
+    queryKey: ["/api/employees"],
+  });
+
+  // Filter employees who can approve (Admin, Supervisor, CEO)
+  const approvers = allEmployees.filter(
+    (emp) => 
+      emp.role?.toLowerCase() === "admin" || 
+      emp.role?.toLowerCase() === "supervisor" ||
+      emp.role?.toLowerCase() === "ceo"
+  );
 
   // Fetch equipment receptions - admins get all, regular users get their assigned ones
   const { data: allReceptions = [], isLoading } = useQuery<EquipmentReceptionWithDetails[]>({
@@ -219,6 +240,7 @@ export default function Inspection() {
         setOverallCondition(existingInspection.overallCondition || "");
         setFindings(existingInspection.findings || "");
         setRecommendations(existingInspection.recommendations || "");
+        setApproverId(existingInspection.approverId || "");
       }
       setShowInspectionDialog(true);
     } catch (error) {
@@ -287,6 +309,7 @@ export default function Inspection() {
         overallCondition,
         findings,
         recommendations,
+        approverId: approverId || null,
       },
     });
 
@@ -310,6 +333,15 @@ export default function Inspection() {
   const handleSubmitInspection = async () => {
     if (!inspectionId || !selectedReception) return;
 
+    if (!approverId) {
+      toast({
+        title: "Approver Required",
+        description: "Please select an approver before submitting the inspection",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Save all data first
     await handleSaveProgress();
 
@@ -321,11 +353,12 @@ export default function Inspection() {
         overallCondition,
         findings,
         recommendations,
+        approverId,
       },
     });
 
     // Create approval request for the completed inspection
-    // Backend will auto-assign requestedById from session and find appropriate approver
+    // Backend will use the inspector's ID as requestedById and selected approver as assignedToId
     await apiRequest("POST", "/api/approvals/inspection", {
       inspectionId,
       inspectionNumber: currentInspection?.inspectionNumber,
@@ -333,6 +366,7 @@ export default function Inspection() {
       overallCondition,
       findings,
       recommendations,
+      approverId, // Pass the selected approver ID
     });
   };
 
@@ -753,6 +787,29 @@ export default function Inspection() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              </div>
+
+              {/* Approver Selection */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold">Approval</h3>
+                <div>
+                  <label className="text-sm font-medium">Select Approver<span className="text-destructive ml-1">*</span></label>
+                  <Select value={approverId} onValueChange={setApproverId}>
+                    <SelectTrigger data-testid="select-approver">
+                      <SelectValue placeholder="Select an approver" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvers.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id} data-testid={`approver-${emp.id}`}>
+                          {emp.fullName} ({emp.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Select the person who will approve this inspection
+                  </p>
                 </div>
               </div>
 

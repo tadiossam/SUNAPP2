@@ -111,7 +111,7 @@ export default function ApprovalsPage() {
   // Filter approvals by type
   const inspectionApprovals = approvals?.filter(a => a.approvalType === "inspection") || [];
   const pendingWorkOrders = workOrders?.filter(wo => wo.approvalStatus === "pending") || [];
-  const pendingInspections = allInspections?.filter(insp => insp.approvalStatus === "pending") || [];
+  const pendingInspections = allInspections?.filter(insp => insp.status === "waiting_for_approval") || [];
 
   // Approve Work Order Mutation
   const approveWorkOrderMutation = useMutation({

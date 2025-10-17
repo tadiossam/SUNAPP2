@@ -1821,28 +1821,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create inspection approval (specialized endpoint for inspection workflow)
   app.post("/api/approvals/inspection", isAuthenticated, async (req, res) => {
     try {
-      const { inspectionId, inspectionNumber, equipmentInfo, overallCondition, findings, recommendations } = req.body;
+      const { inspectionId, inspectionNumber, equipmentInfo, overallCondition, findings, recommendations, approverId } = req.body;
 
-      // Find an admin or supervisor to assign the approval to
-      // Get all employees and filter by role (case-insensitive)
-      const allEmployees = await storage.getAllEmployees();
-      const approvers = allEmployees.filter(emp => 
-        emp.role?.toLowerCase() === "admin" || 
-        emp.role?.toLowerCase() === "supervisor" ||
-        emp.role?.toLowerCase() === "ceo"
-      );
-      const assignedTo = approvers[0]?.id;
-
-      if (!assignedTo) {
-        return res.status(400).json({ error: "No admin or supervisor available to approve inspection" });
+      if (!approverId) {
+        return res.status(400).json({ error: "Approver ID is required" });
       }
+
+      // Get the inspection to find the inspector's ID (which is an employee ID)
+      const inspection = await storage.getInspectionById(inspectionId);
+      if (!inspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+
+      // Use the inspector's ID as the requester (inspector is always an employee)
+      const requestedById = inspection.inspectorId;
 
       const approval = await storage.createApproval({
         approvalType: "inspection",
         referenceId: inspectionId,
         referenceNumber: inspectionNumber,
-        requestedById: req.user!.id,
-        assignedToId: assignedTo,
+        requestedById: requestedById, // Inspector's employee ID
+        assignedToId: approverId, // Selected approver's employee ID
         status: "pending",
         priority: "medium",
         description: `Inspection ${inspectionNumber} completed for ${equipmentInfo}`,

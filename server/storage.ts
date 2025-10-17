@@ -242,8 +242,10 @@ export interface IStorage {
   getInspectionsByPrefix(prefix: string): Promise<EquipmentInspection[]>;
   getAllInspections(): Promise<any[]>;
   getAllCompletedInspections(): Promise<any[]>;
+  getCanceledInspections(): Promise<any[]>;
   createInspection(data: InsertEquipmentInspection): Promise<EquipmentInspection>;
   updateInspection(id: string, data: Partial<InsertEquipmentInspection>): Promise<EquipmentInspection>;
+  cancelReception(receptionId: string): Promise<void>;
   
   // Inspection Checklist Items
   getChecklistItemsByInspection(inspectionId: string): Promise<InspectionChecklistItem[]>;
@@ -1519,6 +1521,70 @@ export class DatabaseStorage implements IStorage {
     );
 
     return enrichedResults;
+  }
+
+  async getCanceledInspections(): Promise<any[]> {
+    const results = await db
+      .select({
+        id: equipmentInspections.id,
+        inspectionNumber: equipmentInspections.inspectionNumber,
+        receptionId: equipmentInspections.receptionId,
+        inspectorId: equipmentInspections.inspectorId,
+        serviceType: equipmentInspections.serviceType,
+        status: equipmentInspections.status,
+        overallCondition: equipmentInspections.overallCondition,
+        findings: equipmentInspections.findings,
+        recommendations: equipmentInspections.recommendations,
+        updatedAt: equipmentInspections.updatedAt,
+        inspectionDate: equipmentInspections.inspectionDate,
+        reception: equipmentReceptions,
+        inspector: employees,
+      })
+      .from(equipmentInspections)
+      .leftJoin(equipmentReceptions, eq(equipmentInspections.receptionId, equipmentReceptions.id))
+      .leftJoin(employees, eq(equipmentInspections.inspectorId, employees.id))
+      .where(eq(equipmentInspections.status, "canceled"))
+      .orderBy(desc(equipmentInspections.updatedAt));
+    
+    // Fetch equipment details for each reception
+    const enrichedResults = await Promise.all(
+      results.map(async (result) => {
+        if (result.reception) {
+          const equipment = result.reception.equipmentId 
+            ? await this.getEquipmentById(result.reception.equipmentId)
+            : null;
+          return {
+            ...result,
+            reception: {
+              ...result.reception,
+              equipment,
+            },
+          };
+        }
+        return result;
+      })
+    );
+
+    return enrichedResults;
+  }
+
+  async cancelReception(receptionId: string): Promise<void> {
+    // Update reception status to canceled
+    await db
+      .update(equipmentReceptions)
+      .set({ status: "canceled", updatedAt: new Date() })
+      .where(eq(equipmentReceptions.id, receptionId));
+
+    // Check if an inspection exists for this reception
+    const inspection = await this.getInspectionByReceptionId(receptionId);
+    
+    if (inspection) {
+      // Update inspection status to canceled
+      await db
+        .update(equipmentInspections)
+        .set({ status: "canceled", updatedAt: new Date() })
+        .where(eq(equipmentInspections.id, inspection.id));
+    }
   }
 
   // Inspection Checklist Items

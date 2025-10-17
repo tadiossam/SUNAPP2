@@ -1412,6 +1412,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all canceled inspections (must be before /:id route)
+  app.get("/api/inspections/canceled", async (req, res) => {
+    try {
+      const inspections = await storage.getCanceledInspections();
+      res.json(inspections);
+    } catch (error) {
+      console.error("Error fetching canceled inspections:", error);
+      res.status(500).json({ error: "Failed to fetch canceled inspections" });
+    }
+  });
+
   // Get inspection by reception ID (must be before /:id route)
   app.get("/api/inspections/by-reception/:receptionId", async (req, res) => {
     try {
@@ -1680,6 +1691,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating reception:", error);
       res.status(400).json({ error: "Failed to update reception" });
+    }
+  });
+
+  // Cancel reception/inspection
+  app.post("/api/receptions/:receptionId/cancel", async (req, res) => {
+    try {
+      await storage.cancelReception(req.params.receptionId);
+      res.json({ message: "Reception and inspection canceled successfully" });
+    } catch (error) {
+      console.error("Error canceling reception:", error);
+      res.status(400).json({ error: "Failed to cancel reception" });
     }
   });
 

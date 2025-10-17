@@ -94,12 +94,6 @@ export function AppSidebar() {
       testId: "link-work-orders",
     },
     {
-      title: t("sops"),
-      url: "/sops",
-      icon: BookOpen,
-      testId: "link-sops",
-    },
-    {
       title: t("partsLocations"),
       url: "/parts-locations",
       icon: MapPin,

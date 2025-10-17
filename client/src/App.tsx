@@ -24,7 +24,6 @@ import GarageDetailsPage from "@/pages/GarageDetails";
 import EmployeesPage from "@/pages/Employees";
 import ApprovalsPage from "@/pages/Approvals";
 import WorkOrdersPage from "@/pages/WorkOrders";
-import SOPsPage from "@/pages/SOPs";
 import PartsLocationsPage from "@/pages/PartsLocations";
 import AdminPage from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
@@ -52,7 +51,6 @@ function Router() {
       <Route path="/employees" component={EmployeesPage} />
       <Route path="/approvals" component={ApprovalsPage} />
       <Route path="/work-orders" component={WorkOrdersPage} />
-      <Route path="/sops" component={SOPsPage} />
       <Route path="/parts-locations" component={PartsLocationsPage} />
       <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />

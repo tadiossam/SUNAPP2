@@ -15,7 +15,6 @@ import {
   insertWorkshopMemberSchema,
   insertEmployeeSchema,
   insertWorkOrderSchema,
-  insertStandardOperatingProcedureSchema,
   insertPartsStorageLocationSchema,
   insertEquipmentLocationSchema,
   insertEquipmentReceptionSchema,
@@ -1472,71 +1471,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating checklist item:", error);
       res.status(400).json({ error: "Failed to update checklist item" });
-    }
-  });
-
-  // Standard Operating Procedures (SOPs)
-  app.get("/api/sops", async (req, res) => {
-    try {
-      const { category, targetRole, language } = req.query;
-      const sops = await storage.getAllSOPs({
-        category: category as string | undefined,
-        targetRole: targetRole as string | undefined,
-        language: language as string | undefined,
-      });
-      res.json(sops);
-    } catch (error) {
-      console.error("Error fetching SOPs:", error);
-      res.status(500).json({ error: "Failed to fetch SOPs" });
-    }
-  });
-
-  app.get("/api/sops/:id", async (req, res) => {
-    try {
-      const sop = await storage.getSOPById(req.params.id);
-      if (!sop) {
-        return res.status(404).json({ error: "SOP not found" });
-      }
-      res.json(sop);
-    } catch (error) {
-      console.error("Error fetching SOP:", error);
-      res.status(500).json({ error: "Failed to fetch SOP" });
-    }
-  });
-
-  app.post("/api/sops", isCEOOrAdmin, async (req, res) => {
-    try {
-      const validatedData = insertStandardOperatingProcedureSchema.parse(req.body);
-      const sop = await storage.createSOP(validatedData);
-      
-      if (req.user?.role === "admin") {
-        await sendCEONotification(createNotification(
-          'created', 'sop', sop.id, req.user.username, validatedData
-        ));
-      }
-      
-      res.status(201).json(sop);
-    } catch (error) {
-      console.error("Error creating SOP:", error);
-      res.status(400).json({ error: "Invalid SOP data" });
-    }
-  });
-
-  app.put("/api/sops/:id", isCEOOrAdmin, async (req, res) => {
-    try {
-      const validatedData = insertStandardOperatingProcedureSchema.parse(req.body);
-      const sop = await storage.updateSOP(req.params.id, validatedData);
-      
-      if (req.user?.role === "admin") {
-        await sendCEONotification(createNotification(
-          'updated', 'sop', sop.id, req.user.username, validatedData
-        ));
-      }
-      
-      res.json(sop);
-    } catch (error) {
-      console.error("Error updating SOP:", error);
-      res.status(400).json({ error: "Failed to update SOP" });
     }
   });
 

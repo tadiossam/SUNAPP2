@@ -414,27 +414,6 @@ export const workOrderRequiredParts = pgTable("work_order_required_parts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Standard Operating Procedures (SOPs) - For wash staff and other tasks
-export const standardOperatingProcedures = pgTable("standard_operating_procedures", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sopCode: text("sop_code").notNull().unique(), // SOP-WASH-001, SOP-MAINT-001
-  title: text("title").notNull(),
-  category: text("category").notNull(), // "wash", "maintenance", "safety", "inspection"
-  targetRole: text("target_role").notNull(), // "wash_staff", "mechanic", "all"
-  description: text("description").notNull(),
-  steps: text("steps").notNull(), // JSON array of step objects: [{step: 1, instruction: "...", safetyNote: "..."}]
-  requiredEquipment: text("required_equipment").array(), // Tools/equipment needed
-  estimatedTimeMinutes: integer("estimated_time_minutes"),
-  safetyRequirements: text("safety_requirements").array(), // PPE, safety measures
-  videoUrl: text("video_url"), // Tutorial video
-  documentUrl: text("document_url"), // PDF or document link
-  language: text("language").default("en"), // en, am for bilingual support
-  version: text("version").default("1.0"),
-  isActive: boolean("is_active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // Parts Storage Locations - Track where parts are stored
 export const partsStorageLocations = pgTable("parts_storage_locations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -861,12 +840,6 @@ export const insertWorkOrderRequiredPartSchema = createInsertSchema(workOrderReq
   createdAt: true,
 });
 
-export const insertStandardOperatingProcedureSchema = createInsertSchema(standardOperatingProcedures).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
 export const insertPartsStorageLocationSchema = createInsertSchema(partsStorageLocations).omit({
   id: true,
   createdAt: true,
@@ -890,8 +863,6 @@ export type WorkOrder = typeof workOrders.$inferSelect;
 export type InsertWorkOrder = z.infer<typeof insertWorkOrderSchema>;
 export type WorkOrderRequiredPart = typeof workOrderRequiredParts.$inferSelect;
 export type InsertWorkOrderRequiredPart = z.infer<typeof insertWorkOrderRequiredPartSchema>;
-export type StandardOperatingProcedure = typeof standardOperatingProcedures.$inferSelect;
-export type InsertStandardOperatingProcedure = z.infer<typeof insertStandardOperatingProcedureSchema>;
 export type PartsStorageLocation = typeof partsStorageLocations.$inferSelect;
 export type InsertPartsStorageLocation = z.infer<typeof insertPartsStorageLocationSchema>;
 export type EquipmentLocation = typeof equipmentLocations.$inferSelect;

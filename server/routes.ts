@@ -1485,6 +1485,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Approve inspection
+  app.post("/api/inspections/:id/approve", isAuthenticated, async (req, res) => {
+    try {
+      const { approvedById, notes } = req.body;
+      
+      if (!approvedById) {
+        return res.status(400).json({ error: "Approver ID is required" });
+      }
+
+      const inspection = await storage.getInspectionById(req.params.id);
+      if (!inspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+
+      // Update inspection status to "completed"
+      const updatedInspection = await storage.updateInspection(req.params.id, { 
+        status: "completed"
+      });
+
+      res.json(updatedInspection);
+    } catch (error) {
+      console.error("Error approving inspection:", error);
+      res.status(500).json({ error: "Failed to approve inspection" });
+    }
+  });
+
+  // Reject inspection
+  app.post("/api/inspections/:id/reject", isAuthenticated, async (req, res) => {
+    try {
+      const { approvedById, notes } = req.body;
+      
+      if (!approvedById) {
+        return res.status(400).json({ error: "Approver ID is required" });
+      }
+
+      const inspection = await storage.getInspectionById(req.params.id);
+      if (!inspection) {
+        return res.status(404).json({ error: "Inspection not found" });
+      }
+
+      // Update inspection status to "rejected"
+      const updatedInspection = await storage.updateInspection(req.params.id, { 
+        status: "rejected"
+      });
+
+      res.json(updatedInspection);
+    } catch (error) {
+      console.error("Error rejecting inspection:", error);
+      res.status(500).json({ error: "Failed to reject inspection" });
+    }
+  });
+
   // Parts Storage Locations
   app.get("/api/parts/:partId/locations", async (req, res) => {
     try {

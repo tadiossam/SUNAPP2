@@ -1363,6 +1363,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Equipment Inspections
+  // Get all inspections (authenticated users)
+  app.get("/api/inspections", async (req, res) => {
+    try {
+      const inspections = await storage.getAllInspections();
+      res.json(inspections);
+    } catch (error) {
+      console.error("Error fetching all inspections:", error);
+      res.status(500).json({ error: "Failed to fetch inspections" });
+    }
+  });
+
   // Create new inspection with auto-generated inspection number
   app.post("/api/inspections", async (req, res) => {
     try {

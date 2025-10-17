@@ -68,11 +68,22 @@ export default function Inspection() {
     enabled: !!currentUser?.id,
   });
 
-  // Fetch all completed inspections
+  // Fetch all completed inspections (status = 'completed')
   const { data: completedInspections = [] } = useQuery<any[]>({
     queryKey: ["/api/inspections/completed"],
     enabled: !!currentUser?.id,
   });
+
+  // Fetch waiting for approval inspections
+  const { data: allInspections = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspections"],
+    enabled: !!currentUser?.id,
+  });
+
+  // Filter inspections by status
+  const waitingForApprovalInspections = allInspections.filter(
+    (insp: any) => insp.status === "waiting_for_approval" || insp.approvalStatus === "pending"
+  );
 
   // Fetch checklist items for viewing inspection
   const { data: viewingChecklistItems = [] } = useQuery<any[]>({
@@ -154,7 +165,10 @@ export default function Inspection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipment-receptions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inspections/completed"] });
       queryClient.invalidateQueries({ queryKey: ["/api/approvals?status=pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-inspections"] });
       toast({
         title: "Inspection Submitted",
         description: "Inspection submitted for approval successfully",
@@ -162,6 +176,7 @@ export default function Inspection() {
       setShowInspectionDialog(false);
       setSelectedReception(null);
       setInspectionId(null);
+      setActiveTab("waiting");
     },
     onError: () => {
       toast({
@@ -349,6 +364,12 @@ export default function Inspection() {
               {filteredReceptions.length}
             </Badge>
           </TabsTrigger>
+          <TabsTrigger value="waiting" data-testid="tab-waiting-inspections">
+            Waiting For Approval
+            <Badge variant="secondary" className="ml-2">
+              {waitingForApprovalInspections.length}
+            </Badge>
+          </TabsTrigger>
           <TabsTrigger value="completed" data-testid="tab-completed-inspections">
             Completed Inspections
             <Badge variant="secondary" className="ml-2">
@@ -429,6 +450,75 @@ export default function Inspection() {
                           >
                             <ClipboardCheck className="h-4 w-4 mr-2" />
                             Start Inspection
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Waiting For Approval Tab */}
+        <TabsContent value="waiting" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Waiting For Approval</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {waitingForApprovalInspections.length === 0 ? (
+                <div className="text-center py-12">
+                  <ClipboardCheck className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">
+                    No inspections waiting for approval
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Inspection Number</TableHead>
+                      <TableHead>Equipment</TableHead>
+                      <TableHead>Inspector</TableHead>
+                      <TableHead>Service Type</TableHead>
+                      <TableHead>Submitted Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {waitingForApprovalInspections.map((inspection: any) => (
+                      <TableRow key={inspection.id}>
+                        <TableCell className="font-medium">{inspection.inspectionNumber}</TableCell>
+                        <TableCell>{inspection.reception?.equipment?.model || "N/A"}</TableCell>
+                        <TableCell>{inspection.inspector?.fullName || "N/A"}</TableCell>
+                        <TableCell>
+                          <Badge variant={inspection.serviceType === "long_term" ? "destructive" : "secondary"}>
+                            {inspection.serviceType === "long_term" ? "Long Term" : "Short Term"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {inspection.createdAt ? new Date(inspection.createdAt).toLocaleDateString() : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {inspection.approvalStatus === "pending" ? "Pending Approval" : "Waiting"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setViewingInspection(inspection);
+                              setShowViewDialog(true);
+                            }}
+                            data-testid={`button-view-waiting-inspection-${inspection.id}`}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -780,54 +870,98 @@ export default function Inspection() {
                 </div>
               </div>
 
-              {/* Inspection Checklist (Read-Only) */}
+              {/* Inspection Checklist Report */}
               <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-semibold">Inspection Checklist</h3>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Item Description</TableHead>
-                        <TableHead className="text-center">Has/Does Not</TableHead>
-                        <TableHead className="text-center">Working/Not Working</TableHead>
-                        <TableHead className="text-center">Broken/Cracked</TableHead>
-                        <TableHead>Comments</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {viewingChecklistItems.map((item: any) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.itemNumber}</TableCell>
-                          <TableCell>{item.itemDescription}</TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center gap-2">
-                              <Checkbox checked={item.hasItem} disabled />
-                              <span className="text-xs text-muted-foreground">የለው</span>
-                              <Checkbox checked={item.doesNotHave} disabled />
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center gap-2">
-                              <Checkbox checked={item.isWorking} disabled />
-                              <span className="text-xs text-muted-foreground">አይሰራም</span>
-                              <Checkbox checked={item.notWorking} disabled />
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center gap-2">
-                              <Checkbox checked={item.isBroken} disabled />
-                              <span className="text-xs text-muted-foreground">ስሰንክሰራ</span>
-                              <Checkbox checked={item.isCracked} disabled />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <p className="text-sm">{item.additionalComments || "-"}</p>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <h3 className="font-semibold">Inspection Checklist Report</h3>
+                <div className="space-y-4">
+                  {/* Items Present and Working */}
+                  {viewingChecklistItems.filter((item: any) => item.hasItem && item.isWorking).length > 0 && (
+                    <div className="border-l-4 border-l-green-500 pl-4 py-2 bg-green-50 dark:bg-green-950/20">
+                      <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">✓ Items Present and Working</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {viewingChecklistItems
+                          .filter((item: any) => item.hasItem && item.isWorking)
+                          .map((item: any) => (
+                            <li key={item.id} className="text-sm">
+                              {item.itemNumber}. {item.itemDescription}
+                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Items Present but Not Working */}
+                  {viewingChecklistItems.filter((item: any) => item.hasItem && item.notWorking).length > 0 && (
+                    <div className="border-l-4 border-l-yellow-500 pl-4 py-2 bg-yellow-50 dark:bg-yellow-950/20">
+                      <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2">⚠ Items Present but Not Working</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {viewingChecklistItems
+                          .filter((item: any) => item.hasItem && item.notWorking)
+                          .map((item: any) => (
+                            <li key={item.id} className="text-sm">
+                              {item.itemNumber}. {item.itemDescription}
+                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Items Broken */}
+                  {viewingChecklistItems.filter((item: any) => item.isBroken).length > 0 && (
+                    <div className="border-l-4 border-l-red-500 pl-4 py-2 bg-red-50 dark:bg-red-950/20">
+                      <h4 className="font-semibold text-red-700 dark:text-red-400 mb-2">✗ Broken Items</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {viewingChecklistItems
+                          .filter((item: any) => item.isBroken)
+                          .map((item: any) => (
+                            <li key={item.id} className="text-sm">
+                              {item.itemNumber}. {item.itemDescription}
+                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Items Cracked */}
+                  {viewingChecklistItems.filter((item: any) => item.isCracked).length > 0 && (
+                    <div className="border-l-4 border-l-orange-500 pl-4 py-2 bg-orange-50 dark:bg-orange-950/20">
+                      <h4 className="font-semibold text-orange-700 dark:text-orange-400 mb-2">⚡ Cracked Items</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {viewingChecklistItems
+                          .filter((item: any) => item.isCracked)
+                          .map((item: any) => (
+                            <li key={item.id} className="text-sm">
+                              {item.itemNumber}. {item.itemDescription}
+                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Items Not Present */}
+                  {viewingChecklistItems.filter((item: any) => item.doesNotHave).length > 0 && (
+                    <div className="border-l-4 border-l-gray-500 pl-4 py-2 bg-gray-50 dark:bg-gray-950/20">
+                      <h4 className="font-semibold text-gray-700 dark:text-gray-400 mb-2">○ Missing Items</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {viewingChecklistItems
+                          .filter((item: any) => item.doesNotHave)
+                          .map((item: any) => (
+                            <li key={item.id} className="text-sm">
+                              {item.itemNumber}. {item.itemDescription}
+                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {viewingChecklistItems.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No checklist items found</p>
+                  )}
                 </div>
               </div>
 

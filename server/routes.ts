@@ -1843,6 +1843,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         referenceNumber: inspectionNumber,
         requestedById: req.user!.id,
         assignedToId: assignedTo,
+        status: "pending",
+        priority: "medium",
         description: `Inspection ${inspectionNumber} completed for ${equipmentInfo}`,
         requestNotes: `Overall Condition: ${overallCondition}\n\nFindings: ${findings || "None"}\n\nRecommendations: ${recommendations || "None"}`,
       });

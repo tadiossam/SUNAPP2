@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -49,11 +50,14 @@ export default function WorkOrdersPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("pending");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isInspectionSelectOpen, setIsInspectionSelectOpen] = useState(false);
+  const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null);
   
   // Form state
   const [workOrderNumber, setWorkOrderNumber] = useState("");
@@ -99,6 +103,11 @@ export default function WorkOrdersPage() {
 
   const { data: spareParts } = useQuery<SparePart[]>({
     queryKey: ["/api/parts"],
+  });
+
+  // Fetch completed inspections for selection
+  const { data: completedInspections = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspections/completed"],
   });
 
   // Fetch inspection details when viewing
@@ -214,6 +223,58 @@ export default function WorkOrdersPage() {
     setSelectedParts([]);
     setPartSearchTerm("");
     setEditingWorkOrder(null);
+    setSelectedInspectionId(null);
+  };
+
+  // Handle inspection selection and pre-fill form
+  const handleInspectionSelect = (inspectionId: string) => {
+    const inspection = completedInspections.find(insp => insp.id === inspectionId);
+    if (!inspection || !inspection.reception) {
+      toast({
+        title: "Error",
+        description: "Inspection details not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reception = inspection.reception;
+    
+    // Pre-fill the form with inspection and reception data
+    setSelectedInspectionId(inspectionId);
+    setEquipmentId(reception.equipmentId || "");
+    setGarageId(reception.garageId || "");
+    
+    // Build description from driver submission and admin issues
+    let descriptionText = `Process Equipment Maintenance - ${reception.receptionNumber}\n\n`;
+    descriptionText += `--- Driver Submission Details ---\n`;
+    descriptionText += `Reported Issues: ${reception.reportedIssues || 'None reported'}\n`;
+    descriptionText += `Fuel Level: ${reception.fuelLevel || 'N/A'}\n`;
+    descriptionText += `Kilometrage: ${reception.kilometrage || 'N/A'} km\n`;
+    descriptionText += `Reason: ${reception.reasonForMaintenance || 'N/A'}\n\n`;
+    
+    if (reception.adminReportedIssues) {
+      descriptionText += `--- Issues Reported by Administration Officer ---\n`;
+      descriptionText += `${reception.adminReportedIssues}\n`;
+    }
+    
+    setDescription(descriptionText);
+    setWorkType(inspection.serviceType === "Short Term" ? "maintenance" : "repair");
+    setPriority("medium");
+    
+    // Set notes with inspection findings and recommendations
+    let notesText = "";
+    if (inspection.findings) {
+      notesText += `Inspection Findings: ${inspection.findings}\n`;
+    }
+    if (inspection.recommendations) {
+      notesText += `Recommendations: ${inspection.recommendations}`;
+    }
+    setNotes(notesText);
+
+    // Open the work order dialog
+    setIsInspectionSelectOpen(false);
+    setIsDialogOpen(true);
   };
 
   const handleEdit = (workOrder: WorkOrder) => {
@@ -375,6 +436,10 @@ export default function WorkOrdersPage() {
       return;
     }
 
+    const selectedInspection = selectedInspectionId 
+      ? completedInspections.find(insp => insp.id === selectedInspectionId)
+      : null;
+
     createWorkOrderMutation.mutate({
       workOrderNumber,
       equipmentId,
@@ -387,6 +452,8 @@ export default function WorkOrdersPage() {
       estimatedCost: estimatedCost || undefined,
       scheduledDate: scheduledDate || undefined,
       notes: notes || undefined,
+      inspectionId: selectedInspectionId || undefined,
+      receptionId: selectedInspection?.receptionId || undefined,
       requiredParts: selectedParts.map(part => ({
         partId: part.id,
         partName: part.partName,
@@ -396,7 +463,13 @@ export default function WorkOrdersPage() {
     });
   };
 
-  const filteredWorkOrders = workOrders?.filter((wo) => {
+  // Filter work orders by tab and other filters
+  const pendingWorkOrders = workOrders?.filter((wo) => wo.status !== "completed" && wo.status !== "cancelled") || [];
+  const completedWorkOrders = workOrders?.filter((wo) => wo.status === "completed") || [];
+  
+  const currentTabWorkOrders = activeTab === "pending" ? pendingWorkOrders : completedWorkOrders;
+  
+  const filteredWorkOrders = currentTabWorkOrders.filter((wo) => {
     const matchesSearch = wo.workOrderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          wo.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || wo.status === statusFilter;
@@ -434,54 +507,66 @@ export default function WorkOrdersPage() {
         </p>
       </div>
 
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-3">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t("searchWorkOrders")}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                  data-testid="input-search-work-orders"
-                />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="pending" data-testid="tab-pending-work-orders">
+            Pending ({pendingWorkOrders.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" data-testid="tab-completed-work-orders">
+            Completed ({completedWorkOrders.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="mt-6">
+          {/* Filters */}
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t("searchWorkOrders")}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-search-work-orders"
+                    />
+                  </div>
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[160px]" data-testid="select-status-filter">
+                    <SelectValue placeholder={t("allStatuses")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t("allStatuses")}</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                  <SelectTrigger className="w-[160px]" data-testid="select-priority-filter">
+                    <SelectValue placeholder={t("allPriorities")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t("allPriorities")}</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => setIsInspectionSelectOpen(true)} data-testid="button-add-work-order">
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t("addWorkOrder")}
+                </Button>
               </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px]" data-testid="select-status-filter">
-                <SelectValue placeholder={t("allStatuses")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("allStatuses")}</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="assigned">Assigned</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-[160px]" data-testid="select-priority-filter">
-                <SelectValue placeholder={t("allPriorities")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("allPriorities")}</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-work-order">
-              <Plus className="h-4 w-4 mr-2" />
-              {t("addWorkOrder")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
       {/* Work Orders Grid */}
       {isLoading ? (
@@ -609,6 +694,72 @@ export default function WorkOrdersPage() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Inspection Selection Dialog */}
+      <Dialog open={isInspectionSelectOpen} onOpenChange={setIsInspectionSelectOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select Completed Inspection</DialogTitle>
+            <DialogDescription>
+              Choose an inspection to create a work order from. The work order will be pre-filled with inspection details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {completedInspections.length > 0 ? (
+              completedInspections.map((inspection) => (
+                <Card 
+                  key={inspection.id} 
+                  className="hover-elevate cursor-pointer"
+                  onClick={() => handleInspectionSelect(inspection.id)}
+                  data-testid={`card-inspection-${inspection.id}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div>
+                          <p className="font-semibold">{inspection.inspectionNumber}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Reception: {inspection.reception?.receptionNumber || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline">
+                            Equipment: {inspection.reception?.equipment?.model || 'N/A'}
+                          </Badge>
+                          <Badge variant="outline">
+                            {inspection.serviceType}
+                          </Badge>
+                          {inspection.inspector && (
+                            <Badge variant="outline">
+                              Inspector: {inspection.inspector.fullName}
+                            </Badge>
+                          )}
+                        </div>
+                        {inspection.findings && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            Findings: {inspection.findings}
+                          </p>
+                        )}
+                      </div>
+                      <Button size="sm" variant="default" data-testid={`button-select-inspection-${inspection.id}`}>
+                        Select
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  No completed inspections available
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Work Order Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {

@@ -248,6 +248,7 @@ export default function WorkOrdersPage() {
     // Build description from driver submission and admin issues
     let descriptionText = `Process Equipment Maintenance - ${reception.receptionNumber}\n\n`;
     descriptionText += `--- Driver Submission Details ---\n`;
+    descriptionText += `Driver Name: ${reception.driver?.fullName || 'N/A'}\n`;
     descriptionText += `Reported Issues: ${reception.reportedIssues || 'None reported'}\n`;
     descriptionText += `Fuel Level: ${reception.fuelLevel || 'N/A'}\n`;
     descriptionText += `Kilometrage: ${reception.kilometrage || 'N/A'} km\n`;

@@ -1501,18 +1501,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(equipmentInspections.status, "completed"))
       .orderBy(desc(equipmentInspections.updatedAt));
     
-    // Fetch equipment details for each reception
+    // Fetch equipment and driver details for each reception
     const enrichedResults = await Promise.all(
       results.map(async (result) => {
         if (result.reception) {
           const equipment = result.reception.equipmentId 
             ? await this.getEquipmentById(result.reception.equipmentId)
             : null;
+          
+          // Fetch driver information if driverId exists
+          const driver = result.reception.driverId
+            ? await this.getEmployeeById(result.reception.driverId)
+            : null;
+          
           return {
             ...result,
             reception: {
               ...result.reception,
               equipment,
+              driver,
             },
           };
         }

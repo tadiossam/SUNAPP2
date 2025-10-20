@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,9 +106,26 @@ export default function WorkOrdersPage() {
   });
 
   // Fetch completed inspections for selection
-  const { data: completedInspections = [] } = useQuery<any[]>({
+  const { data: allCompletedInspections = [] } = useQuery<any[]>({
     queryKey: ["/api/inspections/completed"],
   });
+
+  // Filter out inspections that already have work orders (unless WO is deleted)
+  const completedInspections = useMemo(() => {
+    if (!workOrders || !allCompletedInspections) return allCompletedInspections;
+    
+    // Get all inspection IDs that have work orders created
+    const inspectionIdsWithWorkOrders = new Set(
+      workOrders
+        .filter(wo => wo.inspectionId) // Only work orders linked to inspections
+        .map(wo => wo.inspectionId)
+    );
+    
+    // Filter out inspections that already have work orders
+    return allCompletedInspections.filter(
+      inspection => !inspectionIdsWithWorkOrders.has(inspection.id)
+    );
+  }, [allCompletedInspections, workOrders]);
 
   // Fetch inspection details when viewing
   const { data: inspectionDetails, isLoading: isLoadingInspection } = useQuery<any>({

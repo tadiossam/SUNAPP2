@@ -252,7 +252,7 @@ export const translations = {
     navigation: "አሰሳ",
     
     // Branding
-    appName: "PartFinder SSC",
+    appName: "Gelan Terminal Mintenance",
     heavyEquipment: "ከባድ መሳሪያዎች",
     
     // Common

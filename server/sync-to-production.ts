@@ -124,7 +124,7 @@ async function syncToProduction() {
         totalSkipped += (data.length - imported);
         
         console.log(`   ✅ Migrated ${imported}, skipped ${data.length - imported}\n`);
-      } catch (error) {
+      } catch (error: any) {
         console.error(`   ❌ Error migrating ${step.name}:`, error.message, "\n");
       }
     }

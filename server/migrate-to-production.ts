@@ -91,7 +91,7 @@ async function migrateToProduction() {
       try {
         const count = await devDb.select().from(step.table).then(rows => rows.length);
         console.log(`  ${step.name}: ${count} records`);
-      } catch (error) {
+      } catch (error: any) {
         console.log(`  ${step.name}: Error counting (${error.message})`);
       }
     }
@@ -134,7 +134,7 @@ async function migrateToProduction() {
         totalSkipped += skipped;
         
         console.log(`   ✅ Migrated ${imported} records, skipped ${skipped}\n`);
-      } catch (error) {
+      } catch (error: any) {
         totalErrors++;
         console.error(`   ❌ Error migrating ${step.name}:`, error.message, "\n");
       }

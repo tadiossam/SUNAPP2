@@ -84,7 +84,7 @@ async function exportDevData() {
         
         exportSummary.push({ name: step.name, count });
         totalRecords += count;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`   ❌ Error exporting ${step.name}:`, error.message);
       }
     }

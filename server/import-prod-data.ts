@@ -108,7 +108,7 @@ async function importProdData() {
           } catch (error) {
             // Record might already exist or have a conflict
             skipped++;
-            console.log(`   ⚠️  Skipped record: ${error.message.substring(0, 80)}`);
+            console.log(`   ⚠️  Skipped record: ${(error as any).message.substring(0, 80)}`);
           }
         }
 
@@ -116,7 +116,7 @@ async function importProdData() {
         totalSkipped += skipped;
         
         console.log(`   ✅ Imported ${imported} records, skipped ${skipped}\n`);
-      } catch (error) {
+      } catch (error: any) {
         totalErrors++;
         console.error(`   ❌ Error importing ${step.name}:`, error.message, "\n");
       }

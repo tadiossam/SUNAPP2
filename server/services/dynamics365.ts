@@ -68,12 +68,29 @@ export class Dynamics365Service {
     try {
       const encodedCompany = encodeURIComponent(this.company);
       
-      // Try different endpoint variations
+      // Try different endpoint variations for Business Central OData
       const endpoints = [
-        `/ODataV4/Company('${encodedCompany}')/Item`,     // Singular
-        `/ODataV4/Company('${encodedCompany}')/Items`,    // Plural
-        `/OData/Company('${encodedCompany}')/Item`,       // OData (no V4)
-        `/OData/Company('${encodedCompany}')/Items`,      // OData (no V4) plural
+        // Standard OData V4 patterns with Company
+        `/ODataV4/Company('${encodedCompany}')/Item`,
+        `/ODataV4/Company('${encodedCompany}')/Items`,
+        
+        // Standard OData patterns with Company
+        `/OData/Company('${encodedCompany}')/Item`,
+        `/OData/Company('${encodedCompany}')/Items`,
+        
+        // Without Company wrapper (some BC installations)
+        `/ODataV4/Item`,
+        `/ODataV4/Items`,
+        `/OData/Item`,
+        `/OData/Items`,
+        
+        // API route variations
+        `/api/v2.0/companies(${encodedCompany})/items`,
+        `/api/v1.0/companies(${encodedCompany})/items`,
+        
+        // Web services variations
+        `/WS/Company('${encodedCompany}')/Page/Item`,
+        `/WS/${encodedCompany}/Page/Item`,
       ];
 
       let lastError: any = null;
@@ -91,12 +108,23 @@ export class Dynamics365Service {
           
           const response = await this.client.get(url);
           
-          if (response.data && response.data.value) {
-            console.log(`Success! Found ${response.data.value.length} items using endpoint: ${endpoint}`);
-            return response.data.value;
+          // Check for various response formats
+          if (response.data) {
+            // OData format
+            if (response.data.value && Array.isArray(response.data.value)) {
+              console.log(`✓ Success! Found ${response.data.value.length} items using endpoint: ${endpoint}`);
+              return response.data.value;
+            }
+            // Direct array format
+            if (Array.isArray(response.data)) {
+              console.log(`✓ Success! Found ${response.data.length} items using endpoint: ${endpoint}`);
+              return response.data;
+            }
           }
         } catch (error: any) {
-          console.log(`Endpoint ${endpoint} failed:`, error.response?.status || error.message);
+          const statusCode = error.response?.status;
+          const errorMsg = error.response?.data?.error?.message || error.message;
+          console.log(`✗ Endpoint ${endpoint} failed: ${statusCode || 'Network Error'} - ${errorMsg}`);
           lastError = error;
           // Continue to next endpoint
         }
@@ -106,6 +134,7 @@ export class Dynamics365Service {
       console.error('All D365 endpoints failed. Last error:', {
         message: lastError?.message,
         status: lastError?.response?.status,
+        data: lastError?.response?.data,
       });
       throw new Error(`Failed to fetch items from Dynamics 365. Tried ${endpoints.length} different endpoints. Last error: ${lastError?.message}`);
     } catch (error: any) {

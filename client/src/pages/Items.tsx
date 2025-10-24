@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Plus, Package, Edit, Trash2, RefreshCw } from "lucide-react";
+import { Search, Plus, Package, Edit, Trash2, RefreshCw, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -226,6 +226,30 @@ export default function ItemsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={async () => {
+              try {
+                const response = await fetch("/api/dynamics365/test-endpoints");
+                const data = await response.json();
+                
+                if (data.success) {
+                  alert(`✅ Found working endpoint!\n\nEndpoint: ${data.workingEndpoint}\n\nYou can now sync items.`);
+                } else {
+                  const failedEndpoints = data.results.map((r: any) => 
+                    `${r.success ? '✓' : '✗'} ${r.endpoint}: ${r.status}`
+                  ).join('\n');
+                  alert(`❌ No working endpoint found.\n\nTested endpoints:\n${failedEndpoints}\n\nPlease check your D365 credentials and URL.`);
+                }
+              } catch (error: any) {
+                alert(`Error testing endpoints: ${error.message}`);
+              }
+            }}
+            data-testid="button-test-endpoints"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Test D365
+          </Button>
           <Button 
             variant="outline" 
             onClick={() => syncMutation.mutate()}

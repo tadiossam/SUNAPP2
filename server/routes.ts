@@ -2613,6 +2613,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Diagnostic endpoint to test all OData endpoints
+  app.get("/api/dynamics365/test-endpoints", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const axios = (await import('axios')).default;
+      const url = process.env.D365_BC_URL;
+      const username = process.env.D365_BC_USERNAME;
+      const password = process.env.D365_BC_PASSWORD;
+      const company = process.env.D365_BC_COMPANY;
+      
+      if (!url || !username || !password || !company) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "D365 credentials not configured" 
+        });
+      }
+
+      const encodedCompany = encodeURIComponent(company);
+      
+      const endpoints = [
+        `/ODataV4/Company('${encodedCompany}')/Item`,
+        `/ODataV4/Company('${encodedCompany}')/Items`,
+        `/OData/Company('${encodedCompany}')/Item`,
+        `/OData/Company('${encodedCompany}')/Items`,
+        `/ODataV4/Item`,
+        `/ODataV4/Items`,
+        `/OData/Item`,
+        `/OData/Items`,
+        `/api/v2.0/companies(${encodedCompany})/items`,
+        `/api/v1.0/companies(${encodedCompany})/items`,
+        `/WS/Company('${encodedCompany}')/Page/Item`,
+        `/WS/${encodedCompany}/Page/Item`,
+      ];
+
+      const results = [];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const fullUrl = `${url}${endpoint}`;
+          console.log(`Testing: ${fullUrl}`);
+          
+          const response = await axios.get(fullUrl, {
+            auth: { username, password },
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            timeout: 10000,
+          });
+          
+          results.push({
+            endpoint,
+            status: response.status,
+            success: true,
+            itemCount: response.data?.value?.length || (Array.isArray(response.data) ? response.data.length : 0),
+          });
+          
+          console.log(`✓ Success: ${endpoint} - ${response.status}`);
+        } catch (error: any) {
+          results.push({
+            endpoint,
+            status: error.response?.status || 'Network Error',
+            success: false,
+            error: error.response?.data?.error?.message || error.message,
+          });
+          
+          console.log(`✗ Failed: ${endpoint} - ${error.response?.status || 'Network Error'}`);
+        }
+      }
+      
+      const successfulEndpoint = results.find(r => r.success);
+      
+      res.json({
+        success: !!successfulEndpoint,
+        message: successfulEndpoint 
+          ? `Found working endpoint: ${successfulEndpoint.endpoint}` 
+          : 'No working endpoint found',
+        workingEndpoint: successfulEndpoint?.endpoint || null,
+        results,
+      });
+    } catch (error: any) {
+      console.error("D365 endpoint test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Endpoint test failed", 
+        error: error.message 
+      });
+    }
+  });
+
   // Sync items from Dynamics 365 (items starting with "SP-")
   app.post("/api/dynamics365/sync-items", isCEOOrAdmin, async (_req, res) => {
     try {

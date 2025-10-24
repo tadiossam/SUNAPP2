@@ -34,7 +34,7 @@ echo.
 echo [4/5] Fixing bcrypt for Windows...
 call npm uninstall bcrypt 2>nul
 call npm install bcryptjs
-node fix-bcrypt-windows.js
+node fix-bcrypt-windows.cjs
 echo Done!
 echo.
 
@@ -70,10 +70,10 @@ echo.
 echo 📌 NEXT STEPS:
 echo.
 echo 1. Edit .env file (opening now...)
-echo    Add your DATABASE_URL from Replit
+echo    Add your DATABASE_URL
 echo.
 echo 2. Run the app:
-echo    Double-click: run-windows.bat
+echo    Double-click: run-app.bat
 echo.
 echo 3. Open browser:
 echo    http://localhost:5000

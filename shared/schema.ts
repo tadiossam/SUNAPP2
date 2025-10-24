@@ -1048,3 +1048,34 @@ export type AttendanceDeviceSettings = typeof attendanceDeviceSettings.$inferSel
 export type InsertAttendanceDeviceSettings = z.infer<typeof insertAttendanceDeviceSettingsSchema>;
 export type DeviceImportLog = typeof deviceImportLogs.$inferSelect;
 export type InsertDeviceImportLog = z.infer<typeof insertDeviceImportLogSchema>;
+
+// Items table - synchronized from Dynamics 365 Business Central
+export const items = pgTable("items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemNo: text("item_no").notNull().unique(), // D365 "No" field
+  description: text("description").notNull(), // D365 "Description" field
+  description2: text("description_2"), // D365 "Description 2" field
+  type: text("type"), // D365 "Type" field (Inventory, Service, Non-Inventory)
+  baseUnitOfMeasure: text("base_unit_of_measure"), // D365 "Base_Unit_of_Measure"
+  unitPrice: decimal("unit_price", { precision: 12, scale: 2 }), // D365 "Unit_Price"
+  unitCost: decimal("unit_cost", { precision: 12, scale: 2 }), // D365 "Unit_Cost"
+  inventory: decimal("inventory", { precision: 12, scale: 2 }), // D365 "Inventory" (stock level)
+  vendorNo: text("vendor_no"), // D365 "Vendor_No"
+  vendorItemNo: text("vendor_item_no"), // D365 "Vendor_Item_No"
+  lastDateModified: text("last_date_modified"), // D365 "Last_Date_Modified"
+  syncedAt: timestamp("synced_at").defaultNow().notNull(), // When item was last synced from D365
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schema for items
+export const insertItemSchema = createInsertSchema(items).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  syncedAt: true,
+});
+
+// Select types for items
+export type Item = typeof items.$inferSelect;
+export type InsertItem = z.infer<typeof insertItemSchema>;

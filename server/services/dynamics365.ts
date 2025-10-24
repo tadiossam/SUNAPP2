@@ -66,31 +66,55 @@ export class Dynamics365Service {
    */
   async fetchItems(filter?: string): Promise<D365Item[]> {
     try {
-      // Construct the OData URL for Items
       const encodedCompany = encodeURIComponent(this.company);
-      let url = `/ODataV4/Company('${encodedCompany}')/Item`;
-
-      // Add filter if provided
-      if (filter) {
-        url += `?$filter=${encodeURIComponent(filter)}`;
-      }
-
-      console.log(`Fetching items from D365: ${url}`);
       
-      const response = await this.client.get(url);
-      
-      if (response.data && response.data.value) {
-        return response.data.value;
-      }
+      // Try different endpoint variations
+      const endpoints = [
+        `/ODataV4/Company('${encodedCompany}')/Item`,     // Singular
+        `/ODataV4/Company('${encodedCompany}')/Items`,    // Plural
+        `/OData/Company('${encodedCompany}')/Item`,       // OData (no V4)
+        `/OData/Company('${encodedCompany}')/Items`,      // OData (no V4) plural
+      ];
 
-      return [];
+      let lastError: any = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          let url = endpoint;
+          
+          // Add filter if provided
+          if (filter) {
+            url += `?$filter=${encodeURIComponent(filter)}`;
+          }
+
+          console.log(`Trying D365 endpoint: ${url}`);
+          
+          const response = await this.client.get(url);
+          
+          if (response.data && response.data.value) {
+            console.log(`Success! Found ${response.data.value.length} items using endpoint: ${endpoint}`);
+            return response.data.value;
+          }
+        } catch (error: any) {
+          console.log(`Endpoint ${endpoint} failed:`, error.response?.status || error.message);
+          lastError = error;
+          // Continue to next endpoint
+        }
+      }
+      
+      // If all endpoints failed, throw the last error
+      console.error('All D365 endpoints failed. Last error:', {
+        message: lastError?.message,
+        status: lastError?.response?.status,
+      });
+      throw new Error(`Failed to fetch items from Dynamics 365. Tried ${endpoints.length} different endpoints. Last error: ${lastError?.message}`);
     } catch (error: any) {
       console.error('Error fetching items from D365:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
       });
-      throw new Error(`Failed to fetch items from Dynamics 365: ${error.message}`);
+      throw error;
     }
   }
 

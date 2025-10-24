@@ -2586,6 +2586,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== Dynamics 365 Business Central Integration ====================
+
+  // Test Dynamics 365 connection
+  app.get("/api/dynamics365/test-connection", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const { d365Service } = await import('./services/dynamics365');
+      const isConnected = await d365Service.testConnection();
+      
+      if (isConnected) {
+        res.json({ success: true, message: "Connection successful" });
+      } else {
+        res.status(503).json({ success: false, message: "Connection failed" });
+      }
+    } catch (error: any) {
+      console.error("D365 connection test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Connection test failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Sync items from Dynamics 365 (items starting with "SP-")
+  app.post("/api/dynamics365/sync-items", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const { d365Service } = await import('./services/dynamics365');
+      
+      // Fetch items starting with "SP-"
+      const d365Items = await d365Service.fetchItemsByPrefix('SP-');
+      
+      console.log(`Fetched ${d365Items.length} items from Dynamics 365`);
+      
+      // Return the items for now (we'll add database storage later)
+      res.json({
+        success: true,
+        itemsCount: d365Items.length,
+        items: d365Items,
+        syncedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("D365 items sync error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Sync failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Get a specific item from Dynamics 365
+  app.get("/api/dynamics365/items/:itemNo", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { itemNo } = req.params;
+      const { d365Service } = await import('./services/dynamics365');
+      
+      const item = await d365Service.fetchItemByNumber(itemNo);
+      
+      if (item) {
+        res.json(item);
+      } else {
+        res.status(404).json({ error: "Item not found" });
+      }
+    } catch (error: any) {
+      console.error("D365 item fetch error:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch item", 
+        message: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

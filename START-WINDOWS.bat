@@ -42,4 +42,4 @@ echo Press Ctrl+C to stop the server
 echo ============================================================
 echo.
 
-npx cross-env NODE_ENV=development PORT=3000 tsx server/index.ts
+npx tsx --env-file=.env server/index.ts

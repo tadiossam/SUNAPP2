@@ -1,0 +1,172 @@
+============================================================
+   GELAN TERMINAL MAINTENANCE SYSTEM
+   Sunshine Construction PLC
+============================================================
+
+Checking Node.js...
+Γ£ô Node.js installed
+
+Installing dependencies...
+Γ£ô Dependencies ready
+
+============================================================
+   SERVER STARTING
+============================================================
+
+Server will be available at:
+  - Local access:   http://localhost:3000
+  - Network access: http://192.168.0.34:3000
+
+Other computers can access via: http://192.168.0.34:3000
+
+Default Login:
+  Username: ceo
+  Password: ceo123
+
+Press Ctrl+C to stop the server
+============================================================
+
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+2:09:05 PM [express] Environment: development (NODE_ENV=development)
+2:09:05 PM [express] Starting Vite dev server...
+2:09:06 PM [express] Vite dev server ready
+2:09:06 PM [express] serving on port 3000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+2:09:20 PM [express] GET /api/auth/me 304 in 5ms :: {"user":null}
+Error fetching equipment: ErrorEvent {
+  [Symbol(kTarget)]: WebSocket {
+    _events: [Object: null prototype] {
+      error: [Function],
+      message: [Function],
+      close: [Function],
+      open: [Function]
+    },
+    _eventsCount: 4,
+    _maxListeners: undefined,
+    _binaryType: 'arraybuffer',
+    _closeCode: 1006,
+    _closeFrameReceived: false,
+    _closeFrameSent: false,
+    _closeMessage: <Buffer >,
+    _closeTimer: null,
+    _errorEmitted: true,
+    _extensions: {},
+    _paused: false,
+    _protocol: '',
+    _readyState: 3,
+    _receiver: null,
+    _sender: null,
+    _socket: null,
+    _bufferedAmount: 0,
+    _isServer: false,
+    _redirects: 0,
+    _autoPong: true,
+    _url: 'wss://192.168.0.34/v2',
+    _req: null,
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false
+  },
+  [Symbol(kType)]: 'error',
+  [Symbol(kError)]: Error: connect ECONNREFUSED 192.168.0.34:443
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {
+    errno: -4078,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '192.168.0.34',
+    port: 443
+  },
+  [Symbol(kMessage)]: 'connect ECONNREFUSED 192.168.0.34:443'
+}
+2:09:22 PM [express] GET /api/equipment 500 in 2109ms :: {"error":"Failed to fetch equipment"}
+Error fetching employees: ErrorEvent {
+  [Symbol(kTarget)]: WebSocket {
+    _events: [Object: null prototype] {
+      error: [Function],
+      message: [Function],
+      close: [Function],
+      open: [Function]
+    },
+    _eventsCount: 4,
+    _maxListeners: undefined,
+    _binaryType: 'arraybuffer',
+    _closeCode: 1006,
+    _closeFrameReceived: false,
+    _closeFrameSent: false,
+    _closeMessage: <Buffer >,
+    _closeTimer: null,
+    _errorEmitted: true,
+    _extensions: {},
+    _paused: false,
+    _protocol: '',
+    _readyState: 3,
+    _receiver: null,
+    _sender: null,
+    _socket: null,
+    _bufferedAmount: 0,
+    _isServer: false,
+    _redirects: 0,
+    _autoPong: true,
+    _url: 'wss://192.168.0.34/v2',
+    _req: null,
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false
+  },
+  [Symbol(kType)]: 'error',
+  [Symbol(kError)]: Error: connect ECONNREFUSED 192.168.0.34:443
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {
+    errno: -4078,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '192.168.0.34',
+    port: 443
+  },
+  [Symbol(kMessage)]: 'connect ECONNREFUSED 192.168.0.34:443'
+}
+2:09:22 PM [express] GET /api/employees 500 in 2036ms :: {"error":"Failed to fetch employees"}
+Error fetching equipment categories: ErrorEvent {
+  [Symbol(kTarget)]: WebSocket {
+    _events: [Object: null prototype] {
+      error: [Function],
+      message: [Function],
+      close: [Function],
+      open: [Function]
+    },
+    _eventsCount: 4,
+    _maxListeners: undefined,
+    _binaryType: 'arraybuffer',
+    _closeCode: 1006,
+    _closeFrameReceived: false,
+    _closeFrameSent: false,
+    _closeMessage: <Buffer >,
+    _closeTimer: null,
+    _errorEmitted: true,
+    _extensions: {},
+    _paused: false,
+    _protocol: '',
+    _readyState: 3,
+    _receiver: null,
+    _sender: null,
+    _socket: null,
+    _bufferedAmount: 0,
+    _isServer: false,
+    _redirects: 0,
+    _autoPong: true,
+    _url: 'wss://192.168.0.34/v2',
+    _req: null,
+    [Symbol(shapeMode)]: false,
+    [Symbol(kCapture)]: false
+  },
+  [Symbol(kType)]: 'error',
+  [Symbol(kError)]: Error: connect ECONNREFUSED 192.168.0.34:443
+      at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {
+    errno: -4078,
+    code: 'ECONNREFUSED',
+    syscall: 'connect',
+    address: '192.168.0.34',
+    port: 443
+  },
+  [Symbol(kMessage)]: 'connect ECONNREFUSED 192.168.0.34:443'
+}
+2:09:22 PM [express] GET /api/equipment-categories 500 in 2065ms :: {"error":"Failed to fetch equipm…
+2:09:27 PM [express] POST /api/auth/login 500 in 2020ms :: {"message":"Authentication error"}

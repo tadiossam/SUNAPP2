@@ -83,11 +83,18 @@ Already configured in .env file to use Neon database
 LOCAL DATABASE SETUP:
 1. Install PostgreSQL from: https://www.postgresql.org/download/windows/
 2. Create a database named "gelan_terminal" using pgAdmin
-3. Update .env file:
-   DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/gelan_terminal
-4. Create tables: npm run db:push
-5. Seed database: npx tsx scripts/seed-local.ts
-6. Start server: START-WINDOWS.bat
+3. Configure PostgreSQL to allow connections:
+   - Find pg_hba.conf (usually at C:\Program Files\PostgreSQL\16\data\pg_hba.conf)
+   - Open as Administrator with Notepad
+   - Add these lines at the TOP:
+     host    all             all             192.168.0.34/32        md5
+     host    all             all             127.0.0.1/32           md5
+   - Save and restart PostgreSQL service (services.msc)
+4. Update .env file:
+   DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@192.168.0.34:5432/gelan_terminal
+5. Create tables: npm run db:push
+6. Create a user: npx tsx scripts/create-user.ts ceo ceo123 "CEO User" CEO
+7. Start server: START-WINDOWS.bat
 
 NETWORK DATABASE (For Office Server):
 If PostgreSQL is on another computer (e.g., 192.168.0.34):

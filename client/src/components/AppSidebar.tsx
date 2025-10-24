@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -47,6 +47,12 @@ export function AppSidebar() {
       url: "/upload",
       icon: Upload,
       testId: "link-upload",
+    },
+    {
+      title: "Items",
+      url: "/items",
+      icon: Package,
+      testId: "link-items",
     },
   ];
 

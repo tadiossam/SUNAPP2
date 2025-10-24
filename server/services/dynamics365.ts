@@ -71,15 +71,21 @@ export class Dynamics365Service {
       // Try different endpoint variations for Business Central OData
       // Note: baseURL already includes /SUNCONBC1/, don't duplicate it
       const endpoints = [
+        // BC published web service format (lowercase 'items')
+        `ODataV4/Company('${encodedCompany}')/items`,
+        
         // Standard OData V4 patterns with Company
         `ODataV4/Company('${encodedCompany}')/Item`,
         `ODataV4/Company('${encodedCompany}')/Items`,
+        `OData/Company('${encodedCompany}')/items`,
         `OData/Company('${encodedCompany}')/Item`,
         `OData/Company('${encodedCompany}')/Items`,
         
         // Without Company wrapper
+        `ODataV4/items`,
         `ODataV4/Item`,
         `ODataV4/Items`,
+        `OData/items`,
         `OData/Item`,
         `OData/Items`,
         
@@ -88,10 +94,10 @@ export class Dynamics365Service {
         `api/v1.0/companies(${encodedCompany})/items`,
         
         // Web services variations
+        `WS/Company('${encodedCompany}')/Page/items`,
         `WS/Company('${encodedCompany}')/Page/Item`,
-        `WS/${encodedCompany}/Page/Item`,
-        `WS/Item`,
-        `WS/Items`,
+        `WS/${encodedCompany}/Page/items`,
+        `WS/items`,
       ];
 
       let lastError: any = null;

@@ -2633,20 +2633,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Note: baseURL already includes /SUNCONBC1/, don't duplicate it
       const endpoints = [
+        // BC published web service format (lowercase 'items')
+        `ODataV4/Company('${encodedCompany}')/items`,
+        
+        // Standard variations
         `ODataV4/Company('${encodedCompany}')/Item`,
         `ODataV4/Company('${encodedCompany}')/Items`,
+        `OData/Company('${encodedCompany}')/items`,
         `OData/Company('${encodedCompany}')/Item`,
         `OData/Company('${encodedCompany}')/Items`,
+        `ODataV4/items`,
         `ODataV4/Item`,
         `ODataV4/Items`,
-        `OData/Item`,
-        `OData/Items`,
         `api/v2.0/companies(${encodedCompany})/items`,
         `api/v1.0/companies(${encodedCompany})/items`,
-        `WS/Company('${encodedCompany}')/Page/Item`,
-        `WS/${encodedCompany}/Page/Item`,
-        `WS/Item`,
-        `WS/Items`,
+        `WS/Company('${encodedCompany}')/Page/items`,
+        `WS/items`,
       ];
 
       const results = [];

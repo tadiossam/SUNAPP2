@@ -233,13 +233,24 @@ export default function ItemsPage() {
                 const response = await fetch("/api/dynamics365/test-endpoints");
                 const data = await response.json();
                 
+                if (!response.ok) {
+                  if (response.status === 403) {
+                    alert(`⚠️ Access Denied\n\nYou need to be logged in with CEO or Admin privileges to test D365 endpoints.\n\nPlease log in and try again.`);
+                  } else {
+                    alert(`❌ Error: ${data.message || 'Unknown error occurred'}`);
+                  }
+                  return;
+                }
+                
                 if (data.success) {
                   alert(`✅ Found working endpoint!\n\nEndpoint: ${data.workingEndpoint}\n\nYou can now sync items.`);
-                } else {
+                } else if (data.results) {
                   const failedEndpoints = data.results.map((r: any) => 
                     `${r.success ? '✓' : '✗'} ${r.endpoint}: ${r.status}`
                   ).join('\n');
                   alert(`❌ No working endpoint found.\n\nTested endpoints:\n${failedEndpoints}\n\nPlease check your D365 credentials and URL.`);
+                } else {
+                  alert(`❌ Error: ${data.message || 'Test failed'}`);
                 }
               } catch (error: any) {
                 alert(`Error testing endpoints: ${error.message}`);

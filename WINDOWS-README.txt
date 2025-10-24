@@ -30,11 +30,21 @@ RUNNING THE APPLICATION:
    ✓ Vite dev server ready
    ✓ serving on port 3000
 
-3. Open your browser and go to: http://localhost:3000
+3. Open your browser and go to:
+   - From this computer:     http://localhost:3000
+   - From other computers:   http://192.168.0.34:3000
 
 4. Login with:
    Username: ceo
    Password: ceo123
+
+NETWORK ACCESS:
+--------------
+The server runs on IP: 192.168.0.34
+Other computers on your local network can access the application at:
+http://192.168.0.34:3000
+
+IMPORTANT: Make sure Windows Firewall allows port 3000!
 
 
 STOPPING THE SERVER:
@@ -56,6 +66,11 @@ Solution: Close any other programs using port 3000, or change PORT in .env
 
 Problem: Login fails
 Solution: Check Command Prompt for error messages
+
+Problem: Can't access from other computers
+Solution: 1. Run ALLOW-FIREWALL.bat as Administrator
+         2. Make sure the server computer's IP is 192.168.0.34
+         3. Check that both computers are on the same network
 
 
 DATABASE:

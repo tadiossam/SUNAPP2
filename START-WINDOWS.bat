@@ -28,7 +28,11 @@ echo ============================================================
 echo    SERVER STARTING
 echo ============================================================
 echo.
-echo Server will be available at: http://localhost:3000
+echo Server will be available at:
+echo   - Local access:   http://localhost:3000
+echo   - Network access: http://192.168.0.34:3000
+echo.
+echo Other computers can access via: http://192.168.0.34:3000
 echo.
 echo Default Login:
 echo   Username: ceo

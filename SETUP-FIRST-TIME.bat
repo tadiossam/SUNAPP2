@@ -67,7 +67,10 @@ echo To start the server, run:
 echo   START-WINDOWS.bat
 echo.
 echo The application will be available at:
-echo   http://localhost:3000
+echo   - This computer:     http://localhost:3000
+echo   - Other computers:   http://192.168.0.34:3000
+echo.
+echo Make sure Windows Firewall allows port 3000!
 echo.
 echo Default login credentials:
 echo   Username: ceo

@@ -1,0 +1,71 @@
+================================================================================
+  GELAN TERMINAL - ESSENTIAL FILES GUIDE
+================================================================================
+
+WINDOWS SETUP FILES (5 files - all you need!):
+----------------------------------------------
+1. START-WINDOWS.bat
+   → Run this to start the server
+   → Use this EVERY TIME you want to run the app
+
+2. SETUP-FIRST-TIME.bat
+   → Run this ONCE after downloading
+   → Installs dependencies and sets up environment
+
+3. ALLOW-FIREWALL.bat
+   → Run this ONCE as Administrator
+   → Allows network access from other computers
+
+4. CHECK-IP.bat
+   → Check if your IP is 192.168.0.34
+   → Run if other computers can't connect
+
+5. WINDOWS-README.txt
+   → Complete user guide
+   → Read this for help
+
+
+CONFIGURATION FILES (keep these, don't touch):
+---------------------------------------------
+.env - Environment variables (database URL, port, etc.)
+package.json - Dependencies list
+vite.config.ts - Build configuration
+tsconfig.json - TypeScript configuration
+tailwind.config.ts - Styling configuration
+drizzle.config.ts - Database configuration
+components.json - UI components configuration
+postcss.config.js - CSS processing
+fix-bcrypt-windows.cjs - Windows bcrypt fix
+replit.md - Project documentation
+design_guidelines.md - UI/UX guidelines
+
+
+FOLDERS (keep these):
+--------------------
+client/ - Frontend code (React, UI)
+server/ - Backend code (Express, API)
+shared/ - Shared types (TypeScript)
+node_modules/ - Dependencies (auto-installed)
+scripts/ - Build scripts
+postgresql-export/ - Database backup
+
+
+FILES YOU CAN DELETE (run CLEANUP-OLD-FILES.bat):
+-------------------------------------------------
+- All .png files (30+ screenshots - not needed)
+- Old batch files (15+ old versions)
+- Debug files (debug-log.txt, test-*.js, etc.)
+- Old documentation (5+ old .md/.txt files)
+
+
+QUICK START:
+-----------
+1. Run: CLEANUP-OLD-FILES.bat (removes clutter)
+2. Run: SETUP-FIRST-TIME.bat (first time only)
+3. Run: ALLOW-FIREWALL.bat as Admin (first time only)
+4. Run: START-WINDOWS.bat (every time you want to use the app)
+5. Open: http://localhost:3000 or http://192.168.0.34:3000
+6. Login: ceo / ceo123
+
+
+================================================================================

@@ -1,0 +1,94 @@
+C:\Users\Solmix\Documents\GitHub\SUNAPP2>dir
+ Volume in drive C has no label.
+ Volume Serial Number is F2C5-6C35
+
+ Directory of C:\Users\Solmix\Documents\GitHub\SUNAPP2
+
+10/24/2025  12:12 PM    <DIR>          .
+10/24/2025  12:12 PM    <DIR>          ..
+10/24/2025  11:24 AM               217 .env
+10/24/2025  08:59 AM                72 .gitignore
+10/24/2025  11:41 AM             1,018 .replit
+10/24/2025  08:59 AM           108,085 add-work-order-clicked.png
+10/24/2025  08:59 AM           116,445 after-delete-verification.png
+10/24/2025  08:59 AM            60,244 after_assign_to.png
+10/24/2025  08:59 AM           102,578 after_click_add_work_order.png
+10/24/2025  08:59 AM            82,720 after_open_spare_parts_dialog.png
+10/24/2025  12:12 PM             1,160 ALLOW-FIREWALL.bat
+10/24/2025  12:12 PM    <DIR>          attached_assets
+10/24/2025  09:25 AM             1,468 CHECK-INSTALLATION.bat
+10/24/2025  12:12 PM               571 CHECK-IP.bat
+10/24/2025  08:59 AM    <DIR>          client
+10/24/2025  08:59 AM           117,134 closed-edit-dialog.png
+10/24/2025  08:59 AM               478 components.json
+10/24/2025  08:59 AM            91,101 confirmed-parts.png
+10/24/2025  09:51 AM             1,472 debug-log.txt
+10/24/2025  09:25 AM             4,965 debug-super.bat
+10/24/2025  08:59 AM             1,768 debug-windows.bat
+10/24/2025  08:59 AM            36,994 debug.png
+10/24/2025  08:59 AM            36,994 debug_after_nav.png
+10/24/2025  08:59 AM            56,262 debug_work_orders.png
+10/24/2025  08:59 AM            97,460 delete-confirmation-open.png
+10/24/2025  08:59 AM             4,382 design_guidelines.md
+10/24/2025  08:59 AM               114 dev-windows.bat
+10/24/2025  11:41 AM               894 diagnose-vite.bat
+10/24/2025  08:59 AM               339 drizzle.config.ts
+10/24/2025  08:59 AM           109,537 edit-dialog-verified.png
+10/24/2025  08:59 AM           101,024 edited-remove-one-part.png
+10/24/2025  08:59 AM           104,019 equipment-cards.png
+10/24/2025  08:59 AM           141,905 equipment-dropdown-open.png
+10/24/2025  08:59 AM           100,256 equipment_page_full.png
+10/24/2025  08:59 AM            87,766 filled-description.png
+10/24/2025  11:57 AM             2,061 FINAL-WINDOWS-RUN.bat
+10/24/2025  08:59 AM             1,264 fix-bcrypt-windows.cjs
+10/24/2025  08:59 AM             1,264 fix-bcrypt-windows.js
+10/24/2025  08:59 AM            36,994 homepage.png
+10/24/2025  08:59 AM            37,490 login-page.png
+10/24/2025  10:33 AM             3,998 MANUAL-FIX-INSTRUCTIONS.txt
+10/24/2025  12:17 PM    <DIR>          node_modules
+10/24/2025  08:59 AM           109,537 opened-edit-dialog.png
+10/24/2025  12:14 PM           358,897 package-lock.json
+10/24/2025  09:51 AM             4,185 package.json
+10/24/2025  08:59 AM           225,814 part-detail-with-image.png
+10/24/2025  08:59 AM            85,952 parts-selected.png
+10/24/2025  08:59 AM                86 postcss.config.js
+10/24/2025  08:59 AM    <DIR>          postgresql-export
+10/24/2025  08:59 AM               224 pyproject.toml
+10/24/2025  08:59 AM           107,627 reopened-edit-dialog.png
+10/24/2025  12:12 PM             7,241 replit.md
+10/24/2025  08:59 AM             1,352 run-app.bat
+10/24/2025  09:49 AM               707 run-windows-fixed.bat
+10/24/2025  08:59 AM               723 run-windows.bat
+10/24/2025  11:41 AM             1,202 run-with-debug.bat
+10/24/2025  08:59 AM    <DIR>          scripts
+10/24/2025  08:59 AM           110,028 selected-equipment.png
+10/24/2025  11:41 AM    <DIR>          server
+10/24/2025  12:12 PM             2,100 SETUP-FIRST-TIME.bat
+10/24/2025  08:59 AM             2,323 setup-windows.bat
+10/24/2025  08:59 AM    <DIR>          shared
+10/24/2025  08:59 AM            85,845 spare-parts-dialog-open.png
+10/24/2025  08:59 AM            11,256 spare_parts_catalog.xlsx
+10/24/2025  10:33 AM             1,509 start-windows-simple.bat
+10/24/2025  12:12 PM             1,207 START-WINDOWS.bat
+10/24/2025  10:58 AM             1,193 Start.bat
+10/24/2025  08:59 AM             4,157 tailwind.config.ts
+10/24/2025  10:33 AM             1,643 test-dotenv.js
+10/24/2025  08:59 AM             3,809 test-spare-parts-feature.html
+10/24/2025  11:10 AM               712 test-vite.bat
+10/24/2025  08:59 AM               680 tsconfig.json
+10/24/2025  08:59 AM            64,436 uv.lock
+10/24/2025  08:59 AM             2,660 VERIFICATION_STEPS.md
+10/24/2025  08:59 AM           107,627 verify-one-part-remaining.png
+10/24/2025  08:59 AM             1,120 vite.config.ts
+10/24/2025  11:10 AM             1,912 WINDOWS-COMPLETE-FIX.bat
+10/24/2025  12:12 PM             2,840 WINDOWS-README.txt
+10/24/2025  08:59 AM             4,455 WINDOWS_QUICK_START.md
+10/24/2025  08:59 AM             6,086 WINDOWS_TROUBLESHOOTING.md
+10/24/2025  08:59 AM           118,311 work-order-delete-confirmed.png
+10/24/2025  08:59 AM           117,333 work-order-submitted.png
+10/24/2025  08:59 AM           118,045 work-order-updated-submitted.png
+10/24/2025  08:59 AM            57,153 work-orders.png
+              75 File(s)      3,384,500 bytes
+               9 Dir(s)  257,407,111,168 bytes free
+
+C:\Users\Solmix\Documents\GitHub\SUNAPP2>

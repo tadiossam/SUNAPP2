@@ -28,9 +28,9 @@ export default function ItemsPage() {
 
   // Placeholder items for demonstration
   const placeholderItems = [
-    { id: "1", name: "Sample Item 1", category: "Category A", quantity: 50, status: "In Stock" },
-    { id: "2", name: "Sample Item 2", category: "Category B", quantity: 25, status: "Low Stock" },
-    { id: "3", name: "Sample Item 3", category: "Category A", quantity: 0, status: "Out of Stock" },
+    { id: "1", name: "Sample Item 1", category: "Category A", quantity: 50, status: "inStock" },
+    { id: "2", name: "Sample Item 2", category: "Category B", quantity: 25, status: "lowStock" },
+    { id: "3", name: "Sample Item 3", category: "Category A", quantity: 0, status: "outOfStock" },
   ];
 
   const displayItems = (items as any[]) || placeholderItems;
@@ -98,7 +98,7 @@ export default function ItemsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {displayItems.filter((i: any) => i.status === "In Stock").length}
+                  {displayItems.filter((i: any) => i.status === "inStock").length}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {t("availableItems")}
@@ -113,7 +113,7 @@ export default function ItemsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {displayItems.filter((i: any) => i.status === "Low Stock").length}
+                  {displayItems.filter((i: any) => i.status === "lowStock").length}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {t("needsAttention")}
@@ -164,14 +164,14 @@ export default function ItemsPage() {
                           <TableCell>
                             <Badge
                               variant={
-                                item.status === "In Stock"
+                                item.status === "inStock"
                                   ? "default"
-                                  : item.status === "Low Stock"
+                                  : item.status === "lowStock"
                                   ? "secondary"
                                   : "destructive"
                               }
                             >
-                              {item.status}
+                              {t(item.status)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">

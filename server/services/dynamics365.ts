@@ -71,24 +71,37 @@ export class Dynamics365Service {
       // Try different endpoint variations for Business Central OData
       const endpoints = [
         // Standard OData V4 patterns with Company
+        `/SUNCONBC1/ODataV4/Company('${encodedCompany}')/Item`,
+        `/SUNCONBC1/ODataV4/Company('${encodedCompany}')/Items`,
+        `/SUNCONBC1/OData/Company('${encodedCompany}')/Item`,
+        `/SUNCONBC1/OData/Company('${encodedCompany}')/Items`,
+        
+        // Without SUNCONBC1 prefix
         `/ODataV4/Company('${encodedCompany}')/Item`,
         `/ODataV4/Company('${encodedCompany}')/Items`,
-        
-        // Standard OData patterns with Company
         `/OData/Company('${encodedCompany}')/Item`,
         `/OData/Company('${encodedCompany}')/Items`,
         
-        // Without Company wrapper (some BC installations)
+        // Without Company wrapper
+        `/SUNCONBC1/ODataV4/Item`,
+        `/SUNCONBC1/ODataV4/Items`,
+        `/SUNCONBC1/OData/Item`,
+        `/SUNCONBC1/OData/Items`,
         `/ODataV4/Item`,
         `/ODataV4/Items`,
         `/OData/Item`,
         `/OData/Items`,
         
         // API route variations
+        `/SUNCONBC1/api/v2.0/companies(${encodedCompany})/items`,
+        `/SUNCONBC1/api/v1.0/companies(${encodedCompany})/items`,
         `/api/v2.0/companies(${encodedCompany})/items`,
         `/api/v1.0/companies(${encodedCompany})/items`,
         
-        // Web services variations
+        // Web services variations (might be published with custom name)
+        `/SUNCONBC1/WS/Company('${encodedCompany}')/Page/Item`,
+        `/SUNCONBC1/WS/${encodedCompany}/Page/Item`,
+        `/SUNCONBC1/WS/Item`,
         `/WS/Company('${encodedCompany}')/Page/Item`,
         `/WS/${encodedCompany}/Page/Item`,
       ];

@@ -230,7 +230,19 @@ export default function ItemsPage() {
             variant="outline" 
             onClick={async () => {
               try {
-                const response = await fetch("/api/dynamics365/test-endpoints");
+                // Get auth token from localStorage
+                const token = localStorage.getItem("auth_token");
+                const headers: HeadersInit = {
+                  'Content-Type': 'application/json',
+                };
+                
+                if (token) {
+                  headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch("/api/dynamics365/test-endpoints", {
+                  headers,
+                });
                 const data = await response.json();
                 
                 if (!response.ok) {

@@ -2619,11 +2619,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Fetched ${d365Items.length} items from Dynamics 365`);
       
-      // Return the items for now (we'll add database storage later)
+      // Save items to database
+      let savedCount = 0;
+      let updatedCount = 0;
+      
+      for (const d365Item of d365Items) {
+        try {
+          // Check if item exists
+          const existingItem = await db.select()
+            .from(items)
+            .where(eq(items.itemNo, d365Item.No))
+            .limit(1);
+          
+          const itemData = {
+            itemNo: d365Item.No,
+            description: d365Item.Description,
+            description2: d365Item.Description_2 || null,
+            type: d365Item.Type || null,
+            baseUnitOfMeasure: d365Item.Base_Unit_of_Measure || null,
+            unitPrice: d365Item.Unit_Price?.toString() || null,
+            unitCost: d365Item.Unit_Cost?.toString() || null,
+            inventory: d365Item.Inventory?.toString() || null,
+            vendorNo: d365Item.Vendor_No || null,
+            vendorItemNo: d365Item.Vendor_Item_No || null,
+            lastDateModified: d365Item.Last_Date_Modified || null,
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          if (existingItem.length > 0) {
+            // Update existing item
+            await db.update(items)
+              .set(itemData)
+              .where(eq(items.itemNo, d365Item.No));
+            updatedCount++;
+          } else {
+            // Insert new item
+            await db.insert(items).values(itemData);
+            savedCount++;
+          }
+        } catch (itemError: any) {
+          console.error(`Error saving item ${d365Item.No}:`, itemError.message);
+        }
+      }
+      
+      console.log(`Saved ${savedCount} new items, updated ${updatedCount} items`);
+      
       res.json({
         success: true,
         itemsCount: d365Items.length,
-        items: d365Items,
+        savedCount,
+        updatedCount,
         syncedAt: new Date().toISOString(),
       });
     } catch (error: any) {
@@ -2655,6 +2701,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to fetch item", 
         message: error.message 
       });
+    }
+  });
+
+  // ==================== Items CRUD Routes ====================
+  
+  // Get all items from database
+  app.get("/api/items", async (req, res) => {
+    try {
+      const { search } = req.query;
+      
+      let query = db.select().from(items).$dynamic();
+      
+      if (search && typeof search === 'string') {
+        query = query.where(
+          or(
+            ilike(items.itemNo, `%${search}%`),
+            ilike(items.description, `%${search}%`)
+          )
+        );
+      }
+      
+      const allItems = await query;
+      res.json(allItems);
+    } catch (error: any) {
+      console.error("Error fetching items:", error);
+      res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  // Get a single item by ID
+  app.get("/api/items/:id", async (req, res) => {
+    try {
+      const item = await db.select()
+        .from(items)
+        .where(eq(items.id, req.params.id))
+        .limit(1);
+      
+      if (item.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      
+      res.json(item[0]);
+    } catch (error: any) {
+      console.error("Error fetching item:", error);
+      res.status(500).json({ error: "Failed to fetch item" });
+    }
+  });
+
+  // Create a new item
+  app.post("/api/items", isCEOOrAdmin, async (req, res) => {
+    try {
+      const itemData = insertItemSchema.parse(req.body);
+      
+      const newItem = await db.insert(items)
+        .values({
+          ...itemData,
+          syncedAt: new Date(),
+        })
+        .returning();
+      
+      res.status(201).json(newItem[0]);
+    } catch (error: any) {
+      console.error("Error creating item:", error);
+      
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "Item with this number already exists" });
+      }
+      
+      res.status(500).json({ error: "Failed to create item" });
+    }
+  });
+
+  // Update an item
+  app.patch("/api/items/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const itemData = insertItemSchema.partial().parse(req.body);
+      
+      const updatedItem = await db.update(items)
+        .set({
+          ...itemData,
+          updatedAt: new Date(),
+        })
+        .where(eq(items.id, req.params.id))
+        .returning();
+      
+      if (updatedItem.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      
+      res.json(updatedItem[0]);
+    } catch (error: any) {
+      console.error("Error updating item:", error);
+      res.status(500).json({ error: "Failed to update item" });
+    }
+  });
+
+  // Delete an item
+  app.delete("/api/items/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const deletedItem = await db.delete(items)
+        .where(eq(items.id, req.params.id))
+        .returning();
+      
+      if (deletedItem.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting item:", error);
+      res.status(500).json({ error: "Failed to delete item" });
     }
   });
 

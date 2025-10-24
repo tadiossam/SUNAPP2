@@ -36,3 +36,15 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Neon**: PostgreSQL database hosting.
 - **Resend**: Email notification service.
 - **ZKTeco Biometric Device**: iFace990 Plus attendance device for employee user management, utilizing the `zkteco-js` library.
+
+## Windows Compatibility
+The application can run locally on Windows with the following setup:
+- **Node.js**: Version 18+ required
+- **Port Configuration**: Uses port 3000 (port 6000 is blocked by Chrome as unsafe)
+- **Database**: Connects to remote Neon PostgreSQL database (no local database needed)
+- **Environment Variables**: Loaded via dotenv with cross-env for Windows compatibility
+- **Platform-Specific Fixes**: 
+  - `reusePort` option disabled on Windows (not supported)
+  - `cross-env` package ensures NODE_ENV is set correctly
+  - Batch files provided for easy setup: `SETUP-FIRST-TIME.bat` and `START-WINDOWS.bat`
+- **Known Issues**: bcrypt requires native compilation on Windows (automatically handled by npm install)

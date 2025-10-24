@@ -1,0 +1,63 @@
+C:\Users\Solmix\Documents\GitHub\SUNAPP2>npm install
+
+added 17 packages, removed 26 packages, changed 160 packages, and audited 598 packages in 35s
+
+74 packages are looking for funding
+  run `npm fund` for details
+
+9 vulnerabilities (3 low, 5 moderate, 1 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+C:\Users\Solmix\Documents\GitHub\SUNAPP2>npm audit fix
+
+added 1 package, removed 2 packages, changed 5 packages, and audited 597 packages in 10s
+
+74 packages are looking for funding
+  run `npm fund` for details
+
+# npm audit report
+
+esbuild  <=0.24.2
+Severity: moderate
+esbuild enables any website to send any requests to the development server and read the response - https://github.com/advisories/GHSA-67mh-4wv8-2f99
+fix available via `npm audit fix --force`
+Will install vite@7.1.12, which is a breaking change
+node_modules/@esbuild-kit/core-utils/node_modules/esbuild
+node_modules/vite/node_modules/esbuild
+  @esbuild-kit/core-utils  *
+  Depends on vulnerable versions of esbuild
+  node_modules/@esbuild-kit/core-utils
+    @esbuild-kit/esm-loader  *
+    Depends on vulnerable versions of @esbuild-kit/core-utils
+    node_modules/@esbuild-kit/esm-loader
+      drizzle-kit  0.17.5-6b7793f - 0.17.5-e5944eb || 0.18.1-065de38 - 0.18.1-f3800bf || >=0.19.0-07024c4
+      Depends on vulnerable versions of @esbuild-kit/esm-loader
+      node_modules/drizzle-kit
+  vite  0.11.0 - 6.1.6
+  Depends on vulnerable versions of esbuild
+  node_modules/vite
+
+xlsx  *
+Severity: high
+Prototype Pollution in sheetJS - https://github.com/advisories/GHSA-4r6h-8v6p-xvw6
+SheetJS Regular Expression Denial of Service (ReDoS) - https://github.com/advisories/GHSA-5pgg-2g8v-p4x9
+No fix available
+node_modules/xlsx
+
+6 vulnerabilities (5 moderate, 1 high)
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.

@@ -54,7 +54,7 @@ if not exist .env (
         echo SESSION_SECRET=change-this-to-random-secret-key-12345
         echo.
         echo # Port
-        echo PORT=5000
+        echo PORT=6000
         echo.
         echo # Environment
         echo NODE_ENV=development
@@ -76,7 +76,7 @@ echo 2. Run the app:
 echo    Double-click: run-app.bat
 echo.
 echo 3. Open browser:
-echo    http://localhost:5000
+echo    http://localhost:6000
 echo.
 echo 4. Login:
 echo    ceo / ceo123  OR  admin / admin123

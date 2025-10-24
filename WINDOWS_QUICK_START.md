@@ -28,7 +28,7 @@ Error: `'NODE_ENV' is not recognized as an internal or external command`
    - ✅ `setup-windows.bat`
    - ✅ `run-windows.bat`
    - ✅ `run-app.bat`
-   - ✅ `fix-bcrypt-windows.js`
+   - ✅ `fix-bcrypt-windows.cjs`
 
 ---
 
@@ -58,7 +58,7 @@ When `.env` file opens, update it:
 ```env
 DATABASE_URL=postgresql://your-replit-url-here
 SESSION_SECRET=change-this-secret-12345
-PORT=5000
+PORT=6000
 NODE_ENV=development
 ```
 
@@ -73,7 +73,7 @@ NODE_ENV=development
 ```env
 DATABASE_URL=postgresql://postgres:yourpassword@localhost:5432/gelan_terminal
 SESSION_SECRET=change-this-secret-12345
-PORT=5000
+PORT=6000
 NODE_ENV=development
 ```
 
@@ -100,7 +100,7 @@ npx tsx server/index.ts
 
 ## 🌐 **Access the App**
 
-Open browser: **http://localhost:5000**
+Open browser: **http://localhost:6000**
 
 **Login:**
 - Username: `ceo` | Password: `ceo123`
@@ -129,12 +129,12 @@ If you still get errors:
 ```cmd
 npm uninstall bcrypt
 npm install bcryptjs
-node fix-bcrypt-windows.js
+node fix-bcrypt-windows.cjs
 ```
 
 ---
 
-### **Problem 3: "Port 5000 already in use"**
+### **Problem 3: "Port 6000 already in use"**
 
 **Solution:** Edit `.env` and change:
 ```env
@@ -167,7 +167,7 @@ I've created these for you:
 2. **`run-windows.bat`** - Start server (Windows-compatible)
 3. **`run-app.bat`** - Easy launcher (calls run-windows.bat)
 4. **`dev-windows.bat`** - Alternative launcher
-5. **`fix-bcrypt-windows.js`** - Fix bcrypt issues
+5. **`fix-bcrypt-windows.cjs`** - Fix bcrypt issues
 
 ---
 
@@ -200,7 +200,7 @@ npx cross-env NODE_ENV=development tsx server/index.ts
 2. Double-click: setup-windows.bat
 3. Edit .env (add DATABASE_URL from Replit)
 4. Double-click: run-app.bat
-5. Open: http://localhost:5000
+5. Open: http://localhost:6000
 6. Login: ceo / ceo123
 ```
 

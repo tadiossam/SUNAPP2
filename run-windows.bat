@@ -4,7 +4,7 @@ echo ============================================================
 echo    GELAN TERMINAL - STARTING SERVER
 echo ============================================================
 echo.
-echo Server: http://localhost:5000
+echo Server: http://localhost:6000
 echo.
 echo Login:
 echo   CEO: ceo / ceo123

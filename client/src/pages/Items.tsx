@@ -32,10 +32,8 @@ export default function ItemsPage() {
   // Mutation to sync items from Dynamics 365
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/dynamics365/sync-items", {
-        method: "POST",
-      });
-      return response;
+      const response = await apiRequest("POST", "/api/dynamics365/sync-items");
+      return response.json();
     },
     onSuccess: (data: any) => {
       toast({

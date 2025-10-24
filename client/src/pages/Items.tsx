@@ -48,14 +48,14 @@ import type { Item } from "@shared/schema";
 const itemFormSchema = z.object({
   itemNo: z.string().min(1, "Item number is required"),
   description: z.string().min(1, "Description is required"),
-  description2: z.string().optional(),
-  type: z.string().optional(),
-  baseUnitOfMeasure: z.string().optional(),
-  unitPrice: z.string().optional(),
-  unitCost: z.string().optional(),
-  inventory: z.string().optional(),
-  vendorNo: z.string().optional(),
-  vendorItemNo: z.string().optional(),
+  description2: z.string().optional().transform(val => val || undefined),
+  type: z.string().optional().transform(val => val || undefined),
+  baseUnitOfMeasure: z.string().optional().transform(val => val || undefined),
+  unitPrice: z.string().optional().transform(val => val || undefined),
+  unitCost: z.string().optional().transform(val => val || undefined),
+  inventory: z.string().optional().transform(val => val || undefined),
+  vendorNo: z.string().optional().transform(val => val || undefined),
+  vendorItemNo: z.string().optional().transform(val => val || undefined),
 });
 
 type ItemFormValues = z.infer<typeof itemFormSchema>;
@@ -193,14 +193,14 @@ export default function ItemsPage() {
     form.reset({
       itemNo: item.itemNo,
       description: item.description,
-      description2: item.description2 || "",
-      type: item.type || "",
-      baseUnitOfMeasure: item.baseUnitOfMeasure || "",
-      unitPrice: item.unitPrice || "",
-      unitCost: item.unitCost || "",
-      inventory: item.inventory || "",
-      vendorNo: item.vendorNo || "",
-      vendorItemNo: item.vendorItemNo || "",
+      description2: item.description2 ?? "",
+      type: item.type ?? "",
+      baseUnitOfMeasure: item.baseUnitOfMeasure ?? "",
+      unitPrice: item.unitPrice != null ? item.unitPrice.toString() : "",
+      unitCost: item.unitCost != null ? item.unitCost.toString() : "",
+      inventory: item.inventory != null ? item.inventory.toString() : "",
+      vendorNo: item.vendorNo ?? "",
+      vendorItemNo: item.vendorItemNo ?? "",
     });
     setIsDialogOpen(true);
   };
@@ -305,13 +305,15 @@ export default function ItemsPage() {
                         <TableHead className="text-right">{t("inventory")}</TableHead>
                         <TableHead>{t("vendorNo")}</TableHead>
                         <TableHead>{t("vendorItemNo")}</TableHead>
+                        <TableHead>{t("lastModified")}</TableHead>
+                        <TableHead>{t("lastSynced")}</TableHead>
                         <TableHead className="text-right">{t("actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredItems.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={11} className="text-center text-muted-foreground">
+                          <TableCell colSpan={13} className="text-center text-muted-foreground">
                             {t("noItemsFound")}
                           </TableCell>
                         </TableRow>
@@ -320,14 +322,20 @@ export default function ItemsPage() {
                           <TableRow key={item.id} data-testid={`row-item-${item.id}`}>
                             <TableCell className="font-medium">{item.itemNo}</TableCell>
                             <TableCell className="max-w-[200px]">{item.description}</TableCell>
-                            <TableCell className="max-w-[150px]">{item.description2 || "-"}</TableCell>
-                            <TableCell>{item.type || "-"}</TableCell>
-                            <TableCell>{item.baseUnitOfMeasure || "-"}</TableCell>
-                            <TableCell className="text-right">{item.unitPrice || "-"}</TableCell>
-                            <TableCell className="text-right">{item.unitCost || "-"}</TableCell>
-                            <TableCell className="text-right">{item.inventory || "-"}</TableCell>
-                            <TableCell>{item.vendorNo || "-"}</TableCell>
-                            <TableCell>{item.vendorItemNo || "-"}</TableCell>
+                            <TableCell className="max-w-[150px]">{item.description2 ?? "-"}</TableCell>
+                            <TableCell>{item.type ?? "-"}</TableCell>
+                            <TableCell>{item.baseUnitOfMeasure ?? "-"}</TableCell>
+                            <TableCell className="text-right">{item.unitPrice ?? "-"}</TableCell>
+                            <TableCell className="text-right">{item.unitCost ?? "-"}</TableCell>
+                            <TableCell className="text-right">{item.inventory ?? "-"}</TableCell>
+                            <TableCell>{item.vendorNo ?? "-"}</TableCell>
+                            <TableCell>{item.vendorItemNo ?? "-"}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {item.lastDateModified ? new Date(item.lastDateModified).toLocaleDateString() : "-"}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {item.syncedAt ? new Date(item.syncedAt).toLocaleString() : "-"}
+                            </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
                                 <Button

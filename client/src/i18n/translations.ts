@@ -273,6 +273,8 @@ export const translations = {
     itemDeletedSuccessfully: "Item deleted successfully",
     confirmDeleteItem: "Are you sure you want to delete this item?",
     saving: "Saving...",
+    lastModified: "Last Modified",
+    lastSynced: "Last Synced",
   },
   am: {
     // Authentication
@@ -548,6 +550,8 @@ export const translations = {
     itemDeletedSuccessfully: "ዕቃ በተሳካ ሁኔታ ተሰርዟል",
     confirmDeleteItem: "እርግጠኛ ነዎት ይህን ዕቃ መሰረዝ ይፈልጋሉ?",
     saving: "በማስቀመጥ ላይ...",
+    lastModified: "መጨረሻ የተቀየረበት",
+    lastSynced: "መጨረሻ የተመሳሰለበት",
   }
 } as const;
 

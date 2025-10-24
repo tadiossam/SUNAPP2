@@ -4,7 +4,6 @@ import { Search, Plus, Package, Edit, Trash2, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -13,20 +12,81 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import type { Item } from "@shared/schema";
+
+// Form validation schema
+const itemFormSchema = z.object({
+  itemNo: z.string().min(1, "Item number is required"),
+  description: z.string().min(1, "Description is required"),
+  description2: z.string().optional(),
+  type: z.string().optional(),
+  baseUnitOfMeasure: z.string().optional(),
+  unitPrice: z.string().optional(),
+  unitCost: z.string().optional(),
+  inventory: z.string().optional(),
+  vendorNo: z.string().optional(),
+  vendorItemNo: z.string().optional(),
+});
+
+type ItemFormValues = z.infer<typeof itemFormSchema>;
 
 export default function ItemsPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
   const { t } = useLanguage();
   const { toast } = useToast();
 
-  // Placeholder data - you can connect this to your backend later
-  const { data: items, isLoading } = useQuery({
+  // Fetch items from database
+  const { data: items, isLoading } = useQuery<Item[]>({
     queryKey: ["/api/items"],
-    enabled: false, // Disabled until backend route is created
+  });
+
+  // Form setup
+  const form = useForm<ItemFormValues>({
+    resolver: zodResolver(itemFormSchema),
+    defaultValues: {
+      itemNo: "",
+      description: "",
+      description2: "",
+      type: "",
+      baseUnitOfMeasure: "",
+      unitPrice: "",
+      unitCost: "",
+      inventory: "",
+      vendorNo: "",
+      vendorItemNo: "",
+    },
   });
 
   // Mutation to sync items from Dynamics 365
@@ -38,7 +98,7 @@ export default function ItemsPage() {
     onSuccess: (data: any) => {
       toast({
         title: t("success"),
-        description: t("itemsSyncedSuccessfully") + ` (${data.itemsCount} items)`,
+        description: `${t("itemsSyncedSuccessfully")}: ${data.savedCount} new, ${data.updatedCount} updated`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
     },
@@ -51,20 +111,109 @@ export default function ItemsPage() {
     },
   });
 
-  // Placeholder items for demonstration
-  const placeholderItems = [
-    { id: "1", name: "Sample Item 1", category: "Category A", quantity: 50, status: "inStock" },
-    { id: "2", name: "Sample Item 2", category: "Category B", quantity: 25, status: "lowStock" },
-    { id: "3", name: "Sample Item 3", category: "Category A", quantity: 0, status: "outOfStock" },
-  ];
+  // Mutation to create/update item
+  const saveMutation = useMutation({
+    mutationFn: async (data: ItemFormValues) => {
+      if (editingItem) {
+        const response = await apiRequest("PATCH", `/api/items/${editingItem.id}`, data);
+        return response.json();
+      } else {
+        const response = await apiRequest("POST", "/api/items", data);
+        return response.json();
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: t("success"),
+        description: editingItem ? t("itemUpdatedSuccessfully") : t("itemCreatedSuccessfully"),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      setIsDialogOpen(false);
+      setEditingItem(null);
+      form.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
-  const displayItems = (items as any[]) || placeholderItems;
+  // Mutation to delete item
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/items/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t("success"),
+        description: t("itemDeletedSuccessfully"),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const displayItems = items || [];
 
   const filteredItems = displayItems.filter(
-    (item: any) =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase())
+    (item: Item) =>
+      item.itemNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleAddItem = () => {
+    setEditingItem(null);
+    form.reset({
+      itemNo: "",
+      description: "",
+      description2: "",
+      type: "",
+      baseUnitOfMeasure: "",
+      unitPrice: "",
+      unitCost: "",
+      inventory: "",
+      vendorNo: "",
+      vendorItemNo: "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleEditItem = (item: Item) => {
+    setEditingItem(item);
+    form.reset({
+      itemNo: item.itemNo,
+      description: item.description,
+      description2: item.description2 || "",
+      type: item.type || "",
+      baseUnitOfMeasure: item.baseUnitOfMeasure || "",
+      unitPrice: item.unitPrice || "",
+      unitCost: item.unitCost || "",
+      inventory: item.inventory || "",
+      vendorNo: item.vendorNo || "",
+      vendorItemNo: item.vendorItemNo || "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    if (confirm(t("confirmDeleteItem"))) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const onSubmit = (data: ItemFormValues) => {
+    saveMutation.mutate(data);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -86,7 +235,7 @@ export default function ItemsPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? "animate-spin" : ""}`} />
             {syncMutation.isPending ? t("syncingItems") : t("syncFromDynamics365")}
           </Button>
-          <Button data-testid="button-add-item">
+          <Button onClick={handleAddItem} data-testid="button-add-item">
             <Plus className="h-4 w-4 mr-2" />
             {t("addItem")}
           </Button>
@@ -95,7 +244,7 @@ export default function ItemsPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-full mx-auto space-y-6">
           {/* Search Bar */}
           <Card>
             <CardContent className="pt-6">
@@ -112,51 +261,19 @@ export default function ItemsPage() {
             </CardContent>
           </Card>
 
-          {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("totalItems")}</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{displayItems.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  {t("acrossAllCategories")}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("inStock")}</CardTitle>
-                <Package className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {displayItems.filter((i: any) => i.status === "inStock").length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("availableItems")}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t("lowStock")}</CardTitle>
-                <Package className="h-4 w-4 text-orange-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {displayItems.filter((i: any) => i.status === "lowStock").length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t("needsAttention")}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Stats Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t("totalItems")}</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{displayItems.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {t("totalItemsInInventory")}
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Items Table */}
           <Card>
@@ -174,70 +291,267 @@ export default function ItemsPage() {
                   <Skeleton className="h-10 w-full" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("name")}</TableHead>
-                      <TableHead>{t("category")}</TableHead>
-                      <TableHead>{t("quantity")}</TableHead>
-                      <TableHead>{t("status")}</TableHead>
-                      <TableHead className="text-right">{t("actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredItems.length === 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
-                          {t("noItemsFound")}
-                        </TableCell>
+                        <TableHead>{t("itemNo")}</TableHead>
+                        <TableHead>{t("description")}</TableHead>
+                        <TableHead>{t("description2")}</TableHead>
+                        <TableHead>{t("type")}</TableHead>
+                        <TableHead>{t("baseUnitOfMeasure")}</TableHead>
+                        <TableHead className="text-right">{t("unitPrice")}</TableHead>
+                        <TableHead className="text-right">{t("unitCost")}</TableHead>
+                        <TableHead className="text-right">{t("inventory")}</TableHead>
+                        <TableHead>{t("vendorNo")}</TableHead>
+                        <TableHead>{t("vendorItemNo")}</TableHead>
+                        <TableHead className="text-right">{t("actions")}</TableHead>
                       </TableRow>
-                    ) : (
-                      filteredItems.map((item: any) => (
-                        <TableRow key={item.id} data-testid={`row-item-${item.id}`}>
-                          <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell>{item.category}</TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                item.status === "inStock"
-                                  ? "default"
-                                  : item.status === "lowStock"
-                                  ? "secondary"
-                                  : "destructive"
-                              }
-                            >
-                              {t(item.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                data-testid={`button-edit-${item.id}`}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                data-testid={`button-delete-${item.id}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={11} className="text-center text-muted-foreground">
+                            {t("noItemsFound")}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filteredItems.map((item: Item) => (
+                          <TableRow key={item.id} data-testid={`row-item-${item.id}`}>
+                            <TableCell className="font-medium">{item.itemNo}</TableCell>
+                            <TableCell className="max-w-[200px]">{item.description}</TableCell>
+                            <TableCell className="max-w-[150px]">{item.description2 || "-"}</TableCell>
+                            <TableCell>{item.type || "-"}</TableCell>
+                            <TableCell>{item.baseUnitOfMeasure || "-"}</TableCell>
+                            <TableCell className="text-right">{item.unitPrice || "-"}</TableCell>
+                            <TableCell className="text-right">{item.unitCost || "-"}</TableCell>
+                            <TableCell className="text-right">{item.inventory || "-"}</TableCell>
+                            <TableCell>{item.vendorNo || "-"}</TableCell>
+                            <TableCell>{item.vendorItemNo || "-"}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEditItem(item)}
+                                  data-testid={`button-edit-${item.id}`}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  data-testid={`button-delete-${item.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Add/Edit Item Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingItem ? t("editItem") : t("addItem")}
+            </DialogTitle>
+            <DialogDescription>
+              {editingItem ? t("editItemDescription") : t("addItemDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="itemNo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("itemNo")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="SP-001" data-testid="input-item-no" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("type")}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-type">
+                            <SelectValue placeholder={t("selectType")} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Inventory">Inventory</SelectItem>
+                          <SelectItem value="Service">Service</SelectItem>
+                          <SelectItem value="Non-Inventory">Non-Inventory</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("description")}</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder={t("enterDescription")} data-testid="input-description" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="description2"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("description2")}</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder={t("enterDescription2")} data-testid="input-description2" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="baseUnitOfMeasure"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("baseUnitOfMeasure")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="PCS, KG, etc." data-testid="input-unit" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="inventory"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("inventory")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" placeholder="0" data-testid="input-inventory" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="unitPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("unitPrice")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" step="0.01" placeholder="0.00" data-testid="input-unit-price" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="unitCost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("unitCost")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" step="0.01" placeholder="0.00" data-testid="input-unit-cost" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="vendorNo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("vendorNo")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder={t("enterVendorNo")} data-testid="input-vendor-no" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="vendorItemNo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("vendorItemNo")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder={t("enterVendorItemNo")} data-testid="input-vendor-item-no" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  data-testid="button-cancel"
+                >
+                  {t("cancel")}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  data-testid="button-save-item"
+                >
+                  {saveMutation.isPending ? t("saving") : t("save")}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

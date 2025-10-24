@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { eq, or, ilike } from "drizzle-orm";
 import { z } from "zod";
 import { 
   insertEquipmentCategorySchema,
@@ -26,6 +28,8 @@ import {
   insertApprovalSchema,
   insertEquipmentInspectionSchema,
   insertInspectionChecklistItemSchema,
+  items,
+  insertItemSchema,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Plus, Package, Edit, Trash2 } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Search, Plus, Package, Edit, Trash2, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,15 +15,42 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ItemsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const { t } = useLanguage();
+  const { toast } = useToast();
 
   // Placeholder data - you can connect this to your backend later
   const { data: items, isLoading } = useQuery({
     queryKey: ["/api/items"],
     enabled: false, // Disabled until backend route is created
+  });
+
+  // Mutation to sync items from Dynamics 365
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("/api/dynamics365/sync-items", {
+        method: "POST",
+      });
+      return response;
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: t("success"),
+        description: t("itemsSyncedSuccessfully") + ` (${data.itemsCount} items)`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("error"),
+        description: t("syncFailed") + `: ${error.message}`,
+        variant: "destructive",
+      });
+    },
   });
 
   // Placeholder items for demonstration
@@ -51,10 +78,21 @@ export default function ItemsPage() {
             {t("manageYourInventoryItems")}
           </p>
         </div>
-        <Button data-testid="button-add-item">
-          <Plus className="h-4 w-4 mr-2" />
-          {t("addItem")}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            data-testid="button-sync-items"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+            {syncMutation.isPending ? t("syncingItems") : t("syncFromDynamics365")}
+          </Button>
+          <Button data-testid="button-add-item">
+            <Plus className="h-4 w-4 mr-2" />
+            {t("addItem")}
+          </Button>
+        </div>
       </div>
 
       {/* Content */}

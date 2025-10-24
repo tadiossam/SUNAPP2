@@ -247,6 +247,10 @@ export const translations = {
     name: "Name",
     actions: "Actions",
     noItemsFound: "No items found",
+    syncFromDynamics365: "Sync from Dynamics 365",
+    syncingItems: "Syncing items...",
+    itemsSyncedSuccessfully: "Items synced successfully",
+    syncFailed: "Sync failed",
   },
   am: {
     // Authentication
@@ -496,6 +500,10 @@ export const translations = {
     name: "ስም",
     actions: "እርምጃዎች",
     noItemsFound: "ዕቃዎች አልተገኙም",
+    syncFromDynamics365: "ከDynamics 365 አመሳስል",
+    syncingItems: "ዕቃዎችን በማመሳሰል ላይ...",
+    itemsSyncedSuccessfully: "ዕቃዎች በተሳካ ሁኔታ ተመሳስለዋል",
+    syncFailed: "ማመሳሰል አልተሳካም",
   }
 } as const;
 

@@ -75,9 +75,23 @@ Solution: 1. Run ALLOW-FIREWALL.bat as Administrator
 
 DATABASE:
 ---------
-The application uses a remote PostgreSQL database (Neon).
-No local database setup required.
-Database URL is configured in the .env file.
+The application can use either a remote or local PostgreSQL database.
+
+REMOTE DATABASE (Default - No Setup Required):
+Already configured in .env file to use Neon database
+
+LOCAL DATABASE SETUP:
+1. Install PostgreSQL from: https://www.postgresql.org/download/windows/
+2. Create a database named "gelan_terminal" using pgAdmin
+3. Update .env file:
+   DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/gelan_terminal
+4. Create tables: npm run db:push
+5. Seed database: npx tsx scripts/seed-local.ts
+6. Start server: START-WINDOWS.bat
+
+NETWORK DATABASE (For Office Server):
+If PostgreSQL is on another computer (e.g., 192.168.0.34):
+DATABASE_URL=postgresql://postgres:PASSWORD@192.168.0.34:5432/gelan_terminal
 
 
 IMPORTANT NOTES:

@@ -69,41 +69,29 @@ export class Dynamics365Service {
       const encodedCompany = encodeURIComponent(this.company);
       
       // Try different endpoint variations for Business Central OData
+      // Note: baseURL already includes /SUNCONBC1/, don't duplicate it
       const endpoints = [
         // Standard OData V4 patterns with Company
-        `/SUNCONBC1/ODataV4/Company('${encodedCompany}')/Item`,
-        `/SUNCONBC1/ODataV4/Company('${encodedCompany}')/Items`,
-        `/SUNCONBC1/OData/Company('${encodedCompany}')/Item`,
-        `/SUNCONBC1/OData/Company('${encodedCompany}')/Items`,
-        
-        // Without SUNCONBC1 prefix
-        `/ODataV4/Company('${encodedCompany}')/Item`,
-        `/ODataV4/Company('${encodedCompany}')/Items`,
-        `/OData/Company('${encodedCompany}')/Item`,
-        `/OData/Company('${encodedCompany}')/Items`,
+        `ODataV4/Company('${encodedCompany}')/Item`,
+        `ODataV4/Company('${encodedCompany}')/Items`,
+        `OData/Company('${encodedCompany}')/Item`,
+        `OData/Company('${encodedCompany}')/Items`,
         
         // Without Company wrapper
-        `/SUNCONBC1/ODataV4/Item`,
-        `/SUNCONBC1/ODataV4/Items`,
-        `/SUNCONBC1/OData/Item`,
-        `/SUNCONBC1/OData/Items`,
-        `/ODataV4/Item`,
-        `/ODataV4/Items`,
-        `/OData/Item`,
-        `/OData/Items`,
+        `ODataV4/Item`,
+        `ODataV4/Items`,
+        `OData/Item`,
+        `OData/Items`,
         
         // API route variations
-        `/SUNCONBC1/api/v2.0/companies(${encodedCompany})/items`,
-        `/SUNCONBC1/api/v1.0/companies(${encodedCompany})/items`,
-        `/api/v2.0/companies(${encodedCompany})/items`,
-        `/api/v1.0/companies(${encodedCompany})/items`,
+        `api/v2.0/companies(${encodedCompany})/items`,
+        `api/v1.0/companies(${encodedCompany})/items`,
         
-        // Web services variations (might be published with custom name)
-        `/SUNCONBC1/WS/Company('${encodedCompany}')/Page/Item`,
-        `/SUNCONBC1/WS/${encodedCompany}/Page/Item`,
-        `/SUNCONBC1/WS/Item`,
-        `/WS/Company('${encodedCompany}')/Page/Item`,
-        `/WS/${encodedCompany}/Page/Item`,
+        // Web services variations
+        `WS/Company('${encodedCompany}')/Page/Item`,
+        `WS/${encodedCompany}/Page/Item`,
+        `WS/Item`,
+        `WS/Items`,
       ];
 
       let lastError: any = null;

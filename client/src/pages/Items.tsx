@@ -46,14 +46,14 @@ export default function ItemsPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Items</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("items")}</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your inventory items
+            {t("manageYourInventoryItems")}
           </p>
         </div>
         <Button data-testid="button-add-item">
           <Plus className="h-4 w-4 mr-2" />
-          Add Item
+          {t("addItem")}
         </Button>
       </div>
 
@@ -66,7 +66,7 @@ export default function ItemsPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search items..."
+                  placeholder={t("searchItems")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -80,20 +80,20 @@ export default function ItemsPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("totalItems")}</CardTitle>
                 <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{displayItems.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  Across all categories
+                  {t("acrossAllCategories")}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">In Stock</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("inStock")}</CardTitle>
                 <Package className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
@@ -101,14 +101,14 @@ export default function ItemsPage() {
                   {displayItems.filter((i: any) => i.status === "In Stock").length}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Available items
+                  {t("availableItems")}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
+                <CardTitle className="text-sm font-medium">{t("lowStock")}</CardTitle>
                 <Package className="h-4 w-4 text-orange-600" />
               </CardHeader>
               <CardContent>
@@ -116,7 +116,7 @@ export default function ItemsPage() {
                   {displayItems.filter((i: any) => i.status === "Low Stock").length}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Needs attention
+                  {t("needsAttention")}
                 </p>
               </CardContent>
             </Card>
@@ -125,9 +125,9 @@ export default function ItemsPage() {
           {/* Items Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Items List</CardTitle>
+              <CardTitle>{t("itemsList")}</CardTitle>
               <CardDescription>
-                View and manage all inventory items
+                {t("viewAndManageAllInventoryItems")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -141,18 +141,18 @@ export default function ItemsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t("name")}</TableHead>
+                      <TableHead>{t("category")}</TableHead>
+                      <TableHead>{t("quantity")}</TableHead>
+                      <TableHead>{t("status")}</TableHead>
+                      <TableHead className="text-right">{t("actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredItems.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground">
-                          No items found
+                          {t("noItemsFound")}
                         </TableCell>
                       </TableRow>
                     ) : (

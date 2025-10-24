@@ -49,7 +49,7 @@ export function AppSidebar() {
       testId: "link-upload",
     },
     {
-      title: "Items",
+      title: t("items"),
       url: "/items",
       icon: Package,
       testId: "link-items",

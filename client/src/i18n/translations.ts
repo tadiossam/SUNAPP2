@@ -232,6 +232,21 @@ export const translations = {
     amount: "Amount",
     success: "Success",
     error: "Error",
+    
+    // Items
+    items: "Items",
+    addItem: "Add Item",
+    searchItems: "Search items...",
+    manageYourInventoryItems: "Manage your inventory items",
+    totalItems: "Total Items",
+    acrossAllCategories: "Across all categories",
+    availableItems: "Available items",
+    needsAttention: "Needs attention",
+    itemsList: "Items List",
+    viewAndManageAllInventoryItems: "View and manage all inventory items",
+    name: "Name",
+    actions: "Actions",
+    noItemsFound: "No items found",
   },
   am: {
     // Authentication
@@ -466,6 +481,21 @@ export const translations = {
     amount: "መጠን",
     success: "ተሳክቷል",
     error: "ስህተት",
+    
+    // Items
+    items: "ዕቃዎች",
+    addItem: "ዕቃ አክል",
+    searchItems: "ዕቃዎችን ፈልግ...",
+    manageYourInventoryItems: "የእርስዎን የመጋዘን ዕቃዎች ያስተዳድሩ",
+    totalItems: "አጠቃላይ ዕቃዎች",
+    acrossAllCategories: "በሁሉም ምድቦች ላይ",
+    availableItems: "ያሉ ዕቃዎች",
+    needsAttention: "ትኩረት ያስፈልጋል",
+    itemsList: "የዕቃዎች ዝርዝር",
+    viewAndManageAllInventoryItems: "ሁሉንም የመጋዘን ዕቃዎች ይመልከቱ እና ያስተዳድሩ",
+    name: "ስም",
+    actions: "እርምጃዎች",
+    noItemsFound: "ዕቃዎች አልተገኙም",
   }
 } as const;
 

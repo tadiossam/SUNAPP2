@@ -697,6 +697,23 @@ export default function Garages() {
                 )}
               />
 
+              {/* Workshop Members Section */}
+              <div className="space-y-2">
+                <FormLabel>Workshop Members *</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setIsMemberSearchOpen(true)}
+                  data-testid="button-select-members"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  {workshopForm.watch('memberIds')?.length 
+                    ? `${workshopForm.watch('memberIds')?.length} member(s) selected`
+                    : "Select team members"}
+                </Button>
+              </div>
+
               {/* Planning Targets Section */}
               <div className="border-t pt-4 space-y-3">
                 <h3 className="text-sm font-medium">Planning Targets (Optional)</h3>
@@ -827,21 +844,6 @@ export default function Garages() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <FormLabel>Workshop Members *</FormLabel>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => setIsMemberSearchOpen(true)}
-                  data-testid="button-select-members"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  {workshopForm.watch('memberIds')?.length 
-                    ? `${workshopForm.watch('memberIds')?.length} member(s) selected`
-                    : "Select team members"}
-                </Button>
-              </div>
               <DialogFooter>
                 <Button
                   type="submit"
@@ -926,6 +928,23 @@ export default function Garages() {
                   </FormItem>
                 )}
               />
+
+              {/* Workshop Members Section */}
+              <div className="space-y-2">
+                <FormLabel>Workshop Members *</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setIsEditMemberSearchOpen(true)}
+                  data-testid="button-edit-select-members"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  {editWorkshopForm.watch('memberIds')?.length 
+                    ? `${editWorkshopForm.watch('memberIds')?.length} member(s) selected`
+                    : "Select team members"}
+                </Button>
+              </div>
 
               {/* Planning Targets Section */}
               <div className="border-t pt-4 space-y-3">
@@ -1057,21 +1076,6 @@ export default function Garages() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <FormLabel>Workshop Members *</FormLabel>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => setIsEditMemberSearchOpen(true)}
-                  data-testid="button-edit-select-members"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  {editWorkshopForm.watch('memberIds')?.length 
-                    ? `${editWorkshopForm.watch('memberIds')?.length} member(s) selected`
-                    : "Select team members"}
-                </Button>
-              </div>
               <DialogFooter>
                 <Button
                   type="submit"

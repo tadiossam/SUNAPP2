@@ -106,12 +106,6 @@ export function AppSidebar() {
       testId: "link-parts-locations",
     },
     {
-      title: "Admin Panel",
-      url: "/admin",
-      icon: Settings,
-      testId: "link-admin",
-    },
-    {
       title: t("adminSettings"),
       url: "/admin-settings",
       icon: Settings,

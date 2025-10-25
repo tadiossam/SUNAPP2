@@ -308,19 +308,59 @@ export default function ItemsPage() {
             </CardContent>
           </Card>
 
-          {/* Stats Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("totalItems")}</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{displayItems.length}</div>
-              <p className="text-xs text-muted-foreground">
-                {t("totalItemsInInventory")}
-              </p>
-            </CardContent>
-          </Card>
+          {/* Stats Cards */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t("totalItems")}</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{displayItems.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  {t("totalItemsInInventory")}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t("lowOnStock")}</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {displayItems.filter(item => {
+                    if (item.inventory == null) return false;
+                    const qty = typeof item.inventory === 'string' ? parseFloat(item.inventory) : item.inventory;
+                    return !isNaN(qty) && qty > 0 && qty < 10;
+                  }).length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("itemsWithLowInventory")}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t("outOfStock")}</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {displayItems.filter(item => {
+                    if (item.inventory == null) return false;
+                    const qty = typeof item.inventory === 'string' ? parseFloat(item.inventory) : item.inventory;
+                    return !isNaN(qty) && qty === 0;
+                  }).length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("itemsWithZeroInventory")}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Items Table */}
           <Card>

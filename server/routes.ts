@@ -2335,6 +2335,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     timeout: z.number().int().min(1000).max(30000),
   });
 
+  const importSelectedUsersSchema = z.object({
+    userIds: z.array(z.string()).min(1, "At least one user must be selected"),
+    ipAddress: z.string().ip(),
+    port: z.number().int().min(1).max(65535),
+    timeout: z.number().int().min(1000).max(30000),
+  });
+
   // Get device settings
   app.get("/api/attendance-device/settings", isCEOOrAdmin, async (_req, res) => {
     try {
@@ -2382,6 +2389,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: false,
         message: "Connection failed",
+        error: error.message
+      });
+    }
+  });
+
+  // Fetch users from device (preview without importing)
+  app.post("/api/attendance-device/fetch-users", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = testConnectionSchema.parse(req.body);
+      const { ipAddress, port, timeout } = validatedData;
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(ipAddress, port, timeout);
+      
+      const deviceUsers = await deviceService.getAllUsersWithConnection();
+      
+      res.json({
+        success: true,
+        users: deviceUsers,
+        count: deviceUsers.length
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Invalid parameters", 
+          details: error.errors 
+        });
+      }
+      console.error("Fetch users error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch users",
         error: error.message
       });
     }
@@ -2478,6 +2517,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("User import error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Import failed",
+        error: error.message
+      });
+    }
+  });
+
+  // Import selected users from device
+  app.post("/api/attendance-device/import-selected", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = importSelectedUsersSchema.parse(req.body);
+      const { userIds: selectedUserIds, ipAddress, port, timeout } = validatedData;
+
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(ipAddress, port, timeout);
+      
+      const allDeviceUsers = await deviceService.getAllUsersWithConnection();
+      
+      // Filter to only selected users
+      const selectedUsers = allDeviceUsers.filter(user => 
+        selectedUserIds.includes(user.userId)
+      );
+      
+      let imported = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const deviceUser of selectedUsers) {
+        try {
+          // Try multiple matching strategies to find existing employee
+          let existingEmployee = await storage.getEmployeeByDeviceUserId(deviceUser.userId);
+          
+          // If not found by deviceUserId, try matching by employeeId (if deviceUserId is badge number)
+          if (!existingEmployee) {
+            existingEmployee = await storage.getEmployeeByEmployeeId(deviceUser.userId);
+          }
+          
+          // If still not found, try matching by normalized name
+          if (!existingEmployee && deviceUser.name) {
+            existingEmployee = await storage.getEmployeeByName(deviceUser.name.trim());
+          }
+          
+          if (existingEmployee) {
+            // Update existing employee with device ID
+            await storage.updateEmployee(existingEmployee.id, {
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || existingEmployee.fullName,
+            });
+            updated++;
+          } else {
+            // Only create new employee if no match found
+            await storage.createEmployee({
+              employeeId: `EMP-${deviceUser.userId}`,
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || `User ${deviceUser.userId}`,
+              role: 'technician',
+              phoneNumber: '',
+              email: '',
+              garageId: null,
+            });
+            imported++;
+          }
+        } catch (error: any) {
+          console.error(`Error importing user ${deviceUser.userId}:`, error);
+          errors.push(`User ${deviceUser.userId}: ${error.message}`);
+          skipped++;
+        }
+      }
+
+      // Log the import operation
+      const settings = await storage.getAttendanceDeviceSettings();
+      if (settings) {
+        await storage.createDeviceImportLog({
+          operationType: 'selected_import',
+          status: errors.length > 0 ? 'partial' : 'success',
+          usersImported: imported,
+          usersUpdated: updated,
+          usersSkipped: skipped,
+          errorMessage: errors.length > 0 ? errors.join('; ') : null,
+          importData: JSON.stringify(selectedUsers),
+        });
+
+        await storage.updateAttendanceDeviceSettings(settings.id, {
+          lastImportAt: new Date().toISOString(),
+        });
+      }
+
+      res.json({
+        success: true,
+        imported,
+        updated,
+        skipped,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Invalid request data", 
+          details: error.errors 
+        });
+      }
+      console.error("Selected user import error:", error);
       res.status(500).json({
         success: false,
         message: "Import failed",

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -86,6 +87,11 @@ export default function AdminSettings() {
     port: "4370",
     timeout: "5000",
   });
+
+  // Preview dialog state
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [fetchedUsers, setFetchedUsers] = useState<any[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
   // Fetch deployment settings
   const { data: deploySettings, isLoading: isLoadingDeploy } = useQuery<SystemSettings>({
@@ -251,6 +257,122 @@ export default function AdminSettings() {
       });
     },
   });
+
+  const fetchUsersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/attendance-device/fetch-users", {
+        ipAddress: deviceForm.ipAddress,
+        port: parseInt(deviceForm.port),
+        timeout: parseInt(deviceForm.timeout),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setFetchedUsers(data.users || []);
+        setSelectedUserIds([]);
+        setIsPreviewDialogOpen(true);
+        toast({
+          title: "Users Fetched",
+          description: `Found ${data.count} users from the device`,
+        });
+      } else {
+        toast({
+          title: "Fetch Failed",
+          description: data.message || "Failed to fetch users",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Fetch Error",
+        description: "Failed to fetch users from device",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importSelectedUsersMutation = useMutation({
+    mutationFn: async (userIds: string[]) => {
+      const res = await apiRequest("POST", "/api/attendance-device/import-selected", {
+        userIds,
+        ipAddress: deviceForm.ipAddress,
+        port: parseInt(deviceForm.port),
+        timeout: parseInt(deviceForm.timeout),
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setIsPreviewDialogOpen(false);
+      setFetchedUsers([]);
+      setSelectedUserIds([]);
+      
+      if (data.success) {
+        toast({
+          title: "Import Successful",
+          description: `Imported ${data.imported} users, updated ${data.updated}, skipped ${data.skipped}`,
+        });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: data.message || "Failed to import selected users",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Import Error",
+        description: "Failed to import selected users",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFetchUsers = () => {
+    fetchUsersMutation.mutate();
+  };
+
+  const handleApproveImport = () => {
+    if (selectedUserIds.length === 0) {
+      toast({
+        title: "No Users Selected",
+        description: "Please select at least one user to import",
+        variant: "destructive",
+      });
+      return;
+    }
+    importSelectedUsersMutation.mutate(selectedUserIds);
+  };
+
+  const handleDiscardImport = () => {
+    setIsPreviewDialogOpen(false);
+    setFetchedUsers([]);
+    setSelectedUserIds([]);
+    toast({
+      title: "Import Cancelled",
+      description: "User import has been cancelled",
+    });
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUserIds.length === fetchedUsers.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(fetchedUsers.map(user => user.userId));
+    }
+  };
 
   const handleSaveDeployment = () => {
     if (serverPort < 1 || serverPort > 65535) {
@@ -441,18 +563,29 @@ export default function AdminSettings() {
                   <CardDescription>Import and sync users from the biometric device</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      onClick={handleFetchUsers}
+                      disabled={fetchUsersMutation.isPending}
+                      data-testid="button-fetch-users"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      {fetchUsersMutation.isPending ? "Fetching..." : "Fetch & Preview Users"}
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={() => importUsersMutation.mutate()}
                       disabled={importUsersMutation.isPending}
+                      data-testid="button-import-all"
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      {importUsersMutation.isPending ? "Importing..." : "One-Time Import"}
+                      {importUsersMutation.isPending ? "Importing..." : "Import All (No Preview)"}
                     </Button>
                     <Button
+                      variant="outline"
                       onClick={() => syncUsersMutation.mutate()}
                       disabled={syncUsersMutation.isPending}
+                      data-testid="button-sync-users"
                     >
                       <RefreshCw className={`h-4 w-4 mr-2 ${syncUsersMutation.isPending ? "animate-spin" : ""}`} />
                       {syncUsersMutation.isPending ? "Syncing..." : "Sync New Users"}
@@ -462,7 +595,8 @@ export default function AdminSettings() {
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="text-sm">
-                      <strong>One-Time Import:</strong> Import all users from device (use once for initial setup).<br />
+                      <strong>Fetch & Preview:</strong> Fetch users from device and select which ones to import.<br />
+                      <strong>Import All:</strong> Import all users from device without preview.<br />
                       <strong>Sync New Users:</strong> Import only new users added since last sync.
                     </AlertDescription>
                   </Alert>
@@ -744,6 +878,101 @@ export default function AdminSettings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Preview Users Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Preview Users from Device</DialogTitle>
+            <DialogDescription>
+              Select the users you want to import into the employee list. {selectedUserIds.length} of {fetchedUsers.length} users selected.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto">
+            <div className="space-y-2">
+              {/* Select All Checkbox */}
+              <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50 sticky top-0 z-10">
+                <Checkbox
+                  id="select-all"
+                  checked={selectedUserIds.length === fetchedUsers.length && fetchedUsers.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                  data-testid="checkbox-select-all"
+                />
+                <Label htmlFor="select-all" className="font-semibold cursor-pointer">
+                  Select All ({fetchedUsers.length} users)
+                </Label>
+              </div>
+
+              {/* User List */}
+              {fetchedUsers.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No users fetched from device
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {fetchedUsers.map((user) => (
+                    <div
+                      key={user.userId}
+                      className={`flex items-center gap-3 p-3 border rounded-lg hover-elevate cursor-pointer ${
+                        selectedUserIds.includes(user.userId) ? "bg-primary/5 border-primary" : ""
+                      }`}
+                      onClick={() => toggleUserSelection(user.userId)}
+                      data-testid={`user-row-${user.userId}`}
+                    >
+                      <Checkbox
+                        id={`user-${user.userId}`}
+                        checked={selectedUserIds.includes(user.userId)}
+                        onCheckedChange={() => toggleUserSelection(user.userId)}
+                        data-testid={`checkbox-user-${user.userId}`}
+                      />
+                      <div className="flex-1 grid grid-cols-3 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">User ID</Label>
+                          <p className="font-medium">{user.userId}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Name</Label>
+                          <p className="font-medium">{user.name || "N/A"}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Card No</Label>
+                          <p className="text-sm">{user.cardno || "N/A"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={handleDiscardImport}
+              disabled={importSelectedUsersMutation.isPending}
+              data-testid="button-discard-import"
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Discard
+            </Button>
+            <div className="flex gap-2">
+              <Badge variant="secondary" className="text-sm">
+                {selectedUserIds.length} selected
+              </Badge>
+              <Button
+                onClick={handleApproveImport}
+                disabled={importSelectedUsersMutation.isPending || selectedUserIds.length === 0}
+                data-testid="button-approve-import"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                {importSelectedUsersMutation.isPending ? "Importing..." : "Approve & Import"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -90,7 +90,7 @@ export default function GarageDetails() {
       foremanId: "",
       description: "",
       garageId: id,
-      memberIds: [],
+      memberIds: [] as string[],
     },
   });
 
@@ -103,16 +103,13 @@ export default function GarageDetails() {
       foremanId: "",
       description: "",
       garageId: id,
-      memberIds: [],
+      memberIds: [] as string[],
     },
   });
 
   const createWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("/api/workshops", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/workshops", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
@@ -136,10 +133,7 @@ export default function GarageDetails() {
 
   const updateWorkshopMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return await apiRequest(`/api/workshops/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("PUT", `/api/workshops/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
@@ -164,9 +158,7 @@ export default function GarageDetails() {
 
   const deleteWorkshopMutation = useMutation({
     mutationFn: async (workshopId: string) => {
-      return await apiRequest(`/api/workshops/${workshopId}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/workshops/${workshopId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });

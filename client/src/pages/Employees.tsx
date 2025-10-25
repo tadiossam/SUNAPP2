@@ -238,11 +238,12 @@ export default function Employees() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
         <div className="flex items-center gap-3">
           <Users className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">{t("employees")}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">{t("employees")}</h1>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -409,16 +410,18 @@ export default function Employees() {
         </Dialog>
       </div>
 
-      {employees && employees.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-lg text-muted-foreground">{t("noData")}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {employees?.map((employee) => (
+      {/* Content - Scrollable */}
+      <div className="flex-1 overflow-auto p-6">
+        {employees && employees.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Users className="h-16 w-16 text-muted-foreground mb-4" />
+              <p className="text-lg text-muted-foreground">{t("noData")}</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {employees?.map((employee) => (
             <Card key={employee.id} className="hover-elevate" data-testid={`card-employee-${employee.id}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-start gap-3">
@@ -490,18 +493,19 @@ export default function Employees() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Hidden file input for employee photos */}
-      <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handlePhotoSelect}
-        className="hidden"
-        data-testid="input-photo-upload"
-      />
+        {/* Hidden file input for employee photos */}
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoSelect}
+          className="hidden"
+          data-testid="input-photo-upload"
+        />
+      </div>
 
       {/* Edit Employee Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

@@ -38,7 +38,9 @@ export default function Dashboard() {
         workshopId,
         year: year.toString(),
       });
-      const response = await fetch(`/api/dashboard/analytics?${params}`);
+      const response = await fetch(`/api/dashboard/analytics?${params}`, {
+        credentials: 'include',
+      });
       if (!response.ok) throw new Error("Failed to fetch analytics");
       return response.json();
     },

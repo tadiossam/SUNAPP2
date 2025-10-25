@@ -182,6 +182,12 @@ export default function Garages() {
       foremanId: "",
       description: "",
       memberIds: [] as string[],
+      monthlyTarget: undefined as number | undefined,
+      q1Target: undefined as number | undefined,
+      q2Target: undefined as number | undefined,
+      q3Target: undefined as number | undefined,
+      q4Target: undefined as number | undefined,
+      annualTarget: undefined as number | undefined,
     },
   });
 
@@ -191,6 +197,12 @@ export default function Garages() {
       foremanId: "",
       description: "",
       memberIds: [] as string[],
+      monthlyTarget: undefined as number | undefined,
+      q1Target: undefined as number | undefined,
+      q2Target: undefined as number | undefined,
+      q3Target: undefined as number | undefined,
+      q4Target: undefined as number | undefined,
+      annualTarget: undefined as number | undefined,
     },
   });
 
@@ -255,6 +267,12 @@ export default function Garages() {
       foremanId: workshop.foremanId || "",
       description: workshop.description || "",
       memberIds: memberIds,
+      monthlyTarget: workshop.monthlyTarget || undefined,
+      q1Target: workshop.q1Target || undefined,
+      q2Target: workshop.q2Target || undefined,
+      q3Target: workshop.q3Target || undefined,
+      q4Target: workshop.q4Target || undefined,
+      annualTarget: workshop.annualTarget || undefined,
     });
     setIsEditWorkshopDialogOpen(true);
   };
@@ -675,6 +693,137 @@ export default function Garages() {
                   </FormItem>
                 )}
               />
+
+              {/* Planning Targets Section */}
+              <div className="border-t pt-4 space-y-3">
+                <h3 className="text-sm font-medium">Planning Targets (Optional)</h3>
+                <p className="text-xs text-muted-foreground">Set planned work order targets for dashboard reporting</p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={workshopForm.control}
+                    name="monthlyTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Monthly Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-monthly-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="annualTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Annual Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-annual-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={workshopForm.control}
+                    name="q1Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q1 Target (Jan-Mar)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q1-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q2Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q2 Target (Apr-Jun)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q2-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q3Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q3 Target (Jul-Sep)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q3-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q4Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q4 Target (Oct-Dec)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q4-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <FormLabel>Workshop Members *</FormLabel>
                 <Button
@@ -771,6 +920,137 @@ export default function Garages() {
                   </FormItem>
                 )}
               />
+
+              {/* Planning Targets Section */}
+              <div className="border-t pt-4 space-y-3">
+                <h3 className="text-sm font-medium">Planning Targets (Optional)</h3>
+                <p className="text-xs text-muted-foreground">Set planned work order targets for dashboard reporting</p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="monthlyTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Monthly Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-monthly-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="annualTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Annual Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-annual-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q1Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q1 Target (Jan-Mar)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q1-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q2Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q2 Target (Apr-Jun)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q2-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q3Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q3 Target (Jul-Sep)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q3-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q4Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q4 Target (Oct-Dec)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q4-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <FormLabel>Workshop Members *</FormLabel>
                 <Button

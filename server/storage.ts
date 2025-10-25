@@ -189,7 +189,7 @@ export interface IStorage {
   deleteEmployee(id: string): Promise<void>;
 
   // Work Orders
-  getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]>;
+  getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string }): Promise<WorkOrderWithDetails[]>;
   getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined>;
   getWorkOrdersByPrefix(prefix: string): Promise<WorkOrder[]>;
   createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;
@@ -934,7 +934,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Orders
-  async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]> {
+  async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string }): Promise<WorkOrderWithDetails[]> {
     const conditions = [];
     
     if (filters?.status) {
@@ -946,6 +946,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.garageId) {
       conditions.push(eq(workOrders.garageId, filters.garageId));
+    }
+    if (filters?.workshopId) {
+      conditions.push(eq(workOrders.workshopId, filters.workshopId));
     }
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

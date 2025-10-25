@@ -98,8 +98,16 @@ export default function Employees() {
       const formData = new FormData();
       formData.append('photo', file);
 
+      // Get auth token from localStorage
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`/api/employees/${selectedEmployee.id}/photo`, {
         method: 'POST',
+        headers,
         body: formData,
       });
 

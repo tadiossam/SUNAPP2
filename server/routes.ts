@@ -1110,11 +1110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Employee photo upload endpoint
-  app.post("/api/employees/:id/photo", (req, res, next) => {
-    console.log("Photo upload - User:", req.user);
-    console.log("Photo upload - Role:", req.user?.role);
-    next();
-  }, isCEOOrAdmin, upload.single('photo'), async (req, res) => {
+  app.post("/api/employees/:id/photo", isCEOOrAdmin, upload.single('photo'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file uploaded" });

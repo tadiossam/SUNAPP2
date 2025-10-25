@@ -455,12 +455,13 @@ export default function GarageDetails() {
 
       {/* Add Workshop Dialog */}
       <Dialog open={isAddWorkshopDialogOpen} onOpenChange={setIsAddWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Add Workshop to {garage.name}</DialogTitle>
           </DialogHeader>
           <Form {...workshopForm}>
-            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="space-y-4">
+            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="flex flex-col overflow-hidden">
+              <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 140px)' }}>
               <FormField
                 control={workshopForm.control}
                 name="name"
@@ -667,8 +668,9 @@ export default function GarageDetails() {
                   />
                 </div>
               </div>
+              </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-4 mt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -693,12 +695,13 @@ export default function GarageDetails() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Workshop</DialogTitle>
           </DialogHeader>
           <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
+            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col overflow-hidden">
+              <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 140px)' }}>
               <FormField
                 control={editWorkshopForm.control}
                 name="name"
@@ -905,8 +908,9 @@ export default function GarageDetails() {
                   />
                 </div>
               </div>
+              </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-4 mt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"

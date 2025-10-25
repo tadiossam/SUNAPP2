@@ -2347,7 +2347,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     timeout: z.number().int().min(1000).max(30000),
   });
 
-  // Get device settings
+  // Get all devices
+  app.get("/api/attendance-devices", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const devices = await storage.getAllAttendanceDevices();
+      res.json(devices);
+    } catch (error) {
+      console.error("Error fetching devices:", error);
+      res.status(500).json({ error: "Failed to fetch devices" });
+    }
+  });
+
+  // Get single device by ID
+  app.get("/api/attendance-devices/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const device = await storage.getAttendanceDeviceById(req.params.id);
+      if (!device) {
+        return res.status(404).json({ error: "Device not found" });
+      }
+      res.json(device);
+    } catch (error) {
+      console.error("Error fetching device:", error);
+      res.status(500).json({ error: "Failed to fetch device" });
+    }
+  });
+
+  // Create new device
+  app.post("/api/attendance-devices", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = deviceSettingsSchema.parse(req.body);
+      const device = await storage.createAttendanceDevice(validatedData);
+      res.status(201).json(device);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid device data", details: error.errors });
+      }
+      console.error("Error creating device:", error);
+      res.status(500).json({ error: "Failed to create device" });
+    }
+  });
+
+  // Update device
+  app.patch("/api/attendance-devices/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = deviceSettingsSchema.partial().parse(req.body);
+      const device = await storage.updateAttendanceDeviceSettings(req.params.id, validatedData);
+      res.json(device);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid device data", details: error.errors });
+      }
+      console.error("Error updating device:", error);
+      res.status(500).json({ error: "Failed to update device" });
+    }
+  });
+
+  // Set active device
+  app.patch("/api/attendance-devices/:id/activate", isCEOOrAdmin, async (req, res) => {
+    try {
+      const device = await storage.setActiveDevice(req.params.id);
+      res.json(device);
+    } catch (error) {
+      console.error("Error activating device:", error);
+      res.status(500).json({ error: "Failed to activate device" });
+    }
+  });
+
+  // Delete device
+  app.delete("/api/attendance-devices/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteAttendanceDevice(req.params.id);
+      res.json({ message: "Device deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      res.status(500).json({ error: "Failed to delete device" });
+    }
+  });
+
+  // Get device settings (backward compatibility - returns active device)
   app.get("/api/attendance-device/settings", isCEOOrAdmin, async (_req, res) => {
     try {
       const settings = await storage.getAttendanceDeviceSettings();
@@ -2358,7 +2435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save device settings
+  // Save device settings (backward compatibility - creates device and sets as active)
   app.post("/api/attendance-device/settings", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = deviceSettingsSchema.parse(req.body);

@@ -285,9 +285,14 @@ export interface IStorage {
   rejectPartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
 
   // Attendance Device Operations
+  getAllAttendanceDevices(): Promise<any[]>;
   getAttendanceDeviceSettings(): Promise<any | undefined>;
+  getAttendanceDeviceById(id: string): Promise<any | undefined>;
+  createAttendanceDevice(data: any): Promise<any>;
   saveAttendanceDeviceSettings(data: any): Promise<any>;
   updateAttendanceDeviceSettings(id: string, data: Partial<any>): Promise<any>;
+  setActiveDevice(id: string): Promise<any>;
+  deleteAttendanceDevice(id: string): Promise<void>;
   getEmployeeByDeviceUserId(deviceUserId: string): Promise<Employee | undefined>;
   getEmployeeByEmployeeId(employeeId: string): Promise<Employee | undefined>;
   getEmployeeByName(fullName: string): Promise<Employee | undefined>;
@@ -1878,6 +1883,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Attendance Device Operations
+  async getAllAttendanceDevices(): Promise<any[]> {
+    return await db
+      .select()
+      .from(attendanceDeviceSettings)
+      .orderBy(desc(attendanceDeviceSettings.isActive), attendanceDeviceSettings.deviceName);
+  }
+
   async getAttendanceDeviceSettings(): Promise<any | undefined> {
     const [result] = await db
       .select()
@@ -1885,6 +1897,22 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendanceDeviceSettings.isActive, true))
       .limit(1);
     return result || undefined;
+  }
+
+  async getAttendanceDeviceById(id: string): Promise<any | undefined> {
+    const [result] = await db
+      .select()
+      .from(attendanceDeviceSettings)
+      .where(eq(attendanceDeviceSettings.id, id));
+    return result || undefined;
+  }
+
+  async createAttendanceDevice(data: any): Promise<any> {
+    const [result] = await db
+      .insert(attendanceDeviceSettings)
+      .values({ ...data, isActive: false })
+      .returning();
+    return result;
   }
 
   async saveAttendanceDeviceSettings(data: any): Promise<any> {
@@ -1908,6 +1936,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendanceDeviceSettings.id, id))
       .returning();
     return result;
+  }
+
+  async setActiveDevice(id: string): Promise<any> {
+    // Deactivate all devices
+    await db
+      .update(attendanceDeviceSettings)
+      .set({ isActive: false });
+
+    // Activate the selected device
+    const [result] = await db
+      .update(attendanceDeviceSettings)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(attendanceDeviceSettings.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteAttendanceDevice(id: string): Promise<void> {
+    await db
+      .delete(attendanceDeviceSettings)
+      .where(eq(attendanceDeviceSettings.id, id));
   }
 
   async getEmployeeByDeviceUserId(deviceUserId: string): Promise<Employee | undefined> {

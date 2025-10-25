@@ -31,19 +31,7 @@ export default function Dashboard() {
 
   // Fetch dashboard analytics data
   const { data: analyticsData, isLoading } = useQuery({
-    queryKey: ["/api/dashboard/analytics", { timePeriod, workshopId, year }],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        timePeriod,
-        workshopId,
-        year: year.toString(),
-      });
-      const response = await fetch(`/api/dashboard/analytics?${params}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error("Failed to fetch analytics");
-      return response.json();
-    },
+    queryKey: [`/api/dashboard/analytics?timePeriod=${timePeriod}&workshopId=${workshopId}&year=${year}`],
   });
 
   const kpis = analyticsData?.kpis || {

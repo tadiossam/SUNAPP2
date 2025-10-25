@@ -262,7 +262,8 @@ export default function GarageDetails() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="h-full overflow-auto">
+      <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 
@@ -984,6 +985,7 @@ export default function GarageDetails() {
           editWorkshopForm.setValue("memberIds", ids);
         }}
       />
+      </div>
     </div>
   );
 }

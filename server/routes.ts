@@ -3135,6 +3135,292 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard analytics endpoint - dynamic data with filters
+  app.get("/api/dashboard/analytics", isAuthenticated, async (req, res) => {
+    try {
+      const { workOrders, workshops, workOrderRequiredParts, spareParts } = await import("@shared/schema");
+      const { sql: drizzleSql, and, gte, lte, between } = await import("drizzle-orm");
+      
+      // Parse query parameters
+      const timePeriod = req.query.timePeriod as string || 'annual'; // daily, weekly, monthly, q1, q2, q3, q4, annual
+      const workshopId = req.query.workshopId as string | undefined; // Optional workshop filter
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      
+      // Build date filter based on time period
+      let dateFilter: any = {};
+      const startOfYear = new Date(year, 0, 1);
+      const endOfYear = new Date(year, 11, 31, 23, 59, 59);
+      
+      if (timePeriod === 'q1') {
+        dateFilter = {
+          start: new Date(year, 0, 1),
+          end: new Date(year, 2, 31, 23, 59, 59)
+        };
+      } else if (timePeriod === 'q2') {
+        dateFilter = {
+          start: new Date(year, 3, 1),
+          end: new Date(year, 5, 30, 23, 59, 59)
+        };
+      } else if (timePeriod === 'q3') {
+        dateFilter = {
+          start: new Date(year, 6, 1),
+          end: new Date(year, 8, 30, 23, 59, 59)
+        };
+      } else if (timePeriod === 'q4') {
+        dateFilter = {
+          start: new Date(year, 9, 1),
+          end: new Date(year, 11, 31, 23, 59, 59)
+        };
+      } else if (timePeriod === 'monthly') {
+        const month = parseInt(req.query.month as string) || new Date().getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        dateFilter = {
+          start: new Date(year, month, 1),
+          end: new Date(year, month, lastDay, 23, 59, 59)
+        };
+      } else if (timePeriod === 'weekly') {
+        // Week starts on the date specified
+        const weekStart = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setHours(23, 59, 59);
+        dateFilter = { start: weekStart, end: weekEnd };
+      } else if (timePeriod === 'daily') {
+        const day = req.query.date ? new Date(req.query.date as string) : new Date();
+        const dayEnd = new Date(day);
+        dayEnd.setHours(23, 59, 59);
+        dateFilter = { start: day, end: dayEnd };
+      } else {
+        // Annual
+        dateFilter = { start: startOfYear, end: endOfYear };
+      }
+      
+      // Build filters array
+      const filters: any[] = [];
+      
+      // Add workshop filter if specified
+      if (workshopId && workshopId !== 'all') {
+        filters.push(eq(workOrders.workshopId, workshopId));
+      }
+      
+      // Add date filter for completed work orders
+      if (dateFilter.start && dateFilter.end) {
+        filters.push(gte(workOrders.completedAt, dateFilter.start));
+        filters.push(lte(workOrders.completedAt, dateFilter.end));
+      }
+      
+      // Fetch completed work orders with filters
+      const completedOrders = await db.select().from(workOrders)
+        .where(and(
+          eq(workOrders.status, 'completed'),
+          ...filters
+        ));
+      
+      // Fetch all work orders in the date range (for planned count)
+      const allOrdersFilters: any[] = [];
+      if (workshopId && workshopId !== 'all') {
+        allOrdersFilters.push(eq(workOrders.workshopId, workshopId));
+      }
+      if (dateFilter.start && dateFilter.end) {
+        allOrdersFilters.push(gte(workOrders.createdAt, dateFilter.start));
+        allOrdersFilters.push(lte(workOrders.createdAt, dateFilter.end));
+      }
+      
+      const allOrders = await db.select().from(workOrders)
+        .where(and(...allOrdersFilters));
+      
+      // Fetch workshops data
+      const workshopsData = await db.select().from(workshops);
+      
+      // Calculate KPIs
+      const totalPlanned = allOrders.length;
+      const totalCompleted = completedOrders.length;
+      const accomplishmentRate = totalPlanned > 0 ? (totalCompleted / totalPlanned) * 100 : 0;
+      
+      // Calculate total costs
+      let totalDirectCost = 0;
+      let totalOvertimeCost = 0;
+      let totalOutsourceCost = 0;
+      let totalOverheadCost = 0;
+      let totalCost = 0;
+      
+      for (const order of completedOrders) {
+        const directCost = parseFloat(order.directMaintenanceCost || '0');
+        const overtimeCost = parseFloat(order.overtimeCost || '0');
+        const outsourceCost = parseFloat(order.outsourceCost || '0');
+        const overheadCost = parseFloat(order.overheadCost || '0');
+        
+        totalDirectCost += directCost;
+        totalOvertimeCost += overtimeCost;
+        totalOutsourceCost += outsourceCost;
+        totalOverheadCost += overheadCost;
+        
+        // If no breakdown, use actualCost
+        if (directCost === 0 && overtimeCost === 0 && outsourceCost === 0) {
+          const actualCost = parseFloat(order.actualCost || '0');
+          totalDirectCost += actualCost * 0.7; // Assume 70% direct
+          totalOverheadCost += actualCost * 0.3; // 30% overhead
+          totalCost += actualCost;
+        } else {
+          totalCost += directCost + overtimeCost + outsourceCost + overheadCost;
+        }
+      }
+      
+      // Active workshops count
+      const activeWorkshops = workshopsData.filter((w: any) => w.isActive).length;
+      
+      // Calculate quarterly data for the year
+      const quarterlyData = [];
+      const quarters = [
+        { name: 'Q1', start: new Date(year, 0, 1), end: new Date(year, 2, 31, 23, 59, 59), months: [0, 1, 2] },
+        { name: 'Q2', start: new Date(year, 3, 1), end: new Date(year, 5, 30, 23, 59, 59), months: [3, 4, 5] },
+        { name: 'Q3', start: new Date(year, 6, 1), end: new Date(year, 8, 30, 23, 59, 59), months: [6, 7, 8] },
+        { name: 'Q4', start: new Date(year, 9, 1), end: new Date(year, 11, 31, 23, 59, 59), months: [9, 10, 11] },
+      ];
+      
+      for (const quarter of quarters) {
+        const qFilters: any[] = [];
+        if (workshopId && workshopId !== 'all') {
+          qFilters.push(eq(workOrders.workshopId, workshopId));
+        }
+        qFilters.push(gte(workOrders.createdAt, quarter.start));
+        qFilters.push(lte(workOrders.createdAt, quarter.end));
+        
+        const qAllOrders = await db.select().from(workOrders)
+          .where(and(...qFilters));
+        
+        const qCompletedOrders = qAllOrders.filter((o: any) => o.status === 'completed');
+        
+        let qDirectCost = 0;
+        let qOvertimeCost = 0;
+        let qOutsourceCost = 0;
+        let qOverheadCost = 0;
+        
+        for (const order of qCompletedOrders) {
+          const directCost = parseFloat(order.directMaintenanceCost || '0');
+          const overtimeCost = parseFloat(order.overtimeCost || '0');
+          const outsourceCost = parseFloat(order.outsourceCost || '0');
+          const overheadCost = parseFloat(order.overheadCost || '0');
+          
+          if (directCost === 0 && overtimeCost === 0 && outsourceCost === 0) {
+            const actualCost = parseFloat(order.actualCost || '0');
+            qDirectCost += actualCost * 0.7;
+            qOverheadCost += actualCost * 0.3;
+          } else {
+            qDirectCost += directCost;
+            qOvertimeCost += overtimeCost;
+            qOutsourceCost += outsourceCost;
+            qOverheadCost += overheadCost;
+          }
+        }
+        
+        const qTotalCost = qDirectCost + qOvertimeCost + qOutsourceCost + qOverheadCost;
+        const qAccomplishment = qAllOrders.length > 0 ? (qCompletedOrders.length / qAllOrders.length) * 100 : 0;
+        
+        quarterlyData.push({
+          quarter: quarter.name,
+          planned: qAllOrders.length,
+          completed: qCompletedOrders.length,
+          accomplishment: parseFloat(qAccomplishment.toFixed(2)),
+          cost: parseFloat(qTotalCost.toFixed(2)),
+          directCost: parseFloat(qDirectCost.toFixed(2)),
+          overtimeCost: parseFloat(qOvertimeCost.toFixed(2)),
+          outsourceCost: parseFloat(qOutsourceCost.toFixed(2)),
+          overhead: parseFloat(qOverheadCost.toFixed(2)),
+        });
+      }
+      
+      // Calculate workshop/department performance
+      const workshopPerformance = [];
+      for (const workshop of workshopsData) {
+        if (!workshop.isActive) continue;
+        
+        // Get work orders for this workshop
+        const workshopOrders = allOrders.filter((o: any) => o.workshopId === workshop.id);
+        const workshopCompleted = completedOrders.filter((o: any) => o.workshopId === workshop.id);
+        
+        // Calculate quarterly accomplishment for this workshop
+        const q1Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[0].start && created <= quarters[0].end;
+        });
+        const q1Completed = q1Orders.filter((o: any) => o.status === 'completed');
+        
+        const q2Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[1].start && created <= quarters[1].end;
+        });
+        const q2Completed = q2Orders.filter((o: any) => o.status === 'completed');
+        
+        const q3Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[2].start && created <= quarters[2].end;
+        });
+        const q3Completed = q3Orders.filter((o: any) => o.status === 'completed');
+        
+        const q4Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[3].start && created <= quarters[3].end;
+        });
+        const q4Completed = q4Orders.filter((o: any) => o.status === 'completed');
+        
+        // Calculate average cost for this workshop
+        let workshopTotalCost = 0;
+        for (const order of workshopCompleted) {
+          const directCost = parseFloat(order.directMaintenanceCost || '0');
+          const overtimeCost = parseFloat(order.overtimeCost || '0');
+          const outsourceCost = parseFloat(order.outsourceCost || '0');
+          const overheadCost = parseFloat(order.overheadCost || '0');
+          
+          if (directCost === 0 && overtimeCost === 0 && outsourceCost === 0) {
+            const actualCost = parseFloat(order.actualCost || '0');
+            workshopTotalCost += actualCost;
+          } else {
+            workshopTotalCost += directCost + overtimeCost + outsourceCost + overheadCost;
+          }
+        }
+        
+        const avgCost = workshopCompleted.length > 0 ? workshopTotalCost / workshopCompleted.length : 0;
+        
+        workshopPerformance.push({
+          name: workshop.name,
+          q1: q1Orders.length > 0 ? parseFloat(((q1Completed.length / q1Orders.length) * 100).toFixed(2)) : 0,
+          q2: q2Orders.length > 0 ? parseFloat(((q2Completed.length / q2Orders.length) * 100).toFixed(2)) : 0,
+          q3: q3Orders.length > 0 ? parseFloat(((q3Completed.length / q3Orders.length) * 100).toFixed(2)) : 0,
+          q4: q4Orders.length > 0 ? parseFloat(((q4Completed.length / q4Orders.length) * 100).toFixed(2)) : 0,
+          avgCost: parseFloat(avgCost.toFixed(2)),
+          totalCost: parseFloat(workshopTotalCost.toFixed(2)),
+        });
+      }
+      
+      // Return analytics data
+      res.json({
+        kpis: {
+          totalWorkOrders: totalCompleted,
+          totalPlanned: totalPlanned,
+          accomplishmentRate: parseFloat(accomplishmentRate.toFixed(2)),
+          totalCost: parseFloat(totalCost.toFixed(2)),
+          activeWorkshops: activeWorkshops,
+        },
+        costBreakdown: {
+          directMaintenance: parseFloat(totalDirectCost.toFixed(2)),
+          overtime: parseFloat(totalOvertimeCost.toFixed(2)),
+          outsource: parseFloat(totalOutsourceCost.toFixed(2)),
+          overhead: parseFloat(totalOverheadCost.toFixed(2)),
+        },
+        quarterlyData,
+        workshopPerformance,
+        workshops: workshopsData.filter((w: any) => w.isActive).map((w: any) => ({
+          id: w.id,
+          name: w.name,
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error fetching dashboard analytics:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard analytics" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

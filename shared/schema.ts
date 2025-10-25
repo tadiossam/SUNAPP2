@@ -330,6 +330,13 @@ export const workshops = pgTable("workshops", {
   foremanId: varchar("foreman_id").notNull().references(() => employees.id, { onDelete: "restrict" }), // Workshop foreman/boss (REQUIRED)
   description: text("description"),
   isActive: boolean("is_active").default(true).notNull(),
+  // Planning targets for dashboard reporting
+  monthlyTarget: integer("monthly_target"), // Planned work orders per month
+  q1Target: integer("q1_target"), // Q1 (Jan-Mar) target
+  q2Target: integer("q2_target"), // Q2 (Apr-Jun) target
+  q3Target: integer("q3_target"), // Q3 (Jul-Sep) target
+  q4Target: integer("q4_target"), // Q4 (Oct-Dec) target
+  annualTarget: integer("annual_target"), // Annual target
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -385,7 +392,13 @@ export const workOrders = pgTable("work_orders", {
   estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
   actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
   estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }), // Estimated total cost
-  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // Actual total cost
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // Actual total cost (auto-calculated from breakdown)
+  // Cost breakdown for dashboard analytics
+  directMaintenanceCost: decimal("direct_maintenance_cost", { precision: 12, scale: 2 }), // Labor + direct costs
+  overtimeCost: decimal("overtime_cost", { precision: 12, scale: 2 }), // Overtime labor costs
+  outsourceCost: decimal("outsource_cost", { precision: 12, scale: 2 }), // External contractor costs
+  overheadCost: decimal("overhead_cost", { precision: 12, scale: 2 }), // Auto-calculated as 30% of maintenance cost
+  isOutsourced: boolean("is_outsourced").default(false), // Flag for outsourced work
   approvalStatus: text("approval_status").default("not_required"), // not_required, pending, approved, rejected
   approvedById: varchar("approved_by_id").references(() => employees.id), // Supervisor who approved
   approvedAt: timestamp("approved_at"),

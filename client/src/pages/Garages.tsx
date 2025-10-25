@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
@@ -628,9 +628,12 @@ export default function Garages() {
 
       {/* Add Workshop Dialog */}
       <Dialog open={isWorkshopDialogOpen} onOpenChange={setIsWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Workshop to {selectedGarageForWorkshop?.name}</DialogTitle>
+            <DialogDescription>
+              Create a new workshop with a foreman, team members, and planning targets.
+            </DialogDescription>
           </DialogHeader>
           <Form {...workshopForm}>
             <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="space-y-4">
@@ -855,9 +858,12 @@ export default function Garages() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Workshop</DialogTitle>
+            <DialogDescription>
+              Update workshop details, foreman, team members, and planning targets.
+            </DialogDescription>
           </DialogHeader>
           <Form {...editWorkshopForm}>
             <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">

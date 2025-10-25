@@ -27,6 +27,10 @@ import {
   Database,
   Truck,
   Rocket,
+  Plus,
+  Trash2,
+  Edit,
+  CheckCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -100,9 +104,25 @@ export default function AdminSettings() {
     queryKey: ["/api/system-settings"],
   });
 
-  // Fetch device settings
+  // Fetch all devices
+  const { data: allDevices = [], isLoading: isLoadingDevices } = useQuery<DeviceSettings[]>({
+    queryKey: ["/api/attendance-devices"],
+  });
+
+  // Fetch active device settings (for backward compatibility)
   const { data: deviceSettings, isLoading: isLoadingDevice } = useQuery<DeviceSettings>({
     queryKey: ["/api/attendance-device/settings"],
+  });
+
+  // State for Add Device dialog
+  const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
+  const [newDeviceForm, setNewDeviceForm] = useState({
+    deviceName: "",
+    deviceModel: "",
+    serialNumber: "",
+    ipAddress: "",
+    port: "4370",
+    timeout: "5000",
   });
 
   // Fetch import logs
@@ -193,6 +213,85 @@ export default function AdminSettings() {
       toast({
         title: "Error",
         description: "Failed to save device settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // New Device Management Mutations
+  const createDeviceMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/attendance-devices", {
+        ...newDeviceForm,
+        port: parseInt(newDeviceForm.port),
+        timeout: parseInt(newDeviceForm.timeout),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-devices"] });
+      setIsAddDeviceOpen(false);
+      setNewDeviceForm({
+        deviceName: "",
+        deviceModel: "",
+        serialNumber: "",
+        ipAddress: "",
+        port: "4370",
+        timeout: "5000",
+      });
+      toast({
+        title: "Device Added",
+        description: "Device has been added successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add device",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const setActiveDeviceMutation = useMutation({
+    mutationFn: async (deviceId: string) => {
+      const res = await apiRequest("PATCH", `/api/attendance-devices/${deviceId}/activate`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-devices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/settings"] });
+      toast({
+        title: "Active Device Set",
+        description: "Device has been set as active",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to set active device",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteDeviceMutation = useMutation({
+    mutationFn: async (deviceId: string) => {
+      const res = await apiRequest("DELETE", `/api/attendance-devices/${deviceId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-devices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/settings"] });
+      toast({
+        title: "Device Deleted",
+        description: "Device has been deleted successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete device",
         variant: "destructive",
       });
     },
@@ -451,122 +550,188 @@ export default function AdminSettings() {
           {/* Biometric Device Tab */}
           <TabsContent value="biometric" className="flex-1 overflow-auto p-6 m-0">
             <div className="max-w-7xl mx-auto space-y-6">
-              {/* Device Configuration Card */}
+              {/* Device Management Card */}
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         <Settings className="h-5 w-5" />
-                        Biometric Device Configuration
+                        Biometric Devices
                       </CardTitle>
-                      <CardDescription>Configure ZKTeco iFace990 Plus attendance device</CardDescription>
+                      <CardDescription>Manage ZKTeco attendance devices</CardDescription>
                     </div>
-                    {deviceSettings && (
-                      <Badge variant={deviceSettings.isActive ? "default" : "secondary"}>
-                        {deviceSettings.isActive ? (
-                          <>
-                            <Wifi className="h-3 w-3 mr-1" />
-                            Active
-                          </>
-                        ) : (
-                          <>
-                            <WifiOff className="h-3 w-3 mr-1" />
-                            Inactive
-                          </>
-                        )}
-                      </Badge>
-                    )}
+                    <Dialog open={isAddDeviceOpen} onOpenChange={setIsAddDeviceOpen}>
+                      <DialogTrigger asChild>
+                        <Button data-testid="button-add-device">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Device
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Add New Device</DialogTitle>
+                          <DialogDescription>
+                            Configure a new biometric attendance device
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="newDeviceName">Device Name *</Label>
+                              <Input
+                                id="newDeviceName"
+                                value={newDeviceForm.deviceName}
+                                onChange={(e) => setNewDeviceForm({ ...newDeviceForm, deviceName: e.target.value })}
+                                placeholder="iFace990 Plus"
+                                data-testid="input-device-name"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="newDeviceModel">Device Model</Label>
+                              <Input
+                                id="newDeviceModel"
+                                value={newDeviceForm.deviceModel}
+                                onChange={(e) => setNewDeviceForm({ ...newDeviceForm, deviceModel: e.target.value })}
+                                placeholder="iFace990 Plus"
+                                data-testid="input-device-model"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="newSerialNumber">Serial Number</Label>
+                              <Input
+                                id="newSerialNumber"
+                                value={newDeviceForm.serialNumber}
+                                onChange={(e) => setNewDeviceForm({ ...newDeviceForm, serialNumber: e.target.value })}
+                                placeholder="CKPG222360158"
+                                data-testid="input-serial-number"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="newIpAddress">IP Address *</Label>
+                              <Input
+                                id="newIpAddress"
+                                value={newDeviceForm.ipAddress}
+                                onChange={(e) => setNewDeviceForm({ ...newDeviceForm, ipAddress: e.target.value })}
+                                placeholder="192.168.40.2"
+                                data-testid="input-ip-address"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="newPort">Port *</Label>
+                              <Input
+                                id="newPort"
+                                type="number"
+                                value={newDeviceForm.port}
+                                onChange={(e) => setNewDeviceForm({ ...newDeviceForm, port: e.target.value })}
+                                placeholder="4370"
+                                data-testid="input-port"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="newTimeout">Timeout (ms) *</Label>
+                              <Input
+                                id="newTimeout"
+                                type="number"
+                                value={newDeviceForm.timeout}
+                                onChange={(e) => setNewDeviceForm({ ...newDeviceForm, timeout: e.target.value })}
+                                placeholder="5000"
+                                data-testid="input-timeout"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsAddDeviceOpen(false)}
+                            data-testid="button-cancel-add"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={() => createDeviceMutation.mutate()}
+                            disabled={createDeviceMutation.isPending || !newDeviceForm.deviceName || !newDeviceForm.ipAddress}
+                            data-testid="button-save-device"
+                          >
+                            {createDeviceMutation.isPending ? "Saving..." : "Save Device"}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="deviceName">Device Name</Label>
-                      <Input
-                        id="deviceName"
-                        value={deviceForm.deviceName}
-                        onChange={(e) => setDeviceForm({ ...deviceForm, deviceName: e.target.value })}
-                        placeholder="iFace990 Plus"
-                      />
+                <CardContent>
+                  {isLoadingDevices ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Loading devices...
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="deviceModel">Device Model</Label>
-                      <Input
-                        id="deviceModel"
-                        value={deviceForm.deviceModel}
-                        onChange={(e) => setDeviceForm({ ...deviceForm, deviceModel: e.target.value })}
-                        placeholder="iFace990 Plus"
-                      />
+                  ) : allDevices.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Server className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No devices configured</p>
+                      <p className="text-sm text-muted-foreground mt-1">Click "Add Device" to get started</p>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="serialNumber">Serial Number</Label>
-                      <Input
-                        id="serialNumber"
-                        value={deviceForm.serialNumber}
-                        onChange={(e) => setDeviceForm({ ...deviceForm, serialNumber: e.target.value })}
-                        placeholder="CKPG222360158"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="ipAddress">IP Address</Label>
-                      <Input
-                        id="ipAddress"
-                        value={deviceForm.ipAddress}
-                        onChange={(e) => setDeviceForm({ ...deviceForm, ipAddress: e.target.value })}
-                        placeholder="192.168.40.2"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="port">Port</Label>
-                      <Input
-                        id="port"
-                        type="number"
-                        value={deviceForm.port}
-                        onChange={(e) => setDeviceForm({ ...deviceForm, port: e.target.value })}
-                        placeholder="4370"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="timeout">Timeout (ms)</Label>
-                      <Input
-                        id="timeout"
-                        type="number"
-                        value={deviceForm.timeout}
-                        onChange={(e) => setDeviceForm({ ...deviceForm, timeout: e.target.value })}
-                        placeholder="5000"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => testConnectionMutation.mutate()}
-                      disabled={testConnectionMutation.isPending}
-                    >
-                      <Wifi className="h-4 w-4 mr-2" />
-                      {testConnectionMutation.isPending ? "Testing..." : "Test Connection"}
-                    </Button>
-                    <Button
-                      onClick={() => saveSettingsMutation.mutate()}
-                      disabled={saveSettingsMutation.isPending}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
-                    </Button>
-                  </div>
-
-                  {deviceSettings && (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        <div className="space-y-1 text-sm">
-                          <div><strong>Last Sync:</strong> {deviceSettings.lastSyncAt ? formatDate(deviceSettings.lastSyncAt) : "Never"}</div>
-                          <div><strong>Last Import:</strong> {deviceSettings.lastImportAt ? formatDate(deviceSettings.lastImportAt) : "Never"}</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {allDevices.map((device) => (
+                        <div
+                          key={device.id}
+                          className={`p-4 rounded-lg border ${
+                            device.isActive ? "border-primary bg-primary/5" : "border-border"
+                          }`}
+                          data-testid={`device-card-${device.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{device.deviceName}</h3>
+                                {device.isActive && (
+                                  <Badge variant="default" className="text-xs">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Active
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                                {device.deviceModel && <div><strong>Model:</strong> {device.deviceModel}</div>}
+                                {device.serialNumber && <div><strong>Serial:</strong> {device.serialNumber}</div>}
+                                <div><strong>IP:</strong> {device.ipAddress}:{device.port}</div>
+                                <div><strong>Timeout:</strong> {device.timeout}ms</div>
+                                {device.lastSyncAt && (
+                                  <div><strong>Last Sync:</strong> {formatDate(device.lastSyncAt)}</div>
+                                )}
+                                {device.lastImportAt && (
+                                  <div><strong>Last Import:</strong> {formatDate(device.lastImportAt)}</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              {!device.isActive && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setActiveDeviceMutation.mutate(device.id)}
+                                  disabled={setActiveDeviceMutation.isPending}
+                                  data-testid={`button-activate-${device.id}`}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => deleteDeviceMutation.mutate(device.id)}
+                                disabled={deleteDeviceMutation.isPending || device.isActive}
+                                data-testid={`button-delete-${device.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                      </AlertDescription>
-                    </Alert>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>

@@ -95,27 +95,30 @@ export default function Employees() {
     mutationFn: async (file: File) => {
       if (!selectedEmployee) throw new Error("No employee selected");
       
-      const formData = new FormData();
-      formData.append('photo', file);
+      // Step 1: Get presigned upload URL
+      const urlResponse = await apiRequest("POST", `/api/employees/${selectedEmployee.id}/photo/upload-url`);
+      const { uploadURL, objectPath } = await urlResponse.json() as { uploadURL: string; objectPath: string };
 
-      // Get auth token from localStorage
-      const token = localStorage.getItem("auth_token");
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`/api/employees/${selectedEmployee.id}/photo`, {
-        method: 'POST',
-        headers,
-        body: formData,
+      // Step 2: Upload file directly to object storage
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to upload photo');
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file to storage');
       }
 
-      return response.json();
+      // Step 3: Update employee with photo URL
+      const updateResponse = await apiRequest("PUT", `/api/employees/${selectedEmployee.id}/photo`, {
+        photoUrl: objectPath,
+      });
+      const employee = await updateResponse.json();
+
+      return employee;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });

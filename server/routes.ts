@@ -1109,40 +1109,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Employee photo upload endpoint
-  app.post("/api/employees/:id/photo", isCEOOrAdmin, upload.single('photo'), async (req, res) => {
+  // Get presigned upload URL for employee photo
+  app.post("/api/employees/:id/photo/upload-url", isCEOOrAdmin, async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-
-      // Get the public object storage path
-      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
-      if (!publicPath) {
-        return res.status(500).json({ error: "Object storage not configured" });
-      }
-
-      // Save file to object storage
-      await mkdir(join(publicPath, 'employees'), { recursive: true });
-
-      const ext = req.file.originalname.split('.').pop();
-      const filename = `${nanoid()}.${ext}`;
-      const filePath = join(publicPath, 'employees', filename);
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getPublicObjectUploadURL();
       
-      await writeFile(filePath, req.file.buffer);
-      // Store the path relative to public search paths, accessible via /public-objects/
-      const photoUrl = `/public-objects/employees/${filename}`;
+      // Extract the object path from the upload URL (before query parameters)
+      const url = new URL(uploadURL);
+      const objectPath = objectStorageService.normalizePublicObjectPath(url.origin + url.pathname);
+      
+      res.json({ uploadURL, objectPath });
+    } catch (error) {
+      console.error("Error generating photo upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Update employee with photo URL after upload
+  app.put("/api/employees/:id/photo", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.body.photoUrl) {
+        return res.status(400).json({ error: "photoUrl is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = objectStorageService.normalizePublicObjectPath(req.body.photoUrl);
 
       // Update employee with photo URL
-      const employee = await storage.updateEmployeePhoto(req.params.id, photoUrl);
+      const employee = await storage.updateEmployeePhoto(req.params.id, objectPath);
       if (!employee) {
         return res.status(404).json({ error: "Employee not found" });
       }
 
       res.json(employee);
     } catch (error) {
-      console.error("Error uploading employee photo:", error);
-      res.status(500).json({ error: "Failed to upload photo" });
+      console.error("Error updating employee photo:", error);
+      res.status(500).json({ error: "Failed to update photo" });
     }
   });
 

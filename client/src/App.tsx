@@ -9,6 +9,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import DashboardPage from "@/pages/Dashboard";
 import EquipmentPage from "@/pages/Equipment";
 import EquipmentCategoryPage from "@/pages/EquipmentCategory";
 import EquipmentReceptionPage from "@/pages/EquipmentReception";
@@ -38,7 +39,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      <Route path="/" component={EquipmentPage} />
+      <Route path="/" component={DashboardPage} />
+      <Route path="/dashboard" component={DashboardPage} />
       <Route path="/equipment/category/:type" component={EquipmentCategoryPage} />
       <Route path="/equipment" component={EquipmentPage} />
       <Route path="/equipment-reception" component={EquipmentReceptionPage} />

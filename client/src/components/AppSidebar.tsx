@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -19,8 +19,14 @@ export function AppSidebar() {
 
   const mainMenuItems = [
     {
-      title: t("equipment"),
+      title: t("dashboard"),
       url: "/",
+      icon: BarChart3,
+      testId: "link-dashboard",
+    },
+    {
+      title: t("equipment"),
+      url: "/equipment",
       icon: Home,
       testId: "link-equipment",
     },

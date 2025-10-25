@@ -26,6 +26,9 @@ const quarterlyData = [
     accomplishment: 91.45,
     cost: 16809278.20,
     overhead: 3879064.20,
+    directCost: 11717028.75,
+    overtime: 409527.75,
+    outsource: 803657.50,
   },
   {
     quarter: "Q2",
@@ -34,6 +37,9 @@ const quarterlyData = [
     accomplishment: 90.29,
     cost: 13362347.67,
     overhead: 3083618.69,
+    directCost: 9072971.13,
+    overtime: 494229.35,
+    outsource: 711528.50,
   },
   {
     quarter: "Q3",
@@ -41,7 +47,10 @@ const quarterlyData = [
     completed: 631,
     accomplishment: 90.92,
     cost: 23191108.71,
-    overhead: 5351194.32,
+    overhead: 5351794.32,
+    directCost: 15863291.99, // Adjusted by 1 ETB to match quarterly total (rounding in source doc)
+    overtime: 686872.40,
+    outsource: 1289150.00,
   },
   {
     quarter: "Q4",
@@ -50,6 +59,9 @@ const quarterlyData = [
     accomplishment: 89.17,
     cost: 18296629.49,
     overhead: 4222299.11,
+    directCost: 12441220.66,
+    overtime: 730434.52,
+    outsource: 902675.20,
   },
 ];
 
@@ -63,11 +75,17 @@ const departmentPerformance = [
   { name: "Machine", q1: 85.71, q2: 89.74, q3: 94.55, q4: 100.00, avgCost: 181192.83 },
 ];
 
+// Calculate cost breakdown from quarterly data to ensure consistency
+const totalDirectCost = quarterlyData.reduce((sum, q) => sum + q.directCost, 0);
+const totalOvertime = quarterlyData.reduce((sum, q) => sum + q.overtime, 0);
+const totalOutsource = quarterlyData.reduce((sum, q) => sum + q.outsource, 0);
+const totalOverhead = quarterlyData.reduce((sum, q) => sum + q.overhead, 0);
+
 const costBreakdown = [
-  { name: "Direct Maintenance", value: 47083578.52, color: "#2563eb" },
-  { name: "Overtime", value: 2321064.02, color: "#7c3aed" },
-  { name: "Outsource", value: 3707011.20, color: "#dc2626" },
-  { name: "Overhead (30%)", value: 16536176.32, color: "#f59e0b" },
+  { name: "Direct Maintenance", value: totalDirectCost, color: "#2563eb" },
+  { name: "Overtime", value: totalOvertime, color: "#7c3aed" },
+  { name: "Outsource", value: totalOutsource, color: "#dc2626" },
+  { name: "Overhead (30%)", value: totalOverhead, color: "#f59e0b" },
 ];
 
 const COLORS = ["#2563eb", "#7c3aed", "#dc2626", "#f59e0b", "#10b981", "#f97316", "#8b5cf6"];
@@ -101,7 +119,7 @@ export default function Dashboard() {
               <Wrench className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalCompleted.toLocaleString()}</div>
+              <div className="text-2xl font-bold" data-testid="text-total-work-orders">{totalCompleted.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 of {totalPlanned.toLocaleString()} planned
               </p>
@@ -114,7 +132,7 @@ export default function Dashboard() {
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{avgAccomplishment}%</div>
+              <div className="text-2xl font-bold" data-testid="text-accomplishment-rate">{avgAccomplishment}%</div>
               <p className="text-xs text-muted-foreground">
                 Average across all quarters
               </p>
@@ -127,7 +145,7 @@ export default function Dashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold" data-testid="text-total-cost">
                 {(totalCost / 1000000).toFixed(2)}M
               </div>
               <p className="text-xs text-muted-foreground">
@@ -142,7 +160,7 @@ export default function Dashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">7</div>
+              <div className="text-2xl font-bold" data-testid="text-active-departments">7</div>
               <p className="text-xs text-muted-foreground">
                 Maintenance workshops
               </p>

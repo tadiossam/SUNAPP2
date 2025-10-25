@@ -1130,7 +1130,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filePath = join(publicPath, 'employees', filename);
       
       await writeFile(filePath, req.file.buffer);
-      const photoUrl = `/public/employees/${filename}`;
+      // Store the path relative to public search paths, accessible via /public-objects/
+      const photoUrl = `/public-objects/employees/${filename}`;
 
       // Update employee with photo URL
       const employee = await storage.updateEmployeePhoto(req.params.id, photoUrl);

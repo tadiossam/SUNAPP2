@@ -2629,27 +2629,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const encodedCompany = encodeURIComponent(company);
+      // Try different company name variations
+      const companyVariations = [
+        company, // Original: "Sunshine Construction PLC(Test"
+        `${company})`, // Add closing parenthesis: "Sunshine Construction PLC(Test)"
+        company.replace('(Test', ''), // Remove (Test: "Sunshine Construction PLC"
+        company.replace('(Test', '(Test)'), // Fix parenthesis: "Sunshine Construction PLC(Test)"
+      ];
       
-      // Note: baseURL already includes /SUNCONBC1/, don't duplicate it
-      const endpoints = [
-        // BC published web service format (lowercase 'items')
-        `ODataV4/Company('${encodedCompany}')/items`,
+      const endpoints: string[] = [];
+      
+      // Test each company name variation with different endpoint patterns
+      for (const companyName of companyVariations) {
+        const encodedCompany = encodeURIComponent(companyName);
         
-        // Standard variations
-        `ODataV4/Company('${encodedCompany}')/Item`,
-        `ODataV4/Company('${encodedCompany}')/Items`,
-        `OData/Company('${encodedCompany}')/items`,
-        `OData/Company('${encodedCompany}')/Item`,
-        `OData/Company('${encodedCompany}')/Items`,
+        // Note: baseURL already includes /SUNCONBC1/, don't duplicate it
+        endpoints.push(
+          // BC published web service format (lowercase 'items')
+          `ODataV4/Company('${encodedCompany}')/items`,
+          `ODataV4/Company('${encodedCompany}')/Item`,
+          `ODataV4/Company('${encodedCompany}')/Items`,
+          `OData/Company('${encodedCompany}')/items`,
+          `api/v2.0/companies('${encodedCompany}')/items`,
+        );
+      }
+      
+      // Also test without company
+      endpoints.push(
         `ODataV4/items`,
         `ODataV4/Item`,
         `ODataV4/Items`,
-        `api/v2.0/companies(${encodedCompany})/items`,
-        `api/v1.0/companies(${encodedCompany})/items`,
-        `WS/Company('${encodedCompany}')/Page/items`,
-        `WS/items`,
-      ];
+      );
 
       const results = [];
       

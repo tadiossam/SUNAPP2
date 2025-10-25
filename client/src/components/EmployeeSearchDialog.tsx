@@ -82,7 +82,7 @@ export function EmployeeSearchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]" data-testid="dialog-employee-search">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" data-testid="dialog-employee-search">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === "single" ? <UserCheck className="h-5 w-5" /> : <Users className="h-5 w-5" />}
@@ -91,7 +91,7 @@ export function EmployeeSearchDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -103,7 +103,7 @@ export function EmployeeSearchDialog({
             />
           </div>
 
-          <ScrollArea className="h-[400px] pr-4">
+          <ScrollArea className="flex-1 pr-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 Loading employees...
@@ -153,7 +153,7 @@ export function EmployeeSearchDialog({
             )}
           </ScrollArea>
 
-          <div className="flex items-center justify-between pt-4 border-t">
+          <div className="flex items-center justify-between pt-4 border-t flex-shrink-0">
             <div className="text-sm text-muted-foreground">
               {mode === "multiple" && `${internalSelectedIds.length} selected`}
             </div>

@@ -300,7 +300,8 @@ export default function Garages() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="h-full overflow-auto">
+      <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Building2 className="h-8 w-8 text-primary" />
@@ -1145,6 +1146,7 @@ export default function Garages() {
           editWorkshopForm.setValue('memberIds', ids);
         }}
       />
+      </div>
     </div>
   );
 }

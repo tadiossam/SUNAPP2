@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -92,6 +93,7 @@ export default function AdminSettings() {
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [fetchedUsers, setFetchedUsers] = useState<any[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [importProgress, setImportProgress] = useState(0);
 
   // Fetch deployment settings
   const { data: deploySettings, isLoading: isLoadingDeploy } = useQuery<SystemSettings>({
@@ -331,6 +333,22 @@ export default function AdminSettings() {
       });
     },
   });
+
+  // Animate progress bar during import
+  useEffect(() => {
+    if (importSelectedUsersMutation.isPending) {
+      setImportProgress(0);
+      const interval = setInterval(() => {
+        setImportProgress((prev) => {
+          if (prev >= 90) return prev;
+          return prev + 10;
+        });
+      }, 200);
+      return () => clearInterval(interval);
+    } else {
+      setImportProgress(0);
+    }
+  }, [importSelectedUsersMutation.isPending]);
 
   const handleFetchUsers = () => {
     fetchUsersMutation.mutate();
@@ -888,6 +906,17 @@ export default function AdminSettings() {
               Select the users you want to import into the employee list. {selectedUserIds.length} of {fetchedUsers.length} users selected.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Import Progress Bar */}
+          {importSelectedUsersMutation.isPending && (
+            <div className="space-y-2 px-1" data-testid="import-progress-section">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Importing selected users...</span>
+                <span className="font-medium">{selectedUserIds.length} users</span>
+              </div>
+              <Progress value={importProgress} className="h-2" data-testid="progress-bar-import" />
+            </div>
+          )}
           
           <div className="flex-1 overflow-auto">
             <div className="space-y-2">

@@ -562,8 +562,8 @@ export default function Employees() {
                         <p className="font-semibold text-base truncate">{employee.fullName}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="outline" className="text-xs">{employee.employeeId}</Badge>
-                          <Badge variant="secondary" className="text-xs capitalize">
-                            {getRoleDisplayName(employee.role)}
+                          <Badge variant={getRoleBadgeVariant(employee.role)} className="text-xs">
+                            {getRoleLabel(employee.role)}
                           </Badge>
                         </div>
                       </div>

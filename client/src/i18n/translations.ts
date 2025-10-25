@@ -9,6 +9,7 @@ export const translations = {
     selectLanguage: "Select Language",
     
     // Navigation
+    dashboard: "Dashboard",
     equipment: "Equipment",
     spareParts: "Spare Parts",
     models3D: "3D Models",
@@ -308,6 +309,7 @@ export const translations = {
     selectLanguage: "ቋንቋ ይምረጡ",
     
     // Navigation
+    dashboard: "ዳሽቦርድ",
     equipment: "መሳሪያዎች",
     spareParts: "የመለዋወጫ ክፍሎች",
     models3D: "3D ሞዴሎች",

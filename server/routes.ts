@@ -2923,6 +2923,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== SYSTEM SETTINGS ROUTES ====================
+  
+  // Get system settings
+  app.get("/api/system-settings", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const { systemSettings } = await import("@shared/schema");
+      const settings = await db.select().from(systemSettings).limit(1);
+      
+      if (settings.length === 0) {
+        // Return default settings if none exist
+        return res.json({
+          serverHost: "0.0.0.0",
+          serverPort: 3000,
+        });
+      }
+      
+      res.json(settings[0]);
+    } catch (error: any) {
+      console.error("Error fetching system settings:", error);
+      res.status(500).json({ error: "Failed to fetch system settings" });
+    }
+  });
+
+  // Update system settings
+  app.patch("/api/system-settings", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { systemSettings, insertSystemSettingsSchema } = await import("@shared/schema");
+      const settingsData = insertSystemSettingsSchema.partial().parse(req.body);
+      
+      // Get current user ID from session
+      const userId = (req.user as any)?.id;
+      
+      // Check if settings exist
+      const existing = await db.select().from(systemSettings).limit(1);
+      
+      let updated;
+      if (existing.length === 0) {
+        // Create new settings
+        updated = await db.insert(systemSettings)
+          .values({
+            ...settingsData,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          })
+          .returning();
+      } else {
+        // Update existing settings
+        updated = await db.update(systemSettings)
+          .set({
+            ...settingsData,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          })
+          .where(eq(systemSettings.id, existing[0].id))
+          .returning();
+      }
+      
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error updating system settings:", error);
+      res.status(500).json({ error: "Failed to update system settings" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

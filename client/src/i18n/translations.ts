@@ -278,6 +278,25 @@ export const translations = {
     saving: "Saving...",
     lastModified: "Last Modified",
     lastSynced: "Last Synced",
+    
+    // Admin Settings
+    adminSettings: "Admin Settings",
+    configureSystemSettings: "Configure system settings",
+    serverConfiguration: "Server Configuration",
+    configureServerHostAndPort: "Configure the server host and port settings",
+    serverRestartRequired: "After saving, you must restart the server for changes to take effect",
+    serverHost: "Server Host",
+    serverHostDescription: "IP address for server to bind to (0.0.0.0 for all interfaces, 192.168.0.34 for specific IP)",
+    serverPort: "Server Port",
+    serverPortDescription: "Port number for server (1-65535)",
+    currentSettings: "Current Settings",
+    lastUpdated: "Last Updated",
+    saveSettings: "Save Settings",
+    settingsSavedSuccessfully: "Settings saved successfully",
+    failedToSaveSettings: "Failed to save settings",
+    invalidPortNumber: "Port number must be between 1 and 65535",
+    howToRestartServer: "How to Restart Server",
+    runStartWindowsBat: "Run START-WINDOWS.bat to restart the server with new settings",
   },
   am: {
     // Authentication
@@ -558,6 +577,25 @@ export const translations = {
     saving: "በማስቀመጥ ላይ...",
     lastModified: "መጨረሻ የተቀየረበት",
     lastSynced: "መጨረሻ የተመሳሰለበት",
+    
+    // Admin Settings
+    adminSettings: "የአስተዳዳሪ ቅንብሮች",
+    configureSystemSettings: "የስርዓት ቅንብሮችን ያዋቅሩ",
+    serverConfiguration: "የአገልጋይ ውቅር",
+    configureServerHostAndPort: "የአገልጋይ አስተናጋጅ እና የወደብ ቅንብሮችን ያዋቅሩ",
+    serverRestartRequired: "ከማስቀመጥ በኋላ፣ ለውጦች ተግባራዊ እንዲሆኑ አገልጋዩን መልሰው ማስነሳት አለብዎት",
+    serverHost: "የአገልጋይ አስተናጋጅ",
+    serverHostDescription: "አገልጋዩ የሚጠቀምበት IP አድራሻ (0.0.0.0 ለሁሉም መገናኛዎች፣ 192.168.0.34 ለተወሰነ IP)",
+    serverPort: "የአገልጋይ ወደብ",
+    serverPortDescription: "የወደብ ቁጥር (1-65535)",
+    currentSettings: "አሁን ያሉ ቅንብሮች",
+    lastUpdated: "መጨረሻ የተዘመነበት",
+    saveSettings: "ቅንብሮችን አስቀምጥ",
+    settingsSavedSuccessfully: "ቅንብሮች በተሳካ ሁኔታ ተቀምጠዋል",
+    failedToSaveSettings: "ቅንብሮችን ማስቀመጥ አልተሳካም",
+    invalidPortNumber: "የወደብ ቁጥር በ1 እና 65535 መካከል መሆን አለበት",
+    howToRestartServer: "አገልጋዩን እንዴት መልሰው ማስነሳት እንደሚቻል",
+    runStartWindowsBat: "አገልጋዩን በአዲስ ቅንብሮች ለመልሰው ለማስነሳት START-WINDOWS.bat ያሂዱ",
   }
 } as const;
 

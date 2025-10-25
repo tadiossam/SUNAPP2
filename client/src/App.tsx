@@ -26,6 +26,7 @@ import ApprovalsPage from "@/pages/Approvals";
 import WorkOrdersPage from "@/pages/WorkOrders";
 import PartsLocationsPage from "@/pages/PartsLocations";
 import AdminPage from "@/pages/Admin";
+import AdminSettingsPage from "@/pages/AdminSettings";
 import ItemsPage from "@/pages/Items";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ function Router() {
       <Route path="/parts-locations" component={PartsLocationsPage} />
       <Route path="/items" component={ItemsPage} />
       <Route path="/admin" component={AdminPage} />
+      <Route path="/admin-settings" component={AdminSettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1079,3 +1079,22 @@ export const insertItemSchema = createInsertSchema(items).omit({
 // Select types for items
 export type Item = typeof items.$inferSelect;
 export type InsertItem = z.infer<typeof insertItemSchema>;
+
+// System Settings table - for server configuration
+export const systemSettings = pgTable("system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serverHost: text("server_host").notNull().default("0.0.0.0"), // Server IP/host
+  serverPort: integer("server_port").notNull().default(3000), // Server port
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change
+});
+
+// Insert schema for system settings
+export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+// Select types for system settings
+export type SystemSettings = typeof systemSettings.$inferSelect;
+export type InsertSystemSettings = z.infer<typeof insertSystemSettingsSchema>;

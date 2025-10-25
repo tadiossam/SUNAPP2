@@ -111,6 +111,12 @@ export function AppSidebar() {
       icon: Settings,
       testId: "link-admin",
     },
+    {
+      title: t("adminSettings"),
+      url: "/admin-settings",
+      icon: Settings,
+      testId: "link-admin-settings",
+    },
   ];
 
   return (

@@ -1483,14 +1483,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create bulk checklist items
+  // Create/Update bulk checklist items (upsert with transaction)
   app.post("/api/inspections/:inspectionId/checklist/bulk", async (req, res) => {
     try {
-      const items = await storage.createBulkChecklistItems(req.body.items);
+      // Validate request body first
+      if (!req.body.items || !Array.isArray(req.body.items)) {
+        return res.status(400).json({ error: "Invalid request: items array required" });
+      }
+
+      // Use transaction to ensure atomicity: delete and insert together
+      const items = await storage.upsertChecklistItems(req.params.inspectionId, req.body.items);
       res.status(201).json(items);
     } catch (error) {
-      console.error("Error creating checklist items:", error);
-      res.status(400).json({ error: "Failed to create checklist items" });
+      console.error("Error upserting checklist items:", error);
+      res.status(400).json({ error: "Failed to upsert checklist items" });
     }
   });
 

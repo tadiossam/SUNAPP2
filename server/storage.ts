@@ -252,6 +252,8 @@ export interface IStorage {
   createChecklistItem(data: InsertInspectionChecklistItem): Promise<InspectionChecklistItem>;
   createBulkChecklistItems(items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]>;
   updateChecklistItem(id: string, data: Partial<InsertInspectionChecklistItem>): Promise<InspectionChecklistItem>;
+  deleteChecklistItemsByInspection(inspectionId: string): Promise<void>;
+  upsertChecklistItems(inspectionId: string, items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]>;
   
   // Damage Reports
   getDamageReportsByReception(receptionId: string): Promise<DamageReport[]>;
@@ -1646,6 +1648,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(inspectionChecklistItems.id, id))
       .returning();
     return result;
+  }
+
+  async deleteChecklistItemsByInspection(inspectionId: string): Promise<void> {
+    await db
+      .delete(inspectionChecklistItems)
+      .where(eq(inspectionChecklistItems.inspectionId, inspectionId));
+  }
+
+  async upsertChecklistItems(inspectionId: string, items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]> {
+    // Use a transaction to ensure atomicity: delete and insert happen together or not at all
+    return await db.transaction(async (tx) => {
+      // Delete existing checklist items for this inspection
+      await tx
+        .delete(inspectionChecklistItems)
+        .where(eq(inspectionChecklistItems.inspectionId, inspectionId));
+      
+      // Insert new checklist items
+      if (items.length === 0) return [];
+      const results = await tx.insert(inspectionChecklistItems).values(items).returning();
+      return results;
+    });
   }
 
   // Damage Reports

@@ -65,8 +65,13 @@ interface ChecklistItem {
   id: string;
   inspectionId: string;
   itemNumber: number;
-  itemNameAmharic: string;
-  status: string;
+  itemDescription: string;
+  hasItem: boolean;
+  doesNotHave: boolean;
+  isWorking: boolean;
+  notWorking: boolean;
+  isBroken: boolean;
+  isCracked: boolean;
   comments?: string;
 }
 
@@ -739,16 +744,41 @@ export default function ApprovalsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {checklistItems.map((item, index) => (
-                          <tr key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
-                            <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
-                            <td className="px-4 py-2 text-sm font-medium">{item.itemNameAmharic}</td>
-                            <td className="px-4 py-2 text-sm">{item.status}</td>
-                            <td className="px-4 py-2 text-sm text-muted-foreground">{item.comments || "-"}</td>
-                          </tr>
-                        ))}
+                        {checklistItems
+                          .filter((item) => {
+                            // Only show items with at least one checkbox selected
+                            return item.hasItem || item.doesNotHave || item.isWorking || 
+                                   item.notWorking || item.isBroken || item.isCracked;
+                          })
+                          .map((item, index) => {
+                            // Determine which status is selected
+                            let selectedStatus = "";
+                            if (item.hasItem) selectedStatus = "አለዉ";
+                            else if (item.doesNotHave) selectedStatus = "የለዉም";
+                            else if (item.isWorking) selectedStatus = "የሚሰራ";
+                            else if (item.notWorking) selectedStatus = "የማይሰራ";
+                            else if (item.isBroken) selectedStatus = "የተሰበረ";
+                            else if (item.isCracked) selectedStatus = "የተሰነጠቀ";
+
+                            return (
+                              <tr key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
+                                <td className="px-4 py-2 text-sm font-medium">{item.itemDescription}</td>
+                                <td className="px-4 py-2 text-sm">{selectedStatus}</td>
+                                <td className="px-4 py-2 text-sm text-muted-foreground">{item.comments || "-"}</td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
+                    {checklistItems.filter((item) => 
+                      item.hasItem || item.doesNotHave || item.isWorking || 
+                      item.notWorking || item.isBroken || item.isCracked
+                    ).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No checklist items selected
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -87,7 +87,7 @@ import {
   type InsertInspectionChecklistItem,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
+import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // Equipment Category operations
@@ -962,45 +962,52 @@ export class DatabaseStorage implements IStorage {
     
     const orders = await db.select().from(workOrders).where(whereClause).orderBy(desc(workOrders.createdAt));
     
-    const ordersWithDetails = await Promise.all(
-      orders.map(async (order) => {
-        const [equipmentData] = await db.select().from(equipment).where(eq(equipment.id, order.equipmentId));
-        let garage = undefined;
-        if (order.garageId) {
-          [garage] = await db.select().from(garages).where(eq(garages.id, order.garageId));
-        }
-        let workshop = undefined;
-        if (order.workshopId) {
-          [workshop] = await db.select().from(workshops).where(eq(workshops.id, order.workshopId));
-        }
-        
-        // Get assigned employees from assignedToIds array
-        let assignedToList: Employee[] = [];
-        if (order.assignedToIds && order.assignedToIds.length > 0) {
-          assignedToList = await db.select().from(employees).where(inArray(employees.id, order.assignedToIds));
-        }
-        
-        let createdBy = undefined;
-        if (order.createdById) {
-          [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
-        }
-        
-        // Get required parts
-        const requiredParts = await this.getWorkOrderRequiredParts(order.id);
-        
-        return {
-          ...order,
-          equipment: equipmentData,
-          garage,
-          workshop,
-          assignedToList,
-          createdBy,
-          requiredParts,
-        };
-      })
-    );
+    if (orders.length === 0) return [];
+
+    // Collect all unique IDs for batch fetching (performance optimization)
+    const equipmentIds = Array.from(new Set(orders.map((o: any) => o.equipmentId).filter(Boolean))) as string[];
+    const garageIds = Array.from(new Set(orders.map((o: any) => o.garageId).filter(Boolean))) as string[];
+    const workshopIds = Array.from(new Set(orders.map((o: any) => o.workshopId).filter(Boolean))) as string[];
+    const employeeIds = Array.from(new Set(orders.flatMap((o: any) => o.assignedToIds || []))) as string[];
+    const userIds = Array.from(new Set(orders.map((o: any) => o.createdById).filter(Boolean))) as string[];
+    const workOrderIds = orders.map((o: any) => o.id);
+
+    // Batch fetch all related data in parallel instead of N queries per order
+    const [equipmentList, garageList, workshopList, employeeList, userList, requiredPartsList] = await Promise.all([
+      equipmentIds.length > 0 ? db.select().from(equipment).where(inArray(equipment.id, equipmentIds)) : Promise.resolve([]),
+      garageIds.length > 0 ? db.select().from(garages).where(inArray(garages.id, garageIds)) : Promise.resolve([]),
+      workshopIds.length > 0 ? db.select().from(workshops).where(inArray(workshops.id, workshopIds)) : Promise.resolve([]),
+      employeeIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, employeeIds)) : Promise.resolve([]),
+      userIds.length > 0 ? db.select().from(users).where(inArray(users.id, userIds)) : Promise.resolve([]),
+      db.select().from(workOrderRequiredParts).where(inArray(workOrderRequiredParts.workOrderId, workOrderIds)),
+    ]);
+
+    // Create lookup maps for O(1) access
+    const equipmentMap = new Map(equipmentList.map((e: any) => [e.id, e]));
+    const garageMap = new Map(garageList.map((g: any) => [g.id, g]));
+    const workshopMap = new Map(workshopList.map((w: any) => [w.id, w]));
+    const employeeMap = new Map(employeeList.map((e: any) => [e.id, e]));
+    const userMap = new Map(userList.map((u: any) => [u.id, u]));
     
-    return ordersWithDetails;
+    // Group required parts by work order ID
+    const requiredPartsMap = new Map<string, typeof requiredPartsList>();
+    for (const part of requiredPartsList) {
+      if (!requiredPartsMap.has(part.workOrderId)) {
+        requiredPartsMap.set(part.workOrderId, []);
+      }
+      requiredPartsMap.get(part.workOrderId)!.push(part);
+    }
+
+    // Map related data back to work orders
+    return orders.map((order: any) => ({
+      ...order,
+      equipment: equipmentMap.get(order.equipmentId),
+      garage: order.garageId ? garageMap.get(order.garageId) : undefined,
+      workshop: order.workshopId ? workshopMap.get(order.workshopId) : undefined,
+      assignedToList: (order.assignedToIds || []).map((id: any) => employeeMap.get(id)).filter(Boolean) as Employee[],
+      createdBy: order.createdById ? userMap.get(order.createdById) : undefined,
+      requiredParts: requiredPartsMap.get(order.id) || [],
+    }));
   }
 
   async getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined> {
@@ -1231,35 +1238,38 @@ export class DatabaseStorage implements IStorage {
       .where(whereClause)
       .orderBy(desc(equipmentReceptions.arrivalDate));
 
-    // Get related data for each reception
-    const results: EquipmentReceptionWithDetails[] = [];
-    for (const reception of receptions) {
-      const equipmentData = reception.equipmentId
-        ? await this.getEquipmentById(reception.equipmentId)
-        : undefined;
-      const driverData = reception.driverId
-        ? await this.getEmployeeById(reception.driverId)
-        : undefined;
-      const mechanicData = reception.mechanicId
-        ? await this.getEmployeeById(reception.mechanicId)
-        : undefined;
-      const inspectionOfficerData = reception.inspectionOfficerId
-        ? await this.getEmployeeById(reception.inspectionOfficerId)
-        : undefined;
-      const workOrderData = reception.workOrderId
-        ? await this.getWorkOrderById(reception.workOrderId)
-        : undefined;
+    if (receptions.length === 0) return [];
 
-      results.push({
-        ...reception,
-        equipment: equipmentData,
-        driver: driverData,
-        mechanic: mechanicData,
-        inspectionOfficer: inspectionOfficerData,
-        workOrder: workOrderData,
-      });
-    }
-    return results;
+    // Collect all unique IDs for batch fetching (performance optimization)
+    const equipmentIds = Array.from(new Set(receptions.map((r: any) => r.equipmentId).filter(Boolean))) as string[];
+    const employeeIds = Array.from(new Set([
+      ...receptions.map((r: any) => r.driverId),
+      ...receptions.map((r: any) => r.mechanicId),
+      ...receptions.map((r: any) => r.inspectionOfficerId),
+    ].filter(Boolean))) as string[];
+    const workOrderIds = Array.from(new Set(receptions.map((r: any) => r.workOrderId).filter(Boolean))) as string[];
+
+    // Batch fetch all related data in just 3 queries instead of N queries
+    const [equipmentList, employeeList, workOrderList] = await Promise.all([
+      equipmentIds.length > 0 ? db.select().from(equipment).where(inArray(equipment.id, equipmentIds)) : Promise.resolve([]),
+      employeeIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, employeeIds)) : Promise.resolve([]),
+      workOrderIds.length > 0 ? db.select().from(workOrders).where(inArray(workOrders.id, workOrderIds)) : Promise.resolve([]),
+    ]);
+
+    // Create lookup maps for O(1) access
+    const equipmentMap = new Map(equipmentList.map((e: any) => [e.id, e]));
+    const employeeMap = new Map(employeeList.map((e: any) => [e.id, e]));
+    const workOrderMap = new Map(workOrderList.map((w: any) => [w.id, w]));
+
+    // Map related data back to receptions
+    return receptions.map((reception: any) => ({
+      ...reception,
+      equipment: reception.equipmentId ? equipmentMap.get(reception.equipmentId) : undefined,
+      driver: reception.driverId ? employeeMap.get(reception.driverId) : undefined,
+      mechanic: reception.mechanicId ? employeeMap.get(reception.mechanicId) : undefined,
+      inspectionOfficer: reception.inspectionOfficerId ? employeeMap.get(reception.inspectionOfficerId) : undefined,
+      workOrder: reception.workOrderId ? workOrderMap.get(reception.workOrderId) : undefined,
+    }));
   }
 
   async getReceptionById(id: string): Promise<EquipmentReceptionWithDetails | undefined> {

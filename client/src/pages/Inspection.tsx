@@ -116,17 +116,39 @@ export default function Inspection() {
 
   // Fetch checklist items for viewing inspection
   const { data: viewingChecklistItems = [] } = useQuery<any[]>({
-    queryKey: ["/api/inspection-checklist-items", viewingInspection?.id],
+    queryKey: viewingInspection?.id ? [`/api/inspections/${viewingInspection.id}/checklist`] : [],
     enabled: !!viewingInspection?.id,
   });
 
+  // Create a Set of reception IDs that have inspections in terminal states
+  // (completed, approved, or waiting_for_approval) - these should not show in pending tab
+  const receptionsWithTerminalInspections = new Set(
+    allInspections
+      .filter((insp: any) => 
+        insp.status === "completed" || 
+        insp.status === "approved" || 
+        insp.status === "waiting_for_approval" ||
+        insp.approvalStatus === "approved"
+      )
+      .map((insp: any) => insp.receptionId)
+      .filter(Boolean)
+  );
+
   // For admins, filter to show only receptions with inspection officer assigned
   // For regular users, /api/my-inspections already returns only their assigned inspections
+  // Exclude receptions that have inspections in terminal states (completed/approved/waiting)
   const assignedReceptions = isAdmin 
     ? allReceptions.filter(
-        (reception) => reception.inspectionOfficerId !== null && reception.inspectionOfficerId !== undefined && reception.status !== "canceled"
+        (reception) => 
+          reception.inspectionOfficerId !== null && 
+          reception.inspectionOfficerId !== undefined && 
+          reception.status !== "canceled" &&
+          !receptionsWithTerminalInspections.has(reception.id)
       )
-    : allReceptions.filter((reception) => reception.status !== "canceled");
+    : allReceptions.filter((reception) => 
+        reception.status !== "canceled" &&
+        !receptionsWithTerminalInspections.has(reception.id)
+      );
 
   const filteredReceptions = assignedReceptions.filter((reception) => {
     if (!searchTerm) return true;

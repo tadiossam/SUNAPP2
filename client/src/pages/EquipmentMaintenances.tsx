@@ -157,10 +157,10 @@ export default function EquipmentMaintenances() {
       // Pending: driver_submitted, awaiting_mechanic, under_inspection
       return ["driver_submitted", "awaiting_mechanic", "under_inspection"].includes(reception.status);
     } else if (activeTab === "completed") {
-      // Completed: inspection_complete, work_order_created, closed
-      return ["inspection_complete", "work_order_created", "closed"].includes(reception.status);
+      // Completed: inspection_complete, work_order_created, closed, canceled
+      return ["inspection_complete", "work_order_created", "closed", "canceled"].includes(reception.status);
     }
-    return true;
+    return false; // Don't show unknown statuses
   });
 
   // Filter by search term
@@ -182,6 +182,7 @@ export default function EquipmentMaintenances() {
       inspection_complete: { label: "Inspection Complete", variant: "default" },
       work_order_created: { label: "Work Order Created", variant: "default" },
       closed: { label: "Closed", variant: "secondary" },
+      canceled: { label: "Canceled", variant: "destructive" },
     };
 
     const config = statusConfig[status] || { label: status, variant: "outline" };
@@ -219,7 +220,7 @@ export default function EquipmentMaintenances() {
               Pending ({receptions.filter(r => ["driver_submitted", "awaiting_mechanic", "under_inspection"].includes(r.status)).length})
             </TabsTrigger>
             <TabsTrigger value="completed" data-testid="tab-completed">
-              Completed ({receptions.filter(r => ["inspection_complete", "work_order_created", "closed"].includes(r.status)).length})
+              Completed ({receptions.filter(r => ["inspection_complete", "work_order_created", "closed", "canceled"].includes(r.status)).length})
             </TabsTrigger>
           </TabsList>
 

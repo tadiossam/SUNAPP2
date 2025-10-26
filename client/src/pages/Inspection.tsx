@@ -263,8 +263,39 @@ export default function Inspection() {
     },
   });
 
+  // Update reception status mutation
+  const updateReceptionStatusMutation = useMutation({
+    mutationFn: async ({ receptionId, status }: { receptionId: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/equipment-receptions/${receptionId}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment-receptions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-inspections"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Warning",
+        description: error.message || "Failed to update reception status, but you can continue with the inspection",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleStartInspection = async (reception: EquipmentReceptionWithDetails) => {
     setSelectedReception(reception);
+    
+    // Update reception status to "under_inspection" when inspection begins
+    if (reception.status === "awaiting_mechanic") {
+      try {
+        await updateReceptionStatusMutation.mutateAsync({
+          receptionId: reception.id,
+          status: "under_inspection",
+        });
+      } catch (error) {
+        // Log error but continue - inspection dialog should still open
+        console.error("Failed to update reception status:", error);
+      }
+    }
     
     // Check if inspection already exists
     try {

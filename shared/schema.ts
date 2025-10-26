@@ -558,7 +558,7 @@ export const equipmentReceptions = pgTable("equipment_receptions", {
   inspectionOfficerId: varchar("inspection_officer_id").references(() => employees.id), // Assigned inspection officer
   
   mechanicId: varchar("mechanic_id").references(() => employees.id),
-  status: text("status").notNull().default("driver_submitted"), // driver_submitted, awaiting_mechanic, inspection_complete, work_order_created, closed
+  status: text("status").notNull().default("driver_submitted"), // driver_submitted, awaiting_mechanic, under_inspection, inspection_complete, work_order_created, closed
   workOrderId: varchar("work_order_id").references(() => workOrders.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

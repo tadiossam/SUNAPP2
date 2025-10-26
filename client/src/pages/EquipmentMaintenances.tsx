@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import type { EquipmentReceptionWithDetails, Employee } from "@shared/schema";
 
 export default function EquipmentMaintenances() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedReception, setSelectedReception] = useState<EquipmentReceptionWithDetails | null>(null);
@@ -149,7 +151,20 @@ export default function EquipmentMaintenances() {
     });
   };
 
-  const filteredReceptions = receptions.filter((reception) => {
+  // Filter by tab (pending vs completed)
+  const tabFilteredReceptions = receptions.filter((reception) => {
+    if (activeTab === "pending") {
+      // Pending: driver_submitted, awaiting_mechanic, under_inspection
+      return ["driver_submitted", "awaiting_mechanic", "under_inspection"].includes(reception.status);
+    } else if (activeTab === "completed") {
+      // Completed: inspection_complete, work_order_created, closed
+      return ["inspection_complete", "work_order_created", "closed"].includes(reception.status);
+    }
+    return true;
+  });
+
+  // Filter by search term
+  const filteredReceptions = tabFilteredReceptions.filter((reception) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
@@ -163,6 +178,7 @@ export default function EquipmentMaintenances() {
     const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
       driver_submitted: { label: "Driver Submitted", variant: "secondary" },
       awaiting_mechanic: { label: "Awaiting Mechanic", variant: "outline" },
+      under_inspection: { label: "Under Inspection", variant: "default" },
       inspection_complete: { label: "Inspection Complete", variant: "default" },
       work_order_created: { label: "Work Order Created", variant: "default" },
       closed: { label: "Closed", variant: "secondary" },
@@ -197,76 +213,89 @@ export default function EquipmentMaintenances() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : filteredReceptions.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No equipment arrivals found</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reception #</TableHead>
-                <TableHead>Equipment</TableHead>
-                <TableHead>Plant #</TableHead>
-                <TableHead>Arrival Date</TableHead>
-                <TableHead>Service Type</TableHead>
-                <TableHead>Inspection Officer</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredReceptions.map((reception) => {
-                const inspectionOfficer = reception.inspectionOfficerId 
-                  ? employees.find(emp => emp.id === reception.inspectionOfficerId)
-                  : null;
-                
-                return (
-                  <TableRow key={reception.id}>
-                    <TableCell className="font-medium" data-testid={`text-reception-${reception.id}`}>
-                      {reception.receptionNumber}
-                    </TableCell>
-                    <TableCell>{reception.equipment?.model || "N/A"}</TableCell>
-                    <TableCell>{reception.plantNumber || "N/A"}</TableCell>
-                    <TableCell>
-                      {reception.arrivalDate ? new Date(reception.arrivalDate).toLocaleDateString() : "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {reception.serviceType ? (
-                        <Badge variant="outline">
-                          {reception.serviceType === "long_term" ? "Long Term" : "Short Term"}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">Not Set</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {inspectionOfficer ? (
-                        <span>{inspectionOfficer.fullName}</span>
-                      ) : (
-                        <span className="text-muted-foreground">Not Assigned</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(reception.status)}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(reception)}
-                        data-testid={`button-edit-${reception.id}`}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="pending" data-testid="tab-pending">
+              Pending ({receptions.filter(r => ["driver_submitted", "awaiting_mechanic", "under_inspection"].includes(r.status)).length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" data-testid="tab-completed">
+              Completed ({receptions.filter(r => ["inspection_complete", "work_order_created", "closed"].includes(r.status)).length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={activeTab} className="mt-0">
+            {isLoading ? (
+              <div className="text-center py-8">Loading...</div>
+            ) : filteredReceptions.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No equipment arrivals found</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Reception #</TableHead>
+                    <TableHead>Equipment</TableHead>
+                    <TableHead>Plant #</TableHead>
+                    <TableHead>Arrival Date</TableHead>
+                    <TableHead>Service Type</TableHead>
+                    <TableHead>Inspection Officer</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
+                </TableHeader>
+                <TableBody>
+                  {filteredReceptions.map((reception) => {
+                    const inspectionOfficer = reception.inspectionOfficerId 
+                      ? employees.find(emp => emp.id === reception.inspectionOfficerId)
+                      : null;
+                    
+                    return (
+                      <TableRow key={reception.id}>
+                        <TableCell className="font-medium" data-testid={`text-reception-${reception.id}`}>
+                          {reception.receptionNumber}
+                        </TableCell>
+                        <TableCell>{reception.equipment?.model || "N/A"}</TableCell>
+                        <TableCell>{reception.plantNumber || "N/A"}</TableCell>
+                        <TableCell>
+                          {reception.arrivalDate ? new Date(reception.arrivalDate).toLocaleDateString() : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          {reception.serviceType ? (
+                            <Badge variant="outline">
+                              {reception.serviceType === "long_term" ? "Long Term" : "Short Term"}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">Not Set</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {inspectionOfficer ? (
+                            <span>{inspectionOfficer.fullName}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Not Assigned</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(reception.status)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(reception)}
+                            data-testid={`button-edit-${reception.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Edit Dialog */}

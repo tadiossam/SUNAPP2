@@ -1464,6 +1464,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/inspections/:id", async (req, res) => {
     try {
       const updatedInspection = await storage.updateInspection(req.params.id, req.body);
+      
+      // If inspection status is being changed to "waiting_for_approval", update reception status to "inspection_complete"
+      if (req.body.status === "waiting_for_approval" && updatedInspection.receptionId) {
+        try {
+          await storage.updateReception(updatedInspection.receptionId, { status: "inspection_complete" });
+        } catch (error) {
+          console.error("Error updating reception status:", error);
+          // Don't fail the inspection update if reception update fails
+        }
+      }
+      
       res.json(updatedInspection);
     } catch (error) {
       console.error("Error updating inspection:", error);

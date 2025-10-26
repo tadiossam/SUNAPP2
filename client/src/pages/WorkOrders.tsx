@@ -138,6 +138,17 @@ export default function WorkOrdersPage() {
     enabled: !!viewingInspectionId,
   });
 
+  // Fetch inspection checklist items when viewing
+  const { data: checklistItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspections", viewingInspectionId, "checklist"],
+    queryFn: async () => {
+      if (!viewingInspectionId) return [];
+      const response = await apiRequest("GET", `/api/inspections/${viewingInspectionId}/checklist`);
+      return response.json();
+    },
+    enabled: !!viewingInspectionId,
+  });
+
   // Fetch reception details when viewing
   const { data: receptionDetails, isLoading: isLoadingReception } = useQuery<any>({
     queryKey: ["/api/equipment-receptions", viewingReceptionId],
@@ -1296,11 +1307,11 @@ export default function WorkOrdersPage() {
 
       {/* Inspection Details Dialog */}
       <Dialog open={!!viewingInspectionId} onOpenChange={(open) => !open && setViewingInspectionId(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-inspection-details">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-inspection-details">
           <DialogHeader>
-            <DialogTitle>Inspection Details</DialogTitle>
+            <DialogTitle>Equipment Inspection Report</DialogTitle>
             <DialogDescription>
-              View complete inspection information
+              Comprehensive inspection and reception details
             </DialogDescription>
           </DialogHeader>
           {isLoadingInspection ? (
@@ -1308,43 +1319,153 @@ export default function WorkOrdersPage() {
               <div className="text-muted-foreground">Loading inspection details...</div>
             </div>
           ) : inspectionDetails ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Inspection Number</Label>
-                  <p className="font-medium">{inspectionDetails.inspectionNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Service Type</Label>
-                  <p className="font-medium">{inspectionDetails.serviceType}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Overall Condition</Label>
-                  <Badge className={
-                    inspectionDetails.overallCondition === "Good" ? "bg-green-500" :
-                    inspectionDetails.overallCondition === "Fair" ? "bg-yellow-500" : "bg-red-500"
-                  }>
-                    {inspectionDetails.overallCondition}
-                  </Badge>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <Badge>{inspectionDetails.status}</Badge>
-                </div>
-              </div>
-              
-              {inspectionDetails.findings && (
-                <div>
-                  <Label className="text-muted-foreground">Findings</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.findings}</p>
-                </div>
+            <div className="space-y-6">
+              {/* Reception Information */}
+              {inspectionDetails.reception && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Equipment Reception Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Reception #</Label>
+                      <p className="font-medium">{inspectionDetails.reception.receptionNumber}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Equipment</Label>
+                      <p className="font-medium">{inspectionDetails.reception.equipment?.model || "N/A"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Plant Number</Label>
+                      <p className="font-medium">{inspectionDetails.reception.plantNumber}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Project Area</Label>
+                      <p className="font-medium">{inspectionDetails.reception.projectArea || "N/A"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Kilometer Reading</Label>
+                      <p className="font-medium">{inspectionDetails.reception.kilometrage} km</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Fuel Level</Label>
+                      <Badge>{inspectionDetails.reception.fuelLevel}</Badge>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Reason for Maintenance</Label>
+                      <p className="font-medium">{inspectionDetails.reception.maintenanceReason || "N/A"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Service Type</Label>
+                      <p className="font-medium">{inspectionDetails.serviceType}</p>
+                    </div>
+                    {inspectionDetails.reception.adminIssues && (
+                      <div className="col-span-2">
+                        <Label className="text-muted-foreground">Issues Reported By Administration Officer</Label>
+                        <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.reception.adminIssues}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
-              
-              {inspectionDetails.recommendations && (
-                <div>
-                  <Label className="text-muted-foreground">Recommendations</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.recommendations}</p>
-                </div>
+
+              {/* Inspection Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Inspection Details</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Inspection Number</Label>
+                    <p className="font-medium">{inspectionDetails.inspectionNumber}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Assigned Inspection Officer</Label>
+                    <p className="font-medium">{inspectionDetails.inspector?.fullName || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Overall Condition</Label>
+                    <Badge className={
+                      inspectionDetails.overallCondition === "Good" ? "bg-green-500" :
+                      inspectionDetails.overallCondition === "Fair" ? "bg-yellow-500" : "bg-red-500"
+                    }>
+                      {inspectionDetails.overallCondition}
+                    </Badge>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Status</Label>
+                    <Badge>{inspectionDetails.status}</Badge>
+                  </div>
+                  {inspectionDetails.findings && (
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground">Findings</Label>
+                      <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.findings}</p>
+                    </div>
+                  )}
+                  {inspectionDetails.recommendations && (
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground">Recommendations</Label>
+                      <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.recommendations}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Inspection Checklist Summary */}
+              {checklistItems.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Inspection Checklist (የማረጋገጫ ዝርዝር)</CardTitle>
+                    <p className="text-sm text-muted-foreground">Items with selected status</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ተ.ቁ</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">የመሳሪያዉ ዝርዝር</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ያለሁኔታዉ ተረጋግዞ የወጣዉ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {checklistItems
+                            .filter((item: any) => {
+                              // Only show items with at least one checkbox selected
+                              return item.hasItem || item.doesNotHave || item.isWorking || 
+                                     item.notWorking || item.isBroken || item.isCracked;
+                            })
+                            .map((item: any, index: number) => {
+                              // Determine which status is selected
+                              let selectedStatus = "";
+                              if (item.hasItem) selectedStatus = "አለዉ";
+                              else if (item.doesNotHave) selectedStatus = "የለዉም";
+                              else if (item.isWorking) selectedStatus = "የሚሰራ";
+                              else if (item.notWorking) selectedStatus = "የማይሰራ";
+                              else if (item.isBroken) selectedStatus = "የተሰበረ";
+                              else if (item.isCracked) selectedStatus = "የተሰነጠቀ";
+
+                              return (
+                                <tr key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                  <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
+                                  <td className="px-4 py-2 text-sm font-medium">{item.itemDescription}</td>
+                                  <td className="px-4 py-2 text-sm">{selectedStatus}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                      {checklistItems.filter((item: any) => 
+                        item.hasItem || item.doesNotHave || item.isWorking || 
+                        item.notWorking || item.isBroken || item.isCracked
+                      ).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No checklist items selected
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </div>
           ) : (

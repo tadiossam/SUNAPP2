@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -25,6 +26,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -1000,172 +1002,123 @@ export default function Inspection() {
 
       {/* View Completed Inspection Dialog (Read-Only) */}
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Inspection Details - {viewingInspection?.inspectionNumber}</DialogTitle>
+            <DialogTitle>Equipment Inspection Report</DialogTitle>
+            <DialogDescription>
+              Comprehensive inspection and reception details
+            </DialogDescription>
           </DialogHeader>
 
           {viewingInspection && (
             <div className="space-y-6">
               {/* Equipment Details */}
-              <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
-                <h3 className="font-semibold">Equipment Details</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Equipment Details</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-6">
                   <div>
-                    <p className="text-muted-foreground">Equipment:</p>
-                    <p className="font-medium">{viewingInspection.reception?.equipment?.model || "N/A"}</p>
+                    <Label className="text-muted-foreground text-sm">Inspection Number:</Label>
+                    <p className="font-medium mt-1">{viewingInspection.inspectionNumber || "N/A"}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Plant Number:</p>
-                    <p className="font-medium">{viewingInspection.reception?.plantNumber || "N/A"}</p>
+                    <Label className="text-muted-foreground text-sm">Equipment:</Label>
+                    <p className="font-medium mt-1">{viewingInspection.reception?.equipment?.model || viewingInspection.reception?.equipment?.plantNumber || "N/A"}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Service Type:</p>
-                    <Badge variant={viewingInspection.serviceType === "long_term" ? "destructive" : "secondary"}>
-                      {viewingInspection.serviceType === "long_term" ? "Long Term" : "Short Term"}
-                    </Badge>
+                    <Label className="text-muted-foreground text-sm">Plant Number:</Label>
+                    <p className="font-medium mt-1">{viewingInspection.reception?.plantNumber || "N/A"}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Inspector:</p>
-                    <p className="font-medium">{viewingInspection.inspector?.fullName || "N/A"}</p>
+                    <Label className="text-muted-foreground text-sm">Service Type:</Label>
+                    <div className="mt-1">
+                      <Badge variant="secondary">{viewingInspection.serviceType || "N/A"}</Badge>
+                    </div>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Completed Date:</p>
-                    <p className="font-medium">
-                      {viewingInspection.completedAt ? new Date(viewingInspection.completedAt).toLocaleDateString() : "N/A"}
+                    <Label className="text-muted-foreground text-sm">Inspector:</Label>
+                    <p className="font-medium mt-1">{viewingInspection.inspector?.fullName || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Completed Date:</Label>
+                    <p className="font-medium mt-1">
+                      {viewingInspection.inspectionDate 
+                        ? new Date(viewingInspection.inspectionDate).toLocaleDateString('en-US', { 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            year: 'numeric' 
+                          })
+                        : "N/A"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Status:</p>
-                    <Badge variant="default">{viewingInspection.status}</Badge>
+                    <Label className="text-muted-foreground text-sm">Status:</Label>
+                    <div className="mt-1">
+                      <Badge>{viewingInspection.status}</Badge>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              {/* Inspection Checklist Report */}
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-semibold">Inspection Checklist Report</h3>
-                <div className="space-y-4">
-                  {/* Items Present and Working */}
-                  {viewingChecklistItems.filter((item: any) => item.hasItem && item.isWorking).length > 0 && (
-                    <div className="border-l-4 border-l-green-500 pl-4 py-2 bg-green-50 dark:bg-green-950/20">
-                      <h4 className="font-semibold text-green-700 dark:text-green-400 mb-2">✓ Items Present and Working</h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {viewingChecklistItems
-                          .filter((item: any) => item.hasItem && item.isWorking)
-                          .map((item: any) => (
-                            <li key={item.id} className="text-sm">
-                              {item.itemNumber}. {item.itemDescription}
-                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
-                            </li>
-                          ))}
-                      </ul>
+              {/* Inspection Checklist Summary */}
+              {viewingChecklistItems.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Inspection Checklist (የማረጋገጫ ዝርዝር)</CardTitle>
+                    <p className="text-sm text-muted-foreground">Items with selected status</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ተ.ቁ</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">የመሳሪያዉ ዝርዝር</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ያለበት ሁኔታ</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ተጨማሪ አስተያየት</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {viewingChecklistItems
+                            .filter((item: any) => {
+                              // Only show items with at least one checkbox selected
+                              return item.hasItem || item.doesNotHave || item.isWorking || 
+                                     item.notWorking || item.isBroken || item.isCracked;
+                            })
+                            .map((item: any, index: number) => {
+                              // Determine which status is selected
+                              let selectedStatus = "";
+                              if (item.hasItem) selectedStatus = "አለዉ";
+                              else if (item.doesNotHave) selectedStatus = "የለዉም";
+                              else if (item.isWorking) selectedStatus = "የሚሰራ";
+                              else if (item.notWorking) selectedStatus = "የማይሰራ";
+                              else if (item.isBroken) selectedStatus = "የተሰበረ";
+                              else if (item.isCracked) selectedStatus = "የተሰነጠቀ";
+
+                              return (
+                                <tr key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                  <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
+                                  <td className="px-4 py-2 text-sm font-medium">{item.itemDescription}</td>
+                                  <td className="px-4 py-2 text-sm">{selectedStatus}</td>
+                                  <td className="px-4 py-2 text-sm text-muted-foreground">{item.comments || "-"}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                      {viewingChecklistItems.filter((item: any) => 
+                        item.hasItem || item.doesNotHave || item.isWorking || 
+                        item.notWorking || item.isBroken || item.isCracked
+                      ).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No checklist items selected
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  {/* Items Present but Not Working */}
-                  {viewingChecklistItems.filter((item: any) => item.hasItem && item.notWorking).length > 0 && (
-                    <div className="border-l-4 border-l-yellow-500 pl-4 py-2 bg-yellow-50 dark:bg-yellow-950/20">
-                      <h4 className="font-semibold text-yellow-700 dark:text-yellow-400 mb-2">⚠ Items Present but Not Working</h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {viewingChecklistItems
-                          .filter((item: any) => item.hasItem && item.notWorking)
-                          .map((item: any) => (
-                            <li key={item.id} className="text-sm">
-                              {item.itemNumber}. {item.itemDescription}
-                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Items Broken */}
-                  {viewingChecklistItems.filter((item: any) => item.isBroken).length > 0 && (
-                    <div className="border-l-4 border-l-red-500 pl-4 py-2 bg-red-50 dark:bg-red-950/20">
-                      <h4 className="font-semibold text-red-700 dark:text-red-400 mb-2">✗ Broken Items</h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {viewingChecklistItems
-                          .filter((item: any) => item.isBroken)
-                          .map((item: any) => (
-                            <li key={item.id} className="text-sm">
-                              {item.itemNumber}. {item.itemDescription}
-                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Items Cracked */}
-                  {viewingChecklistItems.filter((item: any) => item.isCracked).length > 0 && (
-                    <div className="border-l-4 border-l-orange-500 pl-4 py-2 bg-orange-50 dark:bg-orange-950/20">
-                      <h4 className="font-semibold text-orange-700 dark:text-orange-400 mb-2">⚡ Cracked Items</h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {viewingChecklistItems
-                          .filter((item: any) => item.isCracked)
-                          .map((item: any) => (
-                            <li key={item.id} className="text-sm">
-                              {item.itemNumber}. {item.itemDescription}
-                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Items Not Present */}
-                  {viewingChecklistItems.filter((item: any) => item.doesNotHave).length > 0 && (
-                    <div className="border-l-4 border-l-gray-500 pl-4 py-2 bg-gray-50 dark:bg-gray-950/20">
-                      <h4 className="font-semibold text-gray-700 dark:text-gray-400 mb-2">○ Missing Items</h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {viewingChecklistItems
-                          .filter((item: any) => item.doesNotHave)
-                          .map((item: any) => (
-                            <li key={item.id} className="text-sm">
-                              {item.itemNumber}. {item.itemDescription}
-                              {item.additionalComments && <span className="text-muted-foreground ml-2">- {item.additionalComments}</span>}
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {viewingChecklistItems.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No checklist items found</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Overall Assessment (Read-Only) */}
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-semibold">Overall Assessment</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Overall Condition</label>
-                    <p className="mt-1 p-2 border rounded bg-muted/30">{viewingInspection.overallCondition || "N/A"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Findings</label>
-                    <p className="mt-1 p-2 border rounded bg-muted/30">{viewingInspection.findings || "N/A"}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Recommendations</label>
-                    <p className="mt-1 p-2 border rounded bg-muted/30">{viewingInspection.recommendations || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Close Button */}
-              <div className="flex justify-end">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowViewDialog(false)}
-                  data-testid="button-close-view-dialog"
-                >
-                  Close
-                </Button>
-              </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </DialogContent>

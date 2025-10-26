@@ -1327,6 +1327,10 @@ export default function WorkOrdersPage() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-6">
                   <div>
+                    <Label className="text-muted-foreground text-sm">Inspection Number:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.inspectionNumber || "N/A"}</p>
+                  </div>
+                  <div>
                     <Label className="text-muted-foreground text-sm">Equipment:</Label>
                     <p className="font-medium mt-1">{inspectionDetails.reception?.equipment?.model || inspectionDetails.reception?.equipment?.plantNumber || "N/A"}</p>
                   </div>

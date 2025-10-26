@@ -663,78 +663,97 @@ export default function ApprovalsPage() {
 
       {/* Inspection Detail Dialog */}
       <Dialog open={viewDetailType === "inspection"} onOpenChange={() => { setViewDetailType(null); setSelectedInspection(null); }}>
-        <DialogContent className="max-w-3xl max-h-[80vh]" data-testid="dialog-inspection-detail">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-inspection-detail">
           <DialogHeader>
-            <DialogTitle>Inspection Details: {selectedInspection?.inspectionNumber}</DialogTitle>
+            <DialogTitle>Equipment Inspection Report</DialogTitle>
             <DialogDescription>
-              Complete inspection information including checklist
+              Comprehensive inspection and reception details
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-6">
-              <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Equipment</Label>
-                    <p className="font-medium">{selectedInspection?.reception?.equipment?.equipmentId} - {selectedInspection?.reception?.equipment?.name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Reception Number</Label>
-                    <p className="font-medium">{selectedInspection?.reception?.receptionNumber}</p>
+          <div className="space-y-6">
+            {/* Equipment Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Equipment Details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-muted-foreground text-sm">Inspection Number:</Label>
+                  <p className="font-medium mt-1">{selectedInspection?.inspectionNumber || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-sm">Equipment:</Label>
+                  <p className="font-medium mt-1">{selectedInspection?.reception?.equipment?.name || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-sm">Plant Number:</Label>
+                  <p className="font-medium mt-1">{selectedInspection?.reception?.equipment?.equipmentId || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-sm">Service Type:</Label>
+                  <div className="mt-1">
+                    <Badge variant="secondary">{selectedInspection?.serviceType?.replace("_", " ") || "N/A"}</Badge>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Service Type</Label>
-                    <p className="font-medium capitalize">{selectedInspection?.serviceType?.replace("_", " ")}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Inspector</Label>
-                    <p className="font-medium">{selectedInspection?.inspector?.fullName || "N/A"}</p>
+                <div>
+                  <Label className="text-muted-foreground text-sm">Inspector:</Label>
+                  <p className="font-medium mt-1">{selectedInspection?.inspector?.fullName || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-sm">Completed Date:</Label>
+                  <p className="font-medium mt-1">
+                    {selectedInspection?.createdAt 
+                      ? new Date(selectedInspection.createdAt).toLocaleDateString('en-US', { 
+                          month: '2-digit', 
+                          day: '2-digit', 
+                          year: 'numeric' 
+                        })
+                      : "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-sm">Status:</Label>
+                  <div className="mt-1">
+                    <Badge>{selectedInspection?.status || "N/A"}</Badge>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Status</Label>
-                    <div className="mt-1">{getStatusBadge(selectedInspection?.status || "")}</div>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Created At</Label>
-                    <p className="font-medium">{new Date(selectedInspection?.createdAt || "").toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              <Separator />
-
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Inspection Checklist</h3>
-                {checklistItems && checklistItems.length > 0 ? (
-                  <div className="space-y-2">
-                    {checklistItems.map((item) => (
-                      <Card key={item.id}>
-                        <CardHeader className="p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <CardTitle className="text-sm font-medium">
-                                {item.itemNumber}. {item.itemNameAmharic}
-                              </CardTitle>
-                              {item.comments && (
-                                <CardDescription className="mt-2">{item.comments}</CardDescription>
-                              )}
-                            </div>
-                            {getStatusBadge(item.status)}
-                          </div>
-                        </CardHeader>
-                      </Card>
-                    ))}
+            {/* Inspection Checklist Summary */}
+            {checklistItems && checklistItems.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Inspection Checklist (የማረጋገጫ ዝርዝር)</CardTitle>
+                  <p className="text-sm text-muted-foreground">Items with selected status</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="border rounded-md overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-medium">ተ.ቁ</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium">የመሳሪያዉ ዝርዝር</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium">ያለበት ሁኔታ</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium">ተጨማሪ አስተያየት</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {checklistItems.map((item, index) => (
+                          <tr key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                            <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
+                            <td className="px-4 py-2 text-sm font-medium">{item.itemNameAmharic}</td>
+                            <td className="px-4 py-2 text-sm">{item.status}</td>
+                            <td className="px-4 py-2 text-sm text-muted-foreground">{item.comments || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No checklist items found</p>
-                )}
-              </div>
-            </div>
-          </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+          </div>
           <DialogFooter className="flex gap-2">
             <Button 
               variant="outline" 

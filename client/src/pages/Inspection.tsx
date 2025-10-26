@@ -1165,7 +1165,7 @@ export default function Inspection() {
                                   <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
                                   <td className="px-4 py-2 text-sm font-medium">{item.itemDescription}</td>
                                   <td className="px-4 py-2 text-sm">{selectedStatus}</td>
-                                  <td className="px-4 py-2 text-sm text-muted-foreground">{item.comments || "-"}</td>
+                                  <td className="px-4 py-2 text-sm text-muted-foreground">{item.additionalComments || "-"}</td>
                                 </tr>
                               );
                             })}

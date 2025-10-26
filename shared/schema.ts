@@ -733,6 +733,23 @@ export const deviceImportLogs = pgTable("device_import_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============ DYNAMICS 365 INTEGRATION ============
+
+// D365 Sync Log - Track D365 import/sync operations
+export const d365SyncLogs = pgTable("d365_sync_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  syncType: text("sync_type").notNull(), // "items" or "equipment"
+  status: text("status").notNull(), // "success", "failed", "partial"
+  prefix: text("prefix"), // Prefix used for filtering (e.g., "SP-", "EQ-")
+  recordsImported: integer("records_imported").default(0), // New records added
+  recordsUpdated: integer("records_updated").default(0), // Existing records updated
+  recordsSkipped: integer("records_skipped").default(0), // Records skipped
+  totalRecords: integer("total_records").default(0), // Total records fetched from D365
+  errorMessage: text("error_message"),
+  importData: text("import_data"), // JSON data of imported records
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations for garage management
 export const garagesRelations = relations(garages, ({ many }) => ({
   workshops: many(workshops),
@@ -1061,6 +1078,15 @@ export type AttendanceDeviceSettings = typeof attendanceDeviceSettings.$inferSel
 export type InsertAttendanceDeviceSettings = z.infer<typeof insertAttendanceDeviceSettingsSchema>;
 export type DeviceImportLog = typeof deviceImportLogs.$inferSelect;
 export type InsertDeviceImportLog = z.infer<typeof insertDeviceImportLogSchema>;
+
+// Insert schemas and types for D365 sync logs
+export const insertD365SyncLogSchema = createInsertSchema(d365SyncLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type D365SyncLog = typeof d365SyncLogs.$inferSelect;
+export type InsertD365SyncLog = z.infer<typeof insertD365SyncLogSchema>;
 
 // Items table - synchronized from Dynamics 365 Business Central
 export const items = pgTable("items", {

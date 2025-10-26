@@ -1395,12 +1395,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Equipment Inspections
-  async getInspectionById(id: string): Promise<EquipmentInspection | undefined> {
-    const [result] = await db
+  async getInspectionById(id: string): Promise<any | undefined> {
+    const [inspection] = await db
       .select()
       .from(equipmentInspections)
       .where(eq(equipmentInspections.id, id));
-    return result || undefined;
+    
+    if (!inspection) return undefined;
+
+    // Fetch related reception data
+    const reception = inspection.receptionId
+      ? await this.getReceptionById(inspection.receptionId)
+      : undefined;
+
+    // Fetch inspector data
+    const inspector = inspection.inspectorId
+      ? await this.getEmployeeById(inspection.inspectorId)
+      : undefined;
+
+    return {
+      ...inspection,
+      reception,
+      inspector,
+    };
   }
 
   async getInspectionByReceptionId(receptionId: string): Promise<EquipmentInspection | undefined> {

@@ -341,7 +341,19 @@ export default function Inspection() {
   const handleCheckboxChange = (index: number, field: string, value: boolean) => {
     setChecklistItems((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      
+      // Group 1 (Existence): አለዉ and የለዉም - only one can be selected (radio button behavior)
+      if (field === "hasItem" || field === "doesNotHave") {
+        updated[index] = {
+          ...updated[index],
+          hasItem: field === "hasItem" ? value : false,
+          doesNotHave: field === "doesNotHave" ? value : false,
+        };
+      } else {
+        // All other checkboxes work independently
+        updated[index] = { ...updated[index], [field]: value };
+      }
+      
       return updated;
     });
   };

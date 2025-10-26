@@ -89,28 +89,6 @@ export default function ItemsPage() {
     },
   });
 
-  // Mutation to sync items from Dynamics 365
-  const syncMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/dynamics365/sync-items");
-      return response.json();
-    },
-    onSuccess: (data: any) => {
-      toast({
-        title: t("success"),
-        description: `${t("itemsSyncedSuccessfully")}: ${data.savedCount} new, ${data.updatedCount} updated`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t("error"),
-        description: t("syncFailed") + `: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Mutation to create/update item
   const saveMutation = useMutation({
     mutationFn: async (data: ItemFormValues) => {
@@ -226,62 +204,6 @@ export default function ItemsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={async () => {
-              try {
-                // Get auth token from localStorage
-                const token = localStorage.getItem("auth_token");
-                const headers: HeadersInit = {
-                  'Content-Type': 'application/json',
-                };
-                
-                if (token) {
-                  headers['Authorization'] = `Bearer ${token}`;
-                }
-                
-                const response = await fetch("/api/dynamics365/test-endpoints", {
-                  headers,
-                });
-                const data = await response.json();
-                
-                if (!response.ok) {
-                  if (response.status === 403) {
-                    alert(`⚠️ Access Denied\n\nYou need to be logged in with CEO or Admin privileges to test D365 endpoints.\n\nPlease log in and try again.`);
-                  } else {
-                    alert(`❌ Error: ${data.message || 'Unknown error occurred'}`);
-                  }
-                  return;
-                }
-                
-                if (data.success) {
-                  alert(`✅ Found working endpoint!\n\nEndpoint: ${data.workingEndpoint}\n\nYou can now sync items.`);
-                } else if (data.results) {
-                  const failedEndpoints = data.results.map((r: any) => 
-                    `${r.success ? '✓' : '✗'} ${r.endpoint}: ${r.status}`
-                  ).join('\n');
-                  alert(`❌ No working endpoint found.\n\nTested endpoints:\n${failedEndpoints}\n\nPlease check your D365 credentials and URL.`);
-                } else {
-                  alert(`❌ Error: ${data.message || 'Test failed'}`);
-                }
-              } catch (error: any) {
-                alert(`Error testing endpoints: ${error.message}`);
-              }
-            }}
-            data-testid="button-test-endpoints"
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Test D365
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
-            data-testid="button-sync-items"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${syncMutation.isPending ? "animate-spin" : ""}`} />
-            {syncMutation.isPending ? t("syncingItems") : t("syncFromDynamics365")}
-          </Button>
           <Button onClick={handleAddItem} data-testid="button-add-item">
             <Plus className="h-4 w-4 mr-2" />
             {t("addItem")}

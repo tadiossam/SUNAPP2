@@ -2919,7 +2919,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== Dynamics 365 Business Central Integration ====================
 
-  // Test Dynamics 365 connection
+  // Get D365 settings
+  app.get("/api/dynamics365/settings", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const settings = await storage.getDynamics365Settings();
+      if (settings) {
+        // Don't send password to frontend
+        const { bcPassword, ...safeSettings } = settings;
+        res.json(safeSettings);
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      console.error("Error fetching D365 settings:", error);
+      res.status(500).json({ error: "Failed to fetch D365 settings" });
+    }
+  });
+
+  // Save D365 settings
+  app.post("/api/dynamics365/settings", isCEOOrAdmin, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { bcPassword, ...otherSettings } = req.body;
+      
+      // Get existing settings to preserve password if not provided
+      const existingSettings = await storage.getDynamics365Settings();
+      
+      // Prepare data: keep existing password if new one is empty
+      const dataToSave = {
+        ...otherSettings,
+        bcPassword: bcPassword && bcPassword.trim() !== "" 
+          ? bcPassword 
+          : existingSettings?.bcPassword || bcPassword,
+      };
+      
+      const settings = await storage.saveDynamics365Settings(dataToSave, user.id);
+      
+      // Don't send password to frontend
+      const { bcPassword: _, ...safeSettings } = settings;
+      res.json(safeSettings);
+    } catch (error) {
+      console.error("Error saving D365 settings:", error);
+      res.status(500).json({ error: "Failed to save D365 settings" });
+    }
+  });
+
+  // Test D365 connection with provided settings
+  app.post("/api/dynamics365/test", isCEOOrAdmin, async (req, res) => {
+    try {
+      let { bcUrl, bcUsername, bcPassword, bcCompany } = req.body;
+      
+      // If password is empty, try to get it from saved settings
+      if (!bcPassword || bcPassword.trim() === "") {
+        const existingSettings = await storage.getDynamics365Settings();
+        if (existingSettings?.bcPassword) {
+          bcPassword = existingSettings.bcPassword;
+        } else {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Password is required. Please enter a password or save settings first." 
+          });
+        }
+      }
+      
+      if (!bcUrl || !bcUsername || !bcCompany) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "URL, username, and company name are required" 
+        });
+      }
+
+      // Test connection using provided credentials
+      const axios = (await import('axios')).default;
+      
+      try {
+        const testUrl = `${bcUrl}/ODataV4/Company('${encodeURIComponent(bcCompany)}')/items?$top=1`;
+        const response = await axios.get(testUrl, {
+          auth: {
+            username: bcUsername,
+            password: bcPassword,
+          },
+          timeout: 10000,
+        });
+
+        if (response.status === 200) {
+          // Update test result in database if settings exist
+          await storage.updateDynamics365TestResult('success', 'Connection successful');
+          
+          res.json({ 
+            success: true, 
+            message: "Connection successful! Successfully connected to Dynamics 365 Business Central." 
+          });
+        } else {
+          await storage.updateDynamics365TestResult('failed', `Unexpected response: ${response.status}`);
+          res.status(503).json({ 
+            success: false, 
+            message: `Connection failed with status ${response.status}` 
+          });
+        }
+      } catch (axiosError: any) {
+        let errorMessage = "Connection failed";
+        
+        if (axiosError.code === 'ECONNREFUSED') {
+          errorMessage = "Cannot connect to server. Please check the URL and ensure the server is running.";
+        } else if (axiosError.response?.status === 401) {
+          errorMessage = "Authentication failed. Please check username and password.";
+        } else if (axiosError.response?.status === 404) {
+          errorMessage = "Resource not found. Please check the company name.";
+        } else {
+          errorMessage = axiosError.message || "Unknown connection error";
+        }
+        
+        await storage.updateDynamics365TestResult('failed', errorMessage);
+        
+        res.status(503).json({ 
+          success: false, 
+          message: errorMessage 
+        });
+      }
+    } catch (error: any) {
+      console.error("D365 connection test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Connection test failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Test Dynamics 365 connection (using environment variables - legacy)
   app.get("/api/dynamics365/test-connection", isCEOOrAdmin, async (_req, res) => {
     try {
       const { d365Service } = await import('./services/dynamics365');

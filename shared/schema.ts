@@ -1093,6 +1093,34 @@ export const insertItemSchema = createInsertSchema(items).omit({
 export type Item = typeof items.$inferSelect;
 export type InsertItem = z.infer<typeof insertItemSchema>;
 
+// Dynamics 365 Settings table - for D365 Business Central connection configuration
+export const dynamics365Settings = pgTable("dynamics365_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bcUrl: text("bc_url").notNull(), // Dynamics 365 Business Central URL (e.g., http://192.168.0.16:7048)
+  bcCompany: text("bc_company").notNull(), // Company name in D365
+  bcUsername: text("bc_username").notNull(), // D365 username
+  bcPassword: text("bc_password").notNull(), // D365 password (encrypted)
+  isActive: boolean("is_active").default(true).notNull(), // Whether this configuration is active
+  lastTestDate: timestamp("last_test_date"), // Last time connection was tested
+  lastTestStatus: text("last_test_status"), // Last test result: 'success' or 'failed'
+  lastTestMessage: text("last_test_message"), // Error message if test failed
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change
+});
+
+// Insert schema for D365 settings
+export const insertDynamics365SettingsSchema = createInsertSchema(dynamics365Settings).omit({
+  id: true,
+  updatedAt: true,
+  lastTestDate: true,
+  lastTestStatus: true,
+  lastTestMessage: true,
+});
+
+// Select types for D365 settings
+export type Dynamics365Settings = typeof dynamics365Settings.$inferSelect;
+export type InsertDynamics365Settings = z.infer<typeof insertDynamics365SettingsSchema>;
+
 // System Settings table - for server configuration
 export const systemSettings = pgTable("system_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

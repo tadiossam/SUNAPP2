@@ -27,6 +27,9 @@ import {
   deviceImportLogs,
   equipmentInspections,
   inspectionChecklistItems,
+  items,
+  dynamics365Settings,
+  systemSettings,
   type EquipmentCategory,
   type InsertEquipmentCategory,
   type Equipment,
@@ -85,6 +88,12 @@ import {
   type InsertEquipmentInspection,
   type InspectionChecklistItem,
   type InsertInspectionChecklistItem,
+  type Item,
+  type InsertItem,
+  type Dynamics365Settings,
+  type InsertDynamics365Settings,
+  type SystemSettings,
+  type InsertSystemSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
@@ -300,6 +309,23 @@ export interface IStorage {
   getEmployeeByName(fullName: string): Promise<Employee | undefined>;
   createDeviceImportLog(data: any): Promise<any>;
   getDeviceImportLogs(): Promise<any[]>;
+
+  // Dynamics 365 Settings Operations
+  getDynamics365Settings(): Promise<Dynamics365Settings | undefined>;
+  saveDynamics365Settings(data: InsertDynamics365Settings, updatedById: string): Promise<Dynamics365Settings>;
+  updateDynamics365TestResult(testStatus: string, testMessage?: string): Promise<void>;
+
+  // System Settings Operations
+  getSystemSettings(): Promise<SystemSettings | undefined>;
+  saveSystemSettings(data: InsertSystemSettings, updatedById: string): Promise<SystemSettings>;
+  
+  // Items (D365) Operations
+  getAllItems(): Promise<Item[]>;
+  getItemById(id: string): Promise<Item | undefined>;
+  getItemByItemNo(itemNo: string): Promise<Item | undefined>;
+  createItem(data: InsertItem): Promise<Item>;
+  updateItem(id: string, data: Partial<InsertItem>): Promise<Item>;
+  deleteItem(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2051,6 +2077,132 @@ export class DatabaseStorage implements IStorage {
       .from(deviceImportLogs)
       .orderBy(desc(deviceImportLogs.createdAt))
       .limit(50);
+  }
+
+  // Dynamics 365 Settings Operations
+  async getDynamics365Settings(): Promise<Dynamics365Settings | undefined> {
+    const [result] = await db
+      .select()
+      .from(dynamics365Settings)
+      .where(eq(dynamics365Settings.isActive, true))
+      .limit(1);
+    return result || undefined;
+  }
+
+  async saveDynamics365Settings(data: InsertDynamics365Settings, updatedById: string): Promise<Dynamics365Settings> {
+    // Deactivate all existing settings
+    await db
+      .update(dynamics365Settings)
+      .set({ isActive: false });
+
+    // Create new active settings
+    const [result] = await db
+      .insert(dynamics365Settings)
+      .values({
+        ...data,
+        isActive: true,
+        updatedBy: updatedById,
+      })
+      .returning();
+    return result;
+  }
+
+  async updateDynamics365TestResult(testStatus: string, testMessage?: string): Promise<void> {
+    const settings = await this.getDynamics365Settings();
+    if (settings) {
+      await db
+        .update(dynamics365Settings)
+        .set({
+          lastTestDate: new Date(),
+          lastTestStatus: testStatus,
+          lastTestMessage: testMessage || null,
+        })
+        .where(eq(dynamics365Settings.id, settings.id));
+    }
+  }
+
+  // System Settings Operations
+  async getSystemSettings(): Promise<SystemSettings | undefined> {
+    const [result] = await db
+      .select()
+      .from(systemSettings)
+      .limit(1);
+    return result || undefined;
+  }
+
+  async saveSystemSettings(data: InsertSystemSettings, updatedById: string): Promise<SystemSettings> {
+    const existing = await this.getSystemSettings();
+    
+    if (existing) {
+      // Update existing settings
+      const [result] = await db
+        .update(systemSettings)
+        .set({
+          ...data,
+          updatedBy: updatedById,
+          updatedAt: new Date(),
+        })
+        .where(eq(systemSettings.id, existing.id))
+        .returning();
+      return result;
+    } else {
+      // Create new settings
+      const [result] = await db
+        .insert(systemSettings)
+        .values({
+          ...data,
+          updatedBy: updatedById,
+        })
+        .returning();
+      return result;
+    }
+  }
+
+  // Items (D365) Operations
+  async getAllItems(): Promise<Item[]> {
+    return await db
+      .select()
+      .from(items)
+      .orderBy(desc(items.syncedAt));
+  }
+
+  async getItemById(id: string): Promise<Item | undefined> {
+    const [result] = await db
+      .select()
+      .from(items)
+      .where(eq(items.id, id));
+    return result || undefined;
+  }
+
+  async getItemByItemNo(itemNo: string): Promise<Item | undefined> {
+    const [result] = await db
+      .select()
+      .from(items)
+      .where(eq(items.itemNo, itemNo));
+    return result || undefined;
+  }
+
+  async createItem(data: InsertItem): Promise<Item> {
+    const [result] = await db
+      .insert(items)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async updateItem(id: string, data: Partial<InsertItem>): Promise<Item> {
+    const [result] = await db
+      .update(items)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(items.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteItem(id: string): Promise<void> {
+    await db
+      .delete(items)
+      .where(eq(items.id, id));
   }
 }
 

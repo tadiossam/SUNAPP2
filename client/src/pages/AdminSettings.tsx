@@ -83,6 +83,14 @@ export default function AdminSettings() {
   const [serverHost, setServerHost] = useState("0.0.0.0");
   const [serverPort, setServerPort] = useState(3000);
 
+  // Dynamics 365 Settings state
+  const [d365Form, setD365Form] = useState({
+    bcUrl: "",
+    bcCompany: "",
+    bcUsername: "",
+    bcPassword: "",
+  });
+
   // Biometric Device state
   const [deviceForm, setDeviceForm] = useState({
     deviceName: "iFace990 Plus",
@@ -102,6 +110,11 @@ export default function AdminSettings() {
   // Fetch deployment settings
   const { data: deploySettings, isLoading: isLoadingDeploy } = useQuery<SystemSettings>({
     queryKey: ["/api/system-settings"],
+  });
+
+  // Fetch D365 settings
+  const { data: d365Settings, isLoading: isLoadingD365 } = useQuery<any>({
+    queryKey: ["/api/dynamics365/settings"],
   });
 
   // Fetch all devices
@@ -138,6 +151,18 @@ export default function AdminSettings() {
     }
   }, [deploySettings]);
 
+  // Update D365 form when settings are loaded
+  useEffect(() => {
+    if (d365Settings) {
+      setD365Form({
+        bcUrl: d365Settings.bcUrl || "",
+        bcCompany: d365Settings.bcCompany || "",
+        bcUsername: d365Settings.bcUsername || "",
+        bcPassword: "", // Don't populate password
+      });
+    }
+  }, [d365Settings]);
+
   // Deployment Tool Mutations
   const saveDeploymentMutation = useMutation({
     mutationFn: async (data: { serverHost: string; serverPort: number }) => {
@@ -155,6 +180,77 @@ export default function AdminSettings() {
       toast({
         title: t("error"),
         description: error.message || t("failedToSaveSettings"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Dynamics 365 Mutations
+  const saveD365SettingsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dynamics365/settings", d365Form);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Dynamics 365 settings saved successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/settings"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save Dynamics 365 settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const testD365ConnectionMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dynamics365/test", d365Form);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Connection Successful",
+          description: data.message,
+        });
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: data.message || "Could not connect to Dynamics 365",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Connection Error",
+        description: error.message || "Failed to test connection",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncFromD365Mutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dynamics365/sync-items");
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success",
+        description: `Items synced successfully: ${data.savedCount} new, ${data.updatedCount} updated`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Sync failed",
         variant: "destructive",
       });
     },
@@ -922,24 +1018,169 @@ export default function AdminSettings() {
 
           {/* Dynamics 365 Tab */}
           <TabsContent value="dynamics" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div className="max-w-4xl mx-auto space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Database className="h-5 w-5" />
-                    Dynamics 365 Business Central Integration
+                    Dynamics 365 Business Central Connection
                   </CardTitle>
-                  <CardDescription>Configure integration with Microsoft Dynamics 365 Business Central</CardDescription>
+                  <CardDescription>Configure connection settings for Microsoft Dynamics 365 Business Central</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Dynamics 365 integration settings will be available in a future update.
-                    </AlertDescription>
-                  </Alert>
+                <CardContent className="space-y-4">
+                  {d365Settings?.lastTestDate && (
+                    <Alert className={d365Settings.lastTestStatus === 'success' ? "border-green-500 bg-green-50 dark:bg-green-950" : "border-red-500 bg-red-50 dark:bg-red-950"}>
+                      {d365Settings.lastTestStatus === 'success' ? <CheckCircle className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-red-600" />}
+                      <AlertDescription>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-medium">Last Test: {d365Settings.lastTestStatus === 'success' ? 'Successful' : 'Failed'}</p>
+                            <p className="text-sm text-muted-foreground">{new Date(d365Settings.lastTestDate).toLocaleString()}</p>
+                            {d365Settings.lastTestMessage && (
+                              <p className="text-sm mt-1">{d365Settings.lastTestMessage}</p>
+                            )}
+                          </div>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="bcUrl">Business Central URL *</Label>
+                      <Input
+                        id="bcUrl"
+                        value={d365Form.bcUrl}
+                        onChange={(e) => setD365Form({ ...d365Form, bcUrl: e.target.value })}
+                        placeholder="http://192.168.0.16:7048/SUNCONBC1"
+                        data-testid="input-d365-url"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Full URL to your Dynamics 365 Business Central server (e.g., http://192.168.0.16:7048/SUNCONBC1)
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bcCompany">Company Name *</Label>
+                      <Input
+                        id="bcCompany"
+                        value={d365Form.bcCompany}
+                        onChange={(e) => setD365Form({ ...d365Form, bcCompany: e.target.value })}
+                        placeholder="Sunshine Construction PLC(Test)"
+                        data-testid="input-d365-company"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Exact company name as it appears in Dynamics 365
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="bcUsername">Username *</Label>
+                        <Input
+                          id="bcUsername"
+                          value={d365Form.bcUsername}
+                          onChange={(e) => setD365Form({ ...d365Form, bcUsername: e.target.value })}
+                          placeholder="admin"
+                          data-testid="input-d365-username"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bcPassword">Password *</Label>
+                        <Input
+                          id="bcPassword"
+                          type="password"
+                          value={d365Form.bcPassword}
+                          onChange={(e) => setD365Form({ ...d365Form, bcPassword: e.target.value })}
+                          placeholder="Enter password"
+                          data-testid="input-d365-password"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {d365Settings ? "Leave blank to keep existing password" : "Enter your password"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      onClick={() => testD365ConnectionMutation.mutate()}
+                      disabled={testD365ConnectionMutation.isPending || !d365Form.bcUrl || !d365Form.bcCompany || !d365Form.bcUsername}
+                      variant="outline"
+                      data-testid="button-test-d365-connection"
+                    >
+                      {testD365ConnectionMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        <>
+                          <Wifi className="h-4 w-4 mr-2" />
+                          Test Connection
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={() => saveD365SettingsMutation.mutate()}
+                      disabled={saveD365SettingsMutation.isPending || !d365Form.bcUrl || !d365Form.bcCompany || !d365Form.bcUsername}
+                      data-testid="button-save-d365-settings"
+                    >
+                      {saveD365SettingsMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Settings
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
+
+              {d365Settings && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5" />
+                      Sync Items from Dynamics 365
+                    </CardTitle>
+                    <CardDescription>Synchronize item catalog from Dynamics 365 Business Central</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        This will fetch all items from Dynamics 365 and sync them to the local database. Existing items will be updated, and new items will be added.
+                      </AlertDescription>
+                    </Alert>
+
+                    <Button
+                      onClick={() => syncFromD365Mutation.mutate()}
+                      disabled={syncFromD365Mutation.isPending}
+                      data-testid="button-sync-d365"
+                    >
+                      {syncFromD365Mutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Syncing Items...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Sync from Dynamics 365
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
 

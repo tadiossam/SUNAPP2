@@ -2020,6 +2020,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 receptionId: reception.id,
                 status: "pending",
               });
+              
+              // Update reception status to "work_order_created" after work order is created
+              await storage.updateReception(inspection.receptionId, { status: "work_order_created" });
             }
           }
         } catch (error) {

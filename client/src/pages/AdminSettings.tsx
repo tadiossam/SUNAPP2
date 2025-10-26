@@ -158,6 +158,11 @@ export default function AdminSettings() {
     queryKey: ["/api/attendance-device/logs"],
   });
 
+  // Fetch D365 sync logs
+  const { data: d365SyncLogs = [], isLoading: isLoadingD365Logs } = useQuery<any[]>({
+    queryKey: ["/api/dynamics365/sync-logs"],
+  });
+
   // Update local state when settings are loaded
   useEffect(() => {
     if (deploySettings) {
@@ -333,7 +338,10 @@ export default function AdminSettings() {
 
   const importItemsMutation = useMutation({
     mutationFn: async (selectedItems: any[]) => {
-      const response = await apiRequest("POST", "/api/dynamics365/import-items", { items: selectedItems });
+      const response = await apiRequest("POST", "/api/dynamics365/import-items", { 
+        items: selectedItems,
+        prefix: itemsPrefix 
+      });
       return response.json();
     },
     onSuccess: (data: any) => {
@@ -345,6 +353,7 @@ export default function AdminSettings() {
           description: `Imported ${data.savedCount} new items, updated ${data.updatedCount} items`,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/sync-logs"] });
       } else {
         toast({
           title: "Import Failed",
@@ -367,6 +376,7 @@ export default function AdminSettings() {
       const response = await apiRequest("POST", "/api/dynamics365/import-equipment", { 
         equipment: selectedEquipment,
         defaultCategoryId,
+        prefix: equipmentPrefix
       });
       return response.json();
     },
@@ -379,6 +389,7 @@ export default function AdminSettings() {
           description: `Imported ${data.savedCount} new equipment, updated ${data.updatedCount} equipment`,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/sync-logs"] });
       } else {
         toast({
           title: "Import Failed",
@@ -1417,6 +1428,87 @@ export default function AdminSettings() {
                       </>
                     )}
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* Import History Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Import History
+                  </CardTitle>
+                  <CardDescription>Recent Dynamics 365 sync operations</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingD365Logs ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Loading logs...
+                    </div>
+                  ) : d365SyncLogs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No import history available
+                    </div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Prefix</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Results</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {d365SyncLogs.slice(0, 10).map((log: any) => (
+                            <TableRow key={log.id}>
+                              <TableCell className="text-sm">
+                                {new Date(log.createdAt).toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize">
+                                  {log.syncType}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <code className="text-xs bg-muted px-2 py-1 rounded">
+                                  {log.prefix || "N/A"}
+                                </code>
+                              </TableCell>
+                              <TableCell>
+                                {log.status === "success" ? (
+                                  <Badge className="bg-green-500/10 text-green-600 dark:text-green-400">
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Success
+                                  </Badge>
+                                ) : log.status === "partial" ? (
+                                  <Badge variant="secondary">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                    Partial
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="destructive">
+                                    <XCircle className="h-3 w-3 mr-1" />
+                                    Failed
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {log.recordsImported > 0 && `${log.recordsImported} imported`}
+                                {log.recordsImported > 0 && log.recordsUpdated > 0 && ", "}
+                                {log.recordsUpdated > 0 && `${log.recordsUpdated} updated`}
+                                {(log.recordsImported > 0 || log.recordsUpdated > 0) && log.recordsSkipped > 0 && ", "}
+                                {log.recordsSkipped > 0 && `${log.recordsSkipped} skipped`}
+                                {log.recordsImported === 0 && log.recordsUpdated === 0 && log.recordsSkipped === 0 && "No records"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -30,6 +30,7 @@ import {
   insertInspectionChecklistItemSchema,
   items,
   insertItemSchema,
+  equipment,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";

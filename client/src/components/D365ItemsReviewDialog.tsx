@@ -104,8 +104,7 @@ export function D365ItemsReviewDialog({
               {items.map((item) => (
                 <div 
                   key={item.No}
-                  className="flex items-start gap-3 p-3 rounded-md border hover-elevate active-elevate-2 cursor-pointer"
-                  onClick={() => toggleItem(item.No)}
+                  className="flex items-start gap-3 p-3 rounded-md border hover-elevate active-elevate-2"
                   data-testid={`item-row-${item.No}`}
                 >
                   <Checkbox

@@ -133,8 +133,7 @@ export function D365EquipmentReviewDialog({
               {equipment.map((equip) => (
                 <div 
                   key={equip.No}
-                  className="flex items-start gap-3 p-3 rounded-md border hover-elevate active-elevate-2 cursor-pointer"
-                  onClick={() => toggleEquipment(equip.No)}
+                  className="flex items-start gap-3 p-3 rounded-md border hover-elevate active-elevate-2"
                   data-testid={`equipment-row-${equip.No}`}
                 >
                   <Checkbox

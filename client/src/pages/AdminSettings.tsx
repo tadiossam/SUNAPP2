@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/table";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { SystemSettings } from "@shared/schema";
+import { D365ItemsReviewDialog } from "@/components/D365ItemsReviewDialog";
+import { D365EquipmentReviewDialog } from "@/components/D365EquipmentReviewDialog";
 
 type DeviceSettings = {
   id: string;
@@ -107,6 +109,14 @@ export default function AdminSettings() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [importProgress, setImportProgress] = useState(0);
 
+  // D365 Sync state
+  const [itemsPrefix, setItemsPrefix] = useState("SP-");
+  const [equipmentPrefix, setEquipmentPrefix] = useState("EQ-");
+  const [previewedItems, setPreviewedItems] = useState<any[]>([]);
+  const [previewedEquipment, setPreviewedEquipment] = useState<any[]>([]);
+  const [isItemsReviewOpen, setIsItemsReviewOpen] = useState(false);
+  const [isEquipmentReviewOpen, setIsEquipmentReviewOpen] = useState(false);
+
   // Fetch deployment settings
   const { data: deploySettings, isLoading: isLoadingDeploy } = useQuery<SystemSettings>({
     queryKey: ["/api/system-settings"],
@@ -115,6 +125,11 @@ export default function AdminSettings() {
   // Fetch D365 settings
   const { data: d365Settings, isLoading: isLoadingD365 } = useQuery<any>({
     queryKey: ["/api/dynamics365/settings"],
+  });
+
+  // Fetch equipment categories for D365 import
+  const { data: equipmentCategories = [] } = useQuery<any[]>({
+    queryKey: ["/api/equipment-categories"],
   });
 
   // Fetch all devices
@@ -251,6 +266,131 @@ export default function AdminSettings() {
       toast({
         title: "Error",
         description: error.message || "Sync failed",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const previewItemsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dynamics365/preview-items", { prefix: itemsPrefix });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        setPreviewedItems(data.items || []);
+        setIsItemsReviewOpen(true);
+        toast({
+          title: "Items Preview Ready",
+          description: `Found ${data.totalCount} items (${data.newCount} new, ${data.existingCount} existing)`,
+        });
+      } else {
+        toast({
+          title: "Preview Failed",
+          description: data.message || "Could not preview items",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to preview items",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const previewEquipmentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dynamics365/preview-equipment", { prefix: equipmentPrefix });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        setPreviewedEquipment(data.equipment || []);
+        setIsEquipmentReviewOpen(true);
+        toast({
+          title: "Equipment Preview Ready",
+          description: `Found ${data.totalCount} equipment (${data.newCount} new, ${data.existingCount} existing)`,
+        });
+      } else {
+        toast({
+          title: "Preview Failed",
+          description: data.message || "Could not preview equipment",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to preview equipment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importItemsMutation = useMutation({
+    mutationFn: async (selectedItems: any[]) => {
+      const response = await apiRequest("POST", "/api/dynamics365/import-items", { items: selectedItems });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        setIsItemsReviewOpen(false);
+        setPreviewedItems([]);
+        toast({
+          title: "Import Successful",
+          description: `Imported ${data.savedCount} new items, updated ${data.updatedCount} items`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: data.message || "Import failed",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to import items",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const importEquipmentMutation = useMutation({
+    mutationFn: async ({ selectedEquipment, defaultCategoryId }: { selectedEquipment: any[], defaultCategoryId: string | null }) => {
+      const response = await apiRequest("POST", "/api/dynamics365/import-equipment", { 
+        equipment: selectedEquipment,
+        defaultCategoryId,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        setIsEquipmentReviewOpen(false);
+        setPreviewedEquipment([]);
+        toast({
+          title: "Import Successful",
+          description: `Imported ${data.savedCount} new equipment, updated ${data.updatedCount} equipment`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: data.message || "Import failed",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to import equipment",
         variant: "destructive",
       });
     },
@@ -1145,41 +1285,107 @@ export default function AdminSettings() {
               </Card>
 
               {d365Settings && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <RefreshCw className="h-5 w-5" />
-                      Sync Items from Dynamics 365
-                    </CardTitle>
-                    <CardDescription>Synchronize item catalog from Dynamics 365 Business Central</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        This will fetch all items from Dynamics 365 and sync them to the local database. Existing items will be updated, and new items will be added.
-                      </AlertDescription>
-                    </Alert>
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <RefreshCw className="h-5 w-5" />
+                        Sync Items from Dynamics 365
+                      </CardTitle>
+                      <CardDescription>Synchronize spare parts and items from Dynamics 365 Business Central</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Fetch items from D365 where Item No starts with a specific prefix. Review and select items before importing.
+                        </AlertDescription>
+                      </Alert>
 
-                    <Button
-                      onClick={() => syncFromD365Mutation.mutate()}
-                      disabled={syncFromD365Mutation.isPending}
-                      data-testid="button-sync-d365"
-                    >
-                      {syncFromD365Mutation.isPending ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Syncing Items...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-4 w-4 mr-2" />
-                          Sync from Dynamics 365
-                        </>
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
+                      <div className="space-y-2">
+                        <Label htmlFor="items-prefix">Item Number Prefix</Label>
+                        <Input
+                          id="items-prefix"
+                          value={itemsPrefix}
+                          onChange={(e) => setItemsPrefix(e.target.value)}
+                          placeholder="e.g., SP-"
+                          data-testid="input-items-prefix"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Only items where "No" starts with this prefix will be fetched
+                        </p>
+                      </div>
+
+                      <Button
+                        onClick={() => previewItemsMutation.mutate()}
+                        disabled={previewItemsMutation.isPending || !itemsPrefix}
+                        data-testid="button-preview-items"
+                      >
+                        {previewItemsMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching Items...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" />
+                            Preview & Sync Items
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Truck className="h-5 w-5" />
+                        Sync Equipment from Dynamics 365
+                      </CardTitle>
+                      <CardDescription>Synchronize heavy equipment from Dynamics 365 Business Central</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Fetch equipment from D365 where Equipment No/Asset No starts with a specific prefix. Review and select equipment before importing.
+                        </AlertDescription>
+                      </Alert>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="equipment-prefix">Equipment Number Prefix</Label>
+                        <Input
+                          id="equipment-prefix"
+                          value={equipmentPrefix}
+                          onChange={(e) => setEquipmentPrefix(e.target.value)}
+                          placeholder="e.g., EQ-"
+                          data-testid="input-equipment-prefix"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Only equipment where "No" starts with this prefix will be fetched
+                        </p>
+                      </div>
+
+                      <Button
+                        onClick={() => previewEquipmentMutation.mutate()}
+                        disabled={previewEquipmentMutation.isPending || !equipmentPrefix}
+                        data-testid="button-preview-equipment"
+                      >
+                        {previewEquipmentMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching Equipment...
+                          </>
+                        ) : (
+                          <>
+                            <Truck className="h-4 w-4 mr-2" />
+                            Preview & Sync Equipment
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </>
               )}
             </div>
           </TabsContent>
@@ -1408,6 +1614,29 @@ export default function AdminSettings() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* D365 Items Review Dialog */}
+      <D365ItemsReviewDialog
+        open={isItemsReviewOpen}
+        onOpenChange={setIsItemsReviewOpen}
+        items={previewedItems}
+        onImport={async (selectedItems) => {
+          await importItemsMutation.mutateAsync(selectedItems);
+        }}
+        isImporting={importItemsMutation.isPending}
+      />
+
+      {/* D365 Equipment Review Dialog */}
+      <D365EquipmentReviewDialog
+        open={isEquipmentReviewOpen}
+        onOpenChange={setIsEquipmentReviewOpen}
+        equipment={previewedEquipment}
+        categories={equipmentCategories}
+        onImport={async (selectedEquipment, defaultCategoryId) => {
+          await importEquipmentMutation.mutateAsync({ selectedEquipment, defaultCategoryId });
+        }}
+        isImporting={importEquipmentMutation.isPending}
+      />
     </div>
   );
 }

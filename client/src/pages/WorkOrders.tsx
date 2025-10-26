@@ -1321,95 +1321,47 @@ export default function WorkOrdersPage() {
           ) : inspectionDetails ? (
             <div className="space-y-6">
               {/* Equipment Details */}
-              {inspectionDetails.reception && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Equipment Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-6">
-                    <div>
-                      <Label className="text-muted-foreground text-sm">Equipment:</Label>
-                      <p className="font-medium mt-1">{inspectionDetails.reception.equipment?.model || inspectionDetails.reception.plantNumber}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-sm">Plant Number:</Label>
-                      <p className="font-medium mt-1">{inspectionDetails.reception.plantNumber}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-sm">Service Type:</Label>
-                      <div className="mt-1">
-                        <Badge variant="secondary">{inspectionDetails.serviceType}</Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-sm">Inspector:</Label>
-                      <p className="font-medium mt-1">{inspectionDetails.inspector?.fullName || "N/A"}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-sm">Completed Date:</Label>
-                      <p className="font-medium mt-1">
-                        {inspectionDetails.inspectionDate 
-                          ? new Date(inspectionDetails.inspectionDate).toLocaleDateString('en-US', { 
-                              month: '2-digit', 
-                              day: '2-digit', 
-                              year: 'numeric' 
-                            })
-                          : "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-sm">Status:</Label>
-                      <div className="mt-1">
-                        <Badge>{inspectionDetails.status}</Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Inspection Details */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Inspection Details</CardTitle>
+                  <CardTitle className="text-lg">Equipment Details</CardTitle>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-6">
                   <div>
-                    <Label className="text-muted-foreground text-sm">Inspection Number</Label>
-                    <p className="font-medium mt-1">{inspectionDetails.inspectionNumber}</p>
+                    <Label className="text-muted-foreground text-sm">Equipment:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.reception?.equipment?.model || inspectionDetails.reception?.equipment?.plantNumber || "N/A"}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-sm">Assigned Inspection Officer</Label>
-                    <p className="font-medium mt-1">{inspectionDetails.inspector?.fullName || "N/A"}</p>
+                    <Label className="text-muted-foreground text-sm">Plant Number:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.reception?.plantNumber || "N/A"}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-sm">Overall Condition</Label>
+                    <Label className="text-muted-foreground text-sm">Service Type:</Label>
                     <div className="mt-1">
-                      <Badge className={
-                        inspectionDetails.overallCondition === "Good" ? "bg-green-500 hover:bg-green-600" :
-                        inspectionDetails.overallCondition === "Fair" ? "bg-yellow-500 hover:bg-yellow-600" : "bg-red-500 hover:bg-red-600"
-                      }>
-                        {inspectionDetails.overallCondition}
-                      </Badge>
+                      <Badge variant="secondary">{inspectionDetails.serviceType || "N/A"}</Badge>
                     </div>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-sm">Status</Label>
+                    <Label className="text-muted-foreground text-sm">Inspector:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.inspector?.fullName || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Completed Date:</Label>
+                    <p className="font-medium mt-1">
+                      {inspectionDetails.inspectionDate 
+                        ? new Date(inspectionDetails.inspectionDate).toLocaleDateString('en-US', { 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            year: 'numeric' 
+                          })
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Status:</Label>
                     <div className="mt-1">
                       <Badge>{inspectionDetails.status}</Badge>
                     </div>
                   </div>
-                  {inspectionDetails.findings && (
-                    <div className="col-span-2">
-                      <Label className="text-muted-foreground text-sm">Findings</Label>
-                      <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.findings}</p>
-                    </div>
-                  )}
-                  {inspectionDetails.recommendations && (
-                    <div className="col-span-2">
-                      <Label className="text-muted-foreground text-sm">Recommendations</Label>
-                      <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.recommendations}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 

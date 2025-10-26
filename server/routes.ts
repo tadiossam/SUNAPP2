@@ -1541,6 +1541,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "completed"
       });
 
+      // Auto-create work order if inspection has associated reception
+      if (inspection.receptionId) {
+        try {
+          const reception = await storage.getReceptionById(inspection.receptionId);
+          if (reception) {
+            // Auto-generate work order number using MAX to avoid duplicates
+            const now = new Date();
+            const year = now.getFullYear();
+            const existingWorkOrders = await storage.getAllWorkOrders();
+            const currentYearWorkOrders = existingWorkOrders.filter(wo => 
+              wo.workOrderNumber?.startsWith(`WO-${year}`)
+            );
+            
+            // Find the highest suffix number to avoid collisions (supports any number of digits)
+            let maxSuffix = 0;
+            for (const wo of currentYearWorkOrders) {
+              const match = wo.workOrderNumber?.match(/WO-\d{4}-(\d+)/);
+              if (match) {
+                const suffix = parseInt(match[1], 10);
+                if (suffix > maxSuffix) {
+                  maxSuffix = suffix;
+                }
+              }
+            }
+            const nextNumber = maxSuffix + 1;
+            const workOrderNumber = `WO-${year}-${String(nextNumber).padStart(3, '0')}`;
+
+            // Determine work type from inspection findings
+            const workType = inspection.overallCondition === "Poor" ? "Major Repair" : "Routine Maintenance";
+
+            // Create work order - let any errors propagate to indicate failure
+            await storage.createWorkOrder({
+              workOrderNumber,
+              equipmentId: reception.equipmentId,
+              workType,
+              priority: inspection.overallCondition === "Poor" ? "High" : "Medium",
+              description: `Work order auto-created from approved inspection ${inspection.inspectionNumber}`,
+              scheduledDate: new Date(),
+              inspectionId: inspection.id,
+              receptionId: reception.id,
+              status: "pending",
+            });
+            
+            // Update reception status to "work_order_created" after work order is created
+            await storage.updateReception(inspection.receptionId, { status: "work_order_created" });
+            
+            console.log(`Successfully created work order ${workOrderNumber} from inspection ${inspection.inspectionNumber}`);
+          }
+        } catch (error) {
+          console.error("Error auto-creating work order from inspection:", error);
+          // Rollback inspection status if work order creation fails
+          await storage.updateInspection(req.params.id, { status: "waiting_for_approval" });
+          return res.status(500).json({ 
+            error: "Failed to create work order from approved inspection. Please try again or create work order manually." 
+          });
+        }
+      }
+
       res.json(updatedInspection);
     } catch (error) {
       console.error("Error approving inspection:", error);
@@ -1987,22 +2045,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If inspection approval is approved, update inspection status and auto-create work order
       if (approval.approvalType === "inspection" && approval.status === "approved" && approval.referenceId) {
+        let inspection = null;
         try {
-          const inspection = await storage.getInspectionById(approval.referenceId);
+          inspection = await storage.getInspectionById(approval.referenceId);
           if (inspection && inspection.receptionId) {
             // Update inspection status to "completed"
             await storage.updateInspection(inspection.id, { status: "completed" });
             
             const reception = await storage.getReceptionById(inspection.receptionId);
             if (reception) {
-              // Auto-generate work order number
+              // Auto-generate work order number using MAX to avoid duplicates (supports any number of digits)
               const now = new Date();
               const year = now.getFullYear();
               const existingWorkOrders = await storage.getAllWorkOrders();
               const currentYearWorkOrders = existingWorkOrders.filter(wo => 
                 wo.workOrderNumber?.startsWith(`WO-${year}`)
               );
-              const nextNumber = currentYearWorkOrders.length + 1;
+              
+              // Find the highest suffix number to avoid collisions (supports any number of digits)
+              let maxSuffix = 0;
+              for (const wo of currentYearWorkOrders) {
+                const match = wo.workOrderNumber?.match(/WO-\d{4}-(\d+)/);
+                if (match) {
+                  const suffix = parseInt(match[1], 10);
+                  if (suffix > maxSuffix) {
+                    maxSuffix = suffix;
+                  }
+                }
+              }
+              const nextNumber = maxSuffix + 1;
               const workOrderNumber = `WO-${year}-${String(nextNumber).padStart(3, '0')}`;
 
               // Determine work type from inspection findings
@@ -2023,11 +2094,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // Update reception status to "work_order_created" after work order is created
               await storage.updateReception(inspection.receptionId, { status: "work_order_created" });
+              
+              console.log(`Successfully created work order ${workOrderNumber} from inspection ${inspection.inspectionNumber}`);
             }
           }
         } catch (error) {
           console.error("Error auto-creating work order from inspection:", error);
-          // Don't fail the approval update if work order creation fails
+          // Rollback inspection status if work order creation fails
+          if (inspection) {
+            await storage.updateInspection(inspection.id, { status: "waiting_for_approval" });
+          }
+          // Rollback approval status as well
+          await storage.updateApproval(req.params.id, { status: "pending" });
+          return res.status(500).json({ 
+            error: "Failed to create work order from approved inspection. Please try again or create work order manually." 
+          });
         }
       }
 

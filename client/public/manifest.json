@@ -1,6 +1,6 @@
 {
-  "name": "Gelan Terminal Mintenance - Heavy Equipment Parts Management",
-  "short_name": "Gelan Terminal Mintenance",
+  "name": "Gelan Terminal Maintenance",
+  "short_name": "Gelan Terminal Maintenance",
   "description": "Offline-capable spare parts catalog for Sunshine Construction PLC's heavy equipment fleet with 3D CAD models, maintenance tutorials, and manufacturing specifications",
   "start_url": "/",
   "display": "standalone",

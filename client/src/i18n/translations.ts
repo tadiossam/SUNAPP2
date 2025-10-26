@@ -19,7 +19,7 @@ export const translations = {
     navigation: "Navigation",
     
     // Branding
-    appName: "Gelan Terminal Mintenance",
+    appName: "Gelan Terminal Maintenance",
     heavyEquipment: "Heavy Equipment",
     
     // Common
@@ -319,7 +319,7 @@ export const translations = {
     navigation: "አሰሳ",
     
     // Branding
-    appName: "Gelan Terminal Mintenance",
+    appName: "Gelan Terminal Maintenance",
     heavyEquipment: "ከባድ መሳሪያዎች",
     
     // Common

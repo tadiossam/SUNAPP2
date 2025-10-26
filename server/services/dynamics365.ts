@@ -14,6 +14,19 @@ export interface D365Item {
   Last_Date_Modified?: string;
 }
 
+export interface D365Equipment {
+  No: string;
+  Description: string;
+  Description_2?: string;
+  Make?: string;
+  Model?: string;
+  Serial_No?: string;
+  Asset_No?: string;
+  Plant_Number?: string;
+  Unit_Price?: number;
+  Type?: string;
+}
+
 export class Dynamics365Service {
   private client: AxiosInstance;
   private baseUrl: string;
@@ -191,6 +204,93 @@ export class Dynamics365Service {
       });
       throw new Error(`Failed to fetch item from Dynamics 365: ${error.message}`);
     }
+  }
+
+  /**
+   * Fetch all equipment/fixed assets from Dynamics 365 Business Central
+   * This attempts to fetch from Fixed Asset or Item tables based on filters
+   */
+  async fetchEquipment(filter?: string): Promise<D365Equipment[]> {
+    try {
+      const encodedCompany = encodeURIComponent(this.company);
+      
+      // Try different endpoint variations for equipment/fixed assets
+      const endpoints = [
+        // Fixed Asset endpoints
+        `ODataV4/Company('${encodedCompany}')/FixedAsset`,
+        `ODataV4/Company('${encodedCompany}')/Fixed_Asset`,
+        `OData/Company('${encodedCompany}')/FixedAsset`,
+        `OData/Company('${encodedCompany}')/Fixed_Asset`,
+        
+        // Could also be in Items table with specific type
+        `ODataV4/Company('${encodedCompany}')/items`,
+        `ODataV4/Company('${encodedCompany}')/Item`,
+        
+        // API route variations
+        `api/v2.0/companies(${encodedCompany})/fixedAssets`,
+        `api/v1.0/companies(${encodedCompany})/fixedAssets`,
+      ];
+
+      let lastError: any = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          let url = endpoint;
+          
+          // Add filter if provided
+          if (filter) {
+            url += `?$filter=${encodeURIComponent(filter)}`;
+          }
+
+          console.log(`Trying D365 equipment endpoint: ${url}`);
+          
+          const response = await this.client.get(url);
+          
+          // Check for various response formats
+          if (response.data) {
+            // OData format
+            if (response.data.value && Array.isArray(response.data.value)) {
+              console.log(`✓ Success! Found ${response.data.value.length} equipment using endpoint: ${endpoint}`);
+              return response.data.value;
+            }
+            // Direct array format
+            if (Array.isArray(response.data)) {
+              console.log(`✓ Success! Found ${response.data.length} equipment using endpoint: ${endpoint}`);
+              return response.data;
+            }
+          }
+        } catch (error: any) {
+          const statusCode = error.response?.status;
+          const errorMsg = error.response?.data?.error?.message || error.message;
+          console.log(`✗ Equipment endpoint ${endpoint} failed: ${statusCode || 'Network Error'} - ${errorMsg}`);
+          lastError = error;
+          // Continue to next endpoint
+        }
+      }
+      
+      // If all endpoints failed, throw the last error
+      console.error('All D365 equipment endpoints failed. Last error:', {
+        message: lastError?.message,
+        status: lastError?.response?.status,
+        data: lastError?.response?.data,
+      });
+      throw new Error(`Failed to fetch equipment from Dynamics 365. Tried ${endpoints.length} different endpoints. Last error: ${lastError?.message}`);
+    } catch (error: any) {
+      console.error('Error fetching equipment from D365:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch equipment that start with a specific prefix (e.g., "EQ-")
+   */
+  async fetchEquipmentByPrefix(prefix: string): Promise<D365Equipment[]> {
+    const filter = `startswith(No, '${prefix}')`;
+    return this.fetchEquipment(filter);
   }
 }
 

@@ -3267,6 +3267,242 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Preview items from Dynamics 365 with prefix filtering
+  app.post("/api/dynamics365/preview-items", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { prefix } = req.body;
+      
+      if (!prefix || typeof prefix !== 'string') {
+        return res.status(400).json({ error: "Prefix is required" });
+      }
+
+      const { d365Service } = await import('./services/dynamics365');
+      
+      // Fetch items with the specified prefix
+      const d365Items = await d365Service.fetchItemsByPrefix(prefix);
+      
+      console.log(`Found ${d365Items.length} items with prefix "${prefix}" from Dynamics 365`);
+      
+      // Check which items already exist in database
+      const itemsWithStatus = await Promise.all(d365Items.map(async (d365Item) => {
+        const existingItem = await db.select()
+          .from(items)
+          .where(eq(items.itemNo, d365Item.No))
+          .limit(1);
+        
+        return {
+          ...d365Item,
+          existsInDb: existingItem.length > 0,
+        };
+      }));
+      
+      res.json({
+        success: true,
+        items: itemsWithStatus,
+        totalCount: d365Items.length,
+        newCount: itemsWithStatus.filter(i => !i.existsInDb).length,
+        existingCount: itemsWithStatus.filter(i => i.existsInDb).length,
+      });
+    } catch (error: any) {
+      console.error("D365 preview items error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to preview items", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Preview equipment from Dynamics 365 with prefix filtering
+  app.post("/api/dynamics365/preview-equipment", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { prefix } = req.body;
+      
+      if (!prefix || typeof prefix !== 'string') {
+        return res.status(400).json({ error: "Prefix is required" });
+      }
+
+      const { d365Service } = await import('./services/dynamics365');
+      
+      // Fetch equipment with the specified prefix
+      const d365Equipment = await d365Service.fetchEquipmentByPrefix(prefix);
+      
+      console.log(`Found ${d365Equipment.length} equipment with prefix "${prefix}" from Dynamics 365`);
+      
+      // Check which equipment already exist in database
+      const equipmentWithStatus = await Promise.all(d365Equipment.map(async (d365Equip) => {
+        // Check by asset number or other unique identifier
+        const existingEquip = await db.select()
+          .from(equipment)
+          .where(eq(equipment.assetNo, d365Equip.Asset_No || d365Equip.No))
+          .limit(1);
+        
+        return {
+          ...d365Equip,
+          existsInDb: existingEquip.length > 0,
+        };
+      }));
+      
+      res.json({
+        success: true,
+        equipment: equipmentWithStatus,
+        totalCount: d365Equipment.length,
+        newCount: equipmentWithStatus.filter(e => !e.existsInDb).length,
+        existingCount: equipmentWithStatus.filter(e => e.existsInDb).length,
+      });
+    } catch (error: any) {
+      console.error("D365 preview equipment error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to preview equipment", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Import selected items from D365 preview
+  app.post("/api/dynamics365/import-items", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { items: selectedItems } = req.body;
+      
+      if (!Array.isArray(selectedItems) || selectedItems.length === 0) {
+        return res.status(400).json({ error: "No items selected for import" });
+      }
+
+      let savedCount = 0;
+      let updatedCount = 0;
+      const errors: string[] = [];
+      
+      for (const d365Item of selectedItems) {
+        try {
+          // Check if item exists
+          const existingItem = await db.select()
+            .from(items)
+            .where(eq(items.itemNo, d365Item.No))
+            .limit(1);
+          
+          const itemData = {
+            itemNo: d365Item.No,
+            description: d365Item.Description,
+            description2: d365Item.Description_2 || null,
+            type: d365Item.Type || null,
+            baseUnitOfMeasure: d365Item.Base_Unit_of_Measure || null,
+            unitPrice: d365Item.Unit_Price?.toString() || null,
+            unitCost: d365Item.Unit_Cost?.toString() || null,
+            inventory: d365Item.Inventory?.toString() || null,
+            vendorNo: d365Item.Vendor_No || null,
+            vendorItemNo: d365Item.Vendor_Item_No || null,
+            lastDateModified: d365Item.Last_Date_Modified || null,
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          if (existingItem.length > 0) {
+            // Update existing item
+            await db.update(items)
+              .set(itemData)
+              .where(eq(items.itemNo, d365Item.No));
+            updatedCount++;
+          } else {
+            // Insert new item
+            await db.insert(items).values(itemData);
+            savedCount++;
+          }
+        } catch (itemError: any) {
+          console.error(`Error saving item ${d365Item.No}:`, itemError.message);
+          errors.push(`${d365Item.No}: ${itemError.message}`);
+        }
+      }
+      
+      console.log(`Imported ${savedCount} new items, updated ${updatedCount} items`);
+      
+      res.json({
+        success: true,
+        savedCount,
+        updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+        totalProcessed: selectedItems.length,
+      });
+    } catch (error: any) {
+      console.error("D365 import items error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Import failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Import selected equipment from D365 preview
+  app.post("/api/dynamics365/import-equipment", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { equipment: selectedEquipment, defaultCategoryId } = req.body;
+      
+      if (!Array.isArray(selectedEquipment) || selectedEquipment.length === 0) {
+        return res.status(400).json({ error: "No equipment selected for import" });
+      }
+
+      let savedCount = 0;
+      let updatedCount = 0;
+      const errors: string[] = [];
+      
+      for (const d365Equip of selectedEquipment) {
+        try {
+          // Check if equipment exists by asset number
+          const assetNo = d365Equip.Asset_No || d365Equip.No;
+          const existingEquip = await db.select()
+            .from(equipment)
+            .where(eq(equipment.assetNo, assetNo))
+            .limit(1);
+          
+          const equipData = {
+            categoryId: defaultCategoryId || null,
+            equipmentType: d365Equip.Type || d365Equip.Description?.split(' ')[0] || 'UNKNOWN',
+            make: d365Equip.Make || 'UNKNOWN',
+            model: d365Equip.Model || d365Equip.Description || 'UNKNOWN',
+            assetNo: assetNo,
+            machineSerial: d365Equip.Serial_No || null,
+            plantNumber: d365Equip.Plant_Number || null,
+            price: d365Equip.Unit_Price?.toString() || null,
+            remarks: `Imported from Dynamics 365 - ${d365Equip.Description}`,
+          };
+          
+          if (existingEquip.length > 0) {
+            // Update existing equipment
+            await db.update(equipment)
+              .set(equipData)
+              .where(eq(equipment.assetNo, assetNo));
+            updatedCount++;
+          } else {
+            // Insert new equipment
+            await db.insert(equipment).values(equipData);
+            savedCount++;
+          }
+        } catch (equipError: any) {
+          console.error(`Error saving equipment ${d365Equip.No}:`, equipError.message);
+          errors.push(`${d365Equip.No}: ${equipError.message}`);
+        }
+      }
+      
+      console.log(`Imported ${savedCount} new equipment, updated ${updatedCount} equipment`);
+      
+      res.json({
+        success: true,
+        savedCount,
+        updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+        totalProcessed: selectedEquipment.length,
+      });
+    } catch (error: any) {
+      console.error("D365 import equipment error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Import failed", 
+        error: error.message 
+      });
+    }
+  });
+
   // ==================== Items CRUD Routes ====================
   
   // Get all items from database

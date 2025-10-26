@@ -208,27 +208,31 @@ export class Dynamics365Service {
 
   /**
    * Fetch all equipment/fixed assets from Dynamics 365 Business Central
-   * This attempts to fetch from Fixed Asset or Item tables based on filters
+   * ONLY fetches from Fixed Asset entities - does not fall back to Item list
    */
   async fetchEquipment(filter?: string): Promise<D365Equipment[]> {
     try {
       const encodedCompany = encodeURIComponent(this.company);
       
-      // Try different endpoint variations for equipment/fixed assets
+      // Try different endpoint variations for Fixed Assets ONLY
       const endpoints = [
-        // Fixed Asset endpoints
+        // Fixed Asset endpoints (OData V4)
         `ODataV4/Company('${encodedCompany}')/FixedAsset`,
         `ODataV4/Company('${encodedCompany}')/Fixed_Asset`,
+        `ODataV4/Company('${encodedCompany}')/FixedAssets`,
+        
+        // Fixed Asset endpoints (OData)
         `OData/Company('${encodedCompany}')/FixedAsset`,
         `OData/Company('${encodedCompany}')/Fixed_Asset`,
-        
-        // Could also be in Items table with specific type
-        `ODataV4/Company('${encodedCompany}')/items`,
-        `ODataV4/Company('${encodedCompany}')/Item`,
+        `OData/Company('${encodedCompany}')/FixedAssets`,
         
         // API route variations
         `api/v2.0/companies(${encodedCompany})/fixedAssets`,
         `api/v1.0/companies(${encodedCompany})/fixedAssets`,
+        
+        // Web services variations
+        `WS/Company('${encodedCompany}')/Page/FixedAsset`,
+        `WS/${encodedCompany}/Page/FixedAsset`,
       ];
 
       let lastError: any = null;
@@ -269,12 +273,12 @@ export class Dynamics365Service {
       }
       
       // If all endpoints failed, throw the last error
-      console.error('All D365 equipment endpoints failed. Last error:', {
+      console.error('All D365 Fixed Asset endpoints failed. Last error:', {
         message: lastError?.message,
         status: lastError?.response?.status,
         data: lastError?.response?.data,
       });
-      throw new Error(`Failed to fetch equipment from Dynamics 365. Tried ${endpoints.length} different endpoints. Last error: ${lastError?.message}`);
+      throw new Error(`Failed to fetch equipment from Dynamics 365 Fixed Assets. Tried ${endpoints.length} different Fixed Asset endpoints. Last error: ${lastError?.message}`);
     } catch (error: any) {
       console.error('Error fetching equipment from D365:', {
         message: error.message,

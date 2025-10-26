@@ -1284,109 +1284,141 @@ export default function AdminSettings() {
                 </CardContent>
               </Card>
 
-              {d365Settings && (
-                <>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <RefreshCw className="h-5 w-5" />
-                        Sync Items from Dynamics 365
-                      </CardTitle>
-                      <CardDescription>Synchronize spare parts and items from Dynamics 365 Business Central</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Fetch items from D365 where Item No starts with a specific prefix. Review and select items before importing.
-                        </AlertDescription>
-                      </Alert>
+              {/* Sync Items Card - Always visible */}
+              <Card className={!d365Settings || d365Settings.lastTestStatus !== 'success' ? "opacity-60" : ""}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5" />
+                    Sync Items from Dynamics 365
+                  </CardTitle>
+                  <CardDescription>Synchronize spare parts and items from Dynamics 365 Business Central</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!d365Settings ? (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Please configure and save Dynamics 365 connection settings above before syncing.
+                      </AlertDescription>
+                    </Alert>
+                  ) : d365Settings.lastTestStatus !== 'success' ? (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Connection test failed. Please verify your settings and test the connection successfully before syncing.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Fetch items from D365 where Item No starts with a specific prefix. Review and select items before importing.
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
-                      <div className="space-y-2">
-                        <Label htmlFor="items-prefix">Item Number Prefix</Label>
-                        <Input
-                          id="items-prefix"
-                          value={itemsPrefix}
-                          onChange={(e) => setItemsPrefix(e.target.value)}
-                          placeholder="e.g., SP-"
-                          data-testid="input-items-prefix"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Only items where "No" starts with this prefix will be fetched
-                        </p>
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="items-prefix">Item Number Prefix</Label>
+                    <Input
+                      id="items-prefix"
+                      value={itemsPrefix}
+                      onChange={(e) => setItemsPrefix(e.target.value)}
+                      placeholder="e.g., SP-"
+                      disabled={!d365Settings || d365Settings.lastTestStatus !== 'success'}
+                      data-testid="input-items-prefix"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Only items where "No" starts with this prefix will be fetched
+                    </p>
+                  </div>
 
-                      <Button
-                        onClick={() => previewItemsMutation.mutate()}
-                        disabled={previewItemsMutation.isPending || !itemsPrefix}
-                        data-testid="button-preview-items"
-                      >
-                        {previewItemsMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching Items...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4 mr-2" />
-                            Preview & Sync Items
-                          </>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <Button
+                    onClick={() => previewItemsMutation.mutate()}
+                    disabled={!d365Settings || d365Settings.lastTestStatus !== 'success' || previewItemsMutation.isPending || !itemsPrefix}
+                    data-testid="button-preview-items"
+                  >
+                    {previewItemsMutation.isPending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Fetching Items...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Preview & Sync Items
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Truck className="h-5 w-5" />
-                        Sync Equipment from Dynamics 365
-                      </CardTitle>
-                      <CardDescription>Synchronize heavy equipment from Dynamics 365 Business Central</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Fetch equipment from D365 where Equipment No/Asset No starts with a specific prefix. Review and select equipment before importing.
-                        </AlertDescription>
-                      </Alert>
+              {/* Sync Equipment Card - Always visible */}
+              <Card className={!d365Settings || d365Settings.lastTestStatus !== 'success' ? "opacity-60" : ""}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="h-5 w-5" />
+                    Sync Equipment from Dynamics 365
+                  </CardTitle>
+                  <CardDescription>Synchronize heavy equipment from Dynamics 365 Business Central</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!d365Settings ? (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Please configure and save Dynamics 365 connection settings above before syncing.
+                      </AlertDescription>
+                    </Alert>
+                  ) : d365Settings.lastTestStatus !== 'success' ? (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Connection test failed. Please verify your settings and test the connection successfully before syncing.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Fetch equipment from D365 where Equipment No/Asset No starts with a specific prefix. Review and select equipment before importing.
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
-                      <div className="space-y-2">
-                        <Label htmlFor="equipment-prefix">Equipment Number Prefix</Label>
-                        <Input
-                          id="equipment-prefix"
-                          value={equipmentPrefix}
-                          onChange={(e) => setEquipmentPrefix(e.target.value)}
-                          placeholder="e.g., EQ-"
-                          data-testid="input-equipment-prefix"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Only equipment where "No" starts with this prefix will be fetched
-                        </p>
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="equipment-prefix">Equipment Number Prefix</Label>
+                    <Input
+                      id="equipment-prefix"
+                      value={equipmentPrefix}
+                      onChange={(e) => setEquipmentPrefix(e.target.value)}
+                      placeholder="e.g., EQ-"
+                      disabled={!d365Settings || d365Settings.lastTestStatus !== 'success'}
+                      data-testid="input-equipment-prefix"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Only equipment where "No" starts with this prefix will be fetched
+                    </p>
+                  </div>
 
-                      <Button
-                        onClick={() => previewEquipmentMutation.mutate()}
-                        disabled={previewEquipmentMutation.isPending || !equipmentPrefix}
-                        data-testid="button-preview-equipment"
-                      >
-                        {previewEquipmentMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching Equipment...
-                          </>
-                        ) : (
-                          <>
-                            <Truck className="h-4 w-4 mr-2" />
-                            Preview & Sync Equipment
-                          </>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
+                  <Button
+                    onClick={() => previewEquipmentMutation.mutate()}
+                    disabled={!d365Settings || d365Settings.lastTestStatus !== 'success' || previewEquipmentMutation.isPending || !equipmentPrefix}
+                    data-testid="button-preview-equipment"
+                  >
+                    {previewEquipmentMutation.isPending ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Fetching Equipment...
+                      </>
+                    ) : (
+                      <>
+                        <Truck className="h-4 w-4 mr-2" />
+                        Preview & Sync Equipment
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 

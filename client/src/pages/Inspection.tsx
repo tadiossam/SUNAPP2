@@ -342,17 +342,16 @@ export default function Inspection() {
     setChecklistItems((prev) => {
       const updated = [...prev];
       
-      // Group 1 (Existence): አለዉ and የለዉም - only one can be selected (radio button behavior)
-      if (field === "hasItem" || field === "doesNotHave") {
-        updated[index] = {
-          ...updated[index],
-          hasItem: field === "hasItem" ? value : false,
-          doesNotHave: field === "doesNotHave" ? value : false,
-        };
-      } else {
-        // All other checkboxes work independently
-        updated[index] = { ...updated[index], [field]: value };
-      }
+      // All checkboxes work as one radio group - only one can be selected at a time
+      updated[index] = {
+        ...updated[index],
+        hasItem: field === "hasItem" ? value : false,
+        doesNotHave: field === "doesNotHave" ? value : false,
+        isWorking: field === "isWorking" ? value : false,
+        notWorking: field === "notWorking" ? value : false,
+        isBroken: field === "isBroken" ? value : false,
+        isCracked: field === "isCracked" ? value : false,
+      };
       
       return updated;
     });

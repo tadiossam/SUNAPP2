@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, or, ilike } from "drizzle-orm";
+import { eq, or, ilike, sql, desc } from "drizzle-orm";
 import { z } from "zod";
 import { 
   insertEquipmentCategorySchema,
@@ -31,6 +31,8 @@ import {
   items,
   insertItemSchema,
   equipment,
+  d365SyncLogs,
+  insertD365SyncLogSchema,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -3364,7 +3366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Import selected items from D365 preview
   app.post("/api/dynamics365/import-items", isCEOOrAdmin, async (req, res) => {
     try {
-      const { items: selectedItems } = req.body;
+      const { items: selectedItems, prefix } = req.body;
       
       if (!Array.isArray(selectedItems) || selectedItems.length === 0) {
         return res.status(400).json({ error: "No items selected for import" });
@@ -3372,6 +3374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let savedCount = 0;
       let updatedCount = 0;
+      let skippedCount = 0;
       const errors: string[] = [];
       
       for (const d365Item of selectedItems) {
@@ -3412,8 +3415,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (itemError: any) {
           console.error(`Error saving item ${d365Item.No}:`, itemError.message);
           errors.push(`${d365Item.No}: ${itemError.message}`);
+          skippedCount++;
         }
       }
+      
+      // Create sync log entry
+      const logStatus = errors.length > 0 ? (errors.length === selectedItems.length ? "failed" : "partial") : "success";
+      await db.insert(d365SyncLogs).values({
+        syncType: "items",
+        status: logStatus,
+        prefix: prefix || null,
+        recordsImported: savedCount,
+        recordsUpdated: updatedCount,
+        recordsSkipped: skippedCount,
+        totalRecords: selectedItems.length,
+        errorMessage: errors.length > 0 ? errors.join("; ") : null,
+        importData: JSON.stringify(selectedItems.slice(0, 10)), // Store first 10 items as sample
+      });
       
       console.log(`Imported ${savedCount} new items, updated ${updatedCount} items`);
       
@@ -3426,6 +3444,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("D365 import items error:", error);
+      
+      // Log the failed import
+      try {
+        await db.insert(d365SyncLogs).values({
+          syncType: "items",
+          status: "failed",
+          prefix: req.body.prefix || null,
+          recordsImported: 0,
+          recordsUpdated: 0,
+          recordsSkipped: 0,
+          totalRecords: req.body.items?.length || 0,
+          errorMessage: error.message,
+        });
+      } catch (logError) {
+        console.error("Failed to log import error:", logError);
+      }
+      
       res.status(500).json({ 
         success: false, 
         message: "Import failed", 
@@ -3437,7 +3472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Import selected equipment from D365 preview
   app.post("/api/dynamics365/import-equipment", isCEOOrAdmin, async (req, res) => {
     try {
-      const { equipment: selectedEquipment, defaultCategoryId } = req.body;
+      const { equipment: selectedEquipment, defaultCategoryId, prefix } = req.body;
       
       if (!Array.isArray(selectedEquipment) || selectedEquipment.length === 0) {
         return res.status(400).json({ error: "No equipment selected for import" });
@@ -3445,6 +3480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let savedCount = 0;
       let updatedCount = 0;
+      let skippedCount = 0;
       const errors: string[] = [];
       
       for (const d365Equip of selectedEquipment) {
@@ -3482,8 +3518,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (equipError: any) {
           console.error(`Error saving equipment ${d365Equip.No}:`, equipError.message);
           errors.push(`${d365Equip.No}: ${equipError.message}`);
+          skippedCount++;
         }
       }
+      
+      // Create sync log entry
+      const logStatus = errors.length > 0 ? (errors.length === selectedEquipment.length ? "failed" : "partial") : "success";
+      await db.insert(d365SyncLogs).values({
+        syncType: "equipment",
+        status: logStatus,
+        prefix: prefix || null,
+        recordsImported: savedCount,
+        recordsUpdated: updatedCount,
+        recordsSkipped: skippedCount,
+        totalRecords: selectedEquipment.length,
+        errorMessage: errors.length > 0 ? errors.join("; ") : null,
+        importData: JSON.stringify(selectedEquipment.slice(0, 10)), // Store first 10 items as sample
+      });
       
       console.log(`Imported ${savedCount} new equipment, updated ${updatedCount} equipment`);
       
@@ -3496,11 +3547,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("D365 import equipment error:", error);
+      
+      // Log the failed import
+      try {
+        await db.insert(d365SyncLogs).values({
+          syncType: "equipment",
+          status: "failed",
+          prefix: req.body.prefix || null,
+          recordsImported: 0,
+          recordsUpdated: 0,
+          recordsSkipped: 0,
+          totalRecords: req.body.equipment?.length || 0,
+          errorMessage: error.message,
+        });
+      } catch (logError) {
+        console.error("Failed to log import error:", logError);
+      }
+      
       res.status(500).json({ 
         success: false, 
         message: "Import failed", 
         error: error.message 
       });
+    }
+  });
+
+  // Get D365 sync logs
+  app.get("/api/dynamics365/sync-logs", isCEOOrAdmin, async (req, res) => {
+    try {
+      const logs = await db.select()
+        .from(d365SyncLogs)
+        .orderBy(sql`${d365SyncLogs.createdAt} DESC`)
+        .limit(50); // Last 50 sync operations
+      
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Error fetching D365 sync logs:", error);
+      res.status(500).json({ error: "Failed to fetch sync logs" });
     }
   });
 

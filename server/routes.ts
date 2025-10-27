@@ -2997,70 +2997,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Test connection using provided credentials
-      const axios = (await import('axios')).default;
+      // Test connection using NTLM authentication for on-premises D365
+      const httpntlm = (await import('httpntlm')).default;
       
       try {
         const testUrl = `${bcUrl}/ODataV4/Company('${encodeURIComponent(bcCompany)}')/items?$top=1`;
-        console.log(`Testing D365 connection:`, {
+        console.log(`Testing D365 connection with NTLM:`, {
           url: testUrl,
           username: bcUsername,
           company: bcCompany,
         });
         
-        const response = await axios.get(testUrl, {
-          auth: {
+        // Use NTLM authentication for Windows-based D365 BC
+        const response: any = await new Promise((resolve, reject) => {
+          httpntlm.get({
+            url: testUrl,
             username: bcUsername,
             password: bcPassword,
-          },
-          timeout: 10000,
+            workstation: '',
+            domain: '',
+          }, (err: any, res: any) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(res);
+            }
+          });
         });
 
-        if (response.status === 200) {
+        if (response.statusCode === 200) {
           // Update test result in database if settings exist
           await storage.updateDynamics365TestResult('success', 'Connection successful');
           
+          console.log('D365 NTLM connection successful');
+          
           res.json({ 
             success: true, 
-            message: "Connection successful! Successfully connected to Dynamics 365 Business Central." 
+            message: "Connection successful! Successfully connected to Dynamics 365 Business Central using Windows Authentication." 
           });
         } else {
-          await storage.updateDynamics365TestResult('failed', `Unexpected response: ${response.status}`);
+          await storage.updateDynamics365TestResult('failed', `Unexpected response: ${response.statusCode}`);
           res.status(503).json({ 
             success: false, 
-            message: `Connection failed with status ${response.status}` 
+            message: `Connection failed with status ${response.statusCode}` 
           });
         }
-      } catch (axiosError: any) {
+      } catch (ntlmError: any) {
         let errorMessage = "Connection failed";
         let statusCode = 503;
         
-        if (axiosError.code === 'ECONNREFUSED') {
-          errorMessage = "Cannot connect to server. Please check the URL and ensure the server is running.";
+        console.error('D365 NTLM connection error:', ntlmError);
+        
+        if (ntlmError.code === 'ECONNREFUSED') {
+          errorMessage = "Cannot connect to server. Please check the URL and ensure the D365 Business Central server is running.";
           statusCode = 503;
-        } else if (axiosError.code === 'ETIMEDOUT' || axiosError.code === 'ECONNABORTED') {
+        } else if (ntlmError.code === 'ETIMEDOUT' || ntlmError.code === 'ECONNABORTED') {
           errorMessage = "Connection timeout. The server is not responding.";
           statusCode = 504;
-        } else if (axiosError.response?.status === 401) {
-          errorMessage = "Authentication failed. Please check username and password.";
+        } else if (ntlmError.statusCode === 401) {
+          errorMessage = "Authentication failed. Please check username and password. For Windows Authentication, use format: DOMAIN\\Username or just Username if on same domain.";
           statusCode = 401;
-        } else if (axiosError.response?.status === 403) {
-          errorMessage = "Access forbidden. Please check user permissions.";
+        } else if (ntlmError.statusCode === 403) {
+          errorMessage = "Access forbidden. Please check user permissions in D365.";
           statusCode = 403;
-        } else if (axiosError.response?.status === 404) {
-          errorMessage = "Resource not found. Please check the company name and URL.";
+        } else if (ntlmError.statusCode === 404) {
+          errorMessage = "Resource not found. Please check the company name and URL path.";
           statusCode = 404;
-        } else if (axiosError.response?.status === 503) {
-          errorMessage = "Service unavailable (503). The Dynamics 365 Business Central service is not running or is temporarily down. Please check if the service is started on the server.";
+        } else if (ntlmError.statusCode === 503) {
+          errorMessage = "Service unavailable (503). The Dynamics 365 Business Central service is not running or is temporarily down.";
           statusCode = 503;
-        } else if (axiosError.response?.status === 500) {
+        } else if (ntlmError.statusCode === 500) {
           errorMessage = "Server error (500). The Dynamics 365 server encountered an internal error.";
           statusCode = 500;
-        } else if (axiosError.response?.status) {
-          errorMessage = `HTTP Error ${axiosError.response.status}: ${axiosError.response.statusText || axiosError.message}`;
-          statusCode = axiosError.response.status;
+        } else if (ntlmError.statusCode) {
+          errorMessage = `HTTP Error ${ntlmError.statusCode}: ${ntlmError.message || 'Unknown error'}`;
+          statusCode = ntlmError.statusCode;
         } else {
-          errorMessage = axiosError.message || "Unknown connection error";
+          errorMessage = ntlmError.message || "Unknown connection error. Ensure D365 Business Central Web Services are enabled.";
           statusCode = 503;
         }
         
@@ -3310,10 +3323,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Prefix is required" });
       }
 
-      const { d365Service } = await import('./services/dynamics365');
+      // Get D365 settings from database
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ 
+          success: false,
+          error: "D365 settings not configured. Please save settings first." 
+        });
+      }
+
+      const { fetchItemsNTLM } = await import('./services/dynamics365-ntlm');
       
-      // Fetch items with the specified prefix
-      const d365Items = await d365Service.fetchItemsByPrefix(prefix);
+      // Fetch items with the specified prefix using NTLM
+      const d365Items = await fetchItemsNTLM({
+        bcUrl: d365Settings.bcUrl,
+        bcCompany: d365Settings.bcCompany,
+        bcUsername: d365Settings.bcUsername,
+        bcPassword: d365Settings.bcPassword,
+      }, prefix);
       
       console.log(`Found ${d365Items.length} items with prefix "${prefix}" from Dynamics 365`);
       
@@ -3356,10 +3383,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Prefix is required" });
       }
 
-      const { d365Service } = await import('./services/dynamics365');
+      // Get D365 settings from database
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ 
+          success: false,
+          error: "D365 settings not configured. Please save settings first." 
+        });
+      }
+
+      const { fetchEquipmentNTLM } = await import('./services/dynamics365-ntlm');
       
-      // Fetch equipment with the specified prefix
-      const d365Equipment = await d365Service.fetchEquipmentByPrefix(prefix);
+      // Fetch equipment with the specified prefix using NTLM
+      const d365Equipment = await fetchEquipmentNTLM({
+        bcUrl: d365Settings.bcUrl,
+        bcCompany: d365Settings.bcCompany,
+        bcUsername: d365Settings.bcUsername,
+        bcPassword: d365Settings.bcPassword,
+      }, prefix);
       
       console.log(`Found ${d365Equipment.length} equipment with prefix "${prefix}" from Dynamics 365`);
       

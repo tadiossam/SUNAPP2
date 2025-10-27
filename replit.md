@@ -51,6 +51,7 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **D365 Settings Foreign Key Fix**: Updated `dynamics365_settings` and `system_settings` tables to reference `users` table instead of `employees` table, allowing CEO users to save configuration settings
 - **Biometric Import Logging Fix**: Added missing `deviceId` field to import log creation for "Import Selected Users" operation
 - **Timestamp Type Fix**: Changed `lastImportAt` from string (`.toISOString()`) to Date object to match Drizzle schema requirements, fixing "toISOString is not a function" error
+- **D365 NTLM Authentication**: Updated Dynamics 365 Business Central integration to support Windows Authentication (NTLM) for on-premises servers using `httpntlm` library for test connection, preview, and sync operations
 
 ## Windows Compatibility
 The application can run locally on Windows with the following setup:

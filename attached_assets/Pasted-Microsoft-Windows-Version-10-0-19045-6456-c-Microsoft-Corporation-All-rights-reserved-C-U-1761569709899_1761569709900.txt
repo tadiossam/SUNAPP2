@@ -1,0 +1,45 @@
+Microsoft Windows [Version 10.0.19045.6456]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\Solmix\Documents\GitHub\SUNAPP2>npm run db:push
+
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+
+No config path provided, using default 'drizzle.config.ts'
+Reading config file 'C:\Users\Solmix\Documents\GitHub\SUNAPP2\drizzle.config.ts'
+Using 'pg' driver for database querying
+[✓] Pulling schema from database...
+· You're about to add employees_device_user_id_unique unique constraint to the table, which contains 253 items. If this statement fails, you will receive an error from the database. Do you want to truncate employees table?
+
+· You're about to add employees_username_unique unique constraint to the table, which contains 253 items. If this statement fails, you will receive an error from the database. Do you want to truncate employees table?
+
+· You're about to add equipment_inspections_inspection_number_unique unique constraint to the table, which contains 15 items. If this statement fails, you will receive an error from the database. Do you want to truncate equipment_inspections table?
+
+error: column "id" is in a primary key
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.query (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\drizzle-kit\bin.cjs:80601:26)
+    at async pgPush (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\drizzle-kit\bin.cjs:84411:13)
+    at async Object.handler (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\drizzle-kit\bin.cjs:93813:9)
+    at async run (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\drizzle-kit\bin.cjs:93059:7) {
+  length: 104,
+  severity: 'ERROR',
+  code: '42P16',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'tablecmds.c',
+  line: '14124',
+  routine: 'dropconstraint_internal'
+}
+
+C:\Users\Solmix\Documents\GitHub\SUNAPP2>

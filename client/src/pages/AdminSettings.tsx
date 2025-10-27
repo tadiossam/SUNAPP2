@@ -206,6 +206,19 @@ export default function AdminSettings() {
     queryKey: ["/api/dynamics365/sync-logs"],
   });
 
+  // Fetch D365 preview items
+  const { data: previewData, refetch: refetchPreview } = useQuery<{
+    success: boolean;
+    syncId: string;
+    items: any[];
+    totalCount: number;
+    newCount: number;
+    existingCount: number;
+  }>({
+    queryKey: ["/api/dynamics365/preview-items"],
+    enabled: false, // Only fetch when explicitly called
+  });
+
   // Update local state when settings are loaded
   useEffect(() => {
     if (deploySettings) {
@@ -317,6 +330,33 @@ export default function AdminSettings() {
       toast({
         title: "Error",
         description: error.message || "Sync failed",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Import selected items from preview
+  const importSelectedItemsMutation = useMutation({
+    mutationFn: async ({ syncId, selectedItemIds }: { syncId: string; selectedItemIds: string[] }) => {
+      const response = await apiRequest("POST", "/api/dynamics365/import-selected", {
+        syncId,
+        selectedItemIds,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Import Complete",
+        description: `Imported ${data.totalImported} items (${data.savedCount} new, ${data.updatedCount} updated)`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/sync-logs"] });
+      setIsItemsReviewOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Error",
+        description: error.message || "Failed to import items",
         variant: "destructive",
       });
     },
@@ -1430,6 +1470,27 @@ export default function AdminSettings() {
                       <Download className="h-4 w-4 mr-2" />
                       Generate PowerShell Script
                     </Button>
+
+                    <Button
+                      onClick={async () => {
+                        const result = await refetchPreview();
+                        if (result.data && result.data.totalCount > 0) {
+                          setIsItemsReviewOpen(true);
+                        } else {
+                          toast({
+                            title: "No Items to Review",
+                            description: "No items found in preview. Run the PowerShell script first.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={!d365Settings}
+                      variant="secondary"
+                      data-testid="button-review-items"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Review & Import Items
+                    </Button>
                   </div>
 
                   {d365Settings && (
@@ -1797,11 +1858,12 @@ export default function AdminSettings() {
       <D365ItemsReviewDialog
         open={isItemsReviewOpen}
         onOpenChange={setIsItemsReviewOpen}
-        items={previewedItems}
-        onImport={async (selectedItems) => {
-          await importItemsMutation.mutateAsync(selectedItems);
+        previewItems={previewData?.items || []}
+        syncId={previewData?.syncId || ""}
+        onImport={async (syncId, selectedItemIds) => {
+          await importSelectedItemsMutation.mutateAsync({ syncId, selectedItemIds });
         }}
-        isImporting={importItemsMutation.isPending}
+        isImporting={importSelectedItemsMutation.isPending}
       />
 
       {/* D365 Equipment Review Dialog */}

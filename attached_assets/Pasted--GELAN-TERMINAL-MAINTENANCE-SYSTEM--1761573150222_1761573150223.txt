@@ -1,0 +1,45 @@
+============================================================
+   GELAN TERMINAL MAINTENANCE SYSTEM
+   Sunshine Construction PLC
+============================================================
+
+Checking Node.js...
+Γ£ô Node.js installed
+
+Installing dependencies...
+Γ£ô Dependencies ready
+
+============================================================
+   SERVER STARTING
+============================================================
+
+Server will be available at:
+  - Local access:   http://localhost:3000
+  - Network access: http://192.168.0.34:3000
+
+Other computers can access via: http://192.168.0.34:3000
+
+Default Login:
+  Username: ceo
+  Password: ceo123
+
+Press Ctrl+C to stop the server
+============================================================
+
+🔗 Using node-postgres driver (local database)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+4:51:38 PM [express] Environment: development (NODE_ENV=undefined)
+4:51:38 PM [express] Starting Vite dev server...
+4:51:38 PM [express] Vite dev server ready
+4:51:38 PM [express] serving on port 3000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+4:52:14 PM [express] GET /api/auth/me 304 in 3ms :: {"user":{"id":"90f15ab6-3a56-4fad-bc3f-f463c4032…
+4:52:14 PM [express] GET /api/system-settings 304 in 14ms :: {"serverHost":"0.0.0.0","serverPort":30…
+4:52:14 PM [express] GET /api/dynamics365/sync-logs 304 in 6ms :: []
+4:52:14 PM [express] GET /api/equipment-categories 200 in 10ms :: [{"id":"e061b343-8651-4ee1-892b-a6…
+4:52:14 PM [express] GET /api/attendance-devices 304 in 13ms :: [{"id":"f0865748-ac5f-4e17-bca2-dd72…
+4:52:14 PM [express] GET /api/attendance-device/settings 304 in 8ms :: {"id":"f0865748-ac5f-4e17-bca…
+4:52:14 PM [express] GET /api/dynamics365/settings 304 in 8ms :: {"id":"0e91917e-2874-4c75-aa5e-dabf…
+4:52:14 PM [express] GET /api/attendance-device/logs 304 in 7ms :: [{"id":"3004ef3b-73ad-409b-9ede-b…
+4:52:21 PM [express] GET /api/dynamics365/generate-script 403 in 2ms :: {"message":"Access denied. C…

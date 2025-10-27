@@ -1,0 +1,125 @@
+============================================================
+   GELAN TERMINAL MAINTENANCE SYSTEM
+   Sunshine Construction PLC
+============================================================
+
+Checking Node.js...
+Γ£ô Node.js installed
+
+Installing dependencies...
+Γ£ô Dependencies ready
+
+============================================================
+   SERVER STARTING
+============================================================
+
+Server will be available at:
+  - Local access:   http://localhost:3000
+  - Network access: http://192.168.0.34:3000
+
+Other computers can access via: http://192.168.0.34:3000
+
+Default Login:
+  Username: ceo
+  Password: ceo123
+
+Press Ctrl+C to stop the server
+============================================================
+
+🔗 Using node-postgres driver (local database)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+5:01:53 PM [express] Environment: development (NODE_ENV=undefined)
+5:01:53 PM [express] Starting Vite dev server...
+5:01:53 PM [express] Vite dev server ready
+5:01:53 PM [express] serving on port 3000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+5:02:05 PM [express] GET /api/auth/me 304 in 5ms :: {"user":{"id":"90f15ab6-3a56-4fad-bc3f-f463c4032…
+5:02:05 PM [express] GET /api/employees 304 in 28ms :: [{"id":"51f5da01-eceb-4355-bd8f-79c6e980a0b3"…
+5:02:09 PM [express] GET /api/equipment 200 in 16ms :: [{"id":"9a6d9dc9-4d45-4138-b4fd-5305e2bf5511"…
+5:02:09 PM [express] GET /api/garages 200 in 146ms :: [{"id":"c35c533b-376b-4b02-b4c5-68d60d72dd50",…
+5:02:09 PM [express] GET /api/work-orders 200 in 312ms :: [{"id":"7cc06bbc-dc26-48b1-83b7-fc076bd1f1…
+5:02:09 PM [express] GET /api/parts 200 in 291ms :: [{"id":"89da1280-182e-4caf-9a25-3ea600d285fc","p…
+5:02:09 PM [express] GET /api/inspections/completed 200 in 297ms :: [{"id":"de350412-d1a1-434d-878e-…
+5:02:11 PM [express] GET /api/parts-locations 200 in 7ms
+5:02:13 PM [express] POST /api/auth/logout 200 in 1ms :: {"message":"Logged out successfully"}
+5:02:13 PM [express] GET /api/auth/me 200 in 0ms :: {"user":null}
+5:02:13 PM [express] GET /api/equipment-categories 200 in 4ms :: [{"id":"e061b343-8651-4ee1-892b-a6d…
+5:02:20 PM [express] POST /api/auth/login 200 in 98ms :: {"user":{"id":"08727589-f23b-4953-a05c-1ce7…
+5:02:20 PM [express] GET /api/auth/me 200 in 0ms :: {"user":{"id":"08727589-f23b-4953-a05c-1ce7af424…
+[DEBUG] isCEOOrAdmin - req.user: {
+  id: '08727589-f23b-4953-a05c-1ce7af424669',
+  username: 'ceo',
+  password: '$2b$10$CkHU8jVSAWClA6tXQqHPsuuTORBPcmSYUmhfXdLUS8U1.dZ6nyVyi',
+  fullName: 'CEO - Sunshine Construction',
+  role: 'CEO',
+  language: 'en',
+  createdAt: 2025-10-05T17:38:02.586Z
+}
+[DEBUG] isCEOOrAdmin - role: CEO
+[DEBUG] isCEOOrAdmin - role (lowercase): ceo
+[DEBUG] isCEOOrAdmin - req.user: {
+  id: '08727589-f23b-4953-a05c-1ce7af424669',
+  username: 'ceo',
+  password: '$2b$10$CkHU8jVSAWClA6tXQqHPsuuTORBPcmSYUmhfXdLUS8U1.dZ6nyVyi',
+  fullName: 'CEO - Sunshine Construction',
+  role: 'CEO',
+  language: 'en',
+  createdAt: 2025-10-05T17:38:02.586Z
+}
+[DEBUG] isCEOOrAdmin - role: CEO
+[DEBUG] isCEOOrAdmin - role (lowercase): ceo
+5:02:31 PM [express] GET /api/dynamics365/settings 304 in 15ms :: {"id":"0e91917e-2874-4c75-aa5e-dab…
+5:02:31 PM [express] GET /api/attendance-devices 304 in 8ms :: [{"id":"f0865748-ac5f-4e17-bca2-dd723…
+[DEBUG] isCEOOrAdmin - req.user: {
+  id: '08727589-f23b-4953-a05c-1ce7af424669',
+  username: 'ceo',
+  password: '$2b$10$CkHU8jVSAWClA6tXQqHPsuuTORBPcmSYUmhfXdLUS8U1.dZ6nyVyi',
+  fullName: 'CEO - Sunshine Construction',
+  role: 'CEO',
+  language: 'en',
+  createdAt: 2025-10-05T17:38:02.586Z
+}
+[DEBUG] isCEOOrAdmin - role: CEO
+[DEBUG] isCEOOrAdmin - role (lowercase): ceo
+[DEBUG] isCEOOrAdmin - req.user: {
+  id: '08727589-f23b-4953-a05c-1ce7af424669',
+  username: 'ceo',
+  password: '$2b$10$CkHU8jVSAWClA6tXQqHPsuuTORBPcmSYUmhfXdLUS8U1.dZ6nyVyi',
+  fullName: 'CEO - Sunshine Construction',
+  role: 'CEO',
+  language: 'en',
+  createdAt: 2025-10-05T17:38:02.586Z
+}
+[DEBUG] isCEOOrAdmin - role: CEO
+[DEBUG] isCEOOrAdmin - role (lowercase): ceo
+5:02:31 PM [express] GET /api/attendance-device/logs 304 in 13ms :: [{"id":"3004ef3b-73ad-409b-9ede-…
+5:02:31 PM [express] GET /api/dynamics365/sync-logs 304 in 11ms :: []
+[DEBUG] isCEOOrAdmin - req.user: {
+  id: '08727589-f23b-4953-a05c-1ce7af424669',
+  username: 'ceo',
+  password: '$2b$10$CkHU8jVSAWClA6tXQqHPsuuTORBPcmSYUmhfXdLUS8U1.dZ6nyVyi',
+  fullName: 'CEO - Sunshine Construction',
+  role: 'CEO',
+  language: 'en',
+  createdAt: 2025-10-05T17:38:02.586Z
+}
+[DEBUG] isCEOOrAdmin - role: CEO
+[DEBUG] isCEOOrAdmin - role (lowercase): ceo
+5:02:31 PM [express] GET /api/system-settings 304 in 9ms :: {"serverHost":"0.0.0.0","serverPort":300…
+[DEBUG] isCEOOrAdmin - req.user: {
+  id: '08727589-f23b-4953-a05c-1ce7af424669',
+  username: 'ceo',
+  password: '$2b$10$CkHU8jVSAWClA6tXQqHPsuuTORBPcmSYUmhfXdLUS8U1.dZ6nyVyi',
+  fullName: 'CEO - Sunshine Construction',
+  role: 'CEO',
+  language: 'en',
+  createdAt: 2025-10-05T17:38:02.586Z
+}
+[DEBUG] isCEOOrAdmin - role: CEO
+[DEBUG] isCEOOrAdmin - role (lowercase): ceo
+5:02:31 PM [express] GET /api/attendance-device/settings 304 in 6ms :: {"id":"f0865748-ac5f-4e17-bca…
+[DEBUG] isCEOOrAdmin - req.user: null
+[DEBUG] isCEOOrAdmin - role: undefined
+[DEBUG] isCEOOrAdmin - role (lowercase): undefined
+5:02:42 PM [express] GET /api/dynamics365/generate-script 403 in 6ms :: {"message":"Access denied. C…

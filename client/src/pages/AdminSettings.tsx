@@ -1459,8 +1459,46 @@ export default function AdminSettings() {
                     </Button>
 
                     <Button
-                      onClick={() => {
-                        window.location.href = "/api/dynamics365/generate-script";
+                      onClick={async () => {
+                        try {
+                          const token = localStorage.getItem('token');
+                          const response = await fetch("/api/dynamics365/generate-script", {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+                          
+                          if (!response.ok) {
+                            const error = await response.json();
+                            toast({
+                              title: "Error",
+                              description: error.message || "Failed to generate script",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'D365-Sync.ps1';
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                          
+                          toast({
+                            title: "Success",
+                            description: "PowerShell script downloaded successfully",
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Error",
+                            description: "Failed to download script",
+                            variant: "destructive",
+                          });
+                        }
                       }}
                       disabled={!d365Settings}
                       variant="default"

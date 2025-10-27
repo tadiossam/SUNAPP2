@@ -93,6 +93,9 @@ export default function AdminSettings() {
     bcCompany: "",
     bcUsername: "",
     bcPassword: "",
+    itemPrefix: "",
+    equipmentPrefix: "",
+    syncIntervalHours: 24,
   });
 
   // Parse D365 URL
@@ -219,6 +222,9 @@ export default function AdminSettings() {
         bcCompany: d365Settings.bcCompany || "",
         bcUsername: d365Settings.bcUsername || "",
         bcPassword: "", // Don't populate password
+        itemPrefix: d365Settings.itemPrefix || "",
+        equipmentPrefix: d365Settings.equipmentPrefix || "",
+        syncIntervalHours: d365Settings.syncIntervalHours || 24,
       });
     }
   }, [d365Settings]);
@@ -1336,28 +1342,64 @@ export default function AdminSettings() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Sync Filters Section */}
+                    <div className="pt-4 border-t">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2">
+                        <Search className="h-4 w-4" />
+                        Sync Filters
+                      </h3>
+                      
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="itemPrefix">Item Prefix (Optional)</Label>
+                          <Input
+                            id="itemPrefix"
+                            value={d365Form.itemPrefix}
+                            onChange={(e) => setD365Form({ ...d365Form, itemPrefix: e.target.value })}
+                            placeholder="SP-"
+                            data-testid="input-item-prefix"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Only sync items starting with this prefix
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="equipmentPrefix">Equipment Prefix (Optional)</Label>
+                          <Input
+                            id="equipmentPrefix"
+                            value={d365Form.equipmentPrefix}
+                            onChange={(e) => setD365Form({ ...d365Form, equipmentPrefix: e.target.value })}
+                            placeholder="FA-"
+                            data-testid="input-equipment-prefix"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Only sync fixed assets starting with this
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="syncInterval">Auto-Sync Interval (Hours)</Label>
+                          <Input
+                            id="syncInterval"
+                            type="number"
+                            min="1"
+                            max="168"
+                            value={d365Form.syncIntervalHours}
+                            onChange={(e) => setD365Form({ ...d365Form, syncIntervalHours: parseInt(e.target.value) || 24 })}
+                            placeholder="24"
+                            data-testid="input-sync-interval"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            How often to run auto-sync (1-168 hours)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-4">
-                    <Button
-                      onClick={() => testD365ConnectionMutation.mutate()}
-                      disabled={testD365ConnectionMutation.isPending || !d365Form.bcUrl || !d365Form.bcCompany || !d365Form.bcUsername}
-                      variant="outline"
-                      data-testid="button-test-d365-connection"
-                    >
-                      {testD365ConnectionMutation.isPending ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Testing...
-                        </>
-                      ) : (
-                        <>
-                          <Wifi className="h-4 w-4 mr-2" />
-                          Test Connection
-                        </>
-                      )}
-                    </Button>
-
                     <Button
                       onClick={() => saveD365SettingsMutation.mutate()}
                       disabled={saveD365SettingsMutation.isPending || !d365Form.bcUrl || !d365Form.bcCompany || !d365Form.bcUsername}
@@ -1410,143 +1452,7 @@ export default function AdminSettings() {
                 </CardContent>
               </Card>
 
-              {/* Sync Items Card - Always visible */}
-              <Card className={!d365Settings || d365Settings.lastTestStatus !== 'success' ? "opacity-60" : ""}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <RefreshCw className="h-5 w-5" />
-                    Sync Items from Dynamics 365
-                  </CardTitle>
-                  <CardDescription>Synchronize spare parts and items from Dynamics 365 Business Central</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {!d365Settings ? (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Please configure and save Dynamics 365 connection settings above before syncing.
-                      </AlertDescription>
-                    </Alert>
-                  ) : d365Settings.lastTestStatus !== 'success' ? (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Connection test failed. Please verify your settings and test the connection successfully before syncing.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Fetch items from D365 where Item No starts with a specific prefix. Review and select items before importing.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="items-prefix">Item Number Prefix</Label>
-                    <Input
-                      id="items-prefix"
-                      value={itemsPrefix}
-                      onChange={(e) => setItemsPrefix(e.target.value)}
-                      placeholder="e.g., SP-"
-                      disabled={!d365Settings || d365Settings.lastTestStatus !== 'success'}
-                      data-testid="input-items-prefix"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Only items where "No" starts with this prefix will be fetched
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={() => previewItemsMutation.mutate()}
-                    disabled={!d365Settings || d365Settings.lastTestStatus !== 'success' || previewItemsMutation.isPending || !itemsPrefix}
-                    data-testid="button-preview-items"
-                  >
-                    {previewItemsMutation.isPending ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Fetching Items...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Preview & Sync Items
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Sync Equipment Card - Always visible */}
-              <Card className={!d365Settings || d365Settings.lastTestStatus !== 'success' ? "opacity-60" : ""}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Truck className="h-5 w-5" />
-                    Sync Equipment from Dynamics 365
-                  </CardTitle>
-                  <CardDescription>Synchronize heavy equipment from Dynamics 365 Business Central</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {!d365Settings ? (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Please configure and save Dynamics 365 connection settings above before syncing.
-                      </AlertDescription>
-                    </Alert>
-                  ) : d365Settings.lastTestStatus !== 'success' ? (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Connection test failed. Please verify your settings and test the connection successfully before syncing.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Fetch equipment from D365 where Equipment No/Asset No starts with a specific prefix. Review and select equipment before importing.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="equipment-prefix">Equipment Number Prefix</Label>
-                    <Input
-                      id="equipment-prefix"
-                      value={equipmentPrefix}
-                      onChange={(e) => setEquipmentPrefix(e.target.value)}
-                      placeholder="e.g., EQ-"
-                      disabled={!d365Settings || d365Settings.lastTestStatus !== 'success'}
-                      data-testid="input-equipment-prefix"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Only equipment where "No" starts with this prefix will be fetched
-                    </p>
-                  </div>
-
-                  <Button
-                    onClick={() => previewEquipmentMutation.mutate()}
-                    disabled={!d365Settings || d365Settings.lastTestStatus !== 'success' || previewEquipmentMutation.isPending || !equipmentPrefix}
-                    data-testid="button-preview-equipment"
-                  >
-                    {previewEquipmentMutation.isPending ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Fetching Equipment...
-                      </>
-                    ) : (
-                      <>
-                        <Truck className="h-4 w-4 mr-2" />
-                        Preview & Sync Equipment
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Import History Card */}
+              {/* PowerShell Sync History Card */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

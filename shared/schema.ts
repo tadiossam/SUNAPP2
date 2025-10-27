@@ -1126,6 +1126,10 @@ export const dynamics365Settings = pgTable("dynamics365_settings", {
   bcCompany: text("bc_company").notNull(), // Company name in D365
   bcUsername: text("bc_username").notNull(), // D365 username
   bcPassword: text("bc_password").notNull(), // D365 password (encrypted)
+  itemPrefix: text("item_prefix"), // Filter items by prefix (e.g., "SP-") - only sync items starting with this
+  equipmentPrefix: text("equipment_prefix"), // Filter equipment by prefix (e.g., "FA-")
+  syncIntervalHours: integer("sync_interval_hours").default(24), // Auto-sync interval in hours
+  lastSyncDate: timestamp("last_sync_date"), // Last successful PowerShell sync
   isActive: boolean("is_active").default(true).notNull(), // Whether this configuration is active
   lastTestDate: timestamp("last_test_date"), // Last time connection was tested
   lastTestStatus: text("last_test_status"), // Last test result: 'success' or 'failed'

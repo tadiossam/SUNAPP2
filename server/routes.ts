@@ -3872,6 +3872,14 @@ Write-Host ""
 Write-Host "Fetching items from D365..." -ForegroundColor Yellow
 $items = Get-D365Data -Endpoint "items"
 
+# Filter by prefix if specified
+$itemPrefix = "${d365Settings.itemPrefix || ''}"
+if ($itemPrefix -and $items) {
+    $itemsBefore = $items.Count
+    $items = $items | Where-Object { $_.No -like "$itemPrefix*" }
+    Write-Host "Filtered items: $($items.Count) of $itemsBefore match prefix '$itemPrefix'" -ForegroundColor Cyan
+}
+
 if ($items) {
     Write-Host "Found $($items.Count) items" -ForegroundColor Green
 } else {
@@ -3884,6 +3892,14 @@ $equipment = Get-D365Data -Endpoint "FixedAssets"
 
 if (-not $equipment) {
     $equipment = Get-D365Data -Endpoint "Fixed_Assets"
+}
+
+# Filter by prefix if specified
+$equipmentPrefix = "${d365Settings.equipmentPrefix || ''}"
+if ($equipmentPrefix -and $equipment) {
+    $equipBefore = $equipment.Count
+    $equipment = $equipment | Where-Object { $_.No -like "$equipmentPrefix*" }
+    Write-Host "Filtered equipment: $($equipment.Count) of $equipBefore match prefix '$equipmentPrefix'" -ForegroundColor Cyan
 }
 
 if ($equipment) {

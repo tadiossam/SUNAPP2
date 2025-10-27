@@ -548,7 +548,7 @@ export default function AdminSettings() {
 
   const importUsersMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/attendance-device/import");
+      const res = await apiRequest("POST", "/api/attendance-device/import-users");
       return res.json();
     },
     onSuccess: (data) => {
@@ -652,11 +652,17 @@ export default function AdminSettings() {
 
   const importSelectedUsersMutation = useMutation({
     mutationFn: async (userIds: string[]) => {
+      // Use active device settings instead of form values
+      const activeDevice = allDevices.find(d => d.isActive) || deviceSettings;
+      if (!activeDevice) {
+        throw new Error("No active device configured. Please add and activate a device first.");
+      }
+      
       const res = await apiRequest("POST", "/api/attendance-device/import-selected", {
         userIds,
-        ipAddress: deviceForm.ipAddress,
-        port: parseInt(deviceForm.port),
-        timeout: parseInt(deviceForm.timeout),
+        ipAddress: activeDevice.ipAddress,
+        port: parseInt(activeDevice.port.toString()),
+        timeout: parseInt(activeDevice.timeout.toString()),
       });
       return res.json();
     },

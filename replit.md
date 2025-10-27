@@ -44,6 +44,11 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Resend**: Email notification service.
 - **ZKTeco Biometric Device**: iFace990 Plus attendance device for employee user management, utilizing the `zkteco-js` library.
 
+## Recent Bug Fixes (Oct 27, 2025)
+- **Biometric Import Fix**: Corrected frontend endpoint from `/api/attendance-device/import` to `/api/attendance-device/import-users` to match backend routes
+- **Import Selected Users Fix**: Updated to use active device settings instead of form values for consistent device communication
+- **Batch Files Organization**: All 26 batch files in organized folders now work from their subfolders with `cd /d "%~dp0..\.."` to navigate to project root before execution
+
 ## Windows Compatibility
 The application can run locally on Windows with the following setup:
 - **Node.js**: Version 18+ required

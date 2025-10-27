@@ -2997,19 +2997,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Test connection using NTLM authentication for on-premises D365
-      const httpntlm = (await import('httpntlm')).default;
+      // Test connection - try NTLM first, then Basic Auth
+      const testUrl = `${bcUrl}/ODataV4/Company('${encodeURIComponent(bcCompany)}')/items?$top=1`;
+      console.log(`Testing D365 connection:`, {
+        url: testUrl,
+        username: bcUsername,
+        company: bcCompany,
+      });
       
+      let response: any = null;
+      let authMethod = '';
+      
+      // Try NTLM authentication first
       try {
-        const testUrl = `${bcUrl}/ODataV4/Company('${encodeURIComponent(bcCompany)}')/items?$top=1`;
-        console.log(`Testing D365 connection with NTLM:`, {
-          url: testUrl,
-          username: bcUsername,
-          company: bcCompany,
-        });
+        console.log('Attempting NTLM authentication...');
+        const httpntlm = (await import('httpntlm')).default;
         
-        // Use NTLM authentication for Windows-based D365 BC
-        const response: any = await new Promise((resolve, reject) => {
+        response = await new Promise((resolve, reject) => {
           httpntlm.get({
             url: testUrl,
             username: bcUsername,
@@ -3024,56 +3028,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
         });
-
-        if (response.statusCode === 200) {
-          // Update test result in database if settings exist
-          await storage.updateDynamics365TestResult('success', 'Connection successful');
+        authMethod = 'NTLM';
+      } catch (ntlmError: any) {
+        console.log('NTLM failed, trying Basic Authentication...', ntlmError.message);
+        
+        // Fall back to Basic Authentication
+        const axios = (await import('axios')).default;
+        
+        try {
+          const axiosResponse = await axios.get(testUrl, {
+            auth: {
+              username: bcUsername,
+              password: bcPassword,
+            },
+            timeout: 10000,
+          });
           
-          console.log('D365 NTLM connection successful');
+          response = {
+            statusCode: axiosResponse.status,
+            body: JSON.stringify(axiosResponse.data),
+          };
+          authMethod = 'Basic';
+        } catch (basicError: any) {
+          // Both failed, throw the basic auth error
+          throw basicError;
+        }
+      }
+      
+      try {
+
+        if (response.statusCode === 200 || response.status === 200) {
+          // Update test result in database if settings exist
+          await storage.updateDynamics365TestResult('success', `Connection successful using ${authMethod} authentication`);
+          
+          console.log(`D365 connection successful using ${authMethod} authentication`);
           
           res.json({ 
             success: true, 
-            message: "Connection successful! Successfully connected to Dynamics 365 Business Central using Windows Authentication." 
+            message: `Connection successful! Successfully connected to Dynamics 365 Business Central using ${authMethod} authentication.` 
           });
         } else {
-          await storage.updateDynamics365TestResult('failed', `Unexpected response: ${response.statusCode}`);
+          const statusCode = response.statusCode || response.status || 503;
+          await storage.updateDynamics365TestResult('failed', `Unexpected response: ${statusCode}`);
           res.status(503).json({ 
             success: false, 
-            message: `Connection failed with status ${response.statusCode}` 
+            message: `Connection failed with status ${statusCode}` 
           });
         }
-      } catch (ntlmError: any) {
+      } catch (authError: any) {
         let errorMessage = "Connection failed";
         let statusCode = 503;
         
-        console.error('D365 NTLM connection error:', ntlmError);
+        console.error('D365 connection error:', authError);
         
-        if (ntlmError.code === 'ECONNREFUSED') {
+        if (authError.code === 'ECONNREFUSED') {
           errorMessage = "Cannot connect to server. Please check the URL and ensure the D365 Business Central server is running.";
           statusCode = 503;
-        } else if (ntlmError.code === 'ETIMEDOUT' || ntlmError.code === 'ECONNABORTED') {
+        } else if (authError.code === 'ETIMEDOUT' || authError.code === 'ECONNABORTED') {
           errorMessage = "Connection timeout. The server is not responding.";
           statusCode = 504;
-        } else if (ntlmError.statusCode === 401) {
-          errorMessage = "Authentication failed. Please check username and password. For Windows Authentication, use format: DOMAIN\\Username or just Username if on same domain.";
+        } else if (authError.response?.status === 401 || authError.statusCode === 401) {
+          errorMessage = "Authentication failed. Please check username and password.";
           statusCode = 401;
-        } else if (ntlmError.statusCode === 403) {
+        } else if (authError.response?.status === 403 || authError.statusCode === 403) {
           errorMessage = "Access forbidden. Please check user permissions in D365.";
           statusCode = 403;
-        } else if (ntlmError.statusCode === 404) {
+        } else if (authError.response?.status === 404 || authError.statusCode === 404) {
           errorMessage = "Resource not found. Please check the company name and URL path.";
           statusCode = 404;
-        } else if (ntlmError.statusCode === 503) {
+        } else if (authError.response?.status === 503 || authError.statusCode === 503) {
           errorMessage = "Service unavailable (503). The Dynamics 365 Business Central service is not running or is temporarily down.";
           statusCode = 503;
-        } else if (ntlmError.statusCode === 500) {
+        } else if (authError.response?.status === 500 || authError.statusCode === 500) {
           errorMessage = "Server error (500). The Dynamics 365 server encountered an internal error.";
           statusCode = 500;
-        } else if (ntlmError.statusCode) {
-          errorMessage = `HTTP Error ${ntlmError.statusCode}: ${ntlmError.message || 'Unknown error'}`;
-          statusCode = ntlmError.statusCode;
+        } else if (authError.response?.status || authError.statusCode) {
+          const code = authError.response?.status || authError.statusCode;
+          errorMessage = `HTTP Error ${code}: ${authError.message || 'Unknown error'}`;
+          statusCode = code;
         } else {
-          errorMessage = ntlmError.message || "Unknown connection error. Ensure D365 Business Central Web Services are enabled.";
+          errorMessage = authError.message || "Unknown connection error. Ensure D365 Business Central Web Services are enabled.";
           statusCode = 503;
         }
         

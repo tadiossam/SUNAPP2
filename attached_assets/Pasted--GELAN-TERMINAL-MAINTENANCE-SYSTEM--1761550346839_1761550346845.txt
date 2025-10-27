@@ -1,0 +1,436 @@
+============================================================
+   GELAN TERMINAL MAINTENANCE SYSTEM
+   Sunshine Construction PLC
+============================================================
+
+Checking Node.js...
+Γ£ô Node.js installed
+
+Installing dependencies...
+Γ£ô Dependencies ready
+
+============================================================
+   SERVER STARTING
+============================================================
+
+Server will be available at:
+  - Local access:   http://localhost:3000
+  - Network access: http://192.168.0.34:3000
+
+Other computers can access via: http://192.168.0.34:3000
+
+Default Login:
+  Username: ceo
+  Password: ceo123
+
+Press Ctrl+C to stop the server
+============================================================
+
+🔗 Using node-postgres driver (local database)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+10:29:51 AM [express] Environment: development (NODE_ENV=undefined)
+10:29:51 AM [express] Starting Vite dev server...
+10:29:51 AM [express] Vite dev server ready
+10:29:51 AM [express] serving on port 3000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+10:30:00 AM [express] GET /api/auth/me 304 in 3ms :: {"user":{"id":"93bb46ad-e9c3-47d3-8421-15292d2c3…
+10:30:00 AM [express] GET /api/system-settings 304 in 10ms :: {"serverHost":"0.0.0.0","serverPort":30…
+10:30:00 AM [express] GET /api/dynamics365/sync-logs 304 in 5ms :: []
+10:30:00 AM [express] GET /api/dynamics365/settings 304 in 3ms
+10:30:00 AM [express] GET /api/attendance-devices 304 in 6ms :: [{"id":"3b0cf85a-8145-48df-b9b3-20655…
+10:30:00 AM [express] GET /api/equipment-categories 200 in 3ms :: []
+Error fetching import logs: error: column "users_updated" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getDeviceImportLogs (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:2075:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2915:20) {
+  length: 113,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '73',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:30:00 AM [express] GET /api/attendance-device/logs 500 in 36ms :: {"error":"Failed to fetch import…
+10:30:00 AM [express] GET /api/attendance-device/settings 304 in 40ms :: {"id":"3b0cf85a-8145-48df-b9…
+TCP connection successful
+10:30:05 AM [express] POST /api/attendance-device/fetch-users 200 in 173ms :: {"success":true,"users"…
+10:30:18 AM [express] GET /api/auth/me 304 in 0ms :: {"user":{"id":"93bb46ad-e9c3-47d3-8421-15292d2c3…
+10:30:18 AM [express] GET /api/equipment-categories 200 in 7ms :: []
+10:30:18 AM [express] GET /api/dynamics365/sync-logs 304 in 5ms :: []
+10:30:18 AM [express] GET /api/system-settings 304 in 4ms :: {"serverHost":"0.0.0.0","serverPort":300…
+10:30:18 AM [express] GET /api/dynamics365/settings 304 in 3ms
+10:30:18 AM [express] GET /api/attendance-device/settings 304 in 6ms :: {"id":"3b0cf85a-8145-48df-b9b…
+10:30:18 AM [express] GET /api/attendance-devices 304 in 8ms :: [{"id":"3b0cf85a-8145-48df-b9b3-20655…
+Error fetching import logs: error: column "users_updated" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getDeviceImportLogs (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:2075:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2915:20) {
+  length: 113,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '73',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:30:18 AM [express] GET /api/attendance-device/logs 500 in 6ms :: {"error":"Failed to fetch import …
+TCP connection successful
+10:30:22 AM [express] POST /api/attendance-device/fetch-users 200 in 117ms :: {"success":true,"users"…
+10:30:35 AM [express] GET /api/equipment 200 in 3ms :: []
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:30:35 AM [express] GET /api/employees 500 in 4ms :: {"error":"Failed to fetch employees"}
+10:30:35 AM [express] GET /api/equipment-categories 200 in 5ms :: []
+10:30:37 AM [express] GET /api/system-settings 304 in 5ms :: {"serverHost":"0.0.0.0","serverPort":300…
+10:30:38 AM [express] GET /api/dynamics365/settings 304 in 10ms
+10:30:38 AM [express] GET /api/attendance-devices 304 in 10ms :: [{"id":"3b0cf85a-8145-48df-b9b3-2065…
+10:30:38 AM [express] GET /api/attendance-device/settings 304 in 4ms :: {"id":"3b0cf85a-8145-48df-b9b…
+10:30:38 AM [express] GET /api/dynamics365/sync-logs 304 in 4ms :: []
+Error fetching import logs: error: column "users_updated" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getDeviceImportLogs (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:2075:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2915:20) {
+  length: 113,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '73',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:30:38 AM [express] GET /api/attendance-device/logs 500 in 7ms :: {"error":"Failed to fetch import …
+10:30:43 AM [express] PATCH /api/attendance-devices/81e9abf5-e150-45f5-9cdc-32ee1c042261/activate 200…
+10:30:43 AM [express] GET /api/attendance-devices 200 in 1ms :: [{"id":"81e9abf5-e150-45f5-9cdc-32ee1…
+10:30:43 AM [express] GET /api/attendance-device/settings 200 in 2ms :: {"id":"81e9abf5-e150-45f5-9cd…
+TCP connection successful
+10:30:46 AM [express] POST /api/attendance-device/fetch-users 200 in 290ms :: {"success":true,"users"…
+10:31:10 AM [express] GET /api/equipment-categories 200 in 2ms :: []
+10:31:10 AM [express] GET /api/equipment 200 in 4ms :: []
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:31:10 AM [express] GET /api/employees 500 in 3ms :: {"error":"Failed to fetch employees"}
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:31:12 AM [express] GET /api/employees 500 in 7ms :: {"error":"Failed to fetch employees"}
+10:31:16 AM [express] GET /api/system-settings 304 in 7ms :: {"serverHost":"0.0.0.0","serverPort":300…
+10:31:16 AM [express] GET /api/attendance-devices 304 in 5ms :: [{"id":"81e9abf5-e150-45f5-9cdc-32ee1…
+10:31:16 AM [express] GET /api/dynamics365/settings 304 in 4ms
+10:31:16 AM [express] GET /api/attendance-device/settings 304 in 3ms :: {"id":"81e9abf5-e150-45f5-9cd…
+Error fetching import logs: error: column "users_updated" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getDeviceImportLogs (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:2075:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2915:20) {
+  length: 113,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '73',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:31:16 AM [express] GET /api/attendance-device/logs 500 in 5ms :: {"error":"Failed to fetch import …
+10:31:16 AM [express] GET /api/dynamics365/sync-logs 304 in 9ms :: []
+TCP connection successful
+10:31:18 AM [express] POST /api/attendance-device/fetch-users 200 in 307ms :: {"success":true,"users"…
+10:31:31 AM [express] POST /api/attendance-device/import 200 in 3ms
+10:31:38 AM [express] POST /api/attendance-device/import 200 in 5ms
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:31:48 AM [express] GET /api/employees 500 in 5ms :: {"error":"Failed to fetch employees"}
+10:31:55 AM [express] GET /api/auth/me 304 in 1ms :: {"user":{"id":"93bb46ad-e9c3-47d3-8421-15292d2c3…
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:31:55 AM [express] GET /api/employees 500 in 3ms :: {"error":"Failed to fetch employees"}
+10:31:57 AM [express] GET /api/auth/me 304 in 1ms :: {"user":{"id":"93bb46ad-e9c3-47d3-8421-15292d2c3…
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:31:57 AM [express] GET /api/employees 500 in 5ms :: {"error":"Failed to fetch employees"}
+Error fetching garages: error: column "type" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllGarages (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:786:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:817:23) {
+  length: 104,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '34',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:32:00 AM [express] GET /api/garages 500 in 4ms :: {"error":"Failed to fetch garages"}
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:32:00 AM [express] GET /api/employees 500 in 4ms :: {"error":"Failed to fetch employees"}
+Error fetching employees: error: column "employee_id" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:942:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1026:25) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:32:00 AM [express] GET /api/employees 500 in 3ms :: {"error":"Failed to fetch employees"}
+10:32:02 AM [express] GET /api/parts-locations 200 in 5ms
+10:32:03 AM [express] GET /api/system-settings 304 in 21ms :: {"serverHost":"0.0.0.0","serverPort":30…
+10:32:03 AM [express] GET /api/dynamics365/settings 304 in 39ms
+10:32:04 AM [express] GET /api/dynamics365/sync-logs 304 in 64ms :: []
+10:32:04 AM [express] GET /api/equipment-categories 200 in 15ms :: []
+10:32:04 AM [express] GET /api/attendance-devices 304 in 30ms :: [{"id":"81e9abf5-e150-45f5-9cdc-32ee…
+Error fetching import logs: error: column "users_updated" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getDeviceImportLogs (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:2075:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2915:20) {
+  length: 113,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '73',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:32:04 AM [express] GET /api/attendance-device/logs 500 in 33ms :: {"error":"Failed to fetch import…
+10:32:04 AM [express] GET /api/attendance-device/settings 304 in 22ms :: {"id":"81e9abf5-e150-45f5-9c…

@@ -31,6 +31,7 @@ import {
   Trash2,
   Edit,
   CheckCircle,
+  Search,
 } from "lucide-react";
 import {
   Dialog,
@@ -108,6 +109,7 @@ export default function AdminSettings() {
   const [fetchedUsers, setFetchedUsers] = useState<any[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [importProgress, setImportProgress] = useState(0);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   // D365 Sync state
   const [itemsPrefix, setItemsPrefix] = useState("SP-");
@@ -625,6 +627,7 @@ export default function AdminSettings() {
       if (data.success) {
         setFetchedUsers(data.users || []);
         setSelectedUserIds([]);
+        setUserSearchQuery(""); // Clear search when opening dialog
         setIsPreviewDialogOpen(true);
         toast({
           title: "Users Fetched",
@@ -736,11 +739,22 @@ export default function AdminSettings() {
     );
   };
 
+  // Filter users based on search query
+  const filteredUsers = fetchedUsers.filter(user => {
+    if (!userSearchQuery.trim()) return true;
+    const query = userSearchQuery.toLowerCase();
+    return (
+      user.userId?.toLowerCase().includes(query) ||
+      user.name?.toLowerCase().includes(query) ||
+      user.cardno?.toLowerCase().includes(query)
+    );
+  });
+
   const toggleSelectAll = () => {
-    if (selectedUserIds.length === fetchedUsers.length) {
+    if (selectedUserIds.length === filteredUsers.length) {
       setSelectedUserIds([]);
     } else {
-      setSelectedUserIds(fetchedUsers.map(user => user.userId));
+      setSelectedUserIds(filteredUsers.map(user => user.userId));
     }
   };
 
@@ -1659,6 +1673,18 @@ export default function AdminSettings() {
               <Progress value={importProgress} className="h-2" data-testid="progress-bar-import" />
             </div>
           )}
+
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by User ID, Name, or Card Number..."
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-users"
+            />
+          </div>
           
           <div className="flex-1 overflow-auto">
             <div className="space-y-2">
@@ -1666,12 +1692,12 @@ export default function AdminSettings() {
               <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50 sticky top-0 z-10">
                 <Checkbox
                   id="select-all"
-                  checked={selectedUserIds.length === fetchedUsers.length && fetchedUsers.length > 0}
+                  checked={selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0}
                   onCheckedChange={toggleSelectAll}
                   data-testid="checkbox-select-all"
                 />
                 <Label htmlFor="select-all" className="font-semibold cursor-pointer">
-                  Select All ({fetchedUsers.length} users)
+                  Select All ({filteredUsers.length} {filteredUsers.length === fetchedUsers.length ? 'users' : `of ${fetchedUsers.length} users`})
                 </Label>
               </div>
 
@@ -1680,9 +1706,13 @@ export default function AdminSettings() {
                 <div className="text-center py-12 text-muted-foreground">
                   No users fetched from device
                 </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No users match your search criteria
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {fetchedUsers.map((user) => (
+                  {filteredUsers.map((user) => (
                     <div
                       key={user.userId}
                       className={`flex items-center gap-3 p-3 border rounded-lg hover-elevate cursor-pointer ${

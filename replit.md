@@ -55,6 +55,6 @@ The application can run locally on Windows with the following setup:
   - `reusePort` option disabled on Windows (not supported)
   - `cross-env` package ensures NODE_ENV is set correctly
   - Server binds to 0.0.0.0 for network accessibility
-  - Batch files provided: `SETUP-FIRST-TIME.bat`, `START-WINDOWS.bat`, `ALLOW-FIREWALL.bat`, `CHECK-IP.bat`
+  - Batch files provided: `SETUP-FIRST-TIME.bat`, `START-WINDOWS.bat`, `STOP-WINDOWS.bat`, `ALLOW-FIREWALL.bat`, `CHECK-IP.bat`
 - **Firewall**: Windows Firewall must allow port 3000 for network access (use `ALLOW-FIREWALL.bat`)
 - **Known Issues**: bcrypt requires native compilation on Windows (automatically handled by npm install)

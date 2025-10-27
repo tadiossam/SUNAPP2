@@ -55,10 +55,13 @@ The application can run locally on Windows with the following setup:
   - `reusePort` option disabled on Windows (not supported)
   - `cross-env` package ensures NODE_ENV is set correctly
   - Server binds to 0.0.0.0 for network accessibility
-  - Batch files provided:
-    - Server: `SETUP-FIRST-TIME.bat`, `START-WINDOWS.bat`, `STOP-WINDOWS.bat`
-    - Network: `ALLOW-FIREWALL.bat`, `CHECK-IP.bat`
-    - Database: `UPDATE-DATABASE-SCHEMA.bat`, `GENERATE-MIGRATION.bat`, `APPLY-MIGRATIONS.bat`
+  - Batch files organized in `batch-files/` folder:
+    - Server Management: `SETUP-FIRST-TIME.bat`, `START-WINDOWS.bat`, `STOP-WINDOWS.bat`
+    - Database Tools: `GENERATE-MIGRATION.bat`, `APPLY-MIGRATIONS.bat`, `UPDATE-DATABASE-SCHEMA.bat`, `SETUP-LOCAL-DATABASE.bat`, `SEED-LOCAL-DATABASE.bat`
+    - Network Tools: `ALLOW-FIREWALL.bat`, `CHECK-IP.bat`
+    - Development & Debug: Various debugging and diagnostic tools
+    - Utilities: Setup, maintenance, and user management tools
+    - See `batch-files/README.md` for complete catalog and usage instructions
 - **Firewall**: Windows Firewall must allow port 3000 for network access (use `ALLOW-FIREWALL.bat`)
 - **Database Schema Management**: 
   - **Migration Files** (Recommended): `GENERATE-MIGRATION.bat` + `APPLY-MIGRATIONS.bat` - Creates reviewable SQL files in `migrations/` folder for safe schema updates, version control, and team collaboration

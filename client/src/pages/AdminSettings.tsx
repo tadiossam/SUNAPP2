@@ -1436,15 +1436,32 @@ export default function AdminSettings() {
                     <Alert className="mt-4 border-blue-500/50 bg-blue-50 dark:bg-blue-950/20">
                       <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       <AlertDescription className="text-blue-900 dark:text-blue-100">
-                        <div className="space-y-2">
-                          <p className="font-semibold">✨ Simple PowerShell Solution:</p>
-                          <ol className="list-decimal ml-4 space-y-1 text-sm">
-                            <li>Click "Generate PowerShell Script" to download D365-Sync.ps1</li>
-                            <li>Copy the script to your D365 server (192.168.0.16)</li>
-                            <li>Right-click the file → "Run with PowerShell"</li>
-                            <li>Data will automatically sync to this app!</li>
-                          </ol>
-                          <p className="text-sm mt-2">💡 The script uses Windows Authentication automatically (no more login issues!)</p>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="font-semibold">✨ Automated D365 Sync Workflow:</p>
+                            <ol className="list-decimal ml-4 mt-2 space-y-1 text-sm">
+                              <li><strong>Generate Script:</strong> Click "Generate PowerShell Script" button above</li>
+                              <li><strong>Copy to D365 Server:</strong> Place D365-Sync.ps1 in C:\D365Sync\ on server 192.168.0.16</li>
+                              <li><strong>Test Manually:</strong> Right-click → "Run with PowerShell" to verify it works</li>
+                              <li><strong>Set Up Auto-Sync:</strong> Run SETUP-AUTO-SYNC.bat from batch-files/d365-sync/ folder (as admin)</li>
+                            </ol>
+                          </div>
+                          
+                          <div className="pt-2 border-t border-blue-300/30">
+                            <p className="font-semibold text-sm">🎯 How Filtering Works:</p>
+                            <ul className="ml-4 mt-1 space-y-1 text-sm">
+                              <li>• PowerShell fetches <strong>ALL</strong> items/equipment from D365</li>
+                              <li>• Filters by prefix ({d365Settings.itemPrefix ? `items: "${d365Settings.itemPrefix}*"` : 'items: all'}
+                                {d365Settings.equipmentPrefix && `, equipment: "${d365Settings.equipmentPrefix}*"`})</li>
+                              <li>• Auto-updates existing items (inventory, prices)</li>
+                              <li>• Adds new items matching prefix</li>
+                              <li>• Runs every {d365Settings.syncIntervalHours || 24} hours when scheduled</li>
+                            </ul>
+                          </div>
+
+                          <p className="text-sm mt-2 pt-2 border-t border-blue-300/30">
+                            💡 The script uses Windows Authentication - no password prompts!
+                          </p>
                         </div>
                       </AlertDescription>
                     </Alert>

@@ -1243,11 +1243,11 @@ export default function AdminSettings() {
                         id="bcCompany"
                         value={d365Form.bcCompany}
                         onChange={(e) => setD365Form({ ...d365Form, bcCompany: e.target.value })}
-                        placeholder="Sunshine Construction PLC(Test)"
+                        placeholder="Sunshine Construction PLC(Test"
                         data-testid="input-d365-company"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Exact company name as it appears in Dynamics 365
+                        Exact company name as it appears in Dynamics 365 (e.g., "Sunshine Construction PLC(Test" - note: no closing parenthesis if that's how it appears in D365)
                       </p>
                     </div>
 

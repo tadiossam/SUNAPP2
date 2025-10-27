@@ -3567,33 +3567,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get preview items from most recent PowerShell sync
   app.get("/api/dynamics365/preview-items", isCEOOrAdmin, async (req, res) => {
     try {
-      // Get the most recent preview items
-      const previewItems = await db.select()
+      // Get the most recent syncId first
+      const latestSync = await db.select()
         .from(d365ItemsPreview)
-        .orderBy(sql`${d365ItemsPreview.createdAt} DESC`)
-        .limit(1000); // Limit to prevent huge responses
+        .orderBy(desc(d365ItemsPreview.createdAt))
+        .limit(1);
 
-      // Group by syncId
-      const bySyncId: Record<string, any[]> = {};
-      previewItems.forEach(item => {
-        if (!bySyncId[item.syncId]) {
-          bySyncId[item.syncId] = [];
-        }
-        bySyncId[item.syncId].push(item);
-      });
+      if (latestSync.length === 0) {
+        return res.json({
+          success: true,
+          syncId: null,
+          items: [],
+          totalCount: 0,
+          newCount: 0,
+          existingCount: 0,
+          syncTimestamp: null,
+        });
+      }
 
-      // Get the most recent sync
-      const syncIds = Object.keys(bySyncId);
-      const mostRecentSyncId = syncIds[0];
-      const mostRecentItems = mostRecentSyncId ? bySyncId[mostRecentSyncId] : [];
+      const mostRecentSyncId = latestSync[0].syncId;
+      const syncTimestamp = latestSync[0].createdAt;
+
+      // Get all items for this specific sync
+      const mostRecentItems = await db.select()
+        .from(d365ItemsPreview)
+        .where(eq(d365ItemsPreview.syncId, mostRecentSyncId))
+        .orderBy(d365ItemsPreview.itemNo);
 
       res.json({
         success: true,
         syncId: mostRecentSyncId,
         items: mostRecentItems,
         totalCount: mostRecentItems.length,
-        newCount: mostRecentItems.filter(i => !i.alreadyExists).length,
-        existingCount: mostRecentItems.filter(i => i.alreadyExists).length,
+        newCount: mostRecentItems.filter((i: any) => !i.alreadyExists).length,
+        existingCount: mostRecentItems.filter((i: any) => i.alreadyExists).length,
+        syncTimestamp,
       });
     } catch (error: any) {
       console.error("Preview items error:", error);
@@ -3609,25 +3617,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { syncId, selectedItemIds } = req.body;
 
-      if (!syncId || !Array.isArray(selectedItemIds)) {
+      if (!syncId || !Array.isArray(selectedItemIds) || selectedItemIds.length === 0) {
         return res.status(400).json({ error: "Invalid request: syncId and selectedItemIds required" });
       }
 
-      // Get selected preview items
-      const previewItems = await db.select()
+      // Validate that syncId exists and get all items for this sync
+      const allSyncItems = await db.select()
         .from(d365ItemsPreview)
-        .where(
-          and(
-            eq(d365ItemsPreview.syncId, syncId),
-            sql`${d365ItemsPreview.id} = ANY(${selectedItemIds})`
-          )
-        );
+        .where(eq(d365ItemsPreview.syncId, syncId));
+
+      if (allSyncItems.length === 0) {
+        return res.status(404).json({ error: "Sync not found or already imported" });
+      }
+
+      // Validate that all selectedItemIds belong to this sync
+      const validIds = new Set(allSyncItems.map((item: any) => item.id));
+      const invalidIds = selectedItemIds.filter((id: string) => !validIds.has(id));
+      
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ 
+          error: "Invalid item IDs: some items do not belong to this sync",
+          invalidIds 
+        });
+      }
+
+      // Get only the selected preview items
+      const previewItems = allSyncItems.filter((item: any) => selectedItemIds.includes(item.id));
 
       let savedCount = 0;
       let updatedCount = 0;
       const errors: string[] = [];
 
-      // Import each selected item
+      // Import each selected item (wrapped in try-catch for individual errors)
       for (const previewItem of previewItems) {
         try {
           const itemData = {
@@ -3663,7 +3684,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Clean up preview items for this sync
+      // Only clean up preview items for this specific sync after successful import
+      // This prevents re-importing the same items
       await db.delete(d365ItemsPreview)
         .where(eq(d365ItemsPreview.syncId, syncId));
 

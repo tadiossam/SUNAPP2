@@ -45,6 +45,19 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **ZKTeco Biometric Device**: iFace990 Plus attendance device for employee user management, utilizing the `zkteco-js` library.
 
 ## Recent Updates (Oct 27, 2025)
+### D365 Preview & Select Workflow (Latest - Oct 27, 2025)
+- **User-Controlled Import**: PowerShell sync now stores items in preview table instead of auto-importing
+- **Review Before Import**: New "Review & Import Items" button in Admin Settings shows fetched items
+- **Selection Dialog**: Interactive dialog with checkboxes to select/deselect items before importing
+- **Smart Indicators**: Each item shows "New" (will be added) or "Will Update" (existing item) badges
+- **Validation & Security**: Backend validates all item IDs belong to the sync, prevents stale data imports
+- **Auto-Cleanup**: Preview items deleted after successful import to prevent re-importing
+- **Fresh State**: Dialog resets selection when new preview data loads
+- **Database Schema**: Added `d365_items_preview` table for temporary storage before import
+- **Endpoints**: 
+  - `GET /api/dynamics365/preview-items` - Fetch items from latest sync
+  - `POST /api/dynamics365/import-selected` - Import only selected items
+
 ### D365 PowerShell-Based Sync (Major Redesign)
 - **Complete Workflow Redesign**: Removed manual "Test Connection", "Preview Items", "Preview Equipment" buttons in favor of automated PowerShell sync
 - **Smart Filtering System**:

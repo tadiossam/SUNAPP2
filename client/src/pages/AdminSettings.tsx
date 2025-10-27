@@ -1499,29 +1499,32 @@ export default function AdminSettings() {
                       <AlertDescription className="text-blue-900 dark:text-blue-100">
                         <div className="space-y-3">
                           <div>
-                            <p className="font-semibold">✨ Automated D365 Sync Workflow:</p>
+                            <p className="font-semibold">✨ New Preview & Select Workflow:</p>
                             <ol className="list-decimal ml-4 mt-2 space-y-1 text-sm">
                               <li><strong>Generate Script:</strong> Click "Generate PowerShell Script" button above</li>
                               <li><strong>Copy to D365 Server:</strong> Place D365-Sync.ps1 in C:\D365Sync\ on server 192.168.0.16</li>
-                              <li><strong>Test Manually:</strong> Right-click → "Run with PowerShell" to verify it works</li>
-                              <li><strong>Set Up Auto-Sync:</strong> Run SETUP-AUTO-SYNC.bat from batch-files/d365-sync/ folder (as admin)</li>
+                              <li><strong>Run PowerShell:</strong> Right-click D365-Sync.ps1 → "Run with PowerShell"</li>
+                              <li><strong>Review Items:</strong> Click "Review & Import Items" button to see what was fetched</li>
+                              <li><strong>Select & Import:</strong> Choose which items to import, then click "Import Selected"</li>
+                              <li><strong>Auto-Sync (Optional):</strong> Run SETUP-AUTO-SYNC.bat for scheduled syncs</li>
                             </ol>
                           </div>
                           
                           <div className="pt-2 border-t border-blue-300/30">
-                            <p className="font-semibold text-sm">🎯 How Filtering Works:</p>
+                            <p className="font-semibold text-sm">🎯 How It Works:</p>
                             <ul className="ml-4 mt-1 space-y-1 text-sm">
-                              <li>• PowerShell fetches <strong>ALL</strong> items/equipment from D365</li>
-                              <li>• Filters by prefix ({d365Settings.itemPrefix ? `items: "${d365Settings.itemPrefix}*"` : 'items: all'}
+                              <li>✅ PowerShell fetches <strong>ALL</strong> items from D365</li>
+                              <li>✅ Filters by prefix ({d365Settings.itemPrefix ? `items: "${d365Settings.itemPrefix}*"` : 'items: all'}
                                 {d365Settings.equipmentPrefix && `, equipment: "${d365Settings.equipmentPrefix}*"`})</li>
-                              <li>• Auto-updates existing items (inventory, prices)</li>
-                              <li>• Adds new items matching prefix</li>
-                              <li>• Runs every {d365Settings.syncIntervalHours || 24} hours when scheduled</li>
+                              <li>✅ Stores in <strong>preview table</strong> (not imported yet)</li>
+                              <li>✅ You review and select which items to import</li>
+                              <li>✅ Only selected items are added/updated in your database</li>
+                              <li>✅ Auto-sync runs every {d365Settings.syncIntervalHours || 24} hours when scheduled</li>
                             </ul>
                           </div>
 
                           <p className="text-sm mt-2 pt-2 border-t border-blue-300/30">
-                            💡 The script uses Windows Authentication - no password prompts!
+                            💡 <strong>Full Control:</strong> Review before importing - see what's new vs. what will update!
                           </p>
                         </div>
                       </AlertDescription>

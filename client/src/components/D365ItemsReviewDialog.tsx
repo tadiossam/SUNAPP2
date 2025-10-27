@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, CheckCircle2, AlertCircle, Sparkles } from "lucide-react";
 
 interface D365PreviewItem {
@@ -41,6 +41,11 @@ export function D365ItemsReviewDialog({
   isImporting = false,
 }: D365ItemsReviewDialogProps) {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set(previewItems.map(i => i.id)));
+
+  // Reset selection when preview items or syncId changes
+  useEffect(() => {
+    setSelectedItems(new Set(previewItems.map(i => i.id)));
+  }, [previewItems, syncId]);
 
   const toggleItem = (itemId: string) => {
     const newSelected = new Set(selectedItems);

@@ -608,10 +608,16 @@ export default function AdminSettings() {
 
   const fetchUsersMutation = useMutation({
     mutationFn: async () => {
+      // Use active device settings instead of form values
+      const activeDevice = allDevices.find(d => d.isActive) || deviceSettings;
+      if (!activeDevice) {
+        throw new Error("No active device configured. Please add and activate a device first.");
+      }
+      
       const res = await apiRequest("POST", "/api/attendance-device/fetch-users", {
-        ipAddress: deviceForm.ipAddress,
-        port: parseInt(deviceForm.port),
-        timeout: parseInt(deviceForm.timeout),
+        ipAddress: activeDevice.ipAddress,
+        port: parseInt(activeDevice.port.toString()),
+        timeout: parseInt(activeDevice.timeout.toString()),
       });
       return res.json();
     },

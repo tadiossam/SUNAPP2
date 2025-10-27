@@ -155,7 +155,10 @@ export function isCEO(req: any, res: Response, next: NextFunction) {
 
 // Middleware to check if user has CEO or Admin role
 export function isCEOOrAdmin(req: any, res: Response, next: NextFunction) {
+  console.log("[DEBUG] isCEOOrAdmin - req.user:", req.user);
+  console.log("[DEBUG] isCEOOrAdmin - role:", req.user?.role);
   const role = req.user?.role?.toLowerCase();
+  console.log("[DEBUG] isCEOOrAdmin - role (lowercase):", role);
   if (role === "ceo" || role === "admin") {
     return next();
   }

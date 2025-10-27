@@ -3002,6 +3002,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const testUrl = `${bcUrl}/ODataV4/Company('${encodeURIComponent(bcCompany)}')/items?$top=1`;
+        console.log(`Testing D365 connection:`, {
+          url: testUrl,
+          username: bcUsername,
+          company: bcCompany,
+        });
+        
         const response = await axios.get(testUrl, {
           auth: {
             username: bcUsername,

@@ -55,6 +55,13 @@ The application can run locally on Windows with the following setup:
   - `reusePort` option disabled on Windows (not supported)
   - `cross-env` package ensures NODE_ENV is set correctly
   - Server binds to 0.0.0.0 for network accessibility
-  - Batch files provided: `SETUP-FIRST-TIME.bat`, `START-WINDOWS.bat`, `STOP-WINDOWS.bat`, `ALLOW-FIREWALL.bat`, `CHECK-IP.bat`
+  - Batch files provided:
+    - Server: `SETUP-FIRST-TIME.bat`, `START-WINDOWS.bat`, `STOP-WINDOWS.bat`
+    - Network: `ALLOW-FIREWALL.bat`, `CHECK-IP.bat`
+    - Database: `UPDATE-DATABASE-SCHEMA.bat`, `GENERATE-MIGRATION.bat`, `APPLY-MIGRATIONS.bat`
 - **Firewall**: Windows Firewall must allow port 3000 for network access (use `ALLOW-FIREWALL.bat`)
+- **Database Schema Management**: 
+  - **Migration Files** (Recommended): `GENERATE-MIGRATION.bat` + `APPLY-MIGRATIONS.bat` - Creates reviewable SQL files in `migrations/` folder for safe schema updates, version control, and team collaboration
+  - **Quick Sync** (Advanced Only): `UPDATE-DATABASE-SCHEMA.bat` - Direct schema sync for experienced users, additive changes only, requires confirmation
+  - See `DATABASE-MIGRATION-GUIDE.md` for detailed workflow and safety guidelines
 - **Known Issues**: bcrypt requires native compilation on Windows (automatically handled by npm install)

@@ -1338,7 +1338,7 @@ export default function AdminSettings() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex flex-wrap gap-2 pt-4">
                     <Button
                       onClick={() => testD365ConnectionMutation.mutate()}
                       disabled={testD365ConnectionMutation.isPending || !d365Form.bcUrl || !d365Form.bcCompany || !d365Form.bcUsername}
@@ -1375,7 +1375,38 @@ export default function AdminSettings() {
                         </>
                       )}
                     </Button>
+
+                    <Button
+                      onClick={() => {
+                        window.location.href = "/api/dynamics365/generate-script";
+                      }}
+                      disabled={!d365Settings}
+                      variant="default"
+                      className="bg-primary"
+                      data-testid="button-generate-script"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Generate PowerShell Script
+                    </Button>
                   </div>
+
+                  {d365Settings && (
+                    <Alert className="mt-4 border-blue-500/50 bg-blue-50 dark:bg-blue-950/20">
+                      <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <AlertDescription className="text-blue-900 dark:text-blue-100">
+                        <div className="space-y-2">
+                          <p className="font-semibold">✨ Simple PowerShell Solution:</p>
+                          <ol className="list-decimal ml-4 space-y-1 text-sm">
+                            <li>Click "Generate PowerShell Script" to download D365-Sync.ps1</li>
+                            <li>Copy the script to your D365 server (192.168.0.16)</li>
+                            <li>Right-click the file → "Run with PowerShell"</li>
+                            <li>Data will automatically sync to this app!</li>
+                          </ol>
+                          <p className="text-sm mt-2">💡 The script uses Windows Authentication automatically (no more login issues!)</p>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </CardContent>
               </Card>
 

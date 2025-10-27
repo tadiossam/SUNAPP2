@@ -3469,6 +3469,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Receive data from PowerShell script (uses API key for auth)
+  app.post("/api/dynamics365/receive-data", async (req, res) => {
+    try {
+      const { apiKey, items: receivedItems, equipment: receivedEquipment, syncType } = req.body;
+      
+      // Validate API key (should match D365 settings or system secret)
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings || apiKey !== d365Settings.id) {
+        return res.status(401).json({ 
+          success: false,
+          error: "Invalid API key" 
+        });
+      }
+
+      let savedCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+
+      // Process items if provided
+      if (receivedItems && Array.isArray(receivedItems)) {
+        for (const d365Item of receivedItems) {
+          try {
+            const existingItem = await db.select()
+              .from(items)
+              .where(eq(items.itemNo, d365Item.No))
+              .limit(1);
+            
+            const itemData = {
+              itemNo: d365Item.No,
+              description: d365Item.Description,
+              description2: d365Item.Description_2 || null,
+              type: d365Item.Type || null,
+              baseUnitOfMeasure: d365Item.Base_Unit_of_Measure || null,
+              unitPrice: d365Item.Unit_Price?.toString() || null,
+              unitCost: d365Item.Unit_Cost?.toString() || null,
+              inventory: d365Item.Inventory?.toString() || null,
+              vendorNo: d365Item.Vendor_No || null,
+              vendorItemNo: d365Item.Vendor_Item_No || null,
+              lastDateModified: d365Item.Last_Date_Modified || null,
+              syncedAt: new Date(),
+              updatedAt: new Date(),
+            };
+            
+            if (existingItem.length > 0) {
+              await db.update(items)
+                .set(itemData)
+                .where(eq(items.itemNo, d365Item.No));
+              updatedCount++;
+            } else {
+              await db.insert(items).values(itemData);
+              savedCount++;
+            }
+          } catch (itemError: any) {
+            console.error(`Error saving item ${d365Item.No}:`, itemError.message);
+            errors.push(`${d365Item.No}: ${itemError.message}`);
+            skippedCount++;
+          }
+        }
+      }
+
+      // Process equipment if provided
+      if (receivedEquipment && Array.isArray(receivedEquipment)) {
+        for (const d365Equip of receivedEquipment) {
+          try {
+            // Skip equipment sync for now - requires category assignment
+            skippedCount++;
+          } catch (equipError: any) {
+            console.error(`Error saving equipment ${d365Equip.No}:`, equipError.message);
+            errors.push(`${d365Equip.No}: ${equipError.message}`);
+            skippedCount++;
+          }
+        }
+      }
+
+      // Log the sync
+      await db.insert(d365SyncLogs).values({
+        syncType: syncType || "powershell_import",
+        status: errors.length > 0 ? (errors.length === (receivedItems?.length || 0) + (receivedEquipment?.length || 0) ? "failed" : "partial") : "success",
+        prefix: null,
+        recordsImported: savedCount,
+        recordsUpdated: updatedCount,
+        recordsSkipped: skippedCount,
+        totalRecords: (receivedItems?.length || 0) + (receivedEquipment?.length || 0),
+        errorMessage: errors.length > 0 ? errors.join("; ") : null,
+      });
+
+      console.log(`PowerShell sync: ${savedCount} new, ${updatedCount} updated, ${skippedCount} skipped`);
+
+      res.json({
+        success: true,
+        savedCount,
+        updatedCount,
+        skippedCount,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      console.error("Receive data error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
   // Import selected items from D365 preview
   app.post("/api/dynamics365/import-items", isCEOOrAdmin, async (req, res) => {
     try {
@@ -3675,6 +3780,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Import failed", 
         error: error.message 
       });
+    }
+  });
+
+  // Generate PowerShell script for D365 data sync
+  app.get("/api/dynamics365/generate-script", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      // Get system settings for app URL
+      const systemSettings = await storage.getSystemSettings();
+      const appUrl = `http://${systemSettings?.serverHost || '192.168.0.34'}:${systemSettings?.serverPort || 3000}`;
+
+      // Generate PowerShell script
+      const script = `# Dynamics 365 Business Central Data Sync Script
+# Generated: ${new Date().toISOString()}
+# This script fetches data from D365 and sends it to the Gelan Terminal Maintenance app
+
+# Configuration
+$D365Url = "${d365Settings.bcUrl}"
+$CompanyName = "${d365Settings.bcCompany}"
+$AppUrl = "${appUrl}"
+$ApiKey = "${d365Settings.id}"
+
+# Function to fetch data from D365
+function Get-D365Data {
+    param(
+        [string]$Endpoint
+    )
+    
+    $encodedCompany = [System.Web.HttpUtility]::UrlEncode($CompanyName)
+    $url = "$D365Url/ODataV4/Company('$encodedCompany')/$Endpoint"
+    
+    Write-Host "Fetching from: $url"
+    
+    try {
+        # Use Windows Integrated Authentication (works automatically on D365 server)
+        $response = Invoke-RestMethod -Uri $url -Method Get -UseDefaultCredentials
+        return $response.value
+    }
+    catch {
+        Write-Host "Error fetching data: $_"
+        return $null
+    }
+}
+
+# Function to send data to app
+function Send-ToApp {
+    param(
+        [array]$Items,
+        [array]$Equipment,
+        [string]$SyncType
+    )
+    
+    $body = @{
+        apiKey = $ApiKey
+        items = $Items
+        equipment = $Equipment
+        syncType = $SyncType
+    } | ConvertTo-Json -Depth 10
+    
+    try {
+        $response = Invoke-RestMethod -Uri "$AppUrl/api/dynamics365/receive-data" \`
+            -Method Post \`
+            -Body $body \`
+            -ContentType "application/json"
+        
+        Write-Host "✓ Sync successful!"
+        Write-Host "  - Saved: $($response.savedCount)"
+        Write-Host "  - Updated: $($response.updatedCount)"
+        Write-Host "  - Skipped: $($response.skippedCount)"
+        
+        return $response
+    }
+    catch {
+        Write-Host "✗ Error sending data to app: $_"
+        return $null
+    }
+}
+
+# Main execution
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  D365 Data Sync" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Fetch items
+Write-Host "Fetching items from D365..." -ForegroundColor Yellow
+$items = Get-D365Data -Endpoint "items"
+
+if ($items) {
+    Write-Host "Found $($items.Count) items" -ForegroundColor Green
+} else {
+    Write-Host "No items found or error occurred" -ForegroundColor Red
+}
+
+# Fetch equipment (try different endpoints)
+Write-Host "Fetching equipment from D365..." -ForegroundColor Yellow
+$equipment = Get-D365Data -Endpoint "FixedAssets"
+
+if (-not $equipment) {
+    $equipment = Get-D365Data -Endpoint "Fixed_Assets"
+}
+
+if ($equipment) {
+    Write-Host "Found $($equipment.Count) equipment" -ForegroundColor Green
+} else {
+    Write-Host "No equipment found or endpoint not available" -ForegroundColor Yellow
+}
+
+# Send to app
+if ($items -or $equipment) {
+    Write-Host ""
+    Write-Host "Sending data to Gelan Terminal app..." -ForegroundColor Yellow
+    $result = Send-ToApp -Items $items -Equipment $equipment -SyncType "powershell_sync"
+    
+    if ($result) {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host "  Sync Complete!" -ForegroundColor Green
+        Write-Host "========================================" -ForegroundColor Green
+    }
+} else {
+    Write-Host ""
+    Write-Host "No data to sync" -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "Press any key to exit..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+`;
+
+      // Return as downloadable file
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', 'attachment; filename="D365-Sync.ps1"');
+      res.send(script);
+    } catch (error: any) {
+      console.error("Generate script error:", error);
+      res.status(500).json({ error: "Failed to generate script" });
     }
   });
 

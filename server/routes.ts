@@ -3027,20 +3027,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (axiosError: any) {
         let errorMessage = "Connection failed";
+        let statusCode = 503;
         
         if (axiosError.code === 'ECONNREFUSED') {
           errorMessage = "Cannot connect to server. Please check the URL and ensure the server is running.";
+          statusCode = 503;
+        } else if (axiosError.code === 'ETIMEDOUT' || axiosError.code === 'ECONNABORTED') {
+          errorMessage = "Connection timeout. The server is not responding.";
+          statusCode = 504;
         } else if (axiosError.response?.status === 401) {
           errorMessage = "Authentication failed. Please check username and password.";
+          statusCode = 401;
+        } else if (axiosError.response?.status === 403) {
+          errorMessage = "Access forbidden. Please check user permissions.";
+          statusCode = 403;
         } else if (axiosError.response?.status === 404) {
-          errorMessage = "Resource not found. Please check the company name.";
+          errorMessage = "Resource not found. Please check the company name and URL.";
+          statusCode = 404;
+        } else if (axiosError.response?.status === 503) {
+          errorMessage = "Service unavailable (503). The Dynamics 365 Business Central service is not running or is temporarily down. Please check if the service is started on the server.";
+          statusCode = 503;
+        } else if (axiosError.response?.status === 500) {
+          errorMessage = "Server error (500). The Dynamics 365 server encountered an internal error.";
+          statusCode = 500;
+        } else if (axiosError.response?.status) {
+          errorMessage = `HTTP Error ${axiosError.response.status}: ${axiosError.response.statusText || axiosError.message}`;
+          statusCode = axiosError.response.status;
         } else {
           errorMessage = axiosError.message || "Unknown connection error";
+          statusCode = 503;
         }
         
         await storage.updateDynamics365TestResult('failed', errorMessage);
         
-        res.status(503).json({ 
+        res.status(statusCode).json({ 
           success: false, 
           message: errorMessage 
         });

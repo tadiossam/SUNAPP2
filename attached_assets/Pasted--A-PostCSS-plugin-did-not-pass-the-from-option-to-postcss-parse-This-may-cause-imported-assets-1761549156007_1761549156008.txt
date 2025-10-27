@@ -1,0 +1,176 @@
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+10:12:02 AM [express] GET /api/auth/me 304 in 5ms :: {"user":{"id":"93bb46ad-e9c3-47d3-8421-15292d2c3…
+10:12:02 AM [express] GET /api/system-settings 304 in 25ms :: {"serverHost":"0.0.0.0","serverPort":30…
+10:12:02 AM [express] GET /api/dynamics365/sync-logs 304 in 7ms :: []
+10:12:02 AM [express] GET /api/dynamics365/settings 304 in 9ms
+10:12:02 AM [express] GET /api/equipment-categories 200 in 7ms :: []
+10:12:02 AM [express] GET /api/attendance-device/logs 304 in 5ms :: []
+Error fetching device settings: error: column "device_name" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAttendanceDeviceSettings (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:1970:22)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2534:24) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:12:02 AM [express] GET /api/attendance-device/settings 500 in 54ms :: {"error":"Failed to fetch de…
+Error fetching devices: error: column "device_name" does not exist
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllAttendanceDevices (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:1963:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2457:23) {
+  length: 111,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '14',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3827',
+  routine: 'errorMissingColumn'
+}
+10:12:03 AM [express] GET /api/attendance-devices 500 in 6ms :: {"error":"Failed to fetch devices"}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

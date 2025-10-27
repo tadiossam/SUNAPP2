@@ -5,7 +5,7 @@ echo    GELAN TERMINAL - DEBUG MODE
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo Setting environment variables...
 set NODE_ENV=development

@@ -6,7 +6,7 @@ echo    Add Default Users
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo Creating default users in local database...
 echo.

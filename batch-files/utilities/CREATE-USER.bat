@@ -6,7 +6,7 @@ echo    Gelan Terminal Maintenance System
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo This script creates a new user with a properly hashed password.
 echo.

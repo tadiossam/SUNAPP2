@@ -6,7 +6,7 @@ echo    Create Tables and Add Users
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo Make sure you have:
 echo   1. PostgreSQL installed

@@ -110,6 +110,16 @@ Old batch files kept for reference:
 
 ---
 
+## How to Run
+
+All batch files can now be run directly from their folders. Just double-click them!
+
+**Example:**
+- Double-click `batch-files/server-management/START-WINDOWS.bat` ✅
+- No need to copy to root folder
+
+The batch files automatically navigate to the project root before executing.
+
 ## Quick Reference
 
 ### Daily Operations

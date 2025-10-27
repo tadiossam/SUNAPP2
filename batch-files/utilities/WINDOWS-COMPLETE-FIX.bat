@@ -5,7 +5,7 @@ echo    GELAN TERMINAL - COMPLETE WINDOWS FIX
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo [1/6] Checking Node.js...
 node --version || (

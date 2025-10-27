@@ -4,7 +4,7 @@ echo    VITE DIAGNOSTIC
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo [1] Checking NODE_ENV...
 set NODE_ENV=development

@@ -5,7 +5,7 @@ echo    GELAN TERMINAL - WINDOWS FINAL FIX
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo [Step 1] Checking Node.js installation...
 node --version >nul 2>&1

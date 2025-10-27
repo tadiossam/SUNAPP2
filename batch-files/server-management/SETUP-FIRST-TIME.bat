@@ -6,7 +6,7 @@ echo    Sunshine Construction PLC
 echo ============================================================
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo [1/4] Checking Node.js installation...
 node --version >nul 2>&1

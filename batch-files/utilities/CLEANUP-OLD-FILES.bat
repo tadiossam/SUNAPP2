@@ -20,7 +20,7 @@ echo.
 pause
 echo.
 
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 
 echo Deleting old batch files...
 del /Q CHECK-INSTALLATION.bat 2>nul

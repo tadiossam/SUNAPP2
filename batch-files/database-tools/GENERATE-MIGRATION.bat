@@ -1,5 +1,7 @@
 @echo off
 cls
+cd /d "%~dp0..\.."
+
 echo.
 echo ============================================================
 echo    GENERATE DATABASE MIGRATION

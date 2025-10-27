@@ -32,6 +32,7 @@ import {
   Edit,
   CheckCircle,
   Search,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -93,6 +94,43 @@ export default function AdminSettings() {
     bcUsername: "",
     bcPassword: "",
   });
+
+  // Parse D365 URL
+  const parseD365Url = (fullUrl: string) => {
+    try {
+      // Example: http://192.168.0.16:7048/SUNCONBC1/ODataV4/Company('Sunshine%20Construction%20PLC%28Test')/items
+      const match = fullUrl.match(/^(https?:\/\/[^/]+\/[^/]+)\/ODataV4\/Company\('([^']+)'\)/);
+      
+      if (match) {
+        const baseUrl = match[1]; // http://192.168.0.16:7048/SUNCONBC1
+        const companyEncoded = match[2]; // Sunshine%20Construction%20PLC%28Test
+        const company = decodeURIComponent(companyEncoded); // Sunshine Construction PLC(Test
+        
+        setD365Form({
+          ...d365Form,
+          bcUrl: baseUrl,
+          bcCompany: company,
+        });
+        
+        toast({
+          title: "URL Parsed",
+          description: "Form fields have been auto-filled from URL",
+        });
+      } else {
+        toast({
+          title: "Invalid URL",
+          description: "Could not parse URL. Please check format.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Parse Error",
+        description: "Failed to parse URL",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Biometric Device state
   const [deviceForm, setDeviceForm] = useState({
@@ -1223,17 +1261,37 @@ export default function AdminSettings() {
                   )}
 
                   <div className="grid gap-4">
+                    {/* URL Parser Helper */}
+                    <div className="space-y-2 p-4 bg-muted/50 rounded-lg border">
+                      <Label htmlFor="fullUrl" className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        Quick Setup: Paste Your Working URL
+                      </Label>
+                      <Input
+                        id="fullUrl"
+                        placeholder="http://192.168.0.16:7048/SUNCONBC1/ODataV4/Company('Sunshine%20Construction%20PLC%28Test')/items"
+                        data-testid="input-parse-url"
+                        onPaste={(e) => {
+                          const pastedUrl = e.clipboardData.getData('text');
+                          setTimeout(() => parseD365Url(pastedUrl), 100);
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        💡 Paste the URL that works in your browser, and we'll auto-fill the fields below
+                      </p>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="bcUrl">Business Central URL *</Label>
                       <Input
                         id="bcUrl"
                         value={d365Form.bcUrl}
                         onChange={(e) => setD365Form({ ...d365Form, bcUrl: e.target.value })}
-                        placeholder=""
+                        placeholder="http://192.168.0.16:7048/SUNCONBC1"
                         data-testid="input-d365-url"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Full URL to your Dynamics 365 Business Central server (e.g., http://192.168.0.16:7048/SUNCONBC1)
+                        Just the base URL (without /ODataV4/...)
                       </p>
                     </div>
 
@@ -1247,7 +1305,7 @@ export default function AdminSettings() {
                         data-testid="input-d365-company"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Enter the exact company name as it appears in your Dynamics 365 Business Central system
+                        Exact company name (auto-decoded from URL if pasted above)
                       </p>
                     </div>
 

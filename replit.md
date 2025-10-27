@@ -44,14 +44,27 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Resend**: Email notification service.
 - **ZKTeco Biometric Device**: iFace990 Plus attendance device for employee user management, utilizing the `zkteco-js` library.
 
-## Recent Bug Fixes (Oct 27, 2025)
+## Recent Updates (Oct 27, 2025)
+### D365 PowerShell-Based Sync (Major Redesign)
+- **Complete Workflow Redesign**: Removed manual "Test Connection", "Preview Items", "Preview Equipment" buttons in favor of automated PowerShell sync
+- **Smart Filtering System**:
+  - Item Prefix field (e.g., "SP-") - only syncs items starting with this prefix
+  - Equipment Prefix field (e.g., "FA-") - only syncs fixed assets starting with this prefix
+  - PowerShell fetches ALL data from D365, then filters by prefix before sending to app
+- **Auto-Sync with Interval**: Added sync interval setting (hours) for automatic scheduled syncs
+- **PowerShell Script Generation**: One-click download of custom D365-Sync.ps1 with embedded settings (URL, company, credentials, prefixes)
+- **Windows Task Scheduler Setup**: Created SETUP-AUTO-SYNC.bat for easy automatic sync scheduling
+- **Smart Updates**: Existing items automatically get inventory/price updates, new items matching prefix are added
+- **Sync History**: All operations logged with timestamp, type, prefix, status, and detailed results
+- **Schema Updates**: Added `itemPrefix`, `equipmentPrefix`, `syncIntervalHours`, `lastSyncDate` to `dynamics365_settings` table
+
+### Previous Bug Fixes
 - **Biometric Import Fix**: Corrected frontend endpoint from `/api/attendance-device/import` to `/api/attendance-device/import-users` to match backend routes
 - **Import Selected Users Fix**: Updated to use active device settings instead of form values for consistent device communication
 - **Batch Files Organization**: All 26 batch files in organized folders now work from their subfolders with `cd /d "%~dp0..\.."` to navigate to project root before execution
 - **D365 Settings Foreign Key Fix**: Updated `dynamics365_settings` and `system_settings` tables to reference `users` table instead of `employees` table, allowing CEO users to save configuration settings
 - **Biometric Import Logging Fix**: Added missing `deviceId` field to import log creation for "Import Selected Users" operation
 - **Timestamp Type Fix**: Changed `lastImportAt` from string (`.toISOString()`) to Date object to match Drizzle schema requirements, fixing "toISOString is not a function" error
-- **D365 NTLM Authentication**: Updated Dynamics 365 Business Central integration to support Windows Authentication (NTLM) for on-premises servers using `httpntlm` library for test connection, preview, and sync operations
 
 ## Windows Compatibility
 The application can run locally on Windows with the following setup:

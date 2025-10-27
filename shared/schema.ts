@@ -1131,7 +1131,7 @@ export const dynamics365Settings = pgTable("dynamics365_settings", {
   lastTestStatus: text("last_test_status"), // Last test result: 'success' or 'failed'
   lastTestMessage: text("last_test_message"), // Error message if test failed
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change
+  updatedBy: varchar("updated_by").references(() => users.id), // User who made the change (CEO/Admin)
 });
 
 // Insert schema for D365 settings
@@ -1153,7 +1153,7 @@ export const systemSettings = pgTable("system_settings", {
   serverHost: text("server_host").notNull().default("0.0.0.0"), // Server IP/host
   serverPort: integer("server_port").notNull().default(3000), // Server port
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change
+  updatedBy: varchar("updated_by").references(() => users.id), // User who made the change (CEO/Admin)
 });
 
 // Insert schema for system settings

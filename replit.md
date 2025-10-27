@@ -48,6 +48,7 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Biometric Import Fix**: Corrected frontend endpoint from `/api/attendance-device/import` to `/api/attendance-device/import-users` to match backend routes
 - **Import Selected Users Fix**: Updated to use active device settings instead of form values for consistent device communication
 - **Batch Files Organization**: All 26 batch files in organized folders now work from their subfolders with `cd /d "%~dp0..\.."` to navigate to project root before execution
+- **D365 Settings Foreign Key Fix**: Updated `dynamics365_settings` and `system_settings` tables to reference `users` table instead of `employees` table, allowing CEO users to save configuration settings
 
 ## Windows Compatibility
 The application can run locally on Windows with the following setup:

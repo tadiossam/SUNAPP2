@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, or, ilike, sql, desc } from "drizzle-orm";
+import { eq, or, ilike, sql, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { 
   insertEquipmentCategorySchema,
@@ -33,6 +33,7 @@ import {
   equipment,
   d365SyncLogs,
   insertD365SyncLogSchema,
+  d365ItemsPreview,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -3469,7 +3470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Receive data from PowerShell script (uses API key for auth)
+  // Receive data from PowerShell script - stores in preview table for user review
   app.post("/api/dynamics365/receive-data", async (req, res) => {
     try {
       const { apiKey, items: receivedItems, equipment: receivedEquipment, syncType } = req.body;
@@ -3483,23 +3484,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      let savedCount = 0;
-      let updatedCount = 0;
-      let skippedCount = 0;
+      // Generate unique sync ID for this batch
+      const syncId = sql`gen_random_uuid()`.as("sync_id");
+      const syncIdResult = await db.select({ id: syncId }).from(sql`(SELECT 1) as dummy`);
+      const batchSyncId = syncIdResult[0].id;
+
+      let previewCount = 0;
+      let alreadyExistsCount = 0;
       const errors: string[] = [];
 
-      // Process items if provided
+      // Store items in preview table for user review
       if (receivedItems && Array.isArray(receivedItems)) {
         for (const d365Item of receivedItems) {
           try {
+            // Check if item already exists in database
             const existingItem = await db.select()
               .from(items)
               .where(eq(items.itemNo, d365Item.No))
               .limit(1);
             
-            const itemData = {
+            // Store in preview table
+            await db.insert(d365ItemsPreview).values({
+              syncId: batchSyncId,
               itemNo: d365Item.No,
-              description: d365Item.Description,
+              description: d365Item.Description || null,
               description2: d365Item.Description_2 || null,
               type: d365Item.Type || null,
               baseUnitOfMeasure: d365Item.Base_Unit_of_Measure || null,
@@ -3509,60 +3517,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
               vendorNo: d365Item.Vendor_No || null,
               vendorItemNo: d365Item.Vendor_Item_No || null,
               lastDateModified: d365Item.Last_Date_Modified || null,
-              syncedAt: new Date(),
-              updatedAt: new Date(),
-            };
-            
+              isSelected: true, // Default to selected
+              alreadyExists: existingItem.length > 0,
+            });
+
+            previewCount++;
             if (existingItem.length > 0) {
-              await db.update(items)
-                .set(itemData)
-                .where(eq(items.itemNo, d365Item.No));
-              updatedCount++;
-            } else {
-              await db.insert(items).values(itemData);
-              savedCount++;
+              alreadyExistsCount++;
             }
           } catch (itemError: any) {
-            console.error(`Error saving item ${d365Item.No}:`, itemError.message);
+            console.error(`Error storing item ${d365Item.No} in preview:`, itemError.message);
             errors.push(`${d365Item.No}: ${itemError.message}`);
-            skippedCount++;
           }
         }
       }
 
-      // Process equipment if provided
-      if (receivedEquipment && Array.isArray(receivedEquipment)) {
-        for (const d365Equip of receivedEquipment) {
-          try {
-            // Skip equipment sync for now - requires category assignment
-            skippedCount++;
-          } catch (equipError: any) {
-            console.error(`Error saving equipment ${d365Equip.No}:`, equipError.message);
-            errors.push(`${d365Equip.No}: ${equipError.message}`);
-            skippedCount++;
-          }
-        }
-      }
-
-      // Log the sync
+      // Log the sync with pending_review status
       await db.insert(d365SyncLogs).values({
-        syncType: syncType || "powershell_import",
-        status: errors.length > 0 ? (errors.length === (receivedItems?.length || 0) + (receivedEquipment?.length || 0) ? "failed" : "partial") : "success",
-        prefix: null,
-        recordsImported: savedCount,
-        recordsUpdated: updatedCount,
-        recordsSkipped: skippedCount,
-        totalRecords: (receivedItems?.length || 0) + (receivedEquipment?.length || 0),
+        syncType: syncType || "powershell_sync",
+        status: "pending_review",
+        prefix: d365Settings.itemPrefix || null,
+        recordsImported: 0, // Will be updated after user imports
+        recordsUpdated: 0,
+        recordsSkipped: 0,
+        totalRecords: previewCount,
         errorMessage: errors.length > 0 ? errors.join("; ") : null,
       });
 
-      console.log(`PowerShell sync: ${savedCount} new, ${updatedCount} updated, ${skippedCount} skipped`);
+      console.log(`PowerShell sync: ${previewCount} items stored in preview (${alreadyExistsCount} already exist)`);
 
       res.json({
         success: true,
-        savedCount,
-        updatedCount,
-        skippedCount,
+        syncId: batchSyncId,
+        previewCount,
+        newItemsCount: previewCount - alreadyExistsCount,
+        existingItemsCount: alreadyExistsCount,
+        message: "Data received successfully. Please review and import items from the admin panel.",
         errors: errors.length > 0 ? errors : undefined,
       });
     } catch (error: any) {
@@ -3574,7 +3564,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Import selected items from D365 preview
+  // Get preview items from most recent PowerShell sync
+  app.get("/api/dynamics365/preview-items", isCEOOrAdmin, async (req, res) => {
+    try {
+      // Get the most recent preview items
+      const previewItems = await db.select()
+        .from(d365ItemsPreview)
+        .orderBy(sql`${d365ItemsPreview.createdAt} DESC`)
+        .limit(1000); // Limit to prevent huge responses
+
+      // Group by syncId
+      const bySyncId: Record<string, any[]> = {};
+      previewItems.forEach(item => {
+        if (!bySyncId[item.syncId]) {
+          bySyncId[item.syncId] = [];
+        }
+        bySyncId[item.syncId].push(item);
+      });
+
+      // Get the most recent sync
+      const syncIds = Object.keys(bySyncId);
+      const mostRecentSyncId = syncIds[0];
+      const mostRecentItems = mostRecentSyncId ? bySyncId[mostRecentSyncId] : [];
+
+      res.json({
+        success: true,
+        syncId: mostRecentSyncId,
+        items: mostRecentItems,
+        totalCount: mostRecentItems.length,
+        newCount: mostRecentItems.filter(i => !i.alreadyExists).length,
+        existingCount: mostRecentItems.filter(i => i.alreadyExists).length,
+      });
+    } catch (error: any) {
+      console.error("Preview items error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
+  // Import selected items from preview table to actual items table
+  app.post("/api/dynamics365/import-selected", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { syncId, selectedItemIds } = req.body;
+
+      if (!syncId || !Array.isArray(selectedItemIds)) {
+        return res.status(400).json({ error: "Invalid request: syncId and selectedItemIds required" });
+      }
+
+      // Get selected preview items
+      const previewItems = await db.select()
+        .from(d365ItemsPreview)
+        .where(
+          and(
+            eq(d365ItemsPreview.syncId, syncId),
+            sql`${d365ItemsPreview.id} = ANY(${selectedItemIds})`
+          )
+        );
+
+      let savedCount = 0;
+      let updatedCount = 0;
+      const errors: string[] = [];
+
+      // Import each selected item
+      for (const previewItem of previewItems) {
+        try {
+          const itemData = {
+            itemNo: previewItem.itemNo,
+            description: previewItem.description,
+            description2: previewItem.description2,
+            type: previewItem.type,
+            baseUnitOfMeasure: previewItem.baseUnitOfMeasure,
+            unitPrice: previewItem.unitPrice,
+            unitCost: previewItem.unitCost,
+            inventory: previewItem.inventory,
+            vendorNo: previewItem.vendorNo,
+            vendorItemNo: previewItem.vendorItemNo,
+            lastDateModified: previewItem.lastDateModified,
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          if (previewItem.alreadyExists) {
+            // Update existing item
+            await db.update(items)
+              .set(itemData)
+              .where(eq(items.itemNo, previewItem.itemNo));
+            updatedCount++;
+          } else {
+            // Insert new item
+            await db.insert(items).values(itemData);
+            savedCount++;
+          }
+        } catch (itemError: any) {
+          console.error(`Error importing item ${previewItem.itemNo}:`, itemError.message);
+          errors.push(`${previewItem.itemNo}: ${itemError.message}`);
+        }
+      }
+
+      // Clean up preview items for this sync
+      await db.delete(d365ItemsPreview)
+        .where(eq(d365ItemsPreview.syncId, syncId));
+
+      // Update sync log
+      await db.update(d365SyncLogs)
+        .set({
+          status: errors.length > 0 ? "partial" : "success",
+          recordsImported: savedCount,
+          recordsUpdated: updatedCount,
+          recordsSkipped: previewItems.length - savedCount - updatedCount,
+        })
+        .where(
+          and(
+            eq(d365SyncLogs.syncType, "powershell_sync"),
+            sql`${d365SyncLogs.createdAt} >= NOW() - INTERVAL '1 hour'` // Recent sync
+          )
+        );
+
+      console.log(`Import complete: ${savedCount} new, ${updatedCount} updated`);
+
+      res.json({
+        success: true,
+        savedCount,
+        updatedCount,
+        totalImported: savedCount + updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      console.error("Import selected error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
+  // Legacy import endpoint (for backward compatibility)
   app.post("/api/dynamics365/import-items", isCEOOrAdmin, async (req, res) => {
     try {
       const { items: selectedItems, prefix } = req.body;

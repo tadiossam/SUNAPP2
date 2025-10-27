@@ -1151,6 +1151,32 @@ export const insertDynamics365SettingsSchema = createInsertSchema(dynamics365Set
 export type Dynamics365Settings = typeof dynamics365Settings.$inferSelect;
 export type InsertDynamics365Settings = z.infer<typeof insertDynamics365SettingsSchema>;
 
+// D365 Preview/Staging table - temporary storage for items fetched by PowerShell before user review
+export const d365ItemsPreview = pgTable("d365_items_preview", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  syncId: varchar("sync_id").notNull(), // Links to sync log
+  itemNo: text("item_no").notNull(),
+  description: text("description"),
+  description2: text("description_2"),
+  type: text("type"),
+  baseUnitOfMeasure: text("base_unit_of_measure"),
+  unitPrice: text("unit_price"),
+  unitCost: text("unit_cost"),
+  inventory: text("inventory"),
+  vendorNo: text("vendor_no"),
+  vendorItemNo: text("vendor_item_no"),
+  lastDateModified: text("last_date_modified"),
+  isSelected: boolean("is_selected").default(true).notNull(), // User can deselect before import
+  alreadyExists: boolean("already_exists").default(false).notNull(), // Flag if item already in database
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type D365ItemPreview = typeof d365ItemsPreview.$inferSelect;
+export const insertD365ItemPreviewSchema = createInsertSchema(d365ItemsPreview).omit({
+  id: true,
+  createdAt: true,
+});
+
 // System Settings table - for server configuration
 export const systemSettings = pgTable("system_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

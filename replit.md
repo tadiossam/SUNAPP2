@@ -49,6 +49,8 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Import Selected Users Fix**: Updated to use active device settings instead of form values for consistent device communication
 - **Batch Files Organization**: All 26 batch files in organized folders now work from their subfolders with `cd /d "%~dp0..\.."` to navigate to project root before execution
 - **D365 Settings Foreign Key Fix**: Updated `dynamics365_settings` and `system_settings` tables to reference `users` table instead of `employees` table, allowing CEO users to save configuration settings
+- **Biometric Import Logging Fix**: Added missing `deviceId` field to import log creation for "Import Selected Users" operation
+- **Timestamp Type Fix**: Changed `lastImportAt` from string (`.toISOString()`) to Date object to match Drizzle schema requirements, fixing "toISOString is not a function" error
 
 ## Windows Compatibility
 The application can run locally on Windows with the following setup:

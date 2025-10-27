@@ -2695,7 +2695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       await storage.updateAttendanceDeviceSettings(settings.id, {
-        lastImportAt: new Date().toISOString(),
+        lastImportAt: new Date(),
       });
 
       res.json({
@@ -2782,6 +2782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = await storage.getAttendanceDeviceSettings();
       if (settings) {
         await storage.createDeviceImportLog({
+          deviceId: settings.id,
           operationType: 'selected_import',
           status: errors.length > 0 ? 'partial' : 'success',
           usersImported: imported,
@@ -2792,7 +2793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         await storage.updateAttendanceDeviceSettings(settings.id, {
-          lastImportAt: new Date().toISOString(),
+          lastImportAt: new Date(),
         });
       }
 

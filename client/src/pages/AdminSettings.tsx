@@ -746,7 +746,7 @@ export default function AdminSettings() {
     return (
       user.userId?.toLowerCase().includes(query) ||
       user.name?.toLowerCase().includes(query) ||
-      user.cardno?.toLowerCase().includes(query)
+      user.cardno?.toString().toLowerCase().includes(query)
     );
   });
 

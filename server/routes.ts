@@ -2240,9 +2240,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "File not found" });
       }
       objectStorageService.downloadObject(file, res);
-    } catch (error) {
-      console.error("Error searching for public object:", error);
-      return res.status(500).json({ error: "Internal server error" });
+    } catch (error: any) {
+      // Suppress verbose errors when not in Replit environment (Windows/local development)
+      const isReplitConnectionError = error?.code === 'ECONNREFUSED' && error?.message?.includes('127.0.0.1:1106');
+      if (!isReplitConnectionError) {
+        console.error("Error searching for public object:", error);
+      }
+      return res.status(404).json({ error: "Object storage not available" });
     }
   });
 

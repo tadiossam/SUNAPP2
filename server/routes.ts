@@ -4088,6 +4088,173 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // ==================== NTLM D365 Direct Connection Routes ====================
+  
+  // Import NTLM helpers
+  const { testD365Connection, fetchD365Customers, fetchD365Items, fetchD365Equipment } = await import("./d365-ntlm");
+
+  // Test D365 connection using NTLM
+  app.post("/api/dynamics365/test-connection-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const result = await testD365Connection(config);
+      
+      // Update test status in database
+      await db.update(dynamics365Settings)
+        .set({
+          lastTestDate: new Date(),
+          lastTestStatus: result.success ? 'success' : 'failed',
+          lastTestMessage: result.success ? 'Connection successful' : result.error || 'Connection failed',
+        })
+        .where(eq(dynamics365Settings.id, d365Settings.id));
+
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          message: "Connected to D365 Business Central successfully!",
+          statusCode: result.statusCode,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Test connection error:", error);
+      res.status(500).json({ error: "Failed to test connection" });
+    }
+  });
+
+  // Fetch customers from D365 using NTLM
+  app.get("/api/dynamics365/customers-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const result = await fetchD365Customers(config, limit);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: result.data,
+          count: result.data?.value?.length || 0,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Fetch customers error:", error);
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
+  });
+
+  // Fetch items from D365 using NTLM
+  app.get("/api/dynamics365/items-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 1000;
+      const result = await fetchD365Items(config, d365Settings.itemPrefix || undefined, limit);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: result.data,
+          count: result.data?.value?.length || 0,
+          prefix: d365Settings.itemPrefix,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Fetch items error:", error);
+      res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  // Fetch equipment (fixed assets) from D365 using NTLM
+  app.get("/api/dynamics365/equipment-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 1000;
+      const result = await fetchD365Equipment(config, d365Settings.equipmentPrefix || undefined, limit);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: result.data,
+          count: result.data?.value?.length || 0,
+          prefix: d365Settings.equipmentPrefix,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Fetch equipment error:", error);
+      res.status(500).json({ error: "Failed to fetch equipment" });
+    }
+  });
+
   // Get D365 sync logs
   app.get("/api/dynamics365/sync-logs", isCEOOrAdmin, async (req, res) => {
     try {

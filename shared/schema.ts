@@ -1126,6 +1126,7 @@ export const dynamics365Settings = pgTable("dynamics365_settings", {
   bcCompany: text("bc_company").notNull(), // Company name in D365
   bcUsername: text("bc_username").notNull(), // D365 username
   bcPassword: text("bc_password").notNull(), // D365 password (encrypted)
+  bcDomain: text("bc_domain"), // Windows domain for NTLM authentication (optional)
   itemPrefix: text("item_prefix"), // Filter items by prefix (e.g., "SP-") - only sync items starting with this
   equipmentPrefix: text("equipment_prefix"), // Filter equipment by prefix (e.g., "FA-")
   syncIntervalHours: integer("sync_interval_hours").default(24), // Auto-sync interval in hours

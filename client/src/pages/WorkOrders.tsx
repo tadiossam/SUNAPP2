@@ -63,23 +63,13 @@ export default function WorkOrdersPage() {
   const [workOrderNumber, setWorkOrderNumber] = useState("");
   const [equipmentId, setEquipmentId] = useState("");
   const [garageId, setGarageId] = useState("");
-  const [assignedToIds, setAssignedToIds] = useState<string[]>([]); // Array for team assignment
   const [priority, setPriority] = useState("medium");
   const [workType, setWorkType] = useState("repair");
   const [description, setDescription] = useState("");
-  const [estimatedHours, setEstimatedHours] = useState("");
-  const [estimatedCost, setEstimatedCost] = useState("");
-  const [scheduledDate, setScheduledDate] = useState("");
-  const [notes, setNotes] = useState("");
   const [selectedParts, setSelectedParts] = useState<SparePart[]>([]);
   const [partSearchTerm, setPartSearchTerm] = useState("");
   const [isPartsDialogOpen, setIsPartsDialogOpen] = useState(false);
   const [tempSelectedParts, setTempSelectedParts] = useState<string[]>([]);
-  
-  // Employee selection dialog state
-  const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
-  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
-  const [tempSelectedEmployees, setTempSelectedEmployees] = useState<string[]>([]);
 
   // Inspection and Maintenance detail dialogs
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
@@ -176,18 +166,6 @@ export default function WorkOrdersPage() {
     generateWorkOrderNumber();
   }, [isDialogOpen, editingWorkOrder]);
 
-  // Auto-calculate estimated cost based on selected spare parts
-  useEffect(() => {
-    const totalCost = selectedParts.reduce((sum, part) => {
-      const price = parseFloat(part.price || '0');
-      return sum + price;
-    }, 0);
-    
-    if (totalCost > 0) {
-      setEstimatedCost(totalCost.toFixed(2));
-    }
-  }, [selectedParts]);
-
   const createWorkOrderMutation = useMutation({
     mutationFn: async (data: any) => {
       if (editingWorkOrder) {
@@ -240,14 +218,9 @@ export default function WorkOrdersPage() {
     setWorkOrderNumber("");
     setEquipmentId("");
     setGarageId("");
-    setAssignedToIds([]);
     setPriority("medium");
     setWorkType("repair");
     setDescription("");
-    setEstimatedHours("");
-    setEstimatedCost("");
-    setScheduledDate("");
-    setNotes("");
     setSelectedParts([]);
     setPartSearchTerm("");
     setEditingWorkOrder(null);
@@ -290,16 +263,6 @@ export default function WorkOrdersPage() {
     setDescription(descriptionText);
     setWorkType(inspection.serviceType === "Short Term" ? "maintenance" : "repair");
     setPriority("medium");
-    
-    // Set notes with inspection findings and recommendations
-    let notesText = "";
-    if (inspection.findings) {
-      notesText += `Inspection Findings: ${inspection.findings}\n`;
-    }
-    if (inspection.recommendations) {
-      notesText += `Recommendations: ${inspection.recommendations}`;
-    }
-    setNotes(notesText);
 
     // Open the work order dialog
     setIsInspectionSelectOpen(false);
@@ -311,27 +274,9 @@ export default function WorkOrdersPage() {
     setWorkOrderNumber(workOrder.workOrderNumber);
     setEquipmentId(workOrder.equipmentId);
     setGarageId(workOrder.garageId || "");
-    setAssignedToIds(workOrder.assignedToIds || []);
     setPriority(workOrder.priority);
     setWorkType(workOrder.workType);
     setDescription(workOrder.description);
-    setEstimatedHours(workOrder.estimatedHours || "");
-    setEstimatedCost(workOrder.estimatedCost || "");
-    
-    // Format date for datetime-local input (YYYY-MM-DDTHH:mm)
-    if (workOrder.scheduledDate) {
-      const date = new Date(workOrder.scheduledDate);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      setScheduledDate(`${year}-${month}-${day}T${hours}:${minutes}`);
-    } else {
-      setScheduledDate("");
-    }
-    
-    setNotes(workOrder.notes || "");
     
     // Hydrate selected parts from work order required parts
     if (workOrder.requiredParts && spareParts) {
@@ -404,32 +349,6 @@ export default function WorkOrdersPage() {
     setSelectedParts(selectedParts.filter(p => p.id !== partId));
   };
 
-  // Employee selection dialog functions
-  const openEmployeeDialog = () => {
-    setTempSelectedEmployees(assignedToIds);
-    setIsEmployeeDialogOpen(true);
-  };
-
-  const toggleEmployeeSelection = (employeeId: string) => {
-    setTempSelectedEmployees(prev => {
-      if (prev.includes(employeeId)) {
-        return prev.filter(id => id !== employeeId);
-      } else {
-        return [...prev, employeeId];
-      }
-    });
-  };
-
-  const confirmEmployeeSelection = () => {
-    setAssignedToIds(tempSelectedEmployees);
-    setIsEmployeeDialogOpen(false);
-    setEmployeeSearchTerm("");
-  };
-
-  const removeEmployee = (employeeId: string) => {
-    setAssignedToIds(assignedToIds.filter(id => id !== employeeId));
-  };
-
   const getStockStatusColor = (status: string) => {
     switch (status) {
       case "in_stock": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
@@ -443,14 +362,6 @@ export default function WorkOrdersPage() {
     partSearchTerm === "" ||
     part.partNumber.toLowerCase().includes(partSearchTerm.toLowerCase()) ||
     part.partName.toLowerCase().includes(partSearchTerm.toLowerCase())
-  );
-
-  const filteredEmployees = employees?.filter(emp => 
-    emp.isActive && (
-      employeeSearchTerm === "" ||
-      emp.fullName.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
-      emp.role.toLowerCase().includes(employeeSearchTerm.toLowerCase())
-    )
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -473,14 +384,9 @@ export default function WorkOrdersPage() {
       workOrderNumber,
       equipmentId,
       garageId: garageId || undefined,
-      assignedToIds: assignedToIds.length > 0 ? assignedToIds : undefined,
       priority,
       workType,
       description,
-      estimatedHours: estimatedHours || undefined,
-      estimatedCost: estimatedCost || undefined,
-      scheduledDate: scheduledDate || undefined,
-      notes: notes || undefined,
       inspectionId: selectedInspectionId || undefined,
       receptionId: selectedInspection?.receptionId || undefined,
       requiredParts: selectedParts.map(part => ({
@@ -885,43 +791,6 @@ export default function WorkOrdersPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Assigned To - Team Selection */}
-              <div className="space-y-2 col-span-2">
-                <Label>Assign To (Team)</Label>
-                <Input
-                  readOnly
-                  value={assignedToIds.length === 0 ? "" : `${assignedToIds.length} team member${assignedToIds.length !== 1 ? 's' : ''} selected`}
-                  placeholder="Click to select team members"
-                  onClick={openEmployeeDialog}
-                  className="cursor-pointer"
-                  data-testid="input-select-team-members"
-                />
-                
-                {/* Selected Employees Display */}
-                {assignedToIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
-                    {employees?.filter(emp => emp.isActive && assignedToIds.includes(emp.id))?.map((emp) => (
-                      <div key={emp.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{emp.fullName}</span>
-                          <span className="text-xs text-muted-foreground">{emp.role}</span>
-                        </div>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          onClick={() => removeEmployee(emp.id)}
-                          data-testid={`button-remove-employee-${emp.id}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Required Spare Parts */}
@@ -989,48 +858,6 @@ export default function WorkOrdersPage() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Scheduled Date */}
-              <div className="space-y-2">
-                <Label htmlFor="scheduledDate">Scheduled Date</Label>
-                <Input
-                  id="scheduledDate"
-                  type="datetime-local"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  data-testid="input-scheduled-date"
-                />
-              </div>
-
-              {/* Estimated Hours */}
-              <div className="space-y-2">
-                <Label htmlFor="estimatedHours">Estimated Hours</Label>
-                <Input
-                  id="estimatedHours"
-                  type="number"
-                  step="0.5"
-                  value={estimatedHours}
-                  onChange={(e) => setEstimatedHours(e.target.value)}
-                  placeholder="e.g., 4.5"
-                  data-testid="input-estimated-hours"
-                />
-              </div>
-
-              {/* Estimated Cost */}
-              <div className="space-y-2">
-                <Label htmlFor="estimatedCost">Estimated Cost (USD)</Label>
-                <Input
-                  id="estimatedCost"
-                  type="number"
-                  step="0.01"
-                  value={estimatedCost}
-                  onChange={(e) => setEstimatedCost(e.target.value)}
-                  placeholder="e.g., 1500.00"
-                  data-testid="input-estimated-cost"
-                />
-              </div>
-            </div>
-
             {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="description">Description *</Label>
@@ -1041,19 +868,6 @@ export default function WorkOrdersPage() {
                 placeholder="Describe the work to be done..."
                 rows={3}
                 data-testid="textarea-description"
-              />
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any additional information..."
-                rows={2}
-                data-testid="textarea-notes"
               />
             </div>
 
@@ -1183,99 +997,6 @@ export default function WorkOrdersPage() {
               type="button"
               onClick={confirmPartsSelection}
               data-testid="button-confirm-parts-selection"
-            >
-              Confirm Selection
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Employee Selection Dialog */}
-      <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-team-members">
-          <DialogHeader>
-            <DialogTitle>Select Team Members</DialogTitle>
-            <DialogDescription>
-              Choose the employees to assign to this work order
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search employees by name or role..."
-                value={employeeSearchTerm}
-                onChange={(e) => setEmployeeSearchTerm(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-employees-dialog"
-              />
-            </div>
-
-            {/* Employees List */}
-            <div className="flex-1 overflow-y-auto border rounded-md">
-              {filteredEmployees && filteredEmployees.length > 0 ? (
-                <div className="divide-y">
-                  {filteredEmployees.map((emp) => (
-                    <div
-                      key={emp.id}
-                      className="flex items-center gap-3 p-4 hover-elevate cursor-pointer"
-                      onClick={() => toggleEmployeeSelection(emp.id)}
-                      data-testid={`employee-option-${emp.id}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={tempSelectedEmployees.includes(emp.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          toggleEmployeeSelection(emp.id);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-4 w-4 rounded border-gray-300"
-                        data-testid={`checkbox-employee-${emp.id}`}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{emp.fullName}</div>
-                        <div className="text-sm text-muted-foreground">{emp.role}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
-                  {employeeSearchTerm ? "No employees found matching your search" : "No active employees available"}
-                </div>
-              )}
-            </div>
-
-            {/* Selection Summary */}
-            {tempSelectedEmployees.length > 0 && (
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium">
-                  {tempSelectedEmployees.length} employee{tempSelectedEmployees.length !== 1 ? 's' : ''} selected
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Dialog Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsEmployeeDialogOpen(false);
-                setEmployeeSearchTerm("");
-              }}
-              data-testid="button-cancel-employee-selection"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmEmployeeSelection}
-              data-testid="button-confirm-employee-selection"
             >
               Confirm Selection
             </Button>

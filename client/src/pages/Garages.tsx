@@ -7,16 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench, UserCheck } from "lucide-react";
+import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench, UserCheck, ChevronDown, ChevronUp, FileText, CheckCircle, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertGarageSchema, type InsertGarage, type GarageWithDetails } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export default function Garages() {
   const { t } = useLanguage();
@@ -35,6 +37,11 @@ export default function Garages() {
   const [isMemberSearchOpen, setIsMemberSearchOpen] = useState(false);
   const [isEditForemanSearchOpen, setIsEditForemanSearchOpen] = useState(false);
   const [isEditMemberSearchOpen, setIsEditMemberSearchOpen] = useState(false);
+  
+  // Workshop details state
+  const [expandedWorkshopId, setExpandedWorkshopId] = useState<string | null>(null);
+  const [workshopDetails, setWorkshopDetails] = useState<any>(null);
+  const [isLoadingWorkshopDetails, setIsLoadingWorkshopDetails] = useState(false);
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
     queryKey: ["/api/garages"],
@@ -283,6 +290,53 @@ export default function Garages() {
     }
   };
 
+  const handleToggleWorkshop = async (workshopId: string) => {
+    if (expandedWorkshopId === workshopId) {
+      setExpandedWorkshopId(null);
+      setWorkshopDetails(null);
+    } else {
+      // Reset details immediately to avoid showing stale data
+      setWorkshopDetails(null);
+      setExpandedWorkshopId(workshopId);
+      setIsLoadingWorkshopDetails(true);
+      
+      try {
+        const response = await fetch(`/api/workshops/${workshopId}/details`);
+        if (response.ok) {
+          const data = await response.json();
+          // Only update if this workshop is still the expanded one
+          setExpandedWorkshopId(currentId => {
+            if (currentId === workshopId) {
+              setWorkshopDetails(data);
+            }
+            return currentId;
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to load workshop details",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching workshop details:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load workshop details",
+          variant: "destructive",
+        });
+      } finally {
+        // Only set loading to false if this workshop is still expanded
+        setExpandedWorkshopId(currentId => {
+          if (currentId === workshopId) {
+            setIsLoadingWorkshopDetails(false);
+          }
+          return currentId;
+        });
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -454,49 +508,189 @@ export default function Garages() {
                     <p className="text-sm font-medium mb-2">Workshops: {garage.workshops.length}</p>
                     <div className="space-y-2">
                       {garage.workshops.map((workshop: any) => (
-                        <Card key={workshop.id} className="p-2" data-testid={`card-workshop-${workshop.id}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{workshop.name}</p>
-                              {workshop.foremanId && employees?.find((e) => e.id === workshop.foremanId) && (
-                                <p className="text-xs text-muted-foreground">
-                                  Foreman: {employees.find((e) => e.id === workshop.foremanId)?.fullName}
-                                </p>
-                              )}
-                              <p className="text-xs text-muted-foreground">
-                                Members: {workshop.membersList?.length || 0}
-                              </p>
-                            </div>
-                            {isCEOorAdmin && (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditWorkshop(workshop);
-                                  }}
-                                  data-testid={`button-edit-workshop-${workshop.id}`}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteWorkshop(workshop.id);
-                                  }}
-                                  data-testid={`button-delete-workshop-${workshop.id}`}
-                                >
-                                  <Trash2 className="h-3 w-3 text-destructive" />
-                                </Button>
+                        <Collapsible
+                          key={workshop.id}
+                          open={expandedWorkshopId === workshop.id}
+                          onOpenChange={() => handleToggleWorkshop(workshop.id)}
+                        >
+                          <Card className="hover-elevate" data-testid={`card-workshop-${workshop.id}`}>
+                            <CollapsibleTrigger asChild>
+                              <div className="p-3 cursor-pointer">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <Wrench className="h-4 w-4 text-primary" />
+                                      <p className="font-medium text-sm">{workshop.name}</p>
+                                      {expandedWorkshopId === workshop.id ? (
+                                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-1">
+                                      {workshop.foremanId && employees?.find((e) => e.id === workshop.foremanId) && (
+                                        <p className="text-xs text-muted-foreground">
+                                          Foreman: {employees.find((e) => e.id === workshop.foremanId)?.fullName}
+                                        </p>
+                                      )}
+                                      <p className="text-xs text-muted-foreground">
+                                        {workshop.membersList?.length || 0} member(s)
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {isCEOorAdmin && (
+                                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditWorkshop(workshop);
+                                        }}
+                                        data-testid={`button-edit-workshop-${workshop.id}`}
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteWorkshop(workshop.id);
+                                        }}
+                                        data-testid={`button-delete-workshop-${workshop.id}`}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </Card>
+                            </CollapsibleTrigger>
+                            
+                            <CollapsibleContent>
+                              {isLoadingWorkshopDetails && expandedWorkshopId === workshop.id ? (
+                                <div className="px-3 pb-3">
+                                  <div className="text-sm text-muted-foreground text-center py-4">Loading details...</div>
+                                </div>
+                              ) : expandedWorkshopId === workshop.id && workshopDetails ? (
+                                <div className="px-3 pb-3 space-y-3 border-t pt-3">
+                                  {/* Team Members */}
+                                  <div>
+                                    <p className="text-xs font-semibold text-muted-foreground mb-2">Team Members ({workshopDetails.stats.totalMembers})</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {workshopDetails.members && workshopDetails.members.length > 0 ? (
+                                        workshopDetails.members.map((member: any) => (
+                                          <Badge key={member.id} variant="outline" className="text-xs">
+                                            {member.fullName}
+                                          </Badge>
+                                        ))
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground">No members assigned</p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Work Order Stats */}
+                                  <div>
+                                    <p className="text-xs font-semibold text-muted-foreground mb-2">Work Orders</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div className="bg-muted rounded-md p-2 text-center">
+                                        <p className="text-lg font-bold">{workshopDetails.stats.totalWorkOrders}</p>
+                                        <p className="text-xs text-muted-foreground">Total</p>
+                                      </div>
+                                      <div className="bg-green-50 dark:bg-green-950 rounded-md p-2 text-center">
+                                        <p className="text-lg font-bold text-green-600 dark:text-green-400">{workshopDetails.stats.completedWorkOrders}</p>
+                                        <p className="text-xs text-muted-foreground">Completed</p>
+                                      </div>
+                                      <div className="bg-amber-50 dark:bg-amber-950 rounded-md p-2 text-center">
+                                        <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{workshopDetails.stats.totalWorkOrders - workshopDetails.stats.completedWorkOrders}</p>
+                                        <p className="text-xs text-muted-foreground">Active</p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Work Order Status Tabs */}
+                                  {workshopDetails.workOrders && workshopDetails.workOrders.length > 0 && (
+                                    <Tabs defaultValue="all" className="w-full">
+                                      <TabsList className="grid w-full grid-cols-4 h-8">
+                                        <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
+                                        <TabsTrigger value="active" className="text-xs">Active</TabsTrigger>
+                                        <TabsTrigger value="completed" className="text-xs">Done</TabsTrigger>
+                                        <TabsTrigger value="pending" className="text-xs">Pending</TabsTrigger>
+                                      </TabsList>
+                                      
+                                      <TabsContent value="all" className="mt-2 space-y-1.5">
+                                        {workshopDetails.workOrders.map((wo: any) => (
+                                          <div key={wo.id} className="text-xs p-2 bg-muted rounded-md flex items-center justify-between">
+                                            <div className="flex-1">
+                                              <p className="font-medium">{wo.workOrderNumber}</p>
+                                              <p className="text-muted-foreground truncate">{wo.workType}</p>
+                                            </div>
+                                            <Badge className="text-xs">{wo.status.replace(/_/g, ' ')}</Badge>
+                                          </div>
+                                        ))}
+                                      </TabsContent>
+                                      
+                                      <TabsContent value="active" className="mt-2 space-y-1.5">
+                                        {workshopDetails.workOrders
+                                          .filter((wo: any) => !['completed', 'cancelled', 'rejected'].includes(wo.status))
+                                          .map((wo: any) => (
+                                            <div key={wo.id} className="text-xs p-2 bg-muted rounded-md flex items-center justify-between">
+                                              <div className="flex-1">
+                                                <p className="font-medium">{wo.workOrderNumber}</p>
+                                                <p className="text-muted-foreground truncate">{wo.workType}</p>
+                                              </div>
+                                              <Badge className="text-xs">{wo.status.replace(/_/g, ' ')}</Badge>
+                                            </div>
+                                          ))}
+                                        {workshopDetails.workOrders.filter((wo: any) => !['completed', 'cancelled', 'rejected'].includes(wo.status)).length === 0 && (
+                                          <p className="text-xs text-muted-foreground text-center py-2">No active work orders</p>
+                                        )}
+                                      </TabsContent>
+                                      
+                                      <TabsContent value="completed" className="mt-2 space-y-1.5">
+                                        {workshopDetails.workOrders
+                                          .filter((wo: any) => wo.status === 'completed')
+                                          .map((wo: any) => (
+                                            <div key={wo.id} className="text-xs p-2 bg-green-50 dark:bg-green-950 rounded-md flex items-center justify-between">
+                                              <div className="flex-1">
+                                                <p className="font-medium">{wo.workOrderNumber}</p>
+                                                <p className="text-muted-foreground truncate">{wo.workType}</p>
+                                              </div>
+                                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                            </div>
+                                          ))}
+                                        {workshopDetails.workOrders.filter((wo: any) => wo.status === 'completed').length === 0 && (
+                                          <p className="text-xs text-muted-foreground text-center py-2">No completed work orders</p>
+                                        )}
+                                      </TabsContent>
+                                      
+                                      <TabsContent value="pending" className="mt-2 space-y-1.5">
+                                        {workshopDetails.workOrders
+                                          .filter((wo: any) => wo.status.includes('pending') || wo.status === 'draft')
+                                          .map((wo: any) => (
+                                            <div key={wo.id} className="text-xs p-2 bg-amber-50 dark:bg-amber-950 rounded-md flex items-center justify-between">
+                                              <div className="flex-1">
+                                                <p className="font-medium">{wo.workOrderNumber}</p>
+                                                <p className="text-muted-foreground truncate">{wo.workType}</p>
+                                              </div>
+                                              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                            </div>
+                                          ))}
+                                        {workshopDetails.workOrders.filter((wo: any) => wo.status.includes('pending') || wo.status === 'draft').length === 0 && (
+                                          <p className="text-xs text-muted-foreground text-center py-2">No pending work orders</p>
+                                        )}
+                                      </TabsContent>
+                                    </Tabs>
+                                  )}
+                                </div>
+                              ) : null}
+                            </CollapsibleContent>
+                          </Card>
+                        </Collapsible>
                       ))}
                     </div>
                   </div>

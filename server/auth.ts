@@ -19,8 +19,8 @@ interface JWTPayload {
 export function generateToken(user: User): string {
   const payload: JWTPayload = {
     id: user.id,
-    username: user.username,
-    role: user.role,
+    username: user.username || '',
+    role: user.role || 'user',
   };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
 }
@@ -55,10 +55,10 @@ export async function verifyCredentials(username: string, password: string): Pro
   // Convert employee to User-like structure for authentication
   return {
     id: employee.id,
-    username: employee.username,
-    password: employee.password,
+    username: employee.username || '',
+    password: employee.password || '',
     fullName: employee.fullName,
-    role: employee.role,
+    role: employee.role || 'user',
     language: employee.language || 'en',
     createdAt: employee.createdAt,
   } as User;
@@ -91,10 +91,10 @@ export async function authenticateToken(req: any, res: Response, next: NextFunct
     // Convert employee to User-like structure
     req.user = {
       id: employee.id,
-      username: employee.username,
-      password: employee.password,
+      username: employee.username || '',
+      password: employee.password || '',
       fullName: employee.fullName,
-      role: employee.role,
+      role: employee.role || 'user',
       language: employee.language || 'en',
       createdAt: employee.createdAt,
     } as User;

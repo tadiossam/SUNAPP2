@@ -200,7 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'created',
           'equipment_category',
           category.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'updated',
           'equipment_category',
           category.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -255,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'deleted',
           'equipment_category',
           req.params.id,
-          req.user.username,
+          req.user.username || 'unknown',
           { id: req.params.id }
         ));
       }
@@ -323,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'created',
           'equipment',
           equipment.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -351,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'updated',
           'equipment',
           equipment.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -378,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'deleted',
           'equipment',
           req.params.id,
-          req.user.username,
+          req.user.username || 'unknown',
           { id: req.params.id }
         ));
       }
@@ -413,7 +413,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'created',
           'equipment',
           'bulk',
-          req.user.username,
+          req.user.username || 'unknown',
           { action: 'bulk import', count: created.length }
         ));
       }
@@ -469,7 +469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'spare_part', part.id, req.user.username, validatedData
+          'created', 'spare_part', part.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -490,7 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, validatedData
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -538,7 +538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, { action: '3D model uploaded', fileName }
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', { action: '3D model uploaded', fileName }
         ));
       }
 
@@ -566,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, { model3dPath }
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', { model3dPath }
         ));
       }
       
@@ -592,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { locationInstructions, requiredTools, installTimeEstimates }
         ));
       }
@@ -640,7 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'maintenance', mechanic.id, req.user.username, validatedData
+          'created', 'maintenance', mechanic.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -660,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'maintenance', mechanic.id, req.user.username, req.body
+          'updated', 'maintenance', mechanic.id, req.user.username || 'unknown', req.body
         ));
       }
       
@@ -714,7 +714,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'maintenance', record.id, req.user.username, recordData
+          'created', 'maintenance', record.id, req.user.username || 'unknown', recordData
         ));
       }
 
@@ -734,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'maintenance', record.id, req.user.username, req.body
+          'updated', 'maintenance', record.id, req.user.username || 'unknown', req.body
         ));
       }
       
@@ -769,7 +769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'parts_usage', req.params.maintenanceId, req.user.username, { parts }
+          'created', 'parts_usage', req.params.maintenanceId, req.user.username || 'unknown', { parts }
         ));
       }
       
@@ -798,7 +798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'operating_report', report.id, req.user.username, validatedData
+          'created', 'operating_report', report.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -844,7 +844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'garage', garage.id, req.user.username, validatedData
+          'created', 'garage', garage.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -862,7 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'garage', garage.id, req.user.username, validatedData
+          'updated', 'garage', garage.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -879,7 +879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'deleted', 'garage', req.params.id, req.user.username, {}
+          'deleted', 'garage', req.params.id, req.user.username || 'unknown', {}
         ));
       }
       
@@ -1062,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'employee', employee.id, req.user.username, validatedData
+          'created', 'employee', employee.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -1086,7 +1086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'employee', employee.id, req.user.username, validatedData
+          'updated', 'employee', employee.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -1103,7 +1103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'deleted', 'employee', req.params.id, req.user.username, {}
+          'deleted', 'employee', req.params.id, req.user.username || 'unknown', {}
         ));
       }
       
@@ -1239,7 +1239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'work_order', workOrder.id, req.user.username, validatedData
+          'created', 'work_order', workOrder.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -2295,7 +2295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { action: 'tutorial video uploaded', videoUrl: objectPath }
         ));
       }
@@ -2377,7 +2377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { action: 'images uploaded', count: normalizedPaths.length }
         ));
       }
@@ -2420,7 +2420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { action: 'image deleted', imageUrl }
         ));
       }

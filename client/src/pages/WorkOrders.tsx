@@ -729,6 +729,42 @@ export default function WorkOrdersPage() {
             </DialogDescription>
           </DialogHeader>
 
+          {/* View Inspection / View Maintenance Buttons */}
+          {(selectedInspectionId || editingWorkOrder?.inspectionId || editingWorkOrder?.receptionId) && (
+            <div className="flex gap-2 pb-2 border-b">
+              {(selectedInspectionId || editingWorkOrder?.inspectionId) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewingInspectionId(selectedInspectionId || editingWorkOrder?.inspectionId || null)}
+                  data-testid="button-view-inspection"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View Inspection
+                </Button>
+              )}
+              {editingWorkOrder?.receptionId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Open view maintenance dialog
+                    toast({
+                      title: "View Maintenance",
+                      description: "Opening maintenance details...",
+                    });
+                  }}
+                  data-testid="button-view-maintenance"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View Maintenance
+                </Button>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Work Order Number */}
@@ -846,71 +882,6 @@ export default function WorkOrdersPage() {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Required Spare Parts */}
-            <div className="space-y-3 p-4 border-2 border-primary rounded-lg bg-primary/5">
-              <Label className="flex items-center gap-2 text-lg font-semibold text-primary">
-                <Package className="h-5 w-5" />
-                Required Spare Parts
-              </Label>
-              
-              {/* Selected Parts Display */}
-              {selectedParts.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
-                  {selectedParts.map((part) => (
-                    <div key={part.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{part.partName}</span>
-                        <span className="text-xs text-muted-foreground">{part.partNumber}</span>
-                      </div>
-                      <Badge className={getStockStatusColor(part.stockStatus)} data-testid={`badge-stock-${part.id}`}>
-                        {part.stockStatus.replace("_", " ")}
-                      </Badge>
-                      {part.stockStatus === "out_of_stock" && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-xs"
-                          onClick={() => {
-                            toast({
-                              title: "Purchase Request",
-                              description: `Request purchase for ${part.partName}`,
-                            });
-                          }}
-                          data-testid={`button-request-purchase-${part.id}`}
-                        >
-                          <ShoppingCart className="h-3 w-3 mr-1" />
-                          Request Purchase
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => removePart(part.id)}
-                        data-testid={`button-remove-part-${part.id}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Select Parts Button */}
-              <Button
-                type="button"
-                variant="default"
-                onClick={openPartsDialog}
-                className="w-full h-12 text-base font-semibold"
-                data-testid="button-select-spare-parts"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                {selectedParts.length === 0 ? "Click Here to Select Spare Parts" : `Manage Selected Parts (${selectedParts.length})`}
-              </Button>
             </div>
 
             {/* Description */}
@@ -1061,98 +1032,153 @@ export default function WorkOrdersPage() {
 
       {/* Workshop Selection Dialog */}
       <Dialog open={isWorkshopDialogOpen} onOpenChange={setIsWorkshopDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-garages-workshops">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-garages-workshops">
           <DialogHeader>
             <DialogTitle>Select Garages & Workshops</DialogTitle>
             <DialogDescription>
-              Choose garages and workshops to assign this work order
+              First select garages, then select workshops from those garages
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-4">
-            {garages && garages.length > 0 ? (
-              garages.map((garage: any) => (
-                <Card key={garage.id} className="overflow-hidden" data-testid={`garage-card-${garage.id}`}>
-                  <CardHeader className="pb-3 bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedGarageIds.includes(garage.id)}
-                        onChange={() => {
-                          setSelectedGarageIds(prev =>
-                            prev.includes(garage.id)
-                              ? prev.filter(id => id !== garage.id)
-                              : [...prev, garage.id]
-                          );
-                        }}
-                        className="h-4 w-4"
-                        data-testid={`checkbox-garage-${garage.id}`}
-                      />
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{garage.name}</h3>
-                        <p className="text-sm text-muted-foreground">{garage.location}</p>
+          <div className="flex-1 overflow-y-auto">
+            {/* Step 1: Select Garages */}
+            <div className="mb-6">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                Step 1: Select Garages
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {garages && garages.length > 0 ? (
+                  garages.map((garage: any) => (
+                    <div
+                      key={garage.id}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        selectedGarageIds.includes(garage.id)
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => {
+                        setSelectedGarageIds(prev =>
+                          prev.includes(garage.id)
+                            ? prev.filter(id => id !== garage.id)
+                            : [...prev, garage.id]
+                        );
+                      }}
+                      data-testid={`garage-option-${garage.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedGarageIds.includes(garage.id)}
+                          onChange={() => {}}
+                          className="h-4 w-4"
+                          data-testid={`checkbox-garage-${garage.id}`}
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium">{garage.name}</p>
+                          <p className="text-xs text-muted-foreground">{garage.location}</p>
+                          {garage.workshops && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {garage.workshops.length} workshop{garage.workshops.length !== 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </CardHeader>
-                  {garage.workshops && garage.workshops.length > 0 && (
-                    <CardContent className="pt-3">
-                      <p className="text-sm font-medium mb-2">Workshops:</p>
-                      <div className="space-y-2">
-                        {garage.workshops.map((workshop: any) => (
-                          <div
-                            key={workshop.id}
-                            className="flex items-center gap-3 p-2 rounded-md border hover-elevate"
-                            data-testid={`workshop-option-${workshop.id}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedWorkshopIds.includes(workshop.id)}
-                              onChange={() => {
-                                setSelectedWorkshopIds(prev =>
-                                  prev.includes(workshop.id)
-                                    ? prev.filter(id => id !== workshop.id)
-                                    : [...prev, workshop.id]
-                                );
-                              }}
-                              className="h-4 w-4"
-                              data-testid={`checkbox-workshop-${workshop.id}`}
-                            />
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{workshop.name}</p>
-                              {workshop.foreman && (
-                                <p className="text-xs text-muted-foreground">Foreman: {workshop.foreman.fullName}</p>
-                              )}
-                            </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 py-8 text-center text-muted-foreground">
+                    No garages available
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Step 2: Select Workshops (only from selected garages) */}
+            {selectedGarageIds.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Wrench className="h-5 w-5 text-primary" />
+                  Step 2: Select Workshops from Selected Garages
+                </h3>
+                <div className="space-y-4">
+                  {garages
+                    ?.filter((garage: any) => selectedGarageIds.includes(garage.id))
+                    .map((garage: any) => (
+                      <div key={garage.id} className="border rounded-lg p-3">
+                        <p className="text-sm font-medium mb-2 text-muted-foreground">{garage.name}</p>
+                        {garage.workshops && garage.workshops.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {garage.workshops.map((workshop: any) => (
+                              <div
+                                key={workshop.id}
+                                className={`p-2 rounded-md border cursor-pointer transition-all ${
+                                  selectedWorkshopIds.includes(workshop.id)
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                                onClick={() => {
+                                  setSelectedWorkshopIds(prev =>
+                                    prev.includes(workshop.id)
+                                      ? prev.filter(id => id !== workshop.id)
+                                      : [...prev, workshop.id]
+                                  );
+                                }}
+                                data-testid={`workshop-option-${workshop.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedWorkshopIds.includes(workshop.id)}
+                                    onChange={() => {}}
+                                    className="h-4 w-4"
+                                    data-testid={`checkbox-workshop-${workshop.id}`}
+                                  />
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{workshop.name}</p>
+                                    {workshop.foreman && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {workshop.foreman.fullName}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No workshops in this garage</p>
+                        )}
                       </div>
-                    </CardContent>
-                  )}
-                </Card>
-              ))
-            ) : (
-              <div className="py-12 text-center text-muted-foreground">
-                No garages available
+                    ))}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsWorkshopDialogOpen(false)}
-              data-testid="button-cancel-workshop-selection"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setIsWorkshopDialogOpen(false)}
-              data-testid="button-confirm-workshop-selection"
-            >
-              Confirm ({selectedGarageIds.length} garages, {selectedWorkshopIds.length} workshops)
-            </Button>
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              {selectedGarageIds.length} garage{selectedGarageIds.length !== 1 ? 's' : ''} •{' '}
+              {selectedWorkshopIds.length} workshop{selectedWorkshopIds.length !== 1 ? 's' : ''}
+            </div>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsWorkshopDialogOpen(false)}
+                data-testid="button-cancel-workshop-selection"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setIsWorkshopDialogOpen(false)}
+                disabled={selectedGarageIds.length === 0 || selectedWorkshopIds.length === 0}
+                data-testid="button-confirm-workshop-selection"
+              >
+                Confirm Selection
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -20,10 +20,11 @@ The frontend uses React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, Wouter fo
 - **Spare Parts Catalog**: Advanced filtering, detailed part modals with specs, compatibility, and media.
 - **3D Models Library**: Interactive viewer with upload and 360-degree rotation.
 - **Maintenance Information System**: Comprehensive guides, tutorials, tools lists, and time estimates.
-- **Garage & Workshop Management**: CRUD for garages (main categories) and workshops within them, including foreman and team member assignments.
+- **Garage & Workshop Management**: CRUD for garages (main categories) and workshops within them, including foreman and team member assignments. Garages page displays workshops hierarchically within each garage card.
 - **Employee Management**: Single-table authentication via `employees` table, role-based access control, and bcrypt password hashing.
-- **Work Order Management (NEW WORKFLOW)**: Complete redesign with multi-level approval system:
-  - **Multi-Workshop Assignment**: Work orders can be assigned to multiple garages and workshops simultaneously
+- **Work Order Management (REDESIGNED WORKFLOW)**: Complete redesign with multi-level approval system and multi-workshop assignment:
+  - **Multi-Workshop Assignment**: Work orders can be assigned to multiple garages and workshops simultaneously using checkbox selection dialog showing hierarchical garage→workshop relationships. Frontend sends garageIds and workshopIds arrays; backend stores in work_order_garages and work_order_workshops junction tables.
+  - **Work Order Form (Redesigned)**: Removed all deprecated fields (assignedToIds, estimatedHours, estimatedCost, scheduledDate, notes). Implements multi-garage/workshop selection dialog with real-time garage/workshop loading when editing existing work orders via `/api/work-orders/:id/assignments` endpoint.
   - **Team Workflow**: Workshop foreman receives work orders → assigns to team members → team requests parts → completion verification
   - **Item Requisition System**: Bilingual (Amharic/English) parts request form with multi-level approval (Team Member → Foreman → Store Manager)
   - **Purchase Order Integration**: Automatic purchase request creation for out-of-stock items with "waiting for purchase" status
@@ -31,6 +32,11 @@ The frontend uses React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, Wouter fo
   - **Work Order Status Flow**: draft → pending_foreman_assignment → pending_team_acceptance → active → awaiting_parts → waiting_purchase → in_progress → pending_verification → pending_supervisor → completed
   - **Participant Tracking**: Comprehensive tracking of all foremen, team members, verifiers, and store managers involved in each work order
   - **Status History**: Complete audit trail of all status changes with timestamps and responsible employees
+  - **Role-Specific Dashboards**: 
+    - **Store Manager Dashboard** (`/store-manager`): Pending parts requisitions with approve/reject actions, recent activity feed, quick stats
+    - **Foreman Dashboard** (`/foreman`): Work orders pending team assignment, team member selection, assignment tracking
+    - **Verifier Dashboard** (`/verifier`): Work orders pending quality verification, approval/rejection with notes
+    - **Team Performance Page** (`/team-performance`): Daily/Monthly/Yearly leaderboards with performance scores, top performers displayed without emoji (using Lucide icons only per design guidelines)
 - **Equipment Reception/Check-in**: Driver drop-off workflow with equipment selection, driver details, arrival info, issues, and auto-generated reception numbers.
 - **Equipment Maintenances Workflow**: Admin review page for driver check-ins, allowing updates and status changes.
 - **Equipment Inspection**: View of receptions, auto-generated inspection numbers, service-type checklists (Amharic), and an Inspection-to-Work-Order workflow where completed inspections trigger approval, leading to auto-created work orders.

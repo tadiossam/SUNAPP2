@@ -35,6 +35,8 @@ import {
   insertD365SyncLogSchema,
   d365ItemsPreview,
   dynamics365Settings,
+  workOrderGarages,
+  workOrderWorkshops,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -1208,6 +1210,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/work-orders/:id/assignments", async (req, res) => {
+    try {
+      const workOrderId = req.params.id;
+      
+      // Fetch garage and workshop assignments
+      const garageAssignments = await db
+        .select({ garageId: workOrderGarages.garageId })
+        .from(workOrderGarages)
+        .where(eq(workOrderGarages.workOrderId, workOrderId));
+      
+      const workshopAssignments = await db
+        .select({ workshopId: workOrderWorkshops.workshopId })
+        .from(workOrderWorkshops)
+        .where(eq(workOrderWorkshops.workOrderId, workOrderId));
+      
+      res.json({
+        garageIds: garageAssignments.map((a: { garageId: string }) => a.garageId),
+        workshopIds: workshopAssignments.map((a: { workshopId: string }) => a.workshopId),
+      });
+    } catch (error) {
+      console.error("Error fetching work order assignments:", error);
+      res.status(500).json({ error: "Failed to fetch work order assignments" });
+    }
+  });
+
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
       // Extract requiredParts from body
@@ -1583,7 +1610,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               workType,
               priority: inspection.overallCondition === "Poor" ? "High" : "Medium",
               description: `Work order auto-created from approved inspection ${inspection.inspectionNumber}`,
-              scheduledDate: new Date(),
               inspectionId: inspection.id,
               receptionId: reception.id,
               status: "pending",
@@ -2091,7 +2117,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 workType,
                 priority: inspection.overallCondition === "Poor" ? "High" : "Medium",
                 description: `Work order auto-created from approved inspection ${inspection.inspectionNumber}`,
-                scheduledDate: new Date(),
                 inspectionId: inspection.id,
                 receptionId: reception.id,
                 status: "pending",
@@ -4509,10 +4534,10 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       // Build filters array
       const filters: any[] = [];
       
-      // Add workshop filter if specified
-      if (workshopId && workshopId !== 'all') {
-        filters.push(eq(workOrders.workshopId, workshopId));
-      }
+      // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
+      // if (workshopId && workshopId !== 'all') {
+      //   // Need to join with work_order_workshops table for multi-workshop filtering
+      // }
       
       // Add date filter for completed work orders
       if (dateFilter.start && dateFilter.end) {
@@ -4529,9 +4554,10 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       
       // Fetch all work orders in the date range (for planned count)
       const allOrdersFilters: any[] = [];
-      if (workshopId && workshopId !== 'all') {
-        allOrdersFilters.push(eq(workOrders.workshopId, workshopId));
-      }
+      // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
+      // if (workshopId && workshopId !== 'all') {
+      //   // Need to join with work_order_workshops table for multi-workshop filtering
+      // }
       if (dateFilter.start && dateFilter.end) {
         allOrdersFilters.push(gte(workOrders.createdAt, dateFilter.start));
         allOrdersFilters.push(lte(workOrders.createdAt, dateFilter.end));
@@ -4591,9 +4617,10 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       
       for (const quarter of quarters) {
         const qFilters: any[] = [];
-        if (workshopId && workshopId !== 'all') {
-          qFilters.push(eq(workOrders.workshopId, workshopId));
-        }
+        // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
+        // if (workshopId && workshopId !== 'all') {
+        //   // Need to join with work_order_workshops table for multi-workshop filtering
+        // }
         qFilters.push(gte(workOrders.createdAt, quarter.start));
         qFilters.push(lte(workOrders.createdAt, quarter.end));
         

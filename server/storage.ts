@@ -187,6 +187,7 @@ export interface IStorage {
   addWorkshopMember(data: InsertWorkshopMember): Promise<WorkshopMember>;
   removeWorkshopMember(workshopId: string, employeeId: string): Promise<void>;
   getWorkshopMembers(workshopId: string): Promise<Employee[]>;
+  getWorkshopDetails(workshopId: string): Promise<any>;
 
   // Employees
   getAllEmployees(role?: string, garageId?: string): Promise<Employee[]>;
@@ -938,6 +939,61 @@ export class DatabaseStorage implements IStorage {
       })
     );
     return membersList.filter(Boolean) as Employee[];
+  }
+
+  async getWorkshopDetails(workshopId: string): Promise<any> {
+    // Get workshop info
+    const [workshop] = await db.select().from(workshops).where(eq(workshops.id, workshopId));
+    if (!workshop) {
+      return null;
+    }
+
+    // Get workshop members
+    const members = await this.getWorkshopMembers(workshopId);
+
+    // Get foreman info
+    let foreman = null;
+    if (workshop.foremanId) {
+      const [foremanData] = await db.select().from(employees).where(eq(employees.id, workshop.foremanId));
+      foreman = foremanData || null;
+    }
+
+    // Get work orders assigned to this workshop
+    const workOrderAssignments = await db
+      .select()
+      .from(workOrderWorkshops)
+      .where(eq(workOrderWorkshops.workshopId, workshopId));
+
+    const workOrderIds = workOrderAssignments.map(a => a.workOrderId);
+
+    let workOrdersData = [];
+    let statusBreakdown: Record<string, number> = {};
+
+    if (workOrderIds.length > 0) {
+      workOrdersData = await db
+        .select()
+        .from(workOrders)
+        .where(inArray(workOrders.id, workOrderIds));
+
+      // Calculate status breakdown
+      statusBreakdown = workOrdersData.reduce((acc, wo) => {
+        acc[wo.status] = (acc[wo.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+    }
+
+    return {
+      workshop,
+      foreman,
+      members,
+      workOrders: workOrdersData,
+      statusBreakdown,
+      stats: {
+        totalWorkOrders: workOrdersData.length,
+        totalMembers: members.length,
+        completedWorkOrders: workOrdersData.filter(wo => wo.status === 'completed').length,
+      },
+    };
   }
 
   // Employees

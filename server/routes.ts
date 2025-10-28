@@ -1023,6 +1023,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get workshop details with work orders
+  app.get("/api/workshops/:workshopId/details", async (req, res) => {
+    try {
+      const workshopDetails = await storage.getWorkshopDetails(req.params.workshopId);
+      if (!workshopDetails) {
+        return res.status(404).json({ error: "Workshop not found" });
+      }
+      res.json(workshopDetails);
+    } catch (error) {
+      console.error("Error fetching workshop details:", error);
+      res.status(500).json({ error: "Failed to fetch workshop details" });
+    }
+  });
+
   // Employees
   app.get("/api/employees", async (req, res) => {
     try {

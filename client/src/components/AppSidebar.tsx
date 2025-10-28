@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3 } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -110,6 +110,12 @@ export function AppSidebar() {
       url: "/parts-locations",
       icon: MapPin,
       testId: "link-parts-locations",
+    },
+    {
+      title: "Store Manager",
+      url: "/store-manager",
+      icon: Store,
+      testId: "link-store-manager",
     },
     {
       title: t("adminSettings"),

@@ -93,9 +93,10 @@ export async function fetchD365Customers(config: D365Config, top: number = 100):
 export async function fetchD365Items(config: D365Config, prefix?: string, top: number = 1000): Promise<D365Response> {
   let endpoint = `items?$top=${top}`;
   
-  // Apply prefix filter if provided
+  // Apply prefix filter if provided (URL-encode for safety)
   if (prefix) {
-    endpoint += `&$filter=startswith(No,'${prefix}')`;
+    const encodedPrefix = encodeURIComponent(prefix);
+    endpoint += `&$filter=startswith(No,'${encodedPrefix}')`;
   }
   
   const url = buildD365Url(config, endpoint);
@@ -108,9 +109,10 @@ export async function fetchD365Items(config: D365Config, prefix?: string, top: n
 export async function fetchD365Equipment(config: D365Config, prefix?: string, top: number = 1000): Promise<D365Response> {
   let endpoint = `fixedAssets?$top=${top}`;
   
-  // Apply prefix filter if provided
+  // Apply prefix filter if provided (URL-encode for safety)
   if (prefix) {
-    endpoint += `&$filter=startswith(No,'${prefix}')`;
+    const encodedPrefix = encodeURIComponent(prefix);
+    endpoint += `&$filter=startswith(No,'${encodedPrefix}')`;
   }
   
   const url = buildD365Url(config, endpoint);

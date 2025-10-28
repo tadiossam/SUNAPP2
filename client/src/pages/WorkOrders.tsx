@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
@@ -67,10 +67,6 @@ export default function WorkOrdersPage() {
   const [priority, setPriority] = useState("medium");
   const [workType, setWorkType] = useState("repair");
   const [description, setDescription] = useState("");
-  const [selectedParts, setSelectedParts] = useState<SparePart[]>([]);
-  const [partSearchTerm, setPartSearchTerm] = useState("");
-  const [isPartsDialogOpen, setIsPartsDialogOpen] = useState(false);
-  const [tempSelectedParts, setTempSelectedParts] = useState<string[]>([]);
   const [isWorkshopDialogOpen, setIsWorkshopDialogOpen] = useState(false);
 
   // Inspection and Maintenance detail dialogs
@@ -224,8 +220,6 @@ export default function WorkOrdersPage() {
     setPriority("medium");
     setWorkType("repair");
     setDescription("");
-    setSelectedParts([]);
-    setPartSearchTerm("");
     setEditingWorkOrder(null);
     setSelectedInspectionId(null);
   };
@@ -295,36 +289,6 @@ export default function WorkOrdersPage() {
       setSelectedWorkshopIds([]);
     }
     
-    // Hydrate selected parts from work order required parts
-    if (workOrder.requiredParts && spareParts) {
-      const partsToSelect = workOrder.requiredParts
-        .map(reqPart => {
-          // Try to find the part in the spare parts list
-          const fullPart = spareParts.find(sp => sp.id === reqPart.sparePartId);
-          if (fullPart) {
-            return fullPart;
-          }
-          // If not found, create a partial SparePart from the denormalized data
-          return {
-            id: reqPart.sparePartId || reqPart.id,
-            partName: reqPart.partName,
-            partNumber: reqPart.partNumber,
-            stockStatus: reqPart.stockStatus || 'unknown',
-          } as SparePart;
-        })
-        .filter(Boolean);
-      setSelectedParts(partsToSelect);
-    } else if (workOrder.requiredParts) {
-      // If spareParts not loaded yet, create partial parts from denormalized data
-      const partsToSelect = workOrder.requiredParts.map(reqPart => ({
-        id: reqPart.sparePartId || reqPart.id,
-        partName: reqPart.partName,
-        partNumber: reqPart.partNumber,
-        stockStatus: reqPart.stockStatus || 'unknown',
-      } as SparePart));
-      setSelectedParts(partsToSelect);
-    }
-    
     setIsDialogOpen(true);
   };
 
@@ -338,34 +302,6 @@ export default function WorkOrdersPage() {
     }
   };
 
-  const openPartsDialog = () => {
-    setTempSelectedParts(selectedParts.map(p => p.id));
-    setIsPartsDialogOpen(true);
-  };
-
-  const togglePartSelection = (partId: string) => {
-    setTempSelectedParts(prev => {
-      if (prev.includes(partId)) {
-        return prev.filter(id => id !== partId);
-      } else {
-        return [...prev, partId];
-      }
-    });
-  };
-
-  const confirmPartsSelection = () => {
-    setSelectedParts(prev => {
-      const selected = spareParts?.filter(p => tempSelectedParts.includes(p.id)) || [];
-      return selected;
-    });
-    setIsPartsDialogOpen(false);
-    setPartSearchTerm("");
-  };
-
-  const removePart = (partId: string) => {
-    setSelectedParts(selectedParts.filter(p => p.id !== partId));
-  };
-
   const getStockStatusColor = (status: string) => {
     switch (status) {
       case "in_stock": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
@@ -374,12 +310,6 @@ export default function WorkOrdersPage() {
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
   };
-
-  const filteredSpareParts = spareParts?.filter(part => 
-    partSearchTerm === "" ||
-    part.partNumber.toLowerCase().includes(partSearchTerm.toLowerCase()) ||
-    part.partName.toLowerCase().includes(partSearchTerm.toLowerCase())
-  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -407,12 +337,6 @@ export default function WorkOrdersPage() {
       description,
       inspectionId: selectedInspectionId || undefined,
       receptionId: selectedInspection?.receptionId || undefined,
-      requiredParts: selectedParts.map(part => ({
-        partId: part.id,
-        partName: part.partName,
-        partNumber: part.partNumber,
-        stockStatus: part.stockStatus,
-      })),
     });
   };
 
@@ -915,112 +839,6 @@ export default function WorkOrdersPage() {
               </Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Spare Parts Selection Dialog */}
-      <Dialog open={isPartsDialogOpen} onOpenChange={setIsPartsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-spare-parts">
-          <DialogHeader>
-            <DialogTitle>Select Spare Parts</DialogTitle>
-            <DialogDescription>
-              Choose the spare parts required for this work order
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search spare parts by name or part number..."
-                value={partSearchTerm}
-                onChange={(e) => setPartSearchTerm(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-parts-dialog"
-              />
-            </div>
-
-            {/* Parts List */}
-            <div className="flex-1 overflow-y-auto border rounded-md">
-              {filteredSpareParts && filteredSpareParts.length > 0 ? (
-                <div className="divide-y">
-                  {filteredSpareParts.map((part) => (
-                    <div
-                      key={part.id}
-                      className="flex items-center gap-3 p-4 hover-elevate cursor-pointer"
-                      onClick={() => togglePartSelection(part.id)}
-                      data-testid={`part-option-${part.id}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={tempSelectedParts.includes(part.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          togglePartSelection(part.id);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-4 w-4 rounded border-gray-300"
-                        data-testid={`checkbox-part-${part.id}`}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{part.partName}</div>
-                        <div className="text-sm text-muted-foreground">{part.partNumber}</div>
-                        {part.category && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Category: {part.category}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge className={getStockStatusColor(part.stockStatus)}>
-                          {part.stockStatus.replace("_", " ")}
-                        </Badge>
-                        {part.price && (
-                          <span className="text-sm font-medium">${part.price}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
-                  {partSearchTerm ? "No parts found matching your search" : "No spare parts available"}
-                </div>
-              )}
-            </div>
-
-            {/* Selection Summary */}
-            {tempSelectedParts.length > 0 && (
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium">
-                  {tempSelectedParts.length} part{tempSelectedParts.length !== 1 ? 's' : ''} selected
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Dialog Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsPartsDialogOpen(false);
-                setPartSearchTerm("");
-              }}
-              data-testid="button-cancel-parts-selection"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmPartsSelection}
-              data-testid="button-confirm-parts-selection"
-            >
-              Confirm Selection
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
 

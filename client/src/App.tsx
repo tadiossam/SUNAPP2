@@ -30,6 +30,9 @@ import AdminPage from "@/pages/Admin";
 import AdminSettingsPage from "@/pages/AdminSettings";
 import ItemsPage from "@/pages/Items";
 import StoreManagerDashboard from "@/pages/StoreManagerDashboard";
+import TeamPerformance from "@/pages/TeamPerformance";
+import ForemanDashboard from "@/pages/ForemanDashboard";
+import VerifierDashboard from "@/pages/VerifierDashboard";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
@@ -59,6 +62,9 @@ function Router() {
       <Route path="/parts-locations" component={PartsLocationsPage} />
       <Route path="/items" component={ItemsPage} />
       <Route path="/store-manager" component={StoreManagerDashboard} />
+      <Route path="/foreman" component={ForemanDashboard} />
+      <Route path="/verifier" component={VerifierDashboard} />
+      <Route path="/team-performance" component={TeamPerformance} />
       <Route path="/admin" component={AdminPage} />
       <Route path="/admin-settings" component={AdminSettingsPage} />
       <Route component={NotFound} />

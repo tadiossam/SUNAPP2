@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store, Trophy, UserCheck, ClipboardSignature } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -116,6 +116,24 @@ export function AppSidebar() {
       url: "/store-manager",
       icon: Store,
       testId: "link-store-manager",
+    },
+    {
+      title: "Foreman Dashboard",
+      url: "/foreman",
+      icon: UserCheck,
+      testId: "link-foreman",
+    },
+    {
+      title: "Verifier Dashboard",
+      url: "/verifier",
+      icon: ClipboardSignature,
+      testId: "link-verifier",
+    },
+    {
+      title: "Team Performance",
+      url: "/team-performance",
+      icon: Trophy,
+      testId: "link-team-performance",
     },
     {
       title: t("adminSettings"),

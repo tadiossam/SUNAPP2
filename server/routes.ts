@@ -3605,7 +3605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get preview items from most recent PowerShell sync
-  app.get("/api/dynamics365/preview-items", isCEOOrAdmin, async (req, res) => {
+  app.get("/api/dynamics365/preview-items", isAuthenticated, async (req, res) => {
     try {
       // Get the most recent syncId first
       const latestSync = await db.select()
@@ -3653,7 +3653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import selected items from preview table to actual items table
-  app.post("/api/dynamics365/import-selected", isCEOOrAdmin, async (req, res) => {
+  app.post("/api/dynamics365/import-selected", isAuthenticated, async (req, res) => {
     try {
       const { syncId, selectedItemIds } = req.body;
 
@@ -3763,7 +3763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Legacy import endpoint (for backward compatibility)
-  app.post("/api/dynamics365/import-items", isCEOOrAdmin, async (req, res) => {
+  app.post("/api/dynamics365/import-items", isAuthenticated, async (req, res) => {
     try {
       const { items: selectedItems, prefix } = req.body;
       
@@ -3869,7 +3869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import selected equipment from D365 preview
-  app.post("/api/dynamics365/import-equipment", isCEOOrAdmin, async (req, res) => {
+  app.post("/api/dynamics365/import-equipment", isAuthenticated, async (req, res) => {
     try {
       const { equipment: selectedEquipment, defaultCategoryId, prefix } = req.body;
       
@@ -3972,7 +3972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate PowerShell script for D365 data sync
-  app.get("/api/dynamics365/generate-script", isCEOOrAdmin, async (req, res) => {
+  app.get("/api/dynamics365/generate-script", isAuthenticated, async (req, res) => {
     try {
       const d365Settings = await storage.getDynamics365Settings();
       if (!d365Settings) {
@@ -4296,7 +4296,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   });
 
   // Get D365 sync logs
-  app.get("/api/dynamics365/sync-logs", isCEOOrAdmin, async (req, res) => {
+  app.get("/api/dynamics365/sync-logs", isAuthenticated, async (req, res) => {
     try {
       const logs = await db.select()
         .from(d365SyncLogs)

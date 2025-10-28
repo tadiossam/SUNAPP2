@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
@@ -62,7 +62,8 @@ export default function WorkOrdersPage() {
   // Form state
   const [workOrderNumber, setWorkOrderNumber] = useState("");
   const [equipmentId, setEquipmentId] = useState("");
-  const [garageId, setGarageId] = useState("");
+  const [selectedGarageIds, setSelectedGarageIds] = useState<string[]>([]);
+  const [selectedWorkshopIds, setSelectedWorkshopIds] = useState<string[]>([]);
   const [priority, setPriority] = useState("medium");
   const [workType, setWorkType] = useState("repair");
   const [description, setDescription] = useState("");
@@ -70,6 +71,7 @@ export default function WorkOrdersPage() {
   const [partSearchTerm, setPartSearchTerm] = useState("");
   const [isPartsDialogOpen, setIsPartsDialogOpen] = useState(false);
   const [tempSelectedParts, setTempSelectedParts] = useState<string[]>([]);
+  const [isWorkshopDialogOpen, setIsWorkshopDialogOpen] = useState(false);
 
   // Inspection and Maintenance detail dialogs
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
@@ -217,7 +219,8 @@ export default function WorkOrdersPage() {
   const resetForm = () => {
     setWorkOrderNumber("");
     setEquipmentId("");
-    setGarageId("");
+    setSelectedGarageIds([]);
+    setSelectedWorkshopIds([]);
     setPriority("medium");
     setWorkType("repair");
     setDescription("");
@@ -244,7 +247,7 @@ export default function WorkOrdersPage() {
     // Pre-fill the form with inspection and reception data
     setSelectedInspectionId(inspectionId);
     setEquipmentId(reception.equipmentId || "");
-    setGarageId(reception.garageId || "");
+    // Note: Multi-garage assignment will be done manually in the form
     
     // Build description from driver submission and admin issues
     let descriptionText = `Process Equipment Maintenance - ${reception.receptionNumber}\n\n`;
@@ -269,14 +272,28 @@ export default function WorkOrdersPage() {
     setIsDialogOpen(true);
   };
 
-  const handleEdit = (workOrder: WorkOrder) => {
+  const handleEdit = async (workOrder: WorkOrder) => {
     setEditingWorkOrder(workOrder);
     setWorkOrderNumber(workOrder.workOrderNumber);
     setEquipmentId(workOrder.equipmentId);
-    setGarageId(workOrder.garageId || "");
     setPriority(workOrder.priority);
     setWorkType(workOrder.workType);
     setDescription(workOrder.description);
+    
+    // Load garage and workshop assignments for this work order
+    try {
+      const response = await fetch(`/api/work-orders/${workOrder.id}/assignments`);
+      if (response.ok) {
+        const assignments = await response.json();
+        setSelectedGarageIds(assignments.garageIds || []);
+        setSelectedWorkshopIds(assignments.workshopIds || []);
+      }
+    } catch (error) {
+      console.error("Failed to load work order assignments:", error);
+      // Continue with empty arrays if fetch fails
+      setSelectedGarageIds([]);
+      setSelectedWorkshopIds([]);
+    }
     
     // Hydrate selected parts from work order required parts
     if (workOrder.requiredParts && spareParts) {
@@ -383,7 +400,8 @@ export default function WorkOrdersPage() {
     createWorkOrderMutation.mutate({
       workOrderNumber,
       equipmentId,
-      garageId: garageId || undefined,
+      garageIds: selectedGarageIds,
+      workshopIds: selectedWorkshopIds,
       priority,
       workType,
       description,
@@ -775,21 +793,58 @@ export default function WorkOrdersPage() {
                 </Select>
               </div>
 
-              {/* Garage */}
-              <div className="space-y-2">
-                <Label htmlFor="garage">Garage/Workshop</Label>
-                <Select value={garageId} onValueChange={setGarageId}>
-                  <SelectTrigger data-testid="select-garage">
-                    <SelectValue placeholder="Select garage (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {garages?.map((garage) => (
-                      <SelectItem key={garage.id} value={garage.id}>
-                        {garage.name} - {garage.location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            {/* Multi-Garage Selection */}
+            <div className="space-y-3 p-4 border-2 rounded-lg bg-muted/30">
+              <Label className="flex items-center gap-2 text-lg font-semibold">
+                <Building2 className="h-5 w-5" />
+                Assign Garages & Workshops
+              </Label>
+              
+              {/* Selected Garages Display */}
+              {selectedGarageIds.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-3 bg-background rounded-md">
+                  {selectedGarageIds.map((garageId) => {
+                    const garage = garages?.find(g => g.id === garageId);
+                    return garage ? (
+                      <div key={garageId} className="flex items-center gap-2 bg-primary/10 rounded-md pl-3 pr-1 py-1 border border-primary/20">
+                        <span className="text-sm font-medium">{garage.name}</span>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => setSelectedGarageIds(prev => prev.filter(id => id !== garageId))}
+                          data-testid={`button-remove-garage-${garageId}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              )}
+
+              {/* Select Garages Button */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsWorkshopDialogOpen(true)}
+                  className="h-10"
+                  data-testid="button-select-garages-workshops"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  {selectedGarageIds.length === 0 ? "Select Garages" : `Manage Garages (${selectedGarageIds.length})`}
+                </Button>
+
+                {selectedWorkshopIds.length > 0 && (
+                  <div className="text-sm text-muted-foreground flex items-center">
+                    <Wrench className="h-4 w-4 mr-1" />
+                    {selectedWorkshopIds.length} workshop{selectedWorkshopIds.length !== 1 ? 's' : ''} selected
+                  </div>
+                )}
               </div>
             </div>
 
@@ -999,6 +1054,104 @@ export default function WorkOrdersPage() {
               data-testid="button-confirm-parts-selection"
             >
               Confirm Selection
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workshop Selection Dialog */}
+      <Dialog open={isWorkshopDialogOpen} onOpenChange={setIsWorkshopDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-garages-workshops">
+          <DialogHeader>
+            <DialogTitle>Select Garages & Workshops</DialogTitle>
+            <DialogDescription>
+              Choose garages and workshops to assign this work order
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {garages && garages.length > 0 ? (
+              garages.map((garage: any) => (
+                <Card key={garage.id} className="overflow-hidden" data-testid={`garage-card-${garage.id}`}>
+                  <CardHeader className="pb-3 bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedGarageIds.includes(garage.id)}
+                        onChange={() => {
+                          setSelectedGarageIds(prev =>
+                            prev.includes(garage.id)
+                              ? prev.filter(id => id !== garage.id)
+                              : [...prev, garage.id]
+                          );
+                        }}
+                        className="h-4 w-4"
+                        data-testid={`checkbox-garage-${garage.id}`}
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{garage.name}</h3>
+                        <p className="text-sm text-muted-foreground">{garage.location}</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  {garage.workshops && garage.workshops.length > 0 && (
+                    <CardContent className="pt-3">
+                      <p className="text-sm font-medium mb-2">Workshops:</p>
+                      <div className="space-y-2">
+                        {garage.workshops.map((workshop: any) => (
+                          <div
+                            key={workshop.id}
+                            className="flex items-center gap-3 p-2 rounded-md border hover-elevate"
+                            data-testid={`workshop-option-${workshop.id}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedWorkshopIds.includes(workshop.id)}
+                              onChange={() => {
+                                setSelectedWorkshopIds(prev =>
+                                  prev.includes(workshop.id)
+                                    ? prev.filter(id => id !== workshop.id)
+                                    : [...prev, workshop.id]
+                                );
+                              }}
+                              className="h-4 w-4"
+                              data-testid={`checkbox-workshop-${workshop.id}`}
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{workshop.name}</p>
+                              {workshop.foreman && (
+                                <p className="text-xs text-muted-foreground">Foreman: {workshop.foreman.fullName}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              ))
+            ) : (
+              <div className="py-12 text-center text-muted-foreground">
+                No garages available
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsWorkshopDialogOpen(false)}
+              data-testid="button-cancel-workshop-selection"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setIsWorkshopDialogOpen(false)}
+              data-testid="button-confirm-workshop-selection"
+            >
+              Confirm ({selectedGarageIds.length} garages, {selectedWorkshopIds.length} workshops)
             </Button>
           </div>
         </DialogContent>

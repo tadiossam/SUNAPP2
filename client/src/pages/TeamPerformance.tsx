@@ -48,11 +48,11 @@ export default function TeamPerformancePage() {
   const getRankBadge = (rank: number) => {
     switch (rank) {
       case 1:
-        return <Badge className="bg-yellow-500 text-black">🥇 Champion</Badge>;
+        return <Badge className="bg-yellow-500 text-black">Champion</Badge>;
       case 2:
-        return <Badge variant="secondary">🥈 Runner-up</Badge>;
+        return <Badge variant="secondary">Runner-up</Badge>;
       case 3:
-        return <Badge variant="outline">🥉 Third Place</Badge>;
+        return <Badge variant="outline">Third Place</Badge>;
       default:
         return <Badge variant="outline">#{rank}</Badge>;
     }

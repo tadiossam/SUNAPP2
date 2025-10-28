@@ -1672,7 +1672,7 @@ export default function AdminSettings() {
                     <Button
                       onClick={async () => {
                         try {
-                          const token = localStorage.getItem('token');
+                          const token = localStorage.getItem('auth_token');
                           const response = await fetch("/api/dynamics365/generate-script", {
                             headers: {
                               'Authorization': `Bearer ${token}`

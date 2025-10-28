@@ -749,13 +749,7 @@ export default function WorkOrdersPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    // Open view maintenance dialog
-                    toast({
-                      title: "View Maintenance",
-                      description: "Opening maintenance details...",
-                    });
-                  }}
+                  onClick={() => setViewingReceptionId(editingWorkOrder.receptionId || null)}
                   data-testid="button-view-maintenance"
                 >
                   <Eye className="h-4 w-4 mr-1" />
@@ -1366,11 +1360,11 @@ export default function WorkOrdersPage() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Kilometrage</Label>
-                  <p className="font-medium">{receptionDetails.kilometrage} km</p>
+                  <p className="font-medium">{receptionDetails.kilometreRiding || 'N/A'} km</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Fuel Level</Label>
-                  <Badge>{receptionDetails.fuelLevel}</Badge>
+                  <Badge>{receptionDetails.fuelLevel || 'N/A'}</Badge>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
@@ -1378,24 +1372,44 @@ export default function WorkOrdersPage() {
                 </div>
               </div>
               
-              {receptionDetails.reasonForMaintenance && (
-                <div>
-                  <Label className="text-muted-foreground">Reason for Maintenance</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reasonForMaintenance}</p>
+              {/* Driver Information */}
+              {receptionDetails.driver && (
+                <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <Label className="text-muted-foreground font-semibold">Driver Information</Label>
+                  <div className="mt-2 space-y-1">
+                    <p className="font-medium">{receptionDetails.driver.fullName}</p>
+                    {receptionDetails.driver.email && (
+                      <p className="text-sm text-muted-foreground">{receptionDetails.driver.email}</p>
+                    )}
+                    {receptionDetails.driver.phoneNumber && (
+                      <p className="text-sm text-muted-foreground">{receptionDetails.driver.phoneNumber}</p>
+                    )}
+                  </div>
                 </div>
               )}
               
-              {receptionDetails.reportedIssues && (
+              {receptionDetails.reasonOfMaintenance && (
                 <div>
-                  <Label className="text-muted-foreground">Reported Issues</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reportedIssues}</p>
+                  <Label className="text-muted-foreground">Reason for Maintenance</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reasonOfMaintenance}</p>
+                </div>
+              )}
+              
+              {receptionDetails.issuesReported && (
+                <div>
+                  <Label className="text-muted-foreground">Driver Reported Issues</Label>
+                  <p className="mt-1 p-3 bg-amber-50 dark:bg-amber-950 rounded-md text-sm border border-amber-200 dark:border-amber-800">
+                    {receptionDetails.issuesReported}
+                  </p>
                 </div>
               )}
 
-              {receptionDetails.adminIssues && (
+              {receptionDetails.adminIssuesReported && (
                 <div>
                   <Label className="text-muted-foreground">Admin Review Notes</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.adminIssues}</p>
+                  <p className="mt-1 p-3 bg-blue-50 dark:bg-blue-950 rounded-md text-sm border border-blue-200 dark:border-blue-800">
+                    {receptionDetails.adminIssuesReported}
+                  </p>
                 </div>
               )}
             </div>

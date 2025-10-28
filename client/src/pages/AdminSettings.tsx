@@ -93,6 +93,7 @@ export default function AdminSettings() {
     bcCompany: "",
     bcUsername: "",
     bcPassword: "",
+    bcDomain: "",
     itemPrefix: "",
     equipmentPrefix: "",
     syncIntervalHours: 24,
@@ -235,6 +236,7 @@ export default function AdminSettings() {
         bcCompany: d365Settings.bcCompany || "",
         bcUsername: d365Settings.bcUsername || "",
         bcPassword: "", // Don't populate password
+        bcDomain: d365Settings.bcDomain || "",
         itemPrefix: d365Settings.itemPrefix || "",
         equipmentPrefix: d365Settings.equipmentPrefix || "",
         syncIntervalHours: d365Settings.syncIntervalHours || 24,
@@ -309,6 +311,116 @@ export default function AdminSettings() {
       toast({
         title: "Connection Error",
         description: error.message || "Failed to test connection",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // NTLM Direct Connection Mutations
+  const testNTLMConnectionMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dynamics365/test-connection-ntlm");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: data.success ? "Success" : "Failed",
+        description: data.message || data.error || "Connection test completed",
+        variant: data.success ? "default" : "destructive",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/settings"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to test connection",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchCustomersNTLMMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("GET", "/api/dynamics365/customers-ntlm?limit=10");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Customers Fetched",
+          description: `Retrieved ${data.count} customers from D365`,
+        });
+        console.log("D365 Customers:", data.data);
+      } else {
+        toast({
+          title: "Failed",
+          description: data.error || "Could not fetch customers",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch customers",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchItemsNTLMMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("GET", "/api/dynamics365/items-ntlm?limit=100");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Items Fetched",
+          description: `Retrieved ${data.count} items from D365${data.prefix ? ` (prefix: ${data.prefix})` : ''}`,
+        });
+        console.log("D365 Items:", data.data);
+      } else {
+        toast({
+          title: "Failed",
+          description: data.error || "Could not fetch items",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch items",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchEquipmentNTLMMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("GET", "/api/dynamics365/equipment-ntlm?limit=100");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Equipment Fetched",
+          description: `Retrieved ${data.count} fixed assets from D365${data.prefix ? ` (prefix: ${data.prefix})` : ''}`,
+        });
+        console.log("D365 Equipment:", data.data);
+      } else {
+        toast({
+          title: "Failed",
+          description: data.error || "Could not fetch equipment",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch equipment",
         variant: "destructive",
       });
     },
@@ -1355,14 +1467,14 @@ export default function AdminSettings() {
                       </p>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-3">
                       <div className="space-y-2">
                         <Label htmlFor="bcUsername">Username *</Label>
                         <Input
                           id="bcUsername"
                           value={d365Form.bcUsername}
                           onChange={(e) => setD365Form({ ...d365Form, bcUsername: e.target.value })}
-                          placeholder=""
+                          placeholder="Administrator"
                           data-testid="input-d365-username"
                         />
                       </div>
@@ -1379,6 +1491,20 @@ export default function AdminSettings() {
                         />
                         <p className="text-xs text-muted-foreground">
                           {d365Settings ? "Leave blank to keep existing password" : "Enter your password"}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bcDomain">Domain (Optional)</Label>
+                        <Input
+                          id="bcDomain"
+                          value={d365Form.bcDomain}
+                          onChange={(e) => setD365Form({ ...d365Form, bcDomain: e.target.value })}
+                          placeholder="MYDOMAIN"
+                          data-testid="input-d365-domain"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Windows domain for NTLM auth
                         </p>
                       </div>
                     </div>
@@ -1529,6 +1655,94 @@ export default function AdminSettings() {
                       <Sparkles className="h-4 w-4 mr-2" />
                       Review & Import Items
                     </Button>
+                  </div>
+
+                  {/* NTLM Direct Connection Testing */}
+                  <div className="pt-4 border-t">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Wifi className="h-4 w-4" />
+                      NTLM Direct Connection Testing
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Test direct connection to D365 without PowerShell scripts (requires Node.js server to reach D365)
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => testNTLMConnectionMutation.mutate()}
+                        disabled={testNTLMConnectionMutation.isPending || !d365Settings}
+                        variant="outline"
+                        data-testid="button-test-ntlm-connection"
+                      >
+                        {testNTLMConnectionMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Testing...
+                          </>
+                        ) : (
+                          <>
+                            <Wifi className="h-4 w-4 mr-2" />
+                            Test Connection
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={() => fetchCustomersNTLMMutation.mutate()}
+                        disabled={fetchCustomersNTLMMutation.isPending || !d365Settings}
+                        variant="outline"
+                        data-testid="button-fetch-customers"
+                      >
+                        {fetchCustomersNTLMMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Users className="h-4 w-4 mr-2" />
+                            Fetch Customers (10)
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={() => fetchItemsNTLMMutation.mutate()}
+                        disabled={fetchItemsNTLMMutation.isPending || !d365Settings}
+                        variant="outline"
+                        data-testid="button-fetch-items"
+                      >
+                        {fetchItemsNTLMMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Database className="h-4 w-4 mr-2" />
+                            Fetch Items (100)
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={() => fetchEquipmentNTLMMutation.mutate()}
+                        disabled={fetchEquipmentNTLMMutation.isPending || !d365Settings}
+                        variant="outline"
+                        data-testid="button-fetch-equipment"
+                      >
+                        {fetchEquipmentNTLMMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Truck className="h-4 w-4 mr-2" />
+                            Fetch Equipment (100)
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {d365Settings && (

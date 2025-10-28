@@ -34,6 +34,7 @@ import {
   d365SyncLogs,
   insertD365SyncLogSchema,
   d365ItemsPreview,
+  dynamics365Settings,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";

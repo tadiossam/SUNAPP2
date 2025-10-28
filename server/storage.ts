@@ -7,7 +7,6 @@ import {
   maintenanceRecords,
   partsUsageHistory,
   operatingBehaviorReports,
-  users,
   garages,
   workshops,
   workshopMembers,
@@ -769,12 +768,12 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // User operations
+  // User operations (using employees table)
   async updateUserLanguage(userId: string, language: string): Promise<void> {
     await db
-      .update(users)
+      .update(employees)
       .set({ language })
-      .where(eq(users.id, userId));
+      .where(eq(employees.id, userId));
   }
 
   // ============================================
@@ -1004,7 +1003,7 @@ export class DatabaseStorage implements IStorage {
       garageIds.length > 0 ? db.select().from(garages).where(inArray(garages.id, garageIds)) : Promise.resolve([]),
       workshopIds.length > 0 ? db.select().from(workshops).where(inArray(workshops.id, workshopIds)) : Promise.resolve([]),
       employeeIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, employeeIds)) : Promise.resolve([]),
-      userIds.length > 0 ? db.select().from(users).where(inArray(users.id, userIds)) : Promise.resolve([]),
+      userIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, userIds)) : Promise.resolve([]),
       db.select().from(workOrderRequiredParts).where(inArray(workOrderRequiredParts.workOrderId, workOrderIds)),
     ]);
 
@@ -1058,7 +1057,7 @@ export class DatabaseStorage implements IStorage {
     
     let createdBy = undefined;
     if (order.createdById) {
-      [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
+      [createdBy] = await db.select().from(employees).where(eq(employees.id, order.createdById));
     }
     
     // Get required parts

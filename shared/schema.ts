@@ -148,16 +148,9 @@ export type InsertEquipmentPartsCompatibility = z.infer<typeof insertEquipmentPa
 export type PartCompatibility = typeof partCompatibility.$inferSelect;
 export type InsertPartCompatibility = z.infer<typeof insertPartCompatibilitySchema>;
 
-// Users table for authentication and authorization
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(), // Hashed password
-  fullName: text("full_name").notNull(),
-  role: text("role").notNull().default("user"), // CEO, admin, user
-  language: text("language").notNull().default("en"), // en, am (English, Amharic)
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+// REMOVED: Users table - now using employees table for all authentication
+// All authentication is handled through the employees table
+// Employees with role='admin' or role='ceo' have admin access
 
 // Mechanics/Technicians table
 export const mechanics = pgTable("mechanics", {
@@ -248,12 +241,6 @@ export const operatingBehaviorReportsRelations = relations(operatingBehaviorRepo
   }),
 }));
 
-// Insert schemas for users
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-});
-
 // Insert schemas for maintenance system
 export const insertMechanicSchema = createInsertSchema(mechanics).omit({
   id: true,
@@ -275,9 +262,9 @@ export const insertOperatingBehaviorReportSchema = createInsertSchema(operatingB
   createdAt: true,
 });
 
-// Select types for users
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+// User type is now an alias to Employee type (all authentication uses employees table)
+export type User = Employee;
+export type InsertUser = InsertEmployee;
 
 // Select types for maintenance system
 export type Mechanic = typeof mechanics.$inferSelect;
@@ -408,7 +395,7 @@ export const workOrders = pgTable("work_orders", {
   completionApprovedAt: timestamp("completion_approved_at"),
   completionApprovalNotes: text("completion_approval_notes"),
   notes: text("notes"),
-  createdById: varchar("created_by_id").references(() => users.id),
+  createdById: varchar("created_by_id").references(() => employees.id),
   scheduledDate: timestamp("scheduled_date"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
@@ -805,9 +792,9 @@ export const workOrdersRelations = relations(workOrders, ({ one }) => ({
     fields: [workOrders.workshopId],
     references: [workshops.id],
   }),
-  createdBy: one(users, {
+  createdBy: one(employees, {
     fields: [workOrders.createdById],
-    references: [users.id],
+    references: [employees.id],
   }),
   // Note: assignedToIds is an array, so assigned employees are fetched separately
 }));
@@ -1136,7 +1123,7 @@ export const dynamics365Settings = pgTable("dynamics365_settings", {
   lastTestStatus: text("last_test_status"), // Last test result: 'success' or 'failed'
   lastTestMessage: text("last_test_message"), // Error message if test failed
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedBy: varchar("updated_by").references(() => users.id), // User who made the change (CEO/Admin)
+  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (CEO/Admin)
 });
 
 // Insert schema for D365 settings
@@ -1184,7 +1171,7 @@ export const systemSettings = pgTable("system_settings", {
   serverHost: text("server_host").notNull().default("0.0.0.0"), // Server IP/host
   serverPort: integer("server_port").notNull().default(3000), // Server port
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedBy: varchar("updated_by").references(() => users.id), // User who made the change (CEO/Admin)
+  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (CEO/Admin)
 });
 
 // Insert schema for system settings

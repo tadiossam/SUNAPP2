@@ -173,7 +173,7 @@ export interface IStorage {
 
   // Garage Management Operations
   // Garages
-  getAllGarages(): Promise<Garage[]>;
+  getAllGarages(): Promise<GarageWithDetails[]>;
   getGarageById(id: string): Promise<GarageWithDetails | undefined>;
   createGarage(data: InsertGarage): Promise<Garage>;
   updateGarage(id: string, data: Partial<InsertGarage>): Promise<Garage>;
@@ -781,8 +781,23 @@ export class DatabaseStorage implements IStorage {
   // ============================================
 
   // Garages
-  async getAllGarages(): Promise<Garage[]> {
-    return await db.select().from(garages).orderBy(garages.name);
+  async getAllGarages(): Promise<GarageWithDetails[]> {
+    const allGarages = await db.select().from(garages).orderBy(garages.name);
+    
+    // Fetch workshops for each garage
+    const garagesWithDetails = await Promise.all(
+      allGarages.map(async (garage) => {
+        const workshopsList = await this.getWorkshopsByGarage(garage.id);
+        return {
+          ...garage,
+          workshops: workshopsList,
+          employees: [],
+          workOrders: [],
+        };
+      })
+    );
+    
+    return garagesWithDetails;
   }
 
   async getGarageById(id: string): Promise<GarageWithDetails | undefined> {

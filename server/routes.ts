@@ -4485,6 +4485,100 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // ==================== APP CUSTOMIZATIONS ROUTES ====================
+  
+  // Get app customizations
+  app.get("/api/app-customizations", async (_req, res) => {
+    try {
+      const { appCustomizations } = await import("@shared/schema");
+      const customizations = await db.select().from(appCustomizations).limit(1);
+      
+      if (customizations.length === 0) {
+        // Return default customizations if none exist
+        return res.json({
+          appName: "Gelan Terminal Maintenance",
+          logoUrl: null,
+          primaryColor: "#0ea5e9",
+          themeMode: "light",
+        });
+      }
+      
+      res.json(customizations[0]);
+    } catch (error: any) {
+      console.error("Error fetching app customizations:", error);
+      res.status(500).json({ error: "Failed to fetch app customizations" });
+    }
+  });
+
+  // Update app customizations
+  app.patch("/api/app-customizations", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { appCustomizations, insertAppCustomizationsSchema } = await import("@shared/schema");
+      const customizationData = insertAppCustomizationsSchema.partial().parse(req.body);
+      
+      // Get current user ID from session
+      const userId = (req.user as any)?.id;
+      
+      // Check if customizations exist
+      const existing = await db.select().from(appCustomizations).limit(1);
+      
+      let updated;
+      if (existing.length === 0) {
+        // Create new customizations
+        updated = await db.insert(appCustomizations)
+          .values({
+            ...customizationData,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          })
+          .returning();
+      } else {
+        // Update existing customizations
+        updated = await db.update(appCustomizations)
+          .set({
+            ...customizationData,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          })
+          .where(eq(appCustomizations.id, existing[0].id))
+          .returning();
+      }
+      
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error updating app customizations:", error);
+      res.status(500).json({ error: "Failed to update app customizations" });
+    }
+  });
+
+  // Upload logo
+  app.post("/api/app-customizations/upload-logo", isCEOOrAdmin, upload.single("logo"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const file = req.file;
+      const fileExtension = file.originalname.substring(file.originalname.lastIndexOf('.'));
+      const fileName = `logo-${nanoid()}${fileExtension}`;
+      const uploadDir = join(process.cwd(), 'client', 'public', 'uploads');
+      
+      // Ensure upload directory exists
+      await mkdir(uploadDir, { recursive: true });
+      
+      // Save file
+      const filePath = join(uploadDir, fileName);
+      await writeFile(filePath, file.buffer);
+      
+      // Return the public URL path
+      const publicPath = `/uploads/${fileName}`;
+      res.json({ logoUrl: publicPath });
+    } catch (error: any) {
+      console.error("Error uploading logo:", error);
+      res.status(500).json({ error: "Failed to upload logo" });
+    }
+  });
+
   // Dashboard analytics endpoint - dynamic data with filters
   app.get("/api/dashboard/analytics", isAuthenticated, async (req, res) => {
     try {

@@ -1541,3 +1541,24 @@ export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omi
 // Select types for system settings
 export type SystemSettings = typeof systemSettings.$inferSelect;
 export type InsertSystemSettings = z.infer<typeof insertSystemSettingsSchema>;
+
+// App Customizations table - for branding and theming
+export const appCustomizations = pgTable("app_customizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appName: text("app_name").notNull().default("Gelan Terminal Maintenance"), // Application name
+  logoUrl: text("logo_url"), // Path to uploaded logo image
+  primaryColor: text("primary_color").default("#0ea5e9"), // Primary theme color (hex)
+  themeMode: text("theme_mode").notNull().default("light"), // light, dark, or auto
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (Admin/CEO)
+});
+
+// Insert schema for app customizations
+export const insertAppCustomizationsSchema = createInsertSchema(appCustomizations).omit({
+  id: true,
+  updatedAt: true,
+});
+
+// Select types for app customizations
+export type AppCustomizations = typeof appCustomizations.$inferSelect;
+export type InsertAppCustomizations = z.infer<typeof insertAppCustomizationsSchema>;

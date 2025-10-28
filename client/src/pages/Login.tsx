@@ -22,6 +22,11 @@ export default function Login() {
     queryKey: ["/api/auth/me"],
   });
 
+  // Fetch app customizations
+  const { data: appCustomizations } = useQuery({
+    queryKey: ["/api/app-customizations"],
+  });
+
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: { username: string; password: string; language: string }) => {
@@ -70,7 +75,9 @@ export default function Login() {
               <Shield className="h-12 w-12 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Gelan Terminal Mintenance</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            {(appCustomizations as any)?.appName || "Gelan Terminal Maintenance"}
+          </CardTitle>
           <CardDescription>
             Sign in to access the equipment management system
           </CardDescription>

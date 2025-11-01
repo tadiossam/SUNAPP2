@@ -304,22 +304,24 @@ export default function WorkshopDetail() {
 
             <div className="space-y-2">
               <Label htmlFor="edit-foreman">Foreman</Label>
-              <Select
-                value={editForemanId}
-                onValueChange={setEditForemanId}
-              >
-                <SelectTrigger id="edit-foreman" data-testid="select-edit-foreman">
-                  <SelectValue placeholder="Select a foreman (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No foreman</SelectItem>
-                  {employees?.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.fullName} {emp.role && `(${emp.role})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select
+                  value={editForemanId || "none"}
+                  onValueChange={(value) => setEditForemanId(value === "none" ? "" : value)}
+                >
+                  <SelectTrigger id="edit-foreman" data-testid="select-edit-foreman" className="flex-1">
+                    <SelectValue placeholder="Select a foreman (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No foreman</SelectItem>
+                    {employees?.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.fullName} {emp.role && `(${emp.role})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">

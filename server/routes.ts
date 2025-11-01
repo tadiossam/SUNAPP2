@@ -37,6 +37,7 @@ import {
   dynamics365Settings,
   workOrderGarages,
   workOrderWorkshops,
+  workshops,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -1309,6 +1310,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching team members:", error);
       res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
+  // Item Requisition endpoints
+  app.post("/api/item-requisitions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { lines, ...requisitionData } = req.body;
+      
+      if (!lines || !Array.isArray(lines) || lines.length === 0) {
+        return res.status(400).json({ error: "At least one line item is required" });
+      }
+      
+      const requisition = await storage.createItemRequisition({
+        ...requisitionData,
+        requesterId: req.user.id,
+      }, lines);
+      
+      res.status(201).json(requisition);
+    } catch (error) {
+      console.error("Error creating item requisition:", error);
+      res.status(500).json({ error: "Failed to create item requisition" });
+    }
+  });
+
+  app.get("/api/item-requisitions/foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user has foreman role by verifying they are assigned as foreman to at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const requisitions = await storage.getItemRequisitionsByForeman(req.user.id);
+      res.json(requisitions);
+    } catch (error) {
+      console.error("Error fetching foreman requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
+  app.get("/api/item-requisitions/store-manager", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can access
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const requisitions = await storage.getItemRequisitionsByStoreManager();
+      res.json(requisitions);
+    } catch (error) {
+      console.error("Error fetching store manager requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/approve-foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman of at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.approveItemRequisitionByForeman(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition approved" });
+    } catch (error) {
+      console.error("Error approving requisition:", error);
+      res.status(500).json({ error: "Failed to approve requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/reject-foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman of at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.rejectItemRequisitionByForeman(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition rejected" });
+    } catch (error) {
+      console.error("Error rejecting requisition:", error);
+      res.status(500).json({ error: "Failed to reject requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/approve-store", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can approve
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.approveItemRequisitionByStoreManager(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition approved by store manager" });
+    } catch (error) {
+      console.error("Error approving requisition:", error);
+      res.status(500).json({ error: "Failed to approve requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/reject-store", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can reject
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.rejectItemRequisitionByStoreManager(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition rejected by store manager" });
+    } catch (error) {
+      console.error("Error rejecting requisition:", error);
+      res.status(500).json({ error: "Failed to reject requisition" });
     }
   });
 

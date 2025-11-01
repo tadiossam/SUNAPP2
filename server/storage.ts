@@ -25,6 +25,8 @@ import {
   repairEstimates,
   partsRequests,
   approvals,
+  itemRequisitions,
+  itemRequisitionLines,
   attendanceDeviceSettings,
   deviceImportLogs,
   equipmentInspections,
@@ -300,6 +302,15 @@ export interface IStorage {
   approveWorkOrderCompletion(workOrderId: string, approvedById: string, notes?: string): Promise<void>;
   approvePartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
   rejectPartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
+
+  // Item Requisitions
+  createItemRequisition(requisitionData: any, lines: any[]): Promise<any>;
+  getItemRequisitionsByForeman(foremanId: string): Promise<any[]>;
+  getItemRequisitionsByStoreManager(): Promise<any[]>;
+  approveItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
+  rejectItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
+  approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
+  rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
 
   // Attendance Device Operations
   getAllAttendanceDevices(): Promise<any[]>;
@@ -2173,6 +2184,181 @@ export class DatabaseStorage implements IStorage {
         status: "rejected",
       })
       .where(eq(partsRequests.id, partsRequestId));
+  }
+
+  // Item Requisitions
+  async createItemRequisition(requisitionData: any, lines: any[]): Promise<any> {
+    // Generate requisition number
+    const currentYear = new Date().getFullYear();
+    const prefix = `REQ-${currentYear}-`;
+    const existingReqs = await db
+      .select()
+      .from(itemRequisitions)
+      .where(sql`${itemRequisitions.requisitionNumber} LIKE ${prefix + '%'}`)
+      .orderBy(desc(itemRequisitions.requisitionNumber));
+    
+    let nextNumber = 1;
+    if (existingReqs.length > 0) {
+      const lastNumber = existingReqs[0].requisitionNumber.split('-')[2];
+      nextNumber = parseInt(lastNumber) + 1;
+    }
+    
+    const requisitionNumber = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+    
+    // Create requisition
+    const [requisition] = await db.insert(itemRequisitions).values({
+      ...requisitionData,
+      requisitionNumber,
+      status: 'pending_foreman',
+    }).returning();
+    
+    // Create requisition lines
+    if (lines.length > 0) {
+      const linesWithReqId = lines.map((line, index) => ({
+        ...line,
+        requisitionId: requisition.id,
+        lineNumber: index + 1,
+      }));
+      await db.insert(itemRequisitionLines).values(linesWithReqId);
+    }
+    
+    return requisition;
+  }
+
+  async getItemRequisitionsByForeman(foremanId: string): Promise<any[]> {
+    // Get workshops where this employee is the foreman
+    const foremanWorkshops = await db
+      .select()
+      .from(workshops)
+      .where(eq(workshops.foremanId, foremanId));
+    
+    if (foremanWorkshops.length === 0) {
+      return [];
+    }
+    
+    const workshopIds = foremanWorkshops.map(w => w.id);
+    
+    // Get requisitions from these workshops with pending_foreman status
+    const requisitions = await db
+      .select()
+      .from(itemRequisitions)
+      .where(
+        and(
+          inArray(itemRequisitions.workshopId, workshopIds),
+          eq(itemRequisitions.foremanApprovalStatus, 'pending')
+        )
+      )
+      .orderBy(desc(itemRequisitions.createdAt));
+    
+    // Get lines for each requisition
+    const requisitionsWithLines = await Promise.all(
+      requisitions.map(async (req) => {
+        const lines = await db
+          .select()
+          .from(itemRequisitionLines)
+          .where(eq(itemRequisitionLines.requisitionId, req.id))
+          .orderBy(itemRequisitionLines.lineNumber);
+        
+        const [requester] = await db
+          .select()
+          .from(employees)
+          .where(eq(employees.id, req.requesterId));
+        
+        return { ...req, lines, requester };
+      })
+    );
+    
+    return requisitionsWithLines;
+  }
+
+  async getItemRequisitionsByStoreManager(): Promise<any[]> {
+    // Get requisitions with pending_store status (already approved by foreman)
+    const requisitions = await db
+      .select()
+      .from(itemRequisitions)
+      .where(
+        and(
+          eq(itemRequisitions.foremanApprovalStatus, 'approved'),
+          eq(itemRequisitions.storeApprovalStatus, 'pending')
+        )
+      )
+      .orderBy(desc(itemRequisitions.createdAt));
+    
+    // Get lines for each requisition
+    const requisitionsWithLines = await Promise.all(
+      requisitions.map(async (req) => {
+        const lines = await db
+          .select()
+          .from(itemRequisitionLines)
+          .where(eq(itemRequisitionLines.requisitionId, req.id))
+          .orderBy(itemRequisitionLines.lineNumber);
+        
+        const [requester] = await db
+          .select()
+          .from(employees)
+          .where(eq(employees.id, req.requesterId));
+        
+        const [workshop] = req.workshopId
+          ? await db.select().from(workshops).where(eq(workshops.id, req.workshopId))
+          : [null];
+        
+        return { ...req, lines, requester, workshop };
+      })
+    );
+    
+    return requisitionsWithLines;
+  }
+
+  async approveItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        foremanApprovalStatus: 'approved',
+        foremanApprovedById: foremanId,
+        foremanApprovedAt: new Date(),
+        foremanRemarks: remarks,
+        status: 'pending_store',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async rejectItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        foremanApprovalStatus: 'rejected',
+        foremanApprovedById: foremanId,
+        foremanApprovedAt: new Date(),
+        foremanRemarks: remarks,
+        status: 'rejected',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        storeApprovalStatus: 'approved',
+        storeApprovedById: storeManagerId,
+        storeApprovedAt: new Date(),
+        storeRemarks: remarks,
+        status: 'approved',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        storeApprovalStatus: 'rejected',
+        storeApprovedById: storeManagerId,
+        storeApprovedAt: new Date(),
+        storeRemarks: remarks,
+        status: 'rejected',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
   }
 
   // Attendance Device Operations

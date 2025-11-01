@@ -1249,6 +1249,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Foreman dashboard endpoints
+  app.get("/api/work-orders/foreman/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id);
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  app.get("/api/work-orders/foreman/active", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id);
+      res.json(activeWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman active work orders:", error);
+      res.status(500).json({ error: "Failed to fetch active work orders" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/assign-team", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { teamMemberIds } = req.body;
+      
+      if (!teamMemberIds || !Array.isArray(teamMemberIds) || teamMemberIds.length === 0) {
+        return res.status(400).json({ error: "Team member IDs are required" });
+      }
+      
+      await storage.assignTeamToWorkOrder(req.params.id, teamMemberIds, req.user.id);
+      res.json({ success: true, message: "Team assigned successfully" });
+    } catch (error) {
+      console.error("Error assigning team to work order:", error);
+      res.status(500).json({ error: "Failed to assign team to work order" });
+    }
+  });
+
+  app.get("/api/employees/team-members", async (req, res) => {
+    try {
+      // Get all employees who can be team members (not CEO or admin)
+      const teamMembers = await storage.getAllEmployees();
+      const filteredMembers = teamMembers.filter(
+        emp => emp.role !== 'ceo' && emp.role !== 'admin'
+      );
+      res.json(filteredMembers);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
+      res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
       // Extract requiredParts, garageIds, and workshopIds from body

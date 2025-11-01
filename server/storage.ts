@@ -14,6 +14,7 @@ import {
   workOrders,
   workOrderGarages,
   workOrderWorkshops,
+  workOrderMemberships,
   workOrderRequiredParts,
   partsStorageLocations,
   equipmentLocations,
@@ -206,6 +207,9 @@ export interface IStorage {
   createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;
   updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder>;
   deleteWorkOrder(id: string): Promise<void>;
+  getForemanPendingWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
+  getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
+  assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void>;
   
   // Work Order Required Parts
   getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]>;
@@ -1200,6 +1204,137 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWorkOrder(id: string): Promise<void> {
     await db.delete(workOrders).where(eq(workOrders.id, id));
+  }
+
+  async getForemanPendingWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]> {
+    // Get workshops where this employee is the foreman
+    const foremanWorkshops = await db
+      .select()
+      .from(workshops)
+      .where(eq(workshops.foremanId, foremanId));
+    
+    if (foremanWorkshops.length === 0) {
+      return [];
+    }
+    
+    const workshopIds = foremanWorkshops.map(w => w.id);
+    
+    // Get work orders assigned to these workshops that need team assignment
+    const workOrderWorkshopLinks = await db
+      .select()
+      .from(workOrderWorkshops)
+      .where(inArray(workOrderWorkshops.workshopId, workshopIds));
+    
+    const workOrderIds = workOrderWorkshopLinks.map(link => link.workOrderId);
+    
+    if (workOrderIds.length === 0) {
+      return [];
+    }
+    
+    // Get work orders with status pending_foreman_assignment or pending_team_acceptance
+    const pendingOrders = await db
+      .select()
+      .from(workOrders)
+      .where(
+        and(
+          inArray(workOrders.id, workOrderIds),
+          or(
+            eq(workOrders.status, "pending_foreman_assignment"),
+            eq(workOrders.status, "pending_team_acceptance")
+          )
+        )
+      );
+    
+    // Get full details for each order
+    const ordersWithDetails = await Promise.all(
+      pendingOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]> {
+    // Get work orders where the foreman is assigned
+    const foremanMemberships = await db
+      .select()
+      .from(workOrderMemberships)
+      .where(
+        and(
+          eq(workOrderMemberships.employeeId, foremanId),
+          eq(workOrderMemberships.role, "foreman"),
+          eq(workOrderMemberships.isActive, true)
+        )
+      );
+    
+    if (foremanMemberships.length === 0) {
+      return [];
+    }
+    
+    const workOrderIds = foremanMemberships.map(m => m.workOrderId);
+    
+    // Get work orders with active statuses
+    const activeOrders = await db
+      .select()
+      .from(workOrders)
+      .where(
+        and(
+          inArray(workOrders.id, workOrderIds),
+          or(
+            eq(workOrders.status, "active"),
+            eq(workOrders.status, "in_progress"),
+            eq(workOrders.status, "awaiting_parts"),
+            eq(workOrders.status, "waiting_purchase")
+          )
+        )
+      );
+    
+    // Get full details for each order
+    const ordersWithDetails = await Promise.all(
+      activeOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void> {
+    // Insert foreman membership if not exists
+    const existingForemanMembership = await db
+      .select()
+      .from(workOrderMemberships)
+      .where(
+        and(
+          eq(workOrderMemberships.workOrderId, workOrderId),
+          eq(workOrderMemberships.employeeId, foremanId),
+          eq(workOrderMemberships.role, "foreman")
+        )
+      );
+    
+    if (existingForemanMembership.length === 0) {
+      await db.insert(workOrderMemberships).values({
+        workOrderId,
+        employeeId: foremanId,
+        role: "foreman",
+        assignedBy: foremanId,
+      });
+    }
+    
+    // Insert team member memberships
+    const teamMemberValues = teamMemberIds.map(memberId => ({
+      workOrderId,
+      employeeId: memberId,
+      role: "team_member",
+      assignedBy: foremanId,
+    }));
+    
+    if (teamMemberValues.length > 0) {
+      await db.insert(workOrderMemberships).values(teamMemberValues);
+    }
+    
+    // Update work order status to active
+    await db
+      .update(workOrders)
+      .set({ status: "active" })
+      .where(eq(workOrders.id, workOrderId));
   }
 
   async getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]> {

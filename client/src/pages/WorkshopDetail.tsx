@@ -1,21 +1,80 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Wrench, CheckCircle, Clock } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Wrench, CheckCircle, Clock, Edit, UserCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function WorkshopDetail() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const workshopId = params.id;
+  const { toast } = useToast();
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editForemanId, setEditForemanId] = useState("");
 
   const { data: workshopDetails, isLoading } = useQuery<any>({
     queryKey: [`/api/workshops/${workshopId}/details`],
     enabled: !!workshopId,
   });
+
+  const { data: employees } = useQuery<any[]>({
+    queryKey: ["/api/employees"],
+  });
+
+  const updateWorkshopMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("PUT", `/api/workshops/${workshopId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/workshops/${workshopId}/details`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      toast({
+        title: "Success",
+        description: "Workshop updated successfully",
+      });
+      setIsEditDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update workshop",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditClick = () => {
+    if (workshopDetails?.workshop) {
+      setEditName(workshopDetails.workshop.name);
+      setEditDescription(workshopDetails.workshop.description || "");
+      setEditForemanId(workshopDetails.workshop.foremanId || "");
+      setIsEditDialogOpen(true);
+    }
+  };
+
+  const handleUpdateWorkshop = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateWorkshopMutation.mutate({
+      name: editName,
+      description: editDescription,
+      foremanId: editForemanId || null,
+      garageId: workshopDetails.workshop.garageId,
+    });
+  };
 
   if (isLoading) {
     return (
@@ -45,23 +104,40 @@ export default function WorkshopDetail() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setLocation("/garages")}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold">Workshop Details</h1>
+        </div>
         <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setLocation("/garages")}
-          data-testid="button-back"
+          onClick={handleEditClick}
+          data-testid="button-edit-workshop"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <Edit className="h-4 w-4 mr-2" />
+          Edit Workshop
         </Button>
-        <h1 className="text-3xl font-bold">Workshop Details</h1>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wrench className="h-6 w-6 text-primary" />
-            {workshopDetails.workshop.name}
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-6 w-6 text-primary" />
+              {workshopDetails.workshop.name}
+            </div>
+            {workshopDetails.foreman && (
+              <Badge variant="outline" className="gap-1">
+                <UserCheck className="h-3 w-3" />
+                Foreman: {workshopDetails.foreman.fullName}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -192,6 +268,80 @@ export default function WorkshopDetail() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit Workshop Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Workshop</DialogTitle>
+            <DialogDescription>
+              Update workshop details and assign a foreman
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateWorkshop} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Workshop Name *</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+                data-testid="input-edit-workshop-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+                data-testid="input-edit-workshop-description"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-foreman">Foreman</Label>
+              <Select
+                value={editForemanId}
+                onValueChange={setEditForemanId}
+              >
+                <SelectTrigger id="edit-foreman" data-testid="select-edit-foreman">
+                  <SelectValue placeholder="Select a foreman (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No foreman</SelectItem>
+                  {employees?.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.fullName} {emp.role && `(${emp.role})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                data-testid="button-cancel-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={updateWorkshopMutation.isPending}
+                data-testid="button-save-workshop"
+              >
+                {updateWorkshopMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

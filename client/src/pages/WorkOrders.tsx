@@ -243,21 +243,8 @@ export default function WorkOrdersPage() {
     setEquipmentId(reception.equipmentId || "");
     // Note: Multi-garage assignment will be done manually in the form
     
-    // Build description from driver submission and admin issues
-    let descriptionText = `Process Equipment Maintenance - ${reception.receptionNumber}\n\n`;
-    descriptionText += `--- Driver Submission Details ---\n`;
-    descriptionText += `Driver Name: ${reception.driver?.fullName || 'N/A'}\n`;
-    descriptionText += `Reported Issues: ${reception.reportedIssues || 'None reported'}\n`;
-    descriptionText += `Fuel Level: ${reception.fuelLevel || 'N/A'}\n`;
-    descriptionText += `Kilometrage: ${reception.kilometrage || 'N/A'} km\n`;
-    descriptionText += `Reason: ${reception.reasonForMaintenance || 'N/A'}\n\n`;
-    
-    if (reception.adminReportedIssues) {
-      descriptionText += `--- Issues Reported by Administration Officer ---\n`;
-      descriptionText += `${reception.adminReportedIssues}\n`;
-    }
-    
-    setDescription(descriptionText);
+    // Don't auto-fill description - let user fill it manually
+    setDescription("");
     setWorkType(inspection.serviceType === "Short Term" ? "maintenance" : "repair");
     setPriority("medium");
 
@@ -654,7 +641,7 @@ export default function WorkOrdersPage() {
           </DialogHeader>
 
           {/* View Inspection / View Maintenance Buttons */}
-          {(selectedInspectionId || editingWorkOrder?.inspectionId || editingWorkOrder?.receptionId) && (
+          {(selectedInspectionId || editingWorkOrder?.inspectionId || editingWorkOrder?.receptionId || (selectedInspectionId && completedInspections.find(i => i.id === selectedInspectionId)?.reception)) && (
             <div className="flex gap-2 pb-2 border-b">
               {(selectedInspectionId || editingWorkOrder?.inspectionId) && (
                 <Button
@@ -668,12 +655,15 @@ export default function WorkOrdersPage() {
                   View Inspection
                 </Button>
               )}
-              {editingWorkOrder?.receptionId && (
+              {(editingWorkOrder?.receptionId || (selectedInspectionId && completedInspections.find(i => i.id === selectedInspectionId)?.reception)) && (
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setViewingReceptionId(editingWorkOrder.receptionId || null)}
+                  onClick={() => {
+                    const receptionId = editingWorkOrder?.receptionId || completedInspections.find(i => i.id === selectedInspectionId)?.reception?.id;
+                    if (receptionId) setViewingReceptionId(receptionId);
+                  }}
                   data-testid="button-view-maintenance"
                 >
                   <Eye className="h-4 w-4 mr-1" />
@@ -1224,7 +1214,7 @@ export default function WorkOrdersPage() {
 
               {receptionDetails.adminIssuesReported && (
                 <div>
-                  <Label className="text-muted-foreground">Admin Review Notes</Label>
+                  <Label className="text-muted-foreground">Issues Reported by Administration Officer</Label>
                   <p className="mt-1 p-3 bg-blue-50 dark:bg-blue-950 rounded-md text-sm border border-blue-200 dark:border-blue-800">
                     {receptionDetails.adminIssuesReported}
                   </p>

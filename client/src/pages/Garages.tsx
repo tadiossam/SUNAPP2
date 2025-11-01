@@ -39,6 +39,7 @@ export default function Garages() {
   const [isEditMemberSearchOpen, setIsEditMemberSearchOpen] = useState(false);
   
   // Workshop details state
+  const [expandedGarageId, setExpandedGarageId] = useState<string | null>(null);
   const [expandedWorkshopId, setExpandedWorkshopId] = useState<string | null>(null);
   const [workshopDetails, setWorkshopDetails] = useState<any>(null);
   const [isLoadingWorkshopDetails, setIsLoadingWorkshopDetails] = useState(false);
@@ -504,8 +505,30 @@ export default function Garages() {
                   </span>
                 </div>
                 {garage.workshops && garage.workshops.length > 0 && (
-                  <div className="pt-2 border-t">
-                    <p className="text-sm font-medium mb-2">Workshops: {garage.workshops.length}</p>
+                  <Collapsible
+                    open={expandedGarageId === garage.id}
+                    onOpenChange={() => setExpandedGarageId(expandedGarageId === garage.id ? null : garage.id)}
+                    className="pt-2 border-t"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium">Workshops: {garage.workshops.length}</p>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-2">
+                          {expandedGarageId === garage.id ? (
+                            <>
+                              <ChevronUp className="h-4 w-4" />
+                              <span className="ml-1 text-xs">Hide</span>
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4" />
+                              <span className="ml-1 text-xs">Show</span>
+                            </>
+                          )}
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                    <CollapsibleContent>
                     <div className="space-y-2">
                       {garage.workshops.map((workshop: any) => (
                         <Collapsible
@@ -693,7 +716,8 @@ export default function Garages() {
                         </Collapsible>
                       ))}
                     </div>
-                  </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
                 <div className="flex gap-2 pt-2">
                   {isCEOorAdmin && (

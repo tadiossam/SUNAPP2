@@ -1251,8 +1251,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
-      // Extract requiredParts from body
-      const { requiredParts, ...workOrderData } = req.body;
+      // Extract requiredParts, garageIds, and workshopIds from body
+      const { requiredParts, garageIds, workshopIds, ...workOrderData } = req.body;
       
       // Remove empty work order number to allow auto-generation
       if (!workOrderData.workOrderNumber || workOrderData.workOrderNumber.trim() === '') {
@@ -1264,6 +1264,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdById: req.user?.id,
       });
       const workOrder = await storage.createWorkOrder(validatedData);
+      
+      // Save garage assignments
+      if (garageIds && Array.isArray(garageIds) && garageIds.length > 0) {
+        const garageAssignments = garageIds.map((garageId: string) => ({
+          workOrderId: workOrder.id,
+          garageId,
+        }));
+        await db.insert(workOrderGarages).values(garageAssignments);
+      }
+      
+      // Save workshop assignments
+      if (workshopIds && Array.isArray(workshopIds) && workshopIds.length > 0) {
+        const workshopAssignments = workshopIds.map((workshopId: string) => ({
+          workOrderId: workOrder.id,
+          workshopId,
+        }));
+        await db.insert(workOrderWorkshops).values(workshopAssignments);
+      }
       
       // Save required parts if provided
       if (requiredParts && Array.isArray(requiredParts) && requiredParts.length > 0) {
@@ -1293,11 +1311,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/work-orders/:id", isCEOOrAdmin, async (req, res) => {
     try {
-      // Extract requiredParts from body
-      const { requiredParts, ...workOrderData } = req.body;
+      // Extract requiredParts, garageIds, and workshopIds from body
+      const { requiredParts, garageIds, workshopIds, ...workOrderData } = req.body;
       
       const validatedData = insertWorkOrderSchema.parse(workOrderData);
       const workOrder = await storage.updateWorkOrder(req.params.id, validatedData);
+      
+      // Update garage assignments if provided
+      if (garageIds !== undefined && Array.isArray(garageIds)) {
+        // Delete existing garage assignments
+        await db.delete(workOrderGarages).where(eq(workOrderGarages.workOrderId, req.params.id));
+        
+        // Insert new garage assignments
+        if (garageIds.length > 0) {
+          const garageAssignments = garageIds.map((garageId: string) => ({
+            workOrderId: req.params.id,
+            garageId,
+          }));
+          await db.insert(workOrderGarages).values(garageAssignments);
+        }
+      }
+      
+      // Update workshop assignments if provided
+      if (workshopIds !== undefined && Array.isArray(workshopIds)) {
+        // Delete existing workshop assignments
+        await db.delete(workOrderWorkshops).where(eq(workOrderWorkshops.workOrderId, req.params.id));
+        
+        // Insert new workshop assignments
+        if (workshopIds.length > 0) {
+          const workshopAssignments = workshopIds.map((workshopId: string) => ({
+            workOrderId: req.params.id,
+            workshopId,
+          }));
+          await db.insert(workOrderWorkshops).values(workshopAssignments);
+        }
+      }
       
       // Update required parts if provided
       if (requiredParts && Array.isArray(requiredParts)) {

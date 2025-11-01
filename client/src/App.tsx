@@ -163,7 +163,7 @@ function AppContent() {
               <LanguageToggle />
             </div>
           </header>
-          <main className="flex-1 overflow-hidden bg-background">
+          <main className="flex-1 overflow-auto bg-background">
             <Router />
           </main>
         </div>

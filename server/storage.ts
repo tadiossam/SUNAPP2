@@ -12,6 +12,8 @@ import {
   workshopMembers,
   employees,
   workOrders,
+  workOrderGarages,
+  workOrderWorkshops,
   workOrderRequiredParts,
   partsStorageLocations,
   equipmentLocations,

@@ -808,7 +808,17 @@ export class DatabaseStorage implements IStorage {
     // Fetch workshops with full details (foreman and members)
     const workshopsList = await this.getWorkshopsByGarage(id);
     const employeesList = await db.select().from(employees).where(eq(employees.garageId, id));
-    const orders = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
+    
+    // Fetch work orders for this garage using the junction table
+    const garageWorkOrders = await db
+      .select({ workOrderId: workOrderGarages.workOrderId })
+      .from(workOrderGarages)
+      .where(eq(workOrderGarages.garageId, id));
+    
+    const workOrderIds = garageWorkOrders.map(wo => wo.workOrderId);
+    const orders = workOrderIds.length > 0 
+      ? await db.select().from(workOrders).where(inArray(workOrders.id, workOrderIds))
+      : [];
 
     return {
       ...garage,

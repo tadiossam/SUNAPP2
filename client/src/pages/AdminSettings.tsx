@@ -36,6 +36,8 @@ import {
   Palette,
   Upload,
   Image,
+  Terminal,
+  Info,
 } from "lucide-react";
 import {
   Dialog,
@@ -523,6 +525,78 @@ export default function AdminSettings() {
       toast({
         title: "Error",
         description: error.message || "Sync failed",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // PowerShell-based D365 sync mutations
+  const testPowerShellConnectionMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/dynamics365/ps-test-connection", {
+        baseUrl: d365Form.bcUrl,
+        username: d365Form.bcUsername,
+        password: d365Form.bcPassword,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.status === 'ok') {
+        toast({
+          title: "PowerShell Connection Successful",
+          description: data.message || "Successfully connected to D365 using PowerShell",
+        });
+      } else {
+        toast({
+          title: "PowerShell Connection Failed",
+          description: data.message || "Could not connect to D365",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "PowerShell Test Error",
+        description: error.message || "PowerShell sync is only available on Windows",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const fetchPowerShellDataMutation = useMutation({
+    mutationFn: async (params: { type: string; filterValue?: string; skip?: number; top?: number }) => {
+      const response = await apiRequest("POST", "/api/dynamics365/ps-fetch-data", {
+        baseUrl: d365Form.bcUrl,
+        username: d365Form.bcUsername,
+        password: d365Form.bcPassword,
+        companyName: d365Form.bcCompany,
+        type: params.type,
+        filterValue: params.filterValue,
+        skip: params.skip || 0,
+        top: params.top || 20,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.status === 'ok') {
+        const recordCount = data.count || 0;
+        toast({
+          title: "Data Fetched Successfully",
+          description: `Retrieved ${recordCount} ${data.type} records from D365`,
+        });
+        console.log(`PowerShell D365 ${data.type}:`, data.records);
+      } else {
+        toast({
+          title: "Fetch Failed",
+          description: data.message || "Could not fetch data",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "PowerShell Fetch Error",
+        description: error.message || "Failed to fetch data using PowerShell",
         variant: "destructive",
       });
     },
@@ -1740,6 +1814,92 @@ export default function AdminSettings() {
                       <Sparkles className="h-4 w-4 mr-2" />
                       Review & Import Items
                     </Button>
+                  </div>
+
+                  {/* PowerShell-based Sync (Windows Only) */}
+                  <div className="pt-4 border-t">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Terminal className="h-4 w-4" />
+                      PowerShell-based Sync (Windows + LAN Only)
+                    </h3>
+                    <Alert className="mb-3">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        This sync method uses PowerShell 7 to connect directly to Dynamics 365 Business Central. 
+                        <strong className="block mt-1">Requirements:</strong>
+                        <ul className="list-disc list-inside mt-1 text-sm">
+                          <li>Windows environment</li>
+                          <li>PowerShell 7+</li>
+                          <li>LAN access to D365 BC server</li>
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => testPowerShellConnectionMutation.mutate()}
+                        disabled={testPowerShellConnectionMutation.isPending || !d365Settings}
+                        variant="outline"
+                        data-testid="button-ps-test-connection"
+                      >
+                        {testPowerShellConnectionMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Testing...
+                          </>
+                        ) : (
+                          <>
+                            <Terminal className="h-4 w-4 mr-2" />
+                            Test PowerShell Connection
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={() => fetchPowerShellDataMutation.mutate({ 
+                          type: 'items',
+                          filterValue: d365Form.itemPrefix,
+                          top: 20
+                        })}
+                        disabled={fetchPowerShellDataMutation.isPending || !d365Settings}
+                        variant="outline"
+                        data-testid="button-ps-fetch-items"
+                      >
+                        {fetchPowerShellDataMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" />
+                            Fetch Items (PS)
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={() => fetchPowerShellDataMutation.mutate({ 
+                          type: 'FixedAssets',
+                          filterValue: d365Form.equipmentPrefix,
+                          top: 20
+                        })}
+                        disabled={fetchPowerShellDataMutation.isPending || !d365Settings}
+                        variant="outline"
+                        data-testid="button-ps-fetch-equipment"
+                      >
+                        {fetchPowerShellDataMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" />
+                            Fetch Equipment (PS)
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* NTLM Direct Connection Testing */}

@@ -22,6 +22,8 @@ import MaintenancePage from "@/pages/Maintenance";
 import LoginPage from "@/pages/Login";
 import GaragesPage from "@/pages/Garages";
 import GarageDetailsPage from "@/pages/GarageDetails";
+import GarageDetailPage from "@/pages/GarageDetail";
+import WorkshopDetailPage from "@/pages/WorkshopDetail";
 import EmployeesPage from "@/pages/Employees";
 import ApprovalsPage from "@/pages/Approvals";
 import WorkOrdersPage from "@/pages/WorkOrders";
@@ -54,8 +56,10 @@ function Router() {
       <Route path="/maintenance" component={MaintenancePage} />
       <Route path="/models" component={ModelsPage} />
       <Route path="/upload" component={UploadModelPage} />
-      <Route path="/garages/:id" component={GarageDetailsPage} />
+      <Route path="/garages/:id/old" component={GarageDetailsPage} />
+      <Route path="/garages/:id" component={GarageDetailPage} />
       <Route path="/garages" component={GaragesPage} />
+      <Route path="/workshops/:id" component={WorkshopDetailPage} />
       <Route path="/employees" component={EmployeesPage} />
       <Route path="/approvals" component={ApprovalsPage} />
       <Route path="/work-orders" component={WorkOrdersPage} />
@@ -159,7 +163,7 @@ function AppContent() {
               <LanguageToggle />
             </div>
           </header>
-          <main className="flex-1 overflow-hidden bg-background">
+          <main className="flex-1 overflow-auto bg-background">
             <Router />
           </main>
         </div>

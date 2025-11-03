@@ -37,6 +37,7 @@ import {
   dynamics365Settings,
   workOrderGarages,
   workOrderWorkshops,
+  workshops,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -1249,10 +1250,219 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Foreman dashboard endpoints
+  app.get("/api/work-orders/foreman/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id);
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  app.get("/api/work-orders/foreman/active", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id);
+      res.json(activeWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman active work orders:", error);
+      res.status(500).json({ error: "Failed to fetch active work orders" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/assign-team", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { teamMemberIds } = req.body;
+      
+      if (!teamMemberIds || !Array.isArray(teamMemberIds) || teamMemberIds.length === 0) {
+        return res.status(400).json({ error: "Team member IDs are required" });
+      }
+      
+      await storage.assignTeamToWorkOrder(req.params.id, teamMemberIds, req.user.id);
+      res.json({ success: true, message: "Team assigned successfully" });
+    } catch (error) {
+      console.error("Error assigning team to work order:", error);
+      res.status(500).json({ error: "Failed to assign team to work order" });
+    }
+  });
+
+  app.get("/api/employees/team-members", async (req, res) => {
+    try {
+      // Get all employees who can be team members (not CEO or admin)
+      const teamMembers = await storage.getAllEmployees();
+      const filteredMembers = teamMembers.filter(
+        emp => emp.role !== 'ceo' && emp.role !== 'admin'
+      );
+      res.json(filteredMembers);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
+      res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
+  // Item Requisition endpoints
+  app.post("/api/item-requisitions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { lines, ...requisitionData } = req.body;
+      
+      if (!lines || !Array.isArray(lines) || lines.length === 0) {
+        return res.status(400).json({ error: "At least one line item is required" });
+      }
+      
+      const requisition = await storage.createItemRequisition({
+        ...requisitionData,
+        requesterId: req.user.id,
+      }, lines);
+      
+      res.status(201).json(requisition);
+    } catch (error) {
+      console.error("Error creating item requisition:", error);
+      res.status(500).json({ error: "Failed to create item requisition" });
+    }
+  });
+
+  app.get("/api/item-requisitions/foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user has foreman role by verifying they are assigned as foreman to at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const requisitions = await storage.getItemRequisitionsByForeman(req.user.id);
+      res.json(requisitions);
+    } catch (error) {
+      console.error("Error fetching foreman requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
+  app.get("/api/item-requisitions/store-manager", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can access
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const requisitions = await storage.getItemRequisitionsByStoreManager();
+      res.json(requisitions);
+    } catch (error) {
+      console.error("Error fetching store manager requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/approve-foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman of at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.approveItemRequisitionByForeman(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition approved" });
+    } catch (error) {
+      console.error("Error approving requisition:", error);
+      res.status(500).json({ error: "Failed to approve requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/reject-foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman of at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.rejectItemRequisitionByForeman(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition rejected" });
+    } catch (error) {
+      console.error("Error rejecting requisition:", error);
+      res.status(500).json({ error: "Failed to reject requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/approve-store", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can approve
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.approveItemRequisitionByStoreManager(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition approved by store manager" });
+    } catch (error) {
+      console.error("Error approving requisition:", error);
+      res.status(500).json({ error: "Failed to approve requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/reject-store", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can reject
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.rejectItemRequisitionByStoreManager(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition rejected by store manager" });
+    } catch (error) {
+      console.error("Error rejecting requisition:", error);
+      res.status(500).json({ error: "Failed to reject requisition" });
+    }
+  });
+
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
-      // Extract requiredParts from body
-      const { requiredParts, ...workOrderData } = req.body;
+      // Extract requiredParts, garageIds, and workshopIds from body
+      const { requiredParts, garageIds, workshopIds, ...workOrderData } = req.body;
       
       // Remove empty work order number to allow auto-generation
       if (!workOrderData.workOrderNumber || workOrderData.workOrderNumber.trim() === '') {
@@ -1264,6 +1474,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdById: req.user?.id,
       });
       const workOrder = await storage.createWorkOrder(validatedData);
+      
+      // Save garage assignments
+      if (garageIds && Array.isArray(garageIds) && garageIds.length > 0) {
+        const garageAssignments = garageIds.map((garageId: string) => ({
+          workOrderId: workOrder.id,
+          garageId,
+        }));
+        await db.insert(workOrderGarages).values(garageAssignments);
+      }
+      
+      // Save workshop assignments
+      if (workshopIds && Array.isArray(workshopIds) && workshopIds.length > 0) {
+        const workshopAssignments = workshopIds.map((workshopId: string) => ({
+          workOrderId: workOrder.id,
+          workshopId,
+        }));
+        await db.insert(workOrderWorkshops).values(workshopAssignments);
+      }
       
       // Save required parts if provided
       if (requiredParts && Array.isArray(requiredParts) && requiredParts.length > 0) {
@@ -1293,11 +1521,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/work-orders/:id", isCEOOrAdmin, async (req, res) => {
     try {
-      // Extract requiredParts from body
-      const { requiredParts, ...workOrderData } = req.body;
+      // Extract requiredParts, garageIds, and workshopIds from body
+      const { requiredParts, garageIds, workshopIds, ...workOrderData } = req.body;
       
       const validatedData = insertWorkOrderSchema.parse(workOrderData);
       const workOrder = await storage.updateWorkOrder(req.params.id, validatedData);
+      
+      // Update garage assignments if provided
+      if (garageIds !== undefined && Array.isArray(garageIds)) {
+        // Delete existing garage assignments
+        await db.delete(workOrderGarages).where(eq(workOrderGarages.workOrderId, req.params.id));
+        
+        // Insert new garage assignments
+        if (garageIds.length > 0) {
+          const garageAssignments = garageIds.map((garageId: string) => ({
+            workOrderId: req.params.id,
+            garageId,
+          }));
+          await db.insert(workOrderGarages).values(garageAssignments);
+        }
+      }
+      
+      // Update workshop assignments if provided
+      if (workshopIds !== undefined && Array.isArray(workshopIds)) {
+        // Delete existing workshop assignments
+        await db.delete(workOrderWorkshops).where(eq(workOrderWorkshops.workOrderId, req.params.id));
+        
+        // Insert new workshop assignments
+        if (workshopIds.length > 0) {
+          const workshopAssignments = workshopIds.map((workshopId: string) => ({
+            workOrderId: req.params.id,
+            workshopId,
+          }));
+          await db.insert(workOrderWorkshops).values(workshopAssignments);
+        }
+      }
       
       // Update required parts if provided
       if (requiredParts && Array.isArray(requiredParts)) {

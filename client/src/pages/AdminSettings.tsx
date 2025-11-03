@@ -64,6 +64,32 @@ import {
 } from "@/components/ui/table";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { SystemSettings } from "@shared/schema";
+import { D365ItemsReviewDialog } from "@/components/D365ItemsReviewDialog";
+import { D365EquipmentReviewDialog } from "@/components/D365EquipmentReviewDialog";
+
+type DeviceSettings = {
+  id: string;
+  deviceName: string;
+  deviceModel: string | null;
+  serialNumber: string | null;
+  ipAddress: string;
+  port: number;
+  timeout: number;
+  isActive: boolean;
+  lastSyncAt: string | null;
+  lastImportAt: string | null;
+};
+
+type ImportLog = {
+  id: string;
+  operationType: string;
+  status: string;
+  usersImported: number;
+  usersUpdated: number;
+  usersSkipped: number;
+  errorMessage: string | null;
+  createdAt: string;
+};
 
 export default function AdminSettings() {
   const { t } = useLanguage();
@@ -151,6 +177,44 @@ export default function AdminSettings() {
   const { data: equipmentCategories = [] } = useQuery<any[]>({
     queryKey: ["/api/equipment-categories"],
   });
+
+  // Fetch all biometric devices
+  const { data: allDevices = [], isLoading: isLoadingDevices } = useQuery<DeviceSettings[]>({
+    queryKey: ["/api/biometric-devices"],
+  });
+
+  // Fetch active device settings (for backward compatibility)
+  const { data: deviceSettings, isLoading: isLoadingDevice } = useQuery<DeviceSettings>({
+    queryKey: ["/api/biometric-devices/active"],
+  });
+
+  // Fetch import logs
+  const { data: importLogs = [], isLoading: isLoadingLogs } = useQuery<ImportLog[]>({
+    queryKey: ["/api/biometric-imports/logs"],
+  });
+
+  // Biometric Device state
+  const [deviceForm, setDeviceForm] = useState({
+    deviceName: "iFace990 Plus",
+    deviceModel: "iFace990 Plus",
+    serialNumber: "CKPG222360158",
+    ipAddress: "192.168.40.2",
+    port: "4370",
+    timeout: "5000",
+  });
+
+  // Preview dialog state
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [fetchedUsers, setFetchedUsers] = useState<any[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [importProgress, setImportProgress] = useState(0);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+
+  // D365 Sync state
+  const [itemsPrefix, setItemsPrefix] = useState("SP-");
+  const [equipmentPrefix, setEquipmentPrefix] = useState("EQ-");
+  const [previewedItems, setPreviewedItems] = useState<any[]>([]);
+  const [previewedEquipment, setPreviewedEquipment] = useState<any[]>([]);
 
   // Fetch all devices
   // Fetch active device settings (for backward compatibility)
@@ -784,6 +848,133 @@ export default function AdminSettings() {
   });
 
   // New Device Management Mutations
+  const createDeviceMutation = useMutation({
+    mutationFn: async (deviceData: any) => {
+      const res = await apiRequest("POST", "/api/biometric-devices", deviceData);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/biometric-devices"] });
+      setIsAddDeviceOpen(false);
+      setNewDeviceForm({
+        deviceName: "",
+        deviceModel: "",
+        serialNumber: "",
+        ipAddress: "",
+        port: "4370",
+        timeout: "5000",
+      });
+      toast({
+        title: "Device Added",
+        description: "Biometric device has been added successfully",
+      });
+    },
+  });
+
+  const setActiveDeviceMutation = useMutation({
+    mutationFn: async (deviceId: string) => {
+      const res = await apiRequest("POST", `/api/biometric-devices/${deviceId}/set-active`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/biometric-devices"] });
+      toast({
+        title: "Active Device Set",
+        description: "Device has been set as active",
+      });
+    },
+  });
+
+  const deleteDeviceMutation = useMutation({
+    mutationFn: async (deviceId: string) => {
+      const res = await apiRequest("DELETE", `/api/biometric-devices/${deviceId}`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/biometric-devices"] });
+      toast({
+        title: "Device Deleted",
+        description: "Device has been removed",
+      });
+    },
+  });
+
+  const importUsersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/biometric-imports/import-all", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/biometric-imports/logs"] });
+      toast({
+        title: "Import Complete",
+        description: `Imported ${data.imported} users, updated ${data.updated} users`,
+      });
+    },
+  });
+
+  const syncUsersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/biometric-imports/sync", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/biometric-devices"] });
+      toast({
+        title: "Sync Complete",
+        description: data.message || "User sync completed successfully",
+      });
+    },
+  });
+
+  const fetchUsersMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/biometric-imports/fetch-users", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success && data.users) {
+        setFetchedUsers(data.users);
+        setSelectedUserIds(data.users.map((u: any) => u.userId));
+        setIsPreviewDialogOpen(true);
+        toast({
+          title: "Users Fetched",
+          description: `Found ${data.users.length} users from device`,
+        });
+      } else {
+        toast({
+          title: "Fetch Failed",
+          description: data.message || "Could not fetch users from device",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const importSelectedUsersMutation = useMutation({
+    mutationFn: async (userIds: string[]) => {
+      const res = await apiRequest("POST", "/api/biometric-imports/import-selected", {
+        userIds,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/biometric-imports/logs"] });
+      setImportProgress(100);
+      setTimeout(() => {
+        setIsPreviewDialogOpen(false);
+        setFetchedUsers([]);
+        setSelectedUserIds([]);
+        toast({
+          title: "Import Successful",
+          description: `Imported ${data.imported} users, updated ${data.updated} users, skipped ${data.skipped} users`,
+        });
+      }, 500);
+    },
+  });
+
   // Animate progress bar during import
   useEffect(() => {
     if (importSelectedUsersMutation.isPending) {
@@ -1016,7 +1207,11 @@ export default function AdminSettings() {
                             Cancel
                           </Button>
                           <Button
-                            onClick={() => createDeviceMutation.mutate()}
+                            onClick={() => createDeviceMutation.mutate({
+                              ...newDeviceForm,
+                              port: parseInt(newDeviceForm.port),
+                              timeout: parseInt(newDeviceForm.timeout),
+                            })}
                             disabled={createDeviceMutation.isPending || !newDeviceForm.deviceName || !newDeviceForm.ipAddress}
                             data-testid="button-save-device"
                           >

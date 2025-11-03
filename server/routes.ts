@@ -4709,6 +4709,77 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // ==================== D365 Settings Routes ====================
+  
+  // Get D365 settings
+  app.get("/api/dynamics365/settings", isCEOOrAdmin, async (req, res) => {
+    try {
+      const settings = await db.select()
+        .from(dynamics365Settings)
+        .limit(1);
+      
+      if (settings.length === 0) {
+        return res.json(null);
+      }
+      
+      res.json(settings[0]);
+    } catch (error: any) {
+      console.error("Error fetching D365 settings:", error);
+      res.status(500).json({ error: "Failed to fetch D365 settings" });
+    }
+  });
+
+  // Save or update D365 settings
+  app.post("/api/dynamics365/settings", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { bcUrl, bcUsername, bcPassword, bcCompany } = req.body;
+      
+      if (!bcUrl || !bcUsername || !bcPassword) {
+        return res.status(400).json({ 
+          error: "Base URL, username, and password are required" 
+        });
+      }
+
+      // Check if settings exist
+      const existing = await db.select()
+        .from(dynamics365Settings)
+        .limit(1);
+
+      let savedSettings;
+      
+      if (existing.length === 0) {
+        // Create new settings
+        const newSettings = await db.insert(dynamics365Settings)
+          .values({
+            bcUrl,
+            bcUsername,
+            bcPassword,
+            bcCompany: bcCompany || '',
+          })
+          .returning();
+        savedSettings = newSettings[0];
+      } else {
+        // Update existing settings
+        const updated = await db.update(dynamics365Settings)
+          .set({
+            bcUrl,
+            bcUsername,
+            bcPassword,
+            bcCompany: bcCompany || '',
+            updatedAt: new Date(),
+          })
+          .where(eq(dynamics365Settings.id, existing[0].id))
+          .returning();
+        savedSettings = updated[0];
+      }
+      
+      res.json(savedSettings);
+    } catch (error: any) {
+      console.error("Error saving D365 settings:", error);
+      res.status(500).json({ error: "Failed to save D365 settings" });
+    }
+  });
+
   // ==================== Items CRUD Routes ====================
   
   // Get all items from database

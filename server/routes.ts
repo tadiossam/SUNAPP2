@@ -4582,9 +4582,9 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       }
 
       const { spawn } = require('child_process');
-      const path = require('path');
       
-      const scriptPath = path.join(__dirname, 'bc_fetch.ps1');
+      // Use absolute path to PowerShell script to avoid "file does not exist" errors
+      const scriptPath = join(__dirname, 'bc_fetch.ps1');
       
       const ps = spawn('powershell.exe', [
         '-ExecutionPolicy',

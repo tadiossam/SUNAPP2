@@ -4568,6 +4568,147 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // ==================== PowerShell-based D365 Sync ====================
+  // Helper function to run PowerShell script (Windows only)
+  const runPowerShellScript = (args: string[]): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      // Check if running on Windows
+      if (process.platform !== 'win32') {
+        return reject({ 
+          status: 'error',
+          message: 'PowerShell sync is only available on Windows environments',
+          platform: process.platform
+        });
+      }
+
+      const { spawn } = require('child_process');
+      const path = require('path');
+      
+      const scriptPath = path.join(__dirname, 'bc_fetch.ps1');
+      
+      const ps = spawn('powershell.exe', [
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        scriptPath,
+        ...args,
+      ]);
+
+      let output = '';
+      let error = '';
+
+      ps.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+
+      ps.stderr.on('data', (data: Buffer) => {
+        error += data.toString();
+      });
+
+      ps.on('close', (code: number) => {
+        if (code !== 0 || error) {
+          return reject({ 
+            code, 
+            message: error || 'PowerShell execution failed',
+            output 
+          });
+        }
+        
+        try {
+          const result = JSON.parse(output);
+          resolve(result);
+        } catch (e) {
+          reject({ 
+            message: 'Invalid JSON output from PowerShell script', 
+            output 
+          });
+        }
+      });
+
+      ps.on('error', (err: Error) => {
+        reject({
+          status: 'error',
+          message: `Failed to start PowerShell process: ${err.message}`,
+        });
+      });
+    });
+  };
+
+  // Test D365 connection using PowerShell
+  app.post("/api/dynamics365/ps-test-connection", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { baseUrl, username, password } = req.body;
+
+      if (!baseUrl || !username || !password) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'BaseUrl, Username, and Password are required',
+        });
+      }
+
+      const result = await runPowerShellScript([
+        '-Mode', 'test',
+        '-BaseUrl', baseUrl,
+        '-Username', username,
+        '-Password', password,
+      ]);
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('PowerShell test connection error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message || 'PowerShell test failed',
+        platform: process.platform,
+      });
+    }
+  });
+
+  // Fetch D365 data using PowerShell (Companies, Items, FixedAssets)
+  app.post("/api/dynamics365/ps-fetch-data", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { 
+        baseUrl, 
+        username, 
+        password, 
+        companyName, 
+        type, 
+        filterValue,
+        skip,
+        top 
+      } = req.body;
+
+      if (!baseUrl || !username || !password) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'BaseUrl, Username, and Password are required',
+        });
+      }
+
+      const args = [
+        '-BaseUrl', baseUrl,
+        '-Username', username,
+        '-Password', password,
+      ];
+
+      if (companyName) args.push('-CompanyName', companyName);
+      if (type) args.push('-Type', type);
+      if (filterValue) args.push('-FilterValue', filterValue);
+      if (skip !== undefined) args.push('-Skip', skip.toString());
+      if (top !== undefined) args.push('-Top', top.toString());
+
+      const result = await runPowerShellScript(args);
+      res.json(result);
+    } catch (error: any) {
+      console.error('PowerShell fetch data error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message || 'PowerShell fetch failed',
+        platform: process.platform,
+      });
+    }
+  });
+
   // ==================== Items CRUD Routes ====================
   
   // Get all items from database

@@ -64,32 +64,6 @@ import {
 } from "@/components/ui/table";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { SystemSettings } from "@shared/schema";
-import { D365ItemsReviewDialog } from "@/components/D365ItemsReviewDialog";
-import { D365EquipmentReviewDialog } from "@/components/D365EquipmentReviewDialog";
-
-type DeviceSettings = {
-  id: string;
-  deviceName: string;
-  deviceModel: string | null;
-  serialNumber: string | null;
-  ipAddress: string;
-  port: number;
-  timeout: number;
-  isActive: boolean;
-  lastSyncAt: string | null;
-  lastImportAt: string | null;
-};
-
-type ImportLog = {
-  id: string;
-  operationType: string;
-  status: string;
-  usersImported: number;
-  usersUpdated: number;
-  usersSkipped: number;
-  errorMessage: string | null;
-  createdAt: string;
-};
 
 export default function AdminSettings() {
   const { t } = useLanguage();
@@ -151,28 +125,6 @@ export default function AdminSettings() {
     }
   };
 
-  // Biometric Device state
-  const [deviceForm, setDeviceForm] = useState({
-    deviceName: "iFace990 Plus",
-    deviceModel: "iFace990 Plus",
-    serialNumber: "CKPG222360158",
-    ipAddress: "192.168.40.2",
-    port: "4370",
-    timeout: "5000",
-  });
-
-  // Preview dialog state
-  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
-  const [fetchedUsers, setFetchedUsers] = useState<any[]>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [importProgress, setImportProgress] = useState(0);
-  const [userSearchQuery, setUserSearchQuery] = useState("");
-
-  // D365 Sync state
-  const [itemsPrefix, setItemsPrefix] = useState("SP-");
-  const [equipmentPrefix, setEquipmentPrefix] = useState("EQ-");
-  const [previewedItems, setPreviewedItems] = useState<any[]>([]);
-  const [previewedEquipment, setPreviewedEquipment] = useState<any[]>([]);
   const [isItemsReviewOpen, setIsItemsReviewOpen] = useState(false);
   const [isEquipmentReviewOpen, setIsEquipmentReviewOpen] = useState(false);
 
@@ -201,15 +153,7 @@ export default function AdminSettings() {
   });
 
   // Fetch all devices
-  const { data: allDevices = [], isLoading: isLoadingDevices } = useQuery<DeviceSettings[]>({
-    queryKey: ["/api/attendance-devices"],
-  });
-
   // Fetch active device settings (for backward compatibility)
-  const { data: deviceSettings, isLoading: isLoadingDevice } = useQuery<DeviceSettings>({
-    queryKey: ["/api/attendance-device/settings"],
-  });
-
   // State for Add Device dialog
   const [isAddDeviceOpen, setIsAddDeviceOpen] = useState(false);
   const [newDeviceForm, setNewDeviceForm] = useState({
@@ -222,10 +166,6 @@ export default function AdminSettings() {
   });
 
   // Fetch import logs
-  const { data: importLogs = [], isLoading: isLoadingLogs } = useQuery<ImportLog[]>({
-    queryKey: ["/api/attendance-device/logs"],
-  });
-
   // Fetch D365 sync logs
   const { data: d365SyncLogs = [], isLoading: isLoadingD365Logs } = useQuery<any[]>({
     queryKey: ["/api/dynamics365/sync-logs"],
@@ -844,233 +784,6 @@ export default function AdminSettings() {
   });
 
   // New Device Management Mutations
-  const createDeviceMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/attendance-devices", {
-        ...newDeviceForm,
-        port: parseInt(newDeviceForm.port),
-        timeout: parseInt(newDeviceForm.timeout),
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-devices"] });
-      setIsAddDeviceOpen(false);
-      setNewDeviceForm({
-        deviceName: "",
-        deviceModel: "",
-        serialNumber: "",
-        ipAddress: "",
-        port: "4370",
-        timeout: "5000",
-      });
-      toast({
-        title: "Device Added",
-        description: "Device has been added successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to add device",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const setActiveDeviceMutation = useMutation({
-    mutationFn: async (deviceId: string) => {
-      const res = await apiRequest("PATCH", `/api/attendance-devices/${deviceId}/activate`);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-devices"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/settings"] });
-      toast({
-        title: "Active Device Set",
-        description: "Device has been set as active",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to set active device",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteDeviceMutation = useMutation({
-    mutationFn: async (deviceId: string) => {
-      const res = await apiRequest("DELETE", `/api/attendance-devices/${deviceId}`);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-devices"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/settings"] });
-      toast({
-        title: "Device Deleted",
-        description: "Device has been deleted successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete device",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const importUsersMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/attendance-device/import-users");
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      
-      if (data.success) {
-        toast({
-          title: "Import Successful",
-          description: `Imported ${data.imported} users, updated ${data.updated}, skipped ${data.skipped}`,
-        });
-      } else {
-        toast({
-          title: "Import Failed",
-          description: data.message || "Failed to import users",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: () => {
-      toast({
-        title: "Import Error",
-        description: "Failed to import users from device",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const syncUsersMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/attendance-device/sync");
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      
-      if (data.success) {
-        toast({
-          title: "Sync Successful",
-          description: `Synced ${data.imported} new users, updated ${data.updated}`,
-        });
-      } else {
-        toast({
-          title: "Sync Failed",
-          description: data.message || "Failed to sync users",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: () => {
-      toast({
-        title: "Sync Error",
-        description: "Failed to sync users from device",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const fetchUsersMutation = useMutation({
-    mutationFn: async () => {
-      // Use active device settings instead of form values
-      const activeDevice = allDevices.find(d => d.isActive) || deviceSettings;
-      if (!activeDevice) {
-        throw new Error("No active device configured. Please add and activate a device first.");
-      }
-      
-      const res = await apiRequest("POST", "/api/attendance-device/fetch-users", {
-        ipAddress: activeDevice.ipAddress,
-        port: parseInt(activeDevice.port.toString()),
-        timeout: parseInt(activeDevice.timeout.toString()),
-      });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        setFetchedUsers(data.users || []);
-        setSelectedUserIds([]);
-        setUserSearchQuery(""); // Clear search when opening dialog
-        setIsPreviewDialogOpen(true);
-        toast({
-          title: "Users Fetched",
-          description: `Found ${data.count} users from the device`,
-        });
-      } else {
-        toast({
-          title: "Fetch Failed",
-          description: data.message || "Failed to fetch users",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: () => {
-      toast({
-        title: "Fetch Error",
-        description: "Failed to fetch users from device",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const importSelectedUsersMutation = useMutation({
-    mutationFn: async (userIds: string[]) => {
-      // Use active device settings instead of form values
-      const activeDevice = allDevices.find(d => d.isActive) || deviceSettings;
-      if (!activeDevice) {
-        throw new Error("No active device configured. Please add and activate a device first.");
-      }
-      
-      const res = await apiRequest("POST", "/api/attendance-device/import-selected", {
-        userIds,
-        ipAddress: activeDevice.ipAddress,
-        port: parseInt(activeDevice.port.toString()),
-        timeout: parseInt(activeDevice.timeout.toString()),
-      });
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance-device/logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      setIsPreviewDialogOpen(false);
-      setFetchedUsers([]);
-      setSelectedUserIds([]);
-      
-      if (data.success) {
-        toast({
-          title: "Import Successful",
-          description: `Imported ${data.imported} users, updated ${data.updated}, skipped ${data.skipped}`,
-        });
-      } else {
-        toast({
-          title: "Import Failed",
-          description: data.message || "Failed to import selected users",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: () => {
-      toast({
-        title: "Import Error",
-        description: "Failed to import selected users",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Animate progress bar during import
   useEffect(() => {
     if (importSelectedUsersMutation.isPending) {

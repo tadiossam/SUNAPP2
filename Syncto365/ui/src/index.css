@@ -1,0 +1,16 @@
+:root{
+  --bg:#f7f8fb;
+  --card:#ffffff;
+  --accent:#2b6cb0;
+}
+body{ margin:0; font-family: Inter, system-ui, Arial; background:var(--bg); color:#111 }
+.container{ max-width:980px; margin:24px auto; padding:12px; }
+h1{ margin:0 0 10px 0 }
+.card{ background:var(--card); padding:16px; border-radius:8px; box-shadow:0 6px 18px rgba(20,20,30,0.06); margin-bottom:14px }
+label{ display:block; margin-top:8px; font-weight:600; font-size:13px; color:#333 }
+input, select{ width:100%; padding:8px 10px; margin-top:6px; border-radius:6px; border:1px solid #d7d7df; box-sizing:border-box }
+button{ background:var(--accent); color:#fff; border:none; padding:8px 12px; border-radius:6px; cursor:pointer }
+button[disabled]{ opacity:0.6; cursor:not-allowed }
+.data-table{ width:100%; border-collapse:collapse; margin-top:8px }
+.data-table th, .data-table td{ border:1px solid #e7eaef; padding:8px; text-align:left; font-size:13px }
+.message{ margin-top:10px; color:#cc0000; }

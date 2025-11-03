@@ -8,6 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,6 +110,9 @@ export default function AdminSettings() {
     equipmentPrefix: "",
     syncIntervalHours: 24,
   });
+
+  // D365 Companies state (populated after fetching companies)
+  const [d365Companies, setD365Companies] = useState<any[]>([]);
 
   // Parse D365 URL
   const parseD365Url = (fullUrl: string) => {
@@ -569,7 +579,7 @@ export default function AdminSettings() {
         baseUrl: d365Form.bcUrl,
         username: d365Form.bcUsername,
         password: d365Form.bcPassword,
-        companyName: d365Form.bcCompany,
+        companyName: params.type === 'companies' ? undefined : d365Form.bcCompany,
         type: params.type,
         filterValue: params.filterValue,
         skip: params.skip || 0,
@@ -579,12 +589,27 @@ export default function AdminSettings() {
     },
     onSuccess: (data: any) => {
       if (data.status === 'ok') {
-        const recordCount = data.count || 0;
-        toast({
-          title: "Data Fetched Successfully",
-          description: `Retrieved ${recordCount} ${data.type} records from D365`,
-        });
-        console.log(`PowerShell D365 ${data.type}:`, data.records);
+        // Handle companies data specifically
+        if (data.mode === 'companies' && data.companies) {
+          setD365Companies(data.companies);
+          toast({
+            title: "Companies Loaded",
+            description: `Retrieved ${data.companies.length} companies from D365`,
+          });
+          console.log('D365 Companies:', data.companies);
+        } else if (data.mode === 'data' && data.records) {
+          const recordCount = data.count || 0;
+          toast({
+            title: "Data Fetched Successfully",
+            description: `Retrieved ${recordCount} ${data.type} records from D365`,
+          });
+          console.log(`PowerShell D365 ${data.type}:`, data.records);
+        } else {
+          toast({
+            title: "Data Fetched",
+            description: data.message || "Data retrieved successfully",
+          });
+        }
       } else {
         toast({
           title: "Fetch Failed",
@@ -1550,56 +1575,18 @@ export default function AdminSettings() {
 
           {/* Dynamics 365 Tab */}
           <TabsContent value="dynamics" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="max-w-5xl mx-auto space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Database className="h-5 w-5" />
-                    Dynamics 365 Business Central Connection
+                  <CardTitle className="text-center text-2xl">
+                    Business Central Data Fetcher
                   </CardTitle>
-                  <CardDescription>Configure connection settings for Microsoft Dynamics 365 Business Central</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {d365Settings?.lastTestDate && (
-                    <Alert className={d365Settings.lastTestStatus === 'success' ? "border-green-500 bg-green-50 dark:bg-green-950" : "border-red-500 bg-red-50 dark:bg-red-950"}>
-                      {d365Settings.lastTestStatus === 'success' ? <CheckCircle className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4 text-red-600" />}
-                      <AlertDescription>
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium">Last Test: {d365Settings.lastTestStatus === 'success' ? 'Successful' : 'Failed'}</p>
-                            <p className="text-sm text-muted-foreground">{new Date(d365Settings.lastTestDate).toLocaleString()}</p>
-                            {d365Settings.lastTestMessage && (
-                              <p className="text-sm mt-1">{d365Settings.lastTestMessage}</p>
-                            )}
-                          </div>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="grid gap-4">
-                    {/* URL Parser Helper */}
-                    <div className="space-y-2 p-4 bg-muted/50 rounded-lg border">
-                      <Label htmlFor="fullUrl" className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                        Quick Setup: Paste Your Working URL
-                      </Label>
-                      <Input
-                        id="fullUrl"
-                        placeholder="http://192.168.0.16:7048/SUNCONBC1/ODataV4/Company('Sunshine%20Construction%20PLC%28Test')/items"
-                        data-testid="input-parse-url"
-                        onPaste={(e) => {
-                          const pastedUrl = e.clipboardData.getData('text');
-                          setTimeout(() => parseD365Url(pastedUrl), 100);
-                        }}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        💡 Paste the URL that works in your browser, and we'll auto-fill the fields below
-                      </p>
-                    </div>
-
+                <CardContent className="space-y-6">
+                  {/* Base URL, Username, Password row */}
+                  <div className="grid gap-4 md:grid-cols-3">
                     <div className="space-y-2">
-                      <Label htmlFor="bcUrl">Business Central URL *</Label>
+                      <Label htmlFor="bcUrl">Base URL</Label>
                       <Input
                         id="bcUrl"
                         value={d365Form.bcUrl}
@@ -1607,128 +1594,73 @@ export default function AdminSettings() {
                         placeholder="http://192.168.0.16:7048/SUNCONBC1"
                         data-testid="input-d365-url"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Just the base URL (without /ODataV4/...)
-                      </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="bcCompany">Company Name *</Label>
+                      <Label htmlFor="bcUsername">Username</Label>
                       <Input
-                        id="bcCompany"
-                        value={d365Form.bcCompany}
-                        onChange={(e) => setD365Form({ ...d365Form, bcCompany: e.target.value })}
-                        placeholder=""
-                        data-testid="input-d365-company"
+                        id="bcUsername"
+                        value={d365Form.bcUsername}
+                        onChange={(e) => setD365Form({ ...d365Form, bcUsername: e.target.value })}
+                        placeholder="Solomon.Sintayehu@Sunshineinv.local"
+                        data-testid="input-d365-username"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Exact company name (auto-decoded from URL if pasted above)
-                      </p>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="bcUsername">Username *</Label>
-                        <Input
-                          id="bcUsername"
-                          value={d365Form.bcUsername}
-                          onChange={(e) => setD365Form({ ...d365Form, bcUsername: e.target.value })}
-                          placeholder="Administrator"
-                          data-testid="input-d365-username"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="bcPassword">Password *</Label>
-                        <Input
-                          id="bcPassword"
-                          type="password"
-                          value={d365Form.bcPassword}
-                          onChange={(e) => setD365Form({ ...d365Form, bcPassword: e.target.value })}
-                          placeholder="Enter password"
-                          data-testid="input-d365-password"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          {d365Settings ? "Leave blank to keep existing password" : "Enter your password"}
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="bcDomain">Domain (Optional)</Label>
-                        <Input
-                          id="bcDomain"
-                          value={d365Form.bcDomain}
-                          onChange={(e) => setD365Form({ ...d365Form, bcDomain: e.target.value })}
-                          placeholder="MYDOMAIN"
-                          data-testid="input-d365-domain"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Windows domain for NTLM auth
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Sync Filters Section */}
-                    <div className="pt-4 border-t">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
-                        <Search className="h-4 w-4" />
-                        Sync Filters
-                      </h3>
-                      
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <div className="space-y-2">
-                          <Label htmlFor="itemPrefix">Item Prefix (Optional)</Label>
-                          <Input
-                            id="itemPrefix"
-                            value={d365Form.itemPrefix}
-                            onChange={(e) => setD365Form({ ...d365Form, itemPrefix: e.target.value })}
-                            placeholder="SP-"
-                            data-testid="input-item-prefix"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Only sync items starting with this prefix
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="equipmentPrefix">Equipment Prefix (Optional)</Label>
-                          <Input
-                            id="equipmentPrefix"
-                            value={d365Form.equipmentPrefix}
-                            onChange={(e) => setD365Form({ ...d365Form, equipmentPrefix: e.target.value })}
-                            placeholder="FA-"
-                            data-testid="input-equipment-prefix"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Only sync fixed assets starting with this
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="syncInterval">Auto-Sync Interval (Hours)</Label>
-                          <Input
-                            id="syncInterval"
-                            type="number"
-                            min="1"
-                            max="168"
-                            value={d365Form.syncIntervalHours}
-                            onChange={(e) => setD365Form({ ...d365Form, syncIntervalHours: parseInt(e.target.value) || 24 })}
-                            placeholder="24"
-                            data-testid="input-sync-interval"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            How often to run auto-sync (1-168 hours)
-                          </p>
-                        </div>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bcPassword">Password</Label>
+                      <Input
+                        id="bcPassword"
+                        type="password"
+                        value={d365Form.bcPassword}
+                        onChange={(e) => setD365Form({ ...d365Form, bcPassword: e.target.value })}
+                        placeholder="••••••••"
+                        data-testid="input-d365-password"
+                      />
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 pt-4">
+                  {/* Action buttons row 1 */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => testPowerShellConnectionMutation.mutate()}
+                      disabled={testPowerShellConnectionMutation.isPending || !d365Form.bcUrl || !d365Form.bcUsername || !d365Form.bcPassword}
+                      variant="secondary"
+                      data-testid="button-test-connection"
+                    >
+                      {testPowerShellConnectionMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        'Test Connection'
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={() => fetchPowerShellDataMutation.mutate({ 
+                        type: 'companies',
+                        top: 100
+                      })}
+                      disabled={fetchPowerShellDataMutation.isPending || !d365Form.bcUrl || !d365Form.bcUsername || !d365Form.bcPassword}
+                      className="bg-cyan-500 hover:bg-cyan-600"
+                      data-testid="button-fetch-companies"
+                    >
+                      {fetchPowerShellDataMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Fetching...
+                        </>
+                      ) : (
+                        'Fetch Companies'
+                      )}
+                    </Button>
+
                     <Button
                       onClick={() => saveD365SettingsMutation.mutate()}
-                      disabled={saveD365SettingsMutation.isPending || !d365Form.bcUrl || !d365Form.bcCompany || !d365Form.bcUsername}
-                      data-testid="button-save-d365-settings"
+                      disabled={saveD365SettingsMutation.isPending || !d365Form.bcUrl || !d365Form.bcUsername}
+                      data-testid="button-save-settings"
                     >
                       {saveD365SettingsMutation.isPending ? (
                         <>
@@ -1742,373 +1674,85 @@ export default function AdminSettings() {
                         </>
                       )}
                     </Button>
-
-                    <Button
-                      onClick={async () => {
-                        try {
-                          const token = localStorage.getItem('auth_token');
-                          const response = await fetch("/api/dynamics365/generate-script", {
-                            headers: {
-                              'Authorization': `Bearer ${token}`
-                            }
-                          });
-                          
-                          if (!response.ok) {
-                            const error = await response.json();
-                            toast({
-                              title: "Error",
-                              description: error.message || "Failed to generate script",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          
-                          const blob = await response.blob();
-                          const url = window.URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = 'D365-Sync.ps1';
-                          document.body.appendChild(a);
-                          a.click();
-                          window.URL.revokeObjectURL(url);
-                          document.body.removeChild(a);
-                          
-                          toast({
-                            title: "Success",
-                            description: "PowerShell script downloaded successfully",
-                          });
-                        } catch (error) {
-                          toast({
-                            title: "Error",
-                            description: "Failed to download script",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      disabled={!d365Settings}
-                      variant="default"
-                      className="bg-primary"
-                      data-testid="button-generate-script"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Generate PowerShell Script
-                    </Button>
-
-                    <Button
-                      onClick={async () => {
-                        const result = await refetchPreview();
-                        if (result.data && result.data.totalCount > 0) {
-                          setIsItemsReviewOpen(true);
-                        } else {
-                          toast({
-                            title: "No Items to Review",
-                            description: "No items found in preview. Run the PowerShell script first.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      disabled={!d365Settings}
-                      variant="secondary"
-                      data-testid="button-review-items"
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Review & Import Items
-                    </Button>
                   </div>
 
-                  {/* PowerShell-based Sync (Windows Only) */}
-                  <div className="pt-4 border-t">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Terminal className="h-4 w-4" />
-                      PowerShell-based Sync (Windows + LAN Only)
-                    </h3>
-                    <Alert className="mb-3">
-                      <Info className="h-4 w-4" />
-                      <AlertDescription>
-                        This sync method uses PowerShell 7 to connect directly to Dynamics 365 Business Central. 
-                        <strong className="block mt-1">Requirements:</strong>
-                        <ul className="list-disc list-inside mt-1 text-sm">
-                          <li>Windows environment</li>
-                          <li>PowerShell 7+</li>
-                          <li>LAN access to D365 BC server</li>
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={() => testPowerShellConnectionMutation.mutate()}
-                        disabled={testPowerShellConnectionMutation.isPending || !d365Settings}
-                        variant="outline"
-                        data-testid="button-ps-test-connection"
+                  {/* Company dropdown and filter row */}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="companySelect">Select Company</Label>
+                      <Select
+                        value={d365Form.bcCompany}
+                        onValueChange={(value) => setD365Form({ ...d365Form, bcCompany: value })}
+                        disabled={!d365Companies || d365Companies.length === 0}
                       >
-                        {testPowerShellConnectionMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Testing...
-                          </>
-                        ) : (
-                          <>
-                            <Terminal className="h-4 w-4 mr-2" />
-                            Test PowerShell Connection
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        onClick={() => fetchPowerShellDataMutation.mutate({ 
-                          type: 'items',
-                          filterValue: d365Form.itemPrefix,
-                          top: 20
-                        })}
-                        disabled={fetchPowerShellDataMutation.isPending || !d365Settings}
-                        variant="outline"
-                        data-testid="button-ps-fetch-items"
-                      >
-                        {fetchPowerShellDataMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4 mr-2" />
-                            Fetch Items (PS)
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        onClick={() => fetchPowerShellDataMutation.mutate({ 
-                          type: 'FixedAssets',
-                          filterValue: d365Form.equipmentPrefix,
-                          top: 20
-                        })}
-                        disabled={fetchPowerShellDataMutation.isPending || !d365Settings}
-                        variant="outline"
-                        data-testid="button-ps-fetch-equipment"
-                      >
-                        {fetchPowerShellDataMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="h-4 w-4 mr-2" />
-                            Fetch Equipment (PS)
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* NTLM Direct Connection Testing */}
-                  <div className="pt-4 border-t">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Wifi className="h-4 w-4" />
-                      NTLM Direct Connection Testing
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Test direct connection to D365 without PowerShell scripts (requires Node.js server to reach D365)
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        onClick={() => testNTLMConnectionMutation.mutate()}
-                        disabled={testNTLMConnectionMutation.isPending || !d365Settings}
-                        variant="outline"
-                        data-testid="button-test-ntlm-connection"
-                      >
-                        {testNTLMConnectionMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Testing...
-                          </>
-                        ) : (
-                          <>
-                            <Wifi className="h-4 w-4 mr-2" />
-                            Test Connection
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        onClick={() => fetchCustomersNTLMMutation.mutate()}
-                        disabled={fetchCustomersNTLMMutation.isPending || !d365Settings}
-                        variant="outline"
-                        data-testid="button-fetch-customers"
-                      >
-                        {fetchCustomersNTLMMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching...
-                          </>
-                        ) : (
-                          <>
-                            <Users className="h-4 w-4 mr-2" />
-                            Fetch Customers (10)
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        onClick={() => fetchItemsNTLMMutation.mutate()}
-                        disabled={fetchItemsNTLMMutation.isPending || !d365Settings}
-                        variant="outline"
-                        data-testid="button-fetch-items"
-                      >
-                        {fetchItemsNTLMMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching...
-                          </>
-                        ) : (
-                          <>
-                            <Database className="h-4 w-4 mr-2" />
-                            Fetch Items (100)
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        onClick={() => fetchEquipmentNTLMMutation.mutate()}
-                        disabled={fetchEquipmentNTLMMutation.isPending || !d365Settings}
-                        variant="outline"
-                        data-testid="button-fetch-equipment"
-                      >
-                        {fetchEquipmentNTLMMutation.isPending ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Fetching...
-                          </>
-                        ) : (
-                          <>
-                            <Truck className="h-4 w-4 mr-2" />
-                            Fetch Equipment (100)
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {d365Settings && (
-                    <Alert className="mt-4 border-blue-500/50 bg-blue-50 dark:bg-blue-950/20">
-                      <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <AlertDescription className="text-blue-900 dark:text-blue-100">
-                        <div className="space-y-3">
-                          <div>
-                            <p className="font-semibold">✨ New Preview & Select Workflow:</p>
-                            <ol className="list-decimal ml-4 mt-2 space-y-1 text-sm">
-                              <li><strong>Generate Script:</strong> Click "Generate PowerShell Script" button above</li>
-                              <li><strong>Copy to D365 Server:</strong> Place D365-Sync.ps1 in C:\D365Sync\ on server 192.168.0.16</li>
-                              <li><strong>Run PowerShell:</strong> Right-click D365-Sync.ps1 → "Run with PowerShell"</li>
-                              <li><strong>Review Items:</strong> Click "Review & Import Items" button to see what was fetched</li>
-                              <li><strong>Select & Import:</strong> Choose which items to import, then click "Import Selected"</li>
-                              <li><strong>Auto-Sync (Optional):</strong> Run SETUP-AUTO-SYNC.bat for scheduled syncs</li>
-                            </ol>
-                          </div>
-                          
-                          <div className="pt-2 border-t border-blue-300/30">
-                            <p className="font-semibold text-sm">🎯 How It Works:</p>
-                            <ul className="ml-4 mt-1 space-y-1 text-sm">
-                              <li>✅ PowerShell fetches <strong>ALL</strong> items from D365</li>
-                              <li>✅ Filters by prefix ({d365Settings.itemPrefix ? `items: "${d365Settings.itemPrefix}*"` : 'items: all'}
-                                {d365Settings.equipmentPrefix && `, equipment: "${d365Settings.equipmentPrefix}*"`})</li>
-                              <li>✅ Stores in <strong>preview table</strong> (not imported yet)</li>
-                              <li>✅ You review and select which items to import</li>
-                              <li>✅ Only selected items are added/updated in your database</li>
-                              <li>✅ Auto-sync runs every {d365Settings.syncIntervalHours || 24} hours when scheduled</li>
-                            </ul>
-                          </div>
-
-                          <p className="text-sm mt-2 pt-2 border-t border-blue-300/30">
-                            💡 <strong>Full Control:</strong> Review before importing - see what's new vs. what will update!
-                          </p>
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* PowerShell Sync History Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Import History
-                  </CardTitle>
-                  <CardDescription>Recent Dynamics 365 sync operations</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingD365Logs ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      Loading logs...
-                    </div>
-                  ) : d365SyncLogs.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No import history available
-                    </div>
-                  ) : (
-                    <div className="overflow-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Prefix</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Results</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {d365SyncLogs.slice(0, 10).map((log: any) => (
-                            <TableRow key={log.id}>
-                              <TableCell className="text-sm">
-                                {new Date(log.createdAt).toLocaleString()}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  {log.syncType}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <code className="text-xs bg-muted px-2 py-1 rounded">
-                                  {log.prefix || "N/A"}
-                                </code>
-                              </TableCell>
-                              <TableCell>
-                                {log.status === "success" ? (
-                                  <Badge className="bg-green-500/10 text-green-600 dark:text-green-400">
-                                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                                    Success
-                                  </Badge>
-                                ) : log.status === "partial" ? (
-                                  <Badge variant="secondary">
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    Partial
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="destructive">
-                                    <XCircle className="h-3 w-3 mr-1" />
-                                    Failed
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {log.recordsImported > 0 && `${log.recordsImported} imported`}
-                                {log.recordsImported > 0 && log.recordsUpdated > 0 && ", "}
-                                {log.recordsUpdated > 0 && `${log.recordsUpdated} updated`}
-                                {(log.recordsImported > 0 || log.recordsUpdated > 0) && log.recordsSkipped > 0 && ", "}
-                                {log.recordsSkipped > 0 && `${log.recordsSkipped} skipped`}
-                                {log.recordsImported === 0 && log.recordsUpdated === 0 && log.recordsSkipped === 0 && "No records"}
-                              </TableCell>
-                            </TableRow>
+                        <SelectTrigger id="companySelect" data-testid="select-company">
+                          <SelectValue placeholder="-- Select a Company --" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {d365Companies && d365Companies.map((company: any, idx: number) => (
+                            <SelectItem key={idx} value={company.Name}>
+                              {company.Name}
+                            </SelectItem>
                           ))}
-                        </TableBody>
-                      </Table>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="filterValue">Start With (Filter)</Label>
+                      <Input
+                        id="filterValue"
+                        value={d365Form.itemPrefix || ''}
+                        onChange={(e) => setD365Form({ ...d365Form, itemPrefix: e.target.value })}
+                        placeholder="SP-"
+                        data-testid="input-filter-value"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action buttons row 2 */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => fetchPowerShellDataMutation.mutate({ 
+                        type: 'items',
+                        filterValue: d365Form.itemPrefix,
+                        top: 20
+                      })}
+                      disabled={fetchPowerShellDataMutation.isPending || !d365Form.bcCompany}
+                      data-testid="button-fetch-items"
+                    >
+                      {fetchPowerShellDataMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Fetching...
+                        </>
+                      ) : (
+                        'Fetch Items'
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={() => fetchPowerShellDataMutation.mutate({ 
+                        type: 'FixedAssets',
+                        filterValue: d365Form.itemPrefix,
+                        top: 20
+                      })}
+                      disabled={fetchPowerShellDataMutation.isPending || !d365Form.bcCompany}
+                      className="bg-green-600 hover:bg-green-700"
+                      data-testid="button-fetch-fixed-assets"
+                    >
+                      {fetchPowerShellDataMutation.isPending ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Fetching...
+                        </>
+                      ) : (
+                        'Fetch Fixed Assets'
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
+
               </Card>
             </div>
           </TabsContent>

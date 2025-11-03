@@ -87,12 +87,14 @@ try {
     $companyEncoded = [System.Uri]::EscapeDataString($CompanyName)
     $odataUrl = "$baseUrl/ODataV4/Company('$companyEncoded')/$Type"
 
-    # ✅ Correct $select fields (changed Inventory → Inventory_Value)
+    # Select fields based on type (using common OData V4 field names)
     if ($Type -eq "items") {
-        # Replace "Inventory" with the correct field from your OData metadata
-        $fields = "No,Description,InventoryField,Purch_Unit_of_Measure,Unit_Cost,Last_Date_Modified"
+        # Using basic fields that should exist in most D365 BC setups
+        # Note: Some fields like Inventory may vary (Inventory, Inventory_Value, etc.)
+        # Users can customize this based on their D365 BC OData metadata
+        $fields = "No,Description,Type,Base_Unit_of_Measure,Unit_Cost,Unit_Price"
     } elseif ($Type -eq "FixedAssets") {
-        $fields = "No,Description"
+        $fields = "No,Description,FA_Class_Code,FA_Subclass_Code"
     } else {
         $fields = "No,Description"
     }

@@ -33,6 +33,9 @@ import {
   CheckCircle,
   Search,
   Sparkles,
+  Palette,
+  Upload,
+  Image,
 } from "lucide-react";
 import {
   Dialog,
@@ -161,6 +164,15 @@ export default function AdminSettings() {
   const [isItemsReviewOpen, setIsItemsReviewOpen] = useState(false);
   const [isEquipmentReviewOpen, setIsEquipmentReviewOpen] = useState(false);
 
+  // Customizations state
+  const [customizationsForm, setCustomizationsForm] = useState({
+    appName: "Gelan Terminal Maintenance",
+    logoUrl: "",
+    primaryColor: "#0ea5e9",
+    themeMode: "light",
+  });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+
   // Fetch deployment settings
   const { data: deploySettings, isLoading: isLoadingDeploy } = useQuery<SystemSettings>({
     queryKey: ["/api/system-settings"],
@@ -220,6 +232,11 @@ export default function AdminSettings() {
     enabled: false, // Only fetch when explicitly called
   });
 
+  // Fetch app customizations
+  const { data: appCustomizations, isLoading: isLoadingCustomizations } = useQuery<any>({
+    queryKey: ["/api/app-customizations"],
+  });
+
   // Update local state when settings are loaded
   useEffect(() => {
     if (deploySettings) {
@@ -244,6 +261,18 @@ export default function AdminSettings() {
     }
   }, [d365Settings]);
 
+  // Update customizations form when data is loaded
+  useEffect(() => {
+    if (appCustomizations) {
+      setCustomizationsForm({
+        appName: appCustomizations.appName || "Gelan Terminal Maintenance",
+        logoUrl: appCustomizations.logoUrl || "",
+        primaryColor: appCustomizations.primaryColor || "#0ea5e9",
+        themeMode: appCustomizations.themeMode || "light",
+      });
+    }
+  }, [appCustomizations]);
+
   // Deployment Tool Mutations
   const saveDeploymentMutation = useMutation({
     mutationFn: async (data: { serverHost: string; serverPort: number }) => {
@@ -261,6 +290,58 @@ export default function AdminSettings() {
       toast({
         title: t("error"),
         description: error.message || t("failedToSaveSettings"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Customizations Mutations
+  const uploadLogoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("logo", file);
+      const response = await fetch("/api/app-customizations/upload-logo", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Failed to upload logo");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setCustomizationsForm({ ...customizationsForm, logoUrl: data.logoUrl });
+      toast({
+        title: "Logo Uploaded",
+        description: "Logo has been uploaded successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload logo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const saveCustomizationsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", "/api/app-customizations", customizationsForm);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Settings Saved",
+        description: "Customization settings have been saved successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/app-customizations"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save customizations",
         variant: "destructive",
       });
     },
@@ -1013,6 +1094,10 @@ export default function AdminSettings() {
                 <Rocket className="h-4 w-4" />
                 Deployment Tool
               </TabsTrigger>
+              <TabsTrigger value="customisations" className="gap-2" data-testid="tab-customisations">
+                <Palette className="h-4 w-4" />
+                Customisations
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -1587,7 +1672,7 @@ export default function AdminSettings() {
                     <Button
                       onClick={async () => {
                         try {
-                          const token = localStorage.getItem('token');
+                          const token = localStorage.getItem('auth_token');
                           const response = await fetch("/api/dynamics365/generate-script", {
                             headers: {
                               'Authorization': `Bearer ${token}`
@@ -1978,6 +2063,187 @@ export default function AdminSettings() {
                           {t("runStartWindowsBat")}
                         </div>
                       </div>
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Customisations Tab */}
+          <TabsContent value="customisations" className="flex-1 overflow-auto p-6 m-0">
+            <div className="max-w-2xl mx-auto space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Palette className="h-5 w-5" />
+                    <CardTitle>App Customisations</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Customize the application name, logo, colors, and theme
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* App Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="appName">Application Name</Label>
+                    <Input
+                      id="appName"
+                      value={customizationsForm.appName}
+                      onChange={(e) => setCustomizationsForm({ ...customizationsForm, appName: e.target.value })}
+                      placeholder="Gelan Terminal Maintenance"
+                      data-testid="input-app-name"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This name will appear on the login page and throughout the application
+                    </p>
+                  </div>
+
+                  {/* Logo Upload */}
+                  <div className="space-y-2">
+                    <Label htmlFor="logo">Application Logo</Label>
+                    <div className="flex items-center gap-4">
+                      {customizationsForm.logoUrl && (
+                        <div className="w-24 h-24 border rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                          <img 
+                            src={customizationsForm.logoUrl} 
+                            alt="App Logo" 
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          id="logo"
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setLogoFile(file);
+                              uploadLogoMutation.mutate(file);
+                            }
+                          }}
+                          data-testid="input-logo"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Upload a logo image (PNG, JPG, SVG recommended)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Primary Color */}
+                  <div className="space-y-2">
+                    <Label htmlFor="primaryColor">Primary Color</Label>
+                    <div className="flex items-center gap-4">
+                      <Input
+                        id="primaryColor"
+                        type="color"
+                        value={customizationsForm.primaryColor}
+                        onChange={(e) => setCustomizationsForm({ ...customizationsForm, primaryColor: e.target.value })}
+                        className="w-24 h-10"
+                        data-testid="input-primary-color"
+                      />
+                      <Input
+                        type="text"
+                        value={customizationsForm.primaryColor}
+                        onChange={(e) => setCustomizationsForm({ ...customizationsForm, primaryColor: e.target.value })}
+                        placeholder="#0ea5e9"
+                        className="flex-1"
+                        data-testid="input-primary-color-hex"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Choose the primary theme color for the application
+                    </p>
+                  </div>
+
+                  {/* Theme Mode */}
+                  <div className="space-y-2">
+                    <Label>Theme Mode</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant={customizationsForm.themeMode === "light" ? "default" : "outline"}
+                        onClick={() => setCustomizationsForm({ ...customizationsForm, themeMode: "light" })}
+                        className="justify-start"
+                        data-testid="button-theme-light"
+                      >
+                        <span className="mr-2">☀️</span> Light Mode
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={customizationsForm.themeMode === "dark" ? "default" : "outline"}
+                        onClick={() => setCustomizationsForm({ ...customizationsForm, themeMode: "dark" })}
+                        className="justify-start"
+                        data-testid="button-theme-dark"
+                      >
+                        <span className="mr-2">🌙</span> Dark Mode
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Set the default theme mode for the application
+                    </p>
+                  </div>
+
+                  {/* Current Settings Preview */}
+                  {appCustomizations && (
+                    <div className="pt-4 border-t">
+                      <p className="text-sm font-medium mb-2">Current Settings:</p>
+                      <div className="bg-muted p-3 rounded-md text-sm space-y-1">
+                        <div><span className="font-medium">App Name:</span> {appCustomizations.appName}</div>
+                        <div><span className="font-medium">Logo:</span> {appCustomizations.logoUrl ? "Uploaded" : "Not set"}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Primary Color:</span>
+                          <div 
+                            className="w-4 h-4 rounded border" 
+                            style={{ backgroundColor: appCustomizations.primaryColor }}
+                          />
+                          <span>{appCustomizations.primaryColor}</span>
+                        </div>
+                        <div><span className="font-medium">Theme:</span> {appCustomizations.themeMode}</div>
+                        {appCustomizations.updatedAt && (
+                          <div className="text-xs text-muted-foreground mt-2">
+                            Last Updated: {new Date(appCustomizations.updatedAt).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Save Button */}
+                  <div className="pt-4 flex justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (appCustomizations) {
+                          setCustomizationsForm({
+                            appName: appCustomizations.appName || "Gelan Terminal Maintenance",
+                            logoUrl: appCustomizations.logoUrl || "",
+                            primaryColor: appCustomizations.primaryColor || "#0ea5e9",
+                            themeMode: appCustomizations.themeMode || "light",
+                          });
+                        }
+                      }}
+                      data-testid="button-reset-customizations"
+                    >
+                      Reset
+                    </Button>
+                    <Button
+                      onClick={() => saveCustomizationsMutation.mutate()}
+                      disabled={saveCustomizationsMutation.isPending || isLoadingCustomizations}
+                      data-testid="button-save-customizations"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {saveCustomizationsMutation.isPending ? "Saving..." : "Save Settings"}
+                    </Button>
+                  </div>
+
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Changes will take effect after refreshing the page. The app name will appear on the login page and throughout the application.
                     </AlertDescription>
                   </Alert>
                 </CardContent>

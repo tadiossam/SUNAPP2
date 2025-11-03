@@ -46,9 +46,7 @@ app.use((req, res, next) => {
 
 (async () => {
   // Seed production users on startup (only creates if they don't exist)
-  if (app.get("env") === "production") {
-    await seedProductionUsers();
-  }
+  await seedProductionUsers();
 
   const server = await registerRoutes(app);
 

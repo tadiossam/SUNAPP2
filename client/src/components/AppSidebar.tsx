@@ -12,10 +12,16 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useQuery } from "@tanstack/react-query";
 
 export function AppSidebar() {
   const [location] = useLocation();
   const { t } = useLanguage();
+
+  // Fetch app customizations
+  const { data: appCustomizations } = useQuery({
+    queryKey: ["/api/app-customizations"],
+  });
 
   const mainMenuItems = [
     {
@@ -151,7 +157,9 @@ export function AppSidebar() {
             <Wrench className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="text-base font-semibold">{t("appName")}</span>
+            <span className="text-base font-semibold">
+              {(appCustomizations as any)?.appName || t("appName")}
+            </span>
             <span className="text-xs text-muted-foreground">{t("heavyEquipment")}</span>
           </div>
         </div>

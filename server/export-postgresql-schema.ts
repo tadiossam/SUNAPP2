@@ -1,0 +1,317 @@
+import { writeFileSync } from "fs";
+import { mkdir } from "fs/promises";
+
+/**
+ * Generate PostgreSQL schema for local installation
+ * This creates all tables needed for the app
+ */
+
+async function exportPostgreSQLSchema() {
+  console.log("📋 Generating PostgreSQL schema for local database...\n");
+
+  try {
+    await mkdir("postgresql-export", { recursive: true });
+
+    let schema = "-- PostgreSQL Schema for Gelan Terminal Maintenance System\n";
+    schema += "-- Generated: " + new Date().toISOString() + "\n\n";
+    schema += "-- This file creates all tables needed for the application\n\n";
+
+    // Enable UUID extension
+    schema += "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n";
+
+    // Users table
+    schema += `
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  username VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255) NOT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'user',
+  language VARCHAR(10) NOT NULL DEFAULT 'en',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+`;
+
+    // Equipment Categories
+    schema += `
+-- Equipment Categories
+CREATE TABLE IF NOT EXISTS equipment_categories (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name VARCHAR(255) NOT NULL UNIQUE,
+  description TEXT,
+  background_image TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+`;
+
+    // Garages
+    schema += `
+-- Garages
+CREATE TABLE IF NOT EXISTS garages (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name VARCHAR(255) NOT NULL,
+  location VARCHAR(255),
+  capacity INTEGER,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+`;
+
+    // Warehouses
+    schema += `
+-- Warehouses
+CREATE TABLE IF NOT EXISTS warehouses (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name VARCHAR(255) NOT NULL,
+  location VARCHAR(255),
+  manager_id VARCHAR(36),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+`;
+
+    // Attendance Device Settings
+    schema += `
+-- Attendance Device Settings
+CREATE TABLE IF NOT EXISTS attendance_device_settings (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  device_ip VARCHAR(50) NOT NULL,
+  device_port INTEGER DEFAULT 4370,
+  status VARCHAR(50) DEFAULT 'disconnected',
+  last_sync TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+`;
+
+    // Employees
+    schema += `
+-- Employees
+CREATE TABLE IF NOT EXISTS employees (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  full_name VARCHAR(255) NOT NULL,
+  phone_number VARCHAR(50),
+  email VARCHAR(255),
+  position VARCHAR(255),
+  department VARCHAR(255),
+  garage_id VARCHAR(36),
+  user_id VARCHAR(36),
+  status VARCHAR(50) DEFAULT 'active',
+  device_user_id VARCHAR(50),
+  device_synced BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (garage_id) REFERENCES garages(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+`;
+
+    // Workshops
+    schema += `
+-- Workshops
+CREATE TABLE IF NOT EXISTS workshops (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  garage_id VARCHAR(36),
+  name VARCHAR(255) NOT NULL,
+  foreman_id VARCHAR(36),
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (garage_id) REFERENCES garages(id) ON DELETE CASCADE,
+  FOREIGN KEY (foreman_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+`;
+
+    // Equipment
+    schema += `
+-- Equipment
+CREATE TABLE IF NOT EXISTS equipment (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  category_id VARCHAR(36),
+  equipment_type VARCHAR(255) NOT NULL,
+  make VARCHAR(255) NOT NULL,
+  model VARCHAR(255) NOT NULL,
+  plate_no VARCHAR(50),
+  asset_no VARCHAR(50),
+  new_asset_no VARCHAR(50),
+  machine_serial VARCHAR(100),
+  plant_number VARCHAR(50),
+  project_area VARCHAR(255),
+  assigned_driver_id VARCHAR(36),
+  price DECIMAL(12,2),
+  remarks TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id) REFERENCES equipment_categories(id) ON DELETE SET NULL,
+  FOREIGN KEY (assigned_driver_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+`;
+
+    // Spare Parts
+    schema += `
+-- Spare Parts
+CREATE TABLE IF NOT EXISTS spare_parts (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  part_number VARCHAR(100) NOT NULL UNIQUE,
+  part_name VARCHAR(255) NOT NULL,
+  description TEXT,
+  category VARCHAR(100) NOT NULL,
+  price DECIMAL(10,2),
+  stock_quantity INTEGER DEFAULT 0,
+  stock_status VARCHAR(50) DEFAULT 'in_stock',
+  model_3d_path TEXT,
+  image_urls TEXT,
+  specifications TEXT,
+  manufacturing_specs TEXT,
+  location_instructions TEXT,
+  tutorial_video_url TEXT,
+  tutorial_animation_url TEXT,
+  required_tools TEXT,
+  install_time_minutes INTEGER,
+  install_time_estimates TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+`;
+
+    // Equipment Receptions
+    schema += `
+-- Equipment Receptions
+CREATE TABLE IF NOT EXISTS equipment_receptions (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  reception_number VARCHAR(50) UNIQUE,
+  equipment_id VARCHAR(36),
+  driver_id VARCHAR(36),
+  garage_id VARCHAR(36),
+  arrival_date DATE,
+  kilometrage INTEGER,
+  fuel_level VARCHAR(50),
+  reason_for_maintenance TEXT,
+  reported_issues TEXT,
+  status VARCHAR(50) DEFAULT 'pending',
+  service_type VARCHAR(50),
+  admin_issues TEXT,
+  inspection_officer_id VARCHAR(36),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE,
+  FOREIGN KEY (driver_id) REFERENCES employees(id) ON DELETE SET NULL,
+  FOREIGN KEY (garage_id) REFERENCES garages(id) ON DELETE SET NULL,
+  FOREIGN KEY (inspection_officer_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+`;
+
+    // Equipment Inspections
+    schema += `
+-- Equipment Inspections
+CREATE TABLE IF NOT EXISTS equipment_inspections (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  inspection_number VARCHAR(50) UNIQUE,
+  reception_id VARCHAR(36),
+  inspector_id VARCHAR(36),
+  status VARCHAR(50) DEFAULT 'in_progress',
+  service_type VARCHAR(50),
+  inspection_date DATE,
+  submitted_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (reception_id) REFERENCES equipment_receptions(id) ON DELETE CASCADE,
+  FOREIGN KEY (inspector_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+`;
+
+    // Inspection Checklist Items
+    schema += `
+-- Inspection Checklist Items
+CREATE TABLE IF NOT EXISTS inspection_checklist_items (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  inspection_id VARCHAR(36),
+  item_number INTEGER,
+  item_name_amharic VARCHAR(255),
+  status VARCHAR(50),
+  comments TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (inspection_id) REFERENCES equipment_inspections(id) ON DELETE CASCADE
+);
+
+`;
+
+    // Work Orders
+    schema += `
+-- Work Orders
+CREATE TABLE IF NOT EXISTS work_orders (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  work_order_number VARCHAR(50) UNIQUE,
+  equipment_id VARCHAR(36),
+  garage_id VARCHAR(36),
+  assigned_to VARCHAR(36),
+  team_members TEXT,
+  priority VARCHAR(50) DEFAULT 'medium',
+  status VARCHAR(50) DEFAULT 'pending',
+  work_type VARCHAR(100),
+  description TEXT,
+  start_date DATE,
+  estimated_completion DATE,
+  actual_completion DATE,
+  inspection_id VARCHAR(36),
+  reception_id VARCHAR(36),
+  required_parts TEXT,
+  total_parts_cost DECIMAL(12,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE SET NULL,
+  FOREIGN KEY (garage_id) REFERENCES garages(id) ON DELETE SET NULL,
+  FOREIGN KEY (assigned_to) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+`;
+
+    // Approvals
+    schema += `
+-- Approvals
+CREATE TABLE IF NOT EXISTS approvals (
+  id VARCHAR(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  type VARCHAR(50),
+  reference_id VARCHAR(36),
+  requester_id VARCHAR(36),
+  approver_id VARCHAR(36),
+  status VARCHAR(50) DEFAULT 'pending',
+  department VARCHAR(100),
+  amount DECIMAL(12,2),
+  description TEXT,
+  requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at TIMESTAMP,
+  comments TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (requester_id) REFERENCES employees(id) ON DELETE SET NULL,
+  FOREIGN KEY (approver_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+`;
+
+    schema += "\n-- Schema creation completed successfully\n";
+
+    writeFileSync('postgresql-export/schema.sql', schema);
+
+    console.log("✅ PostgreSQL schema generated successfully!");
+    console.log("📄 File: postgresql-export/schema.sql\n");
+    console.log("📌 To import into PostgreSQL:");
+    console.log("   1. Create database: CREATE DATABASE gelan_terminal;");
+    console.log("   2. Import schema:");
+    console.log("      psql -U postgres -d gelan_terminal -f postgresql-export/schema.sql");
+    console.log("   3. Import data (run export-postgresql-data.ts next)\n");
+
+  } catch (error: any) {
+    console.error("❌ Error:", error);
+    throw error;
+  }
+}
+
+exportPostgreSQLSchema()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

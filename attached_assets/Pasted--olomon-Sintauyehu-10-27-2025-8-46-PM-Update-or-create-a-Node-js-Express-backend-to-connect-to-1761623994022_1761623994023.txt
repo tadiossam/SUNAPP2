@@ -1,0 +1,175 @@
+$olomon Sintauyehu, [10/27/2025 8:46 PM]
+Update or create a Node.js (Express) backend to connect to Microsoft Dynamics 365 Business Central (on-premise) using Windows Authentication (NTLM) over HTTP (not HTTPS).
+
+The app must:
+✅ Work with plain HTTP URLs (like http://192.168.1.10:7048/BC/ODataV4/...).
+✅ Test connection, save configuration, and fetch data (customers/items).
+✅ Skip SSL checks or certificate validation (since we are using local environment).
+
+---
+
+🧩 Dependencies:
+- express
+- httpntlm
+- cors
+- body-parser
+- fs
+- dotenv
+
+---
+
+🧱 Required API Routes:
+
+1. POST /api/test-connection
+   - Accepts JSON body with:
+    
+     {
+       "server": "192.168.1.10",
+       "company": "CRONUS",
+       "username": "Administrator",
+       "password": "P@ssw0rd",
+       "domain": "MYDOMAIN"
+     }
+     
+   - Calls the Business Central endpoint:
+    
+     http://{server}:7048/BC/ODataV4/Company('{company}')/customers
+     
+   - If response is HTTP 200 → return { success: true }
+   - Otherwise → { success: false, error: "HTTP 401" }
+
+2. POST /api/save-config
+   - Saves configuration JSON to file bc-config.json (plain text, no encryption since local env).
+   - Example saved content:
+    
+     {
+       "server": "192.168.1.10",
+       "company": "CRONUS",
+       "username": "Administrator",
+       "password": "P@ssw0rd",
+       "domain": "MYDOMAIN"
+     }
+     
+3. `GET /api/customers
+   - Reads saved config from bc-config.json.
+   - Uses it to call:
+     ``
+     http://{server}:7048/BC/ODataV4/Company('{company}')/customers
+    
+   - Returns JSON response from Business Central.
+
+4. `GET /api/items`
+   - Same as customers but endpoint:
+     
+     http://{server}:7048/BC/ODataV4/Company('{company}')/items
+    
+
+---
+
+⚙️ Example backend logic (server.js):
+
+js
+const express = require("express");
+const httpntlm = require("httpntlm");
+const fs = require("fs");
+const cors = require("cors");
+const bodyParser = require("body-parser");
+
+const app = express();
+app.use(cors());
+app.use(bodyParser.json());
+
+const CONFIG_FILE = "bc-config.json";
+
+// Test connection
+app.post("/api/test-connection", (req, res) => {
+  const { server, company, username, password, domain } = req.body;
+
+  const options = {
+    url: http://${server}:7048/BC/ODataV4/Company('${company}')/customers,
+    username,
+    password,
+    domain,
+    workstation: "",
+  };
+
+  httpntlm.get(options, (err, result) => {
+    if (err) return res.json({ success: false, error: err.message });
+    if (result.statusCode === 200)
+      res.json({ success: true, message: "Connected successfully!" });
+    else
+      res.json({
+        success: false,
+        error: HTTP ${result.statusCode},
+      });
+  });
+});
+
+// Save configuration (plain JSON)
+app.post("/api/save-config", (req, res) => {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(req.body, null, 2));
+  res.json({ success: true, message: "Configuration saved" });
+});
+
+// Helper to load config
+function loadConfig() {
+  if (!fs.existsSync(CONFIG_FILE)) return null;
+  return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+}
+
+// Fetch customers
+app.get("/api/customers", (req, res) => {
+  const config = loadConfig();
+  if (!config) return res.status(400).json({ error: "No configuration saved" });
+
+  const { server, company, username, password, domain } = config;
+
+  const options = {
+    url: http://${server}:7048/BC/ODataV4/Company('${company}')/customers,
+    username,
+    password,
+    domain,
+    workstation: "",
+  };
+
+  httpntlm.get(options, (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    try {
+      const data = JSON.parse(result.body);
+      res.json(data);
+    } catch (e) {
+      res.status(500).json({ error: "Invalid BC response" });
+    }
+  });
+});
+
+// Fetch items
+app.get("/api/items", (req, res) => {
+  const config = loadConfig();
+  if (!config) return res.status(400).json({ error: "No configuration saved" });
+
+  const { server, company, username, password, domain } = config;
+
+$olomon Sintauyehu, [10/27/2025 8:46 PM]
+const options = {
+    url: http://${server}:7048/BC/ODataV4/Company('${company}')/items,
+    username,
+    password,
+    domain,
+    workstation: "",
+  };
+
+  httpntlm.get(options, (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+    try {
+      const data = JSON.parse(result.body);
+      res.json(data);
+    } catch (e) {
+      res.status(500).json({ error: "Invalid BC response" });
+    }
+  });
+});
+
+app.listen(5000, () =>
+  console.log("✅ Node.js Business Central HTTP integration running on port 5000")
+);

@@ -154,6 +154,52 @@ export class ObjectStorageService {
     });
   }
 
+  // Gets the upload URL for a public object.
+  async getPublicObjectUploadURL(): Promise<string> {
+    const publicObjectSearchPaths = this.getPublicObjectSearchPaths();
+    if (publicObjectSearchPaths.length === 0) {
+      throw new Error(
+        "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
+          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var."
+      );
+    }
+
+    const objectId = randomUUID();
+    const fullPath = `${publicObjectSearchPaths[0]}/employees/${objectId}`;
+
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+
+    // Sign URL for PUT method with TTL
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "PUT",
+      ttlSec: 900,
+    });
+  }
+
+  // Normalizes a public object path from a signed URL.
+  normalizePublicObjectPath(rawPath: string): string {
+    if (!rawPath.startsWith("https://storage.googleapis.com/")) {
+      return rawPath;
+    }
+  
+    // Extract the path from the URL by removing query parameters and domain
+    const url = new URL(rawPath);
+    const rawObjectPath = url.pathname;
+  
+    const publicObjectSearchPaths = this.getPublicObjectSearchPaths();
+    for (const publicPath of publicObjectSearchPaths) {
+      if (rawObjectPath.startsWith(publicPath)) {
+        // Extract the relative path from the public path
+        const relativePath = rawObjectPath.slice(publicPath.length + 1);
+        return `/public-objects/${relativePath}`;
+      }
+    }
+  
+    return rawObjectPath;
+  }
+
   // Gets the object entity file from the object path.
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith("/objects/")) {

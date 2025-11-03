@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Users, Plus, Phone, Mail, Briefcase, Upload, User, Pencil, Trash2 } from "lucide-react";
+import { Users, Plus, Phone, Mail, Briefcase, Upload, User, Pencil, Trash2, Search, Grid3x3, List } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -24,10 +24,24 @@ export default function Employees() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: employees, isLoading } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
+  });
+
+  // Filter employees based on search term
+  const filteredEmployees = employees?.filter((employee) => {
+    const search = searchTerm.toLowerCase();
+    return (
+      employee.fullName.toLowerCase().includes(search) ||
+      employee.employeeId.toLowerCase().includes(search) ||
+      employee.email?.toLowerCase().includes(search) ||
+      employee.phoneNumber?.toLowerCase().includes(search) ||
+      employee.role.toLowerCase().includes(search)
+    );
   });
 
   const createMutation = useMutation({
@@ -81,19 +95,30 @@ export default function Employees() {
     mutationFn: async (file: File) => {
       if (!selectedEmployee) throw new Error("No employee selected");
       
-      const formData = new FormData();
-      formData.append('photo', file);
+      // Step 1: Get presigned upload URL
+      const urlResponse = await apiRequest("POST", `/api/employees/${selectedEmployee.id}/photo/upload-url`);
+      const { uploadURL, objectPath } = await urlResponse.json() as { uploadURL: string; objectPath: string };
 
-      const response = await fetch(`/api/employees/${selectedEmployee.id}/photo`, {
-        method: 'POST',
-        body: formData,
+      // Step 2: Upload file directly to object storage
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to upload photo');
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file to storage');
       }
 
-      return response.json();
+      // Step 3: Update employee with photo URL
+      const updateResponse = await apiRequest("PUT", `/api/employees/${selectedEmployee.id}/photo`, {
+        photoUrl: objectPath,
+      });
+      const employee = await updateResponse.json();
+
+      return employee;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
@@ -238,19 +263,21 @@ export default function Employees() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">{t("employees")}</h1>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-employee">
-              <Plus className="h-4 w-4 mr-2" />
-              {t("addEmployee")}
-            </Button>
-          </DialogTrigger>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-6 py-4 border-b bg-background space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Users className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">{t("employees")}</h1>
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-employee">
+                <Plus className="h-4 w-4 mr-2" />
+                {t("addEmployee")}
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t("addEmployee")}</DialogTitle>
@@ -407,18 +434,53 @@ export default function Employees() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
+
+        {/* Search and View Toggle */}
+        <div className="flex items-center gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={t("search") + " employees..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-employees"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === "grid" ? "default" : "outline"}
+              size="icon"
+              onClick={() => setViewMode("grid")}
+              data-testid="button-view-grid"
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "outline"}
+              size="icon"
+              onClick={() => setViewMode("list")}
+              data-testid="button-view-list"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {employees && employees.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-lg text-muted-foreground">{t("noData")}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {employees?.map((employee) => (
+      {/* Content - Scrollable */}
+      <div className="flex-1 overflow-auto p-6">
+        {filteredEmployees && filteredEmployees.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Users className="h-16 w-16 text-muted-foreground mb-4" />
+              <p className="text-lg text-muted-foreground">{t("noData")}</p>
+            </CardContent>
+          </Card>
+        ) : viewMode === "grid" ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {filteredEmployees?.map((employee) => (
             <Card key={employee.id} className="hover-elevate" data-testid={`card-employee-${employee.id}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-start gap-3">
@@ -490,18 +552,95 @@ export default function Employees() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredEmployees?.map((employee) => (
+              <Card key={employee.id} className="hover-elevate" data-testid={`card-employee-${employee.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      {employee.profilePicture ? (
+                        <AvatarImage src={employee.profilePicture} alt={employee.fullName} />
+                      ) : null}
+                      <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                        {employee.fullName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <p className="font-semibold text-base truncate">{employee.fullName}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{employee.employeeId}</Badge>
+                          <Badge variant={getRoleBadgeVariant(employee.role)} className="text-xs">
+                            {getRoleLabel(employee.role)}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      {employee.phoneNumber && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{employee.phoneNumber}</span>
+                        </div>
+                      )}
+                      
+                      {employee.email && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{employee.email}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedEmployee(employee);
+                          photoInputRef.current?.click();
+                        }}
+                        data-testid={`button-upload-photo-${employee.id}`}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        {t("uploadPhoto")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditClick(employee)}
+                        data-testid={`button-edit-${employee.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteClick(employee)}
+                        data-testid={`button-delete-${employee.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-      {/* Hidden file input for employee photos */}
-      <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handlePhotoSelect}
-        className="hidden"
-        data-testid="input-photo-upload"
-      />
+        {/* Hidden file input for employee photos */}
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoSelect}
+          className="hidden"
+          data-testid="input-photo-upload"
+        />
+      </div>
 
       {/* Edit Employee Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

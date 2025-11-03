@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, boolean, primaryKey, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -148,16 +148,9 @@ export type InsertEquipmentPartsCompatibility = z.infer<typeof insertEquipmentPa
 export type PartCompatibility = typeof partCompatibility.$inferSelect;
 export type InsertPartCompatibility = z.infer<typeof insertPartCompatibilitySchema>;
 
-// Users table for authentication and authorization
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(), // Hashed password
-  fullName: text("full_name").notNull(),
-  role: text("role").notNull().default("user"), // CEO, admin, user
-  language: text("language").notNull().default("en"), // en, am (English, Amharic)
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+// REMOVED: Users table - now using employees table for all authentication
+// All authentication is handled through the employees table
+// Employees with role='admin' or role='ceo' have admin access
 
 // Mechanics/Technicians table
 export const mechanics = pgTable("mechanics", {
@@ -248,12 +241,6 @@ export const operatingBehaviorReportsRelations = relations(operatingBehaviorRepo
   }),
 }));
 
-// Insert schemas for users
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-});
-
 // Insert schemas for maintenance system
 export const insertMechanicSchema = createInsertSchema(mechanics).omit({
   id: true,
@@ -275,9 +262,9 @@ export const insertOperatingBehaviorReportSchema = createInsertSchema(operatingB
   createdAt: true,
 });
 
-// Select types for users
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
+// User type is now an alias to Employee type (all authentication uses employees table)
+export type User = Employee;
+export type InsertUser = InsertEmployee;
 
 // Select types for maintenance system
 export type Mechanic = typeof mechanics.$inferSelect;
@@ -330,6 +317,13 @@ export const workshops = pgTable("workshops", {
   foremanId: varchar("foreman_id").notNull().references(() => employees.id, { onDelete: "restrict" }), // Workshop foreman/boss (REQUIRED)
   description: text("description"),
   isActive: boolean("is_active").default(true).notNull(),
+  // Planning targets for dashboard reporting
+  monthlyTarget: integer("monthly_target"), // Planned work orders per month
+  q1Target: integer("q1_target"), // Q1 (Jan-Mar) target
+  q2Target: integer("q2_target"), // Q2 (Apr-Jun) target
+  q3Target: integer("q3_target"), // Q3 (Jul-Sep) target
+  q4Target: integer("q4_target"), // Q4 (Oct-Dec) target
+  annualTarget: integer("annual_target"), // Annual target
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -351,7 +345,7 @@ export const employees = pgTable("employees", {
   fullName: text("full_name").notNull(),
   username: text("username").unique(), // Login username (optional for employees without system access)
   password: text("password"), // Hashed password (optional for employees without system access)
-  role: text("role").notNull(), // "mechanic", "wash_employee", "supervisor", "painter", "body_worker", "electrician", "technician", "admin", "ceo", "user"
+  role: text("role").notNull(), // "mechanic", "wash_employee", "supervisor", "painter", "body_worker", "electrician", "technician", "admin", "ceo", "user", "verifier", "store_manager"
   specialty: text("specialty"), // For mechanics: "Engine", "Hydraulic", "Electrical"
   phoneNumber: text("phone_number"),
   email: text("email"),
@@ -375,17 +369,19 @@ export const workOrders = pgTable("work_orders", {
   equipmentId: varchar("equipment_id").notNull().references(() => equipment.id, { onDelete: "cascade" }),
   inspectionId: varchar("inspection_id"), // Link to inspection if created from inspection (FK added via migration)
   receptionId: varchar("reception_id"), // Link to maintenance/reception form (FK added via migration)
-  garageId: varchar("garage_id").references(() => garages.id),
-  workshopId: varchar("workshop_id").references(() => workshops.id),
-  assignedToIds: text("assigned_to_ids").array(), // Array of assigned employee IDs (team assignment)
+  // NOTE: garageId and workshopId removed - now using junction tables work_order_garages and work_order_workshops for multi-selection
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   workType: text("work_type").notNull(), // "repair", "maintenance", "inspection", "wash"
   description: text("description").notNull(),
-  status: text("status").notNull().default("pending"), // pending, assigned, in_progress, completed, cancelled
-  estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
+  status: text("status").notNull().default("draft"), // draft, pending_foreman_assignment, pending_team_acceptance, active, awaiting_parts, waiting_purchase, in_progress, pending_verification, pending_supervisor, completed, rejected, cancelled
   actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
-  estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }), // Estimated total cost
-  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // Actual total cost
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // Actual total cost (auto-calculated from breakdown)
+  // Cost breakdown for dashboard analytics
+  directMaintenanceCost: decimal("direct_maintenance_cost", { precision: 12, scale: 2 }), // Labor + direct costs
+  overtimeCost: decimal("overtime_cost", { precision: 12, scale: 2 }), // Overtime labor costs
+  outsourceCost: decimal("outsource_cost", { precision: 12, scale: 2 }), // External contractor costs
+  overheadCost: decimal("overhead_cost", { precision: 12, scale: 2 }), // Auto-calculated as 30% of maintenance cost
+  isOutsourced: boolean("is_outsourced").default(false), // Flag for outsourced work
   approvalStatus: text("approval_status").default("not_required"), // not_required, pending, approved, rejected
   approvedById: varchar("approved_by_id").references(() => employees.id), // Supervisor who approved
   approvedAt: timestamp("approved_at"),
@@ -394,15 +390,14 @@ export const workOrders = pgTable("work_orders", {
   completionApprovedById: varchar("completion_approved_by_id").references(() => employees.id),
   completionApprovedAt: timestamp("completion_approved_at"),
   completionApprovalNotes: text("completion_approval_notes"),
-  notes: text("notes"),
-  createdById: varchar("created_by_id").references(() => users.id),
-  scheduledDate: timestamp("scheduled_date"),
+  createdById: varchar("created_by_id").references(() => employees.id),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Work Order Required Parts - Junction table for parts needed in work orders
+// DEPRECATED: Work Order Required Parts - No longer used, replaced by item_requisitions system
+// Keeping table for historical data but new work orders use item requisitions
 export const workOrderRequiredParts = pgTable("work_order_required_parts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
@@ -412,6 +407,167 @@ export const workOrderRequiredParts = pgTable("work_order_required_parts", {
   stockStatus: text("stock_status"), // Denormalized snapshot
   quantity: integer("quantity").default(1),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ============ NEW WORK ORDER WORKFLOW SYSTEM ============
+
+// Work Order Garages - Junction table for multi-garage assignment
+export const workOrderGarages = pgTable("work_order_garages", {
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  garageId: varchar("garage_id").notNull().references(() => garages.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.workOrderId, table.garageId] }),
+}));
+
+// Work Order Workshops - Junction table for multi-workshop assignment
+export const workOrderWorkshops = pgTable("work_order_workshops", {
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  workshopId: varchar("workshop_id").notNull().references(() => workshops.id, { onDelete: "cascade" }),
+  foremanId: varchar("foreman_id").references(() => employees.id), // Workshop foreman responsible
+  isPrimary: boolean("is_primary").default(false), // Designate primary workshop
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.workOrderId, table.workshopId] }),
+}));
+
+// Work Order Memberships - Track all participants (foreman, team members, verifier, store manager)
+export const workOrderMemberships = pgTable("work_order_memberships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // "foreman", "team_member", "verifier", "store_manager"
+  assignedBy: varchar("assigned_by").references(() => employees.id), // Who assigned this person
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(), // Can be deactivated if reassigned
+  deactivatedAt: timestamp("deactivated_at"),
+});
+
+// Work Order Status History - Track all status changes with actors
+export const workOrderStatusHistory = pgTable("work_order_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  fromStatus: text("from_status"),
+  toStatus: text("to_status").notNull(),
+  changedById: varchar("changed_by_id").notNull().references(() => employees.id),
+  changedByRole: text("changed_by_role"), // Role of person making change
+  notes: text("notes"),
+  metadata: text("metadata"), // JSON for additional context
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+});
+
+// Approval Stages - Define multi-level approval workflow stages
+export const approvalStages = pgTable("approval_stages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(), // "foreman_assignment", "item_foreman_review", "item_store_review", "item_purchase_request", "verification", "supervisor_signoff"
+  name: text("name").notNull(),
+  description: text("description"),
+  requiredRole: text("required_role").notNull(), // Role required to approve this stage: "foreman", "store_manager", "verifier", "supervisor"
+  sequence: integer("sequence").notNull(), // Order of execution
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Work Order Approvals - Track approval decisions at each stage
+export const workOrderApprovals = pgTable("work_order_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  stageId: varchar("stage_id").notNull().references(() => approvalStages.id),
+  approverId: varchar("approver_id").notNull().references(() => employees.id),
+  approverRole: text("approver_role").notNull(), // Role of approver: "foreman", "store_manager", "verifier", "supervisor"
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, skipped
+  decidedAt: timestamp("decided_at"),
+  remarks: text("remarks"),
+  metadata: text("metadata"), // JSON for additional stage-specific data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Prevent duplicate approvals for the same work order and stage
+  uniqueWorkOrderStageIdx: uniqueIndex("work_order_approvals_unique_work_order_stage_idx").on(table.workOrderId, table.stageId),
+}));
+
+// Item Requisitions - Spare parts request form (based on Amharic form)
+export const itemRequisitions = pgTable("item_requisitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requisitionNumber: text("requisition_number").notNull().unique(), // REQ-2025-001
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  requesterId: varchar("requester_id").notNull().references(() => employees.id), // Team member who requested
+  workshopId: varchar("workshop_id").references(() => workshops.id), // Requesting workshop/department
+  status: text("status").notNull().default("draft"), // draft, pending_foreman, pending_store, pending_purchase, approved, rejected, fulfilled
+  foremanApprovalStatus: text("foreman_approval_status").default("pending"), // pending, approved, rejected
+  foremanApprovedById: varchar("foreman_approved_by_id").references(() => employees.id),
+  foremanApprovedAt: timestamp("foreman_approved_at"),
+  foremanRemarks: text("foreman_remarks"),
+  storeApprovalStatus: text("store_approval_status").default("pending"), // pending, approved, rejected
+  storeApprovedById: varchar("store_approved_by_id").references(() => employees.id),
+  storeApprovedAt: timestamp("store_approved_at"),
+  storeRemarks: text("store_remarks"),
+  neededBy: timestamp("needed_by"), // When parts are needed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Item Requisition Lines - Individual items in requisition (table rows from Amharic form)
+export const itemRequisitionLines = pgTable("item_requisition_lines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requisitionId: varchar("requisition_id").notNull().references(() => itemRequisitions.id, { onDelete: "cascade" }),
+  lineNumber: integer("line_number").notNull(), // Row number in form
+  sparePartId: varchar("spare_part_id").references(() => spareParts.id), // Link to parts catalog
+  description: text("description").notNull(), // Detailed description (ዝርዝር መግለጫ)
+  unitOfMeasure: text("unit_of_measure"), // Unit of measure (መለኪያ) - "pcs", "kg", "L", etc.
+  quantityRequested: integer("quantity_requested").notNull(), // Quantity requested (መጠን)
+  quantityApproved: integer("quantity_approved"), // Quantity approved by foreman/store
+  status: text("status").notNull().default("pending"), // pending, approved, rejected, backordered, fulfilled
+  remarks: text("remarks"), // Additional notes (አስተያየት)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Ensure unique line numbers within each requisition
+  uniqueRequisitionLineIdx: uniqueIndex("item_requisition_lines_unique_requisition_line_idx").on(table.requisitionId, table.lineNumber),
+}));
+
+// Purchase Requests - Created when item is out of stock
+export const purchaseRequests = pgTable("purchase_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  purchaseRequestNumber: text("purchase_request_number").notNull().unique(), // PO-2025-001
+  requisitionLineId: varchar("requisition_line_id").notNull().references(() => itemRequisitionLines.id, { onDelete: "cascade" }),
+  storeManagerId: varchar("store_manager_id").notNull().references(() => employees.id), // Store manager who created request
+  status: text("status").notNull().default("pending"), // pending, ordered, received, canceled
+  vendorId: varchar("vendor_id"), // Future: link to vendors table
+  vendorName: text("vendor_name"),
+  expectedDate: timestamp("expected_date"),
+  actualDate: timestamp("actual_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Employee Performance Snapshots - Daily/monthly/yearly performance metrics
+export const employeePerformanceSnapshots = pgTable("employee_performance_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+  snapshotDate: timestamp("snapshot_date").notNull(), // Date of snapshot
+  granularity: text("granularity").notNull(), // "daily", "monthly", "yearly"
+  tasksCompleted: integer("tasks_completed").default(0),
+  totalLaborMinutes: integer("total_labor_minutes").default(0), // Sum of labor time
+  qualityScore: decimal("quality_score", { precision: 5, scale: 2 }), // Average quality rating
+  workOrdersCompleted: integer("work_orders_completed").default(0),
+  itemRequisitionsProcessed: integer("item_requisitions_processed").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Prevent duplicate snapshots for same employee, date, and granularity
+  uniqueEmployeeSnapshotIdx: uniqueIndex("employee_performance_snapshots_unique_employee_snapshot_idx").on(table.employeeId, table.snapshotDate, table.granularity),
+}));
+
+// Employee Performance Totals - Denormalized totals for quick leaderboard queries
+export const employeePerformanceTotals = pgTable("employee_performance_totals", {
+  employeeId: varchar("employee_id").primaryKey().references(() => employees.id, { onDelete: "cascade" }),
+  totalTasksCompleted: integer("total_tasks_completed").default(0),
+  totalWorkOrdersCompleted: integer("total_work_orders_completed").default(0),
+  totalLaborHours: decimal("total_labor_hours", { precision: 10, scale: 2 }).default('0'),
+  averageQualityScore: decimal("average_quality_score", { precision: 5, scale: 2 }),
+  employeeOfMonthCount: integer("employee_of_month_count").default(0), // How many times employee of month
+  employeeOfYearCount: integer("employee_of_year_count").default(0), // How many times employee of year
+  lastAwardDate: timestamp("last_award_date"), // Last time awarded
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
 });
 
 // Parts Storage Locations - Track where parts are stored
@@ -545,7 +701,7 @@ export const equipmentReceptions = pgTable("equipment_receptions", {
   inspectionOfficerId: varchar("inspection_officer_id").references(() => employees.id), // Assigned inspection officer
   
   mechanicId: varchar("mechanic_id").references(() => employees.id),
-  status: text("status").notNull().default("driver_submitted"), // driver_submitted, awaiting_mechanic, inspection_complete, work_order_created, closed
+  status: text("status").notNull().default("driver_submitted"), // driver_submitted, awaiting_mechanic, under_inspection, inspection_complete, work_order_created, closed
   workOrderId: varchar("work_order_id").references(() => workOrders.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -720,13 +876,30 @@ export const deviceImportLogs = pgTable("device_import_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============ DYNAMICS 365 INTEGRATION ============
+
+// D365 Sync Log - Track D365 import/sync operations
+export const d365SyncLogs = pgTable("d365_sync_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  syncType: text("sync_type").notNull(), // "items" or "equipment"
+  status: text("status").notNull(), // "success", "failed", "partial"
+  prefix: text("prefix"), // Prefix used for filtering (e.g., "SP-", "EQ-")
+  recordsImported: integer("records_imported").default(0), // New records added
+  recordsUpdated: integer("records_updated").default(0), // Existing records updated
+  recordsSkipped: integer("records_skipped").default(0), // Records skipped
+  totalRecords: integer("total_records").default(0), // Total records fetched from D365
+  errorMessage: text("error_message"),
+  importData: text("import_data"), // JSON data of imported records
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relations for garage management
 export const garagesRelations = relations(garages, ({ many }) => ({
   workshops: many(workshops),
   employees: many(employees),
-  workOrders: many(workOrders),
   partsLocations: many(partsStorageLocations),
   equipmentLocations: many(equipmentLocations),
+  workOrderAssignments: many(workOrderGarages), // New: multi-garage assignments
 }));
 
 export const workshopsRelations = relations(workshops, ({ one, many }) => ({
@@ -739,8 +912,9 @@ export const workshopsRelations = relations(workshops, ({ one, many }) => ({
     references: [employees.id],
   }),
   members: many(workshopMembers),
-  workOrders: many(workOrders),
   equipmentLocations: many(equipmentLocations),
+  workOrderAssignments: many(workOrderWorkshops), // New: multi-workshop assignments
+  itemRequisitions: many(itemRequisitions), // New: requisitions from workshop
 }));
 
 export const workshopMembersRelations = relations(workshopMembers, ({ one }) => ({
@@ -762,24 +936,143 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   workOrders: many(workOrders),
 }));
 
-export const workOrdersRelations = relations(workOrders, ({ one }) => ({
+export const workOrdersRelations = relations(workOrders, ({ one, many }) => ({
   equipment: one(equipment, {
     fields: [workOrders.equipmentId],
     references: [equipment.id],
   }),
+  createdBy: one(employees, {
+    fields: [workOrders.createdById],
+    references: [employees.id],
+  }),
+  // New relations for workflow system
+  garageAssignments: many(workOrderGarages),
+  workshopAssignments: many(workOrderWorkshops),
+  memberships: many(workOrderMemberships),
+  statusHistory: many(workOrderStatusHistory),
+  approvals: many(workOrderApprovals),
+  itemRequisitions: many(itemRequisitions),
+}));
+
+// Relations for new workflow system
+export const workOrderGaragesRelations = relations(workOrderGarages, ({ one }) => ({
+  workOrder: one(workOrders, {
+    fields: [workOrderGarages.workOrderId],
+    references: [workOrders.id],
+  }),
   garage: one(garages, {
-    fields: [workOrders.garageId],
+    fields: [workOrderGarages.garageId],
     references: [garages.id],
   }),
+}));
+
+export const workOrderWorkshopsRelations = relations(workOrderWorkshops, ({ one }) => ({
+  workOrder: one(workOrders, {
+    fields: [workOrderWorkshops.workOrderId],
+    references: [workOrders.id],
+  }),
   workshop: one(workshops, {
-    fields: [workOrders.workshopId],
+    fields: [workOrderWorkshops.workshopId],
     references: [workshops.id],
   }),
-  createdBy: one(users, {
-    fields: [workOrders.createdById],
-    references: [users.id],
+  foreman: one(employees, {
+    fields: [workOrderWorkshops.foremanId],
+    references: [employees.id],
   }),
-  // Note: assignedToIds is an array, so assigned employees are fetched separately
+}));
+
+export const workOrderMembershipsRelations = relations(workOrderMemberships, ({ one }) => ({
+  workOrder: one(workOrders, {
+    fields: [workOrderMemberships.workOrderId],
+    references: [workOrders.id],
+  }),
+  employee: one(employees, {
+    fields: [workOrderMemberships.employeeId],
+    references: [employees.id],
+  }),
+  assignedByEmployee: one(employees, {
+    fields: [workOrderMemberships.assignedBy],
+    references: [employees.id],
+  }),
+}));
+
+export const workOrderStatusHistoryRelations = relations(workOrderStatusHistory, ({ one }) => ({
+  workOrder: one(workOrders, {
+    fields: [workOrderStatusHistory.workOrderId],
+    references: [workOrders.id],
+  }),
+  changedBy: one(employees, {
+    fields: [workOrderStatusHistory.changedById],
+    references: [employees.id],
+  }),
+}));
+
+export const workOrderApprovalsRelations = relations(workOrderApprovals, ({ one }) => ({
+  workOrder: one(workOrders, {
+    fields: [workOrderApprovals.workOrderId],
+    references: [workOrders.id],
+  }),
+  stage: one(approvalStages, {
+    fields: [workOrderApprovals.stageId],
+    references: [approvalStages.id],
+  }),
+  approver: one(employees, {
+    fields: [workOrderApprovals.approverId],
+    references: [employees.id],
+  }),
+}));
+
+export const itemRequisitionsRelations = relations(itemRequisitions, ({ one, many }) => ({
+  workOrder: one(workOrders, {
+    fields: [itemRequisitions.workOrderId],
+    references: [workOrders.id],
+  }),
+  requester: one(employees, {
+    fields: [itemRequisitions.requesterId],
+    references: [employees.id],
+  }),
+  workshop: one(workshops, {
+    fields: [itemRequisitions.workshopId],
+    references: [workshops.id],
+  }),
+  lines: many(itemRequisitionLines),
+}));
+
+export const itemRequisitionLinesRelations = relations(itemRequisitionLines, ({ one, many }) => ({
+  requisition: one(itemRequisitions, {
+    fields: [itemRequisitionLines.requisitionId],
+    references: [itemRequisitions.id],
+  }),
+  sparePart: one(spareParts, {
+    fields: [itemRequisitionLines.sparePartId],
+    references: [spareParts.id],
+  }),
+  purchaseRequests: many(purchaseRequests),
+}));
+
+export const purchaseRequestsRelations = relations(purchaseRequests, ({ one }) => ({
+  requisitionLine: one(itemRequisitionLines, {
+    fields: [purchaseRequests.requisitionLineId],
+    references: [itemRequisitionLines.id],
+  }),
+  storeManager: one(employees, {
+    fields: [purchaseRequests.storeManagerId],
+    references: [employees.id],
+  }),
+}));
+
+export const employeePerformanceSnapshotsRelations = relations(employeePerformanceSnapshots, ({ one }) => ({
+  employee: one(employees, {
+    fields: [employeePerformanceSnapshots.employeeId],
+    references: [employees.id],
+  }),
+}));
+
+export const employeePerformanceTotalsRelations = relations(employeePerformanceTotals, ({ one }) => ({
+  employee: one(employees, {
+    fields: [employeePerformanceTotals.employeeId],
+    references: [employees.id],
+  }),
 }));
 
 export const partsStorageLocationsRelations = relations(partsStorageLocations, ({ one }) => ({
@@ -833,12 +1126,66 @@ export const insertWorkOrderSchema = createInsertSchema(workOrders).omit({
   createdAt: true,
 }).extend({
   workOrderNumber: z.string().optional(),
-  scheduledDate: z.string().optional().nullable().transform(val => val ? new Date(val) : null),
 });
 
 export const insertWorkOrderRequiredPartSchema = createInsertSchema(workOrderRequiredParts).omit({
   id: true,
   createdAt: true,
+});
+
+// Insert schemas for new workflow system
+export const insertWorkOrderGarageSchema = createInsertSchema(workOrderGarages).omit({
+  assignedAt: true,
+});
+
+export const insertWorkOrderWorkshopSchema = createInsertSchema(workOrderWorkshops).omit({
+  assignedAt: true,
+});
+
+export const insertWorkOrderMembershipSchema = createInsertSchema(workOrderMemberships).omit({
+  id: true,
+  assignedAt: true,
+});
+
+export const insertWorkOrderStatusHistorySchema = createInsertSchema(workOrderStatusHistory).omit({
+  id: true,
+  changedAt: true,
+});
+
+export const insertApprovalStageSchema = createInsertSchema(approvalStages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertWorkOrderApprovalSchema = createInsertSchema(workOrderApprovals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertItemRequisitionSchema = createInsertSchema(itemRequisitions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertItemRequisitionLineSchema = createInsertSchema(itemRequisitionLines).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPurchaseRequestSchema = createInsertSchema(purchaseRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEmployeePerformanceSnapshotSchema = createInsertSchema(employeePerformanceSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEmployeePerformanceTotalSchema = createInsertSchema(employeePerformanceTotals).omit({
+  lastUpdated: true,
 });
 
 export const insertPartsStorageLocationSchema = createInsertSchema(partsStorageLocations).omit({
@@ -869,20 +1216,48 @@ export type InsertPartsStorageLocation = z.infer<typeof insertPartsStorageLocati
 export type EquipmentLocation = typeof equipmentLocations.$inferSelect;
 export type InsertEquipmentLocation = z.infer<typeof insertEquipmentLocationSchema>;
 
+// Select types for new workflow system
+export type WorkOrderGarage = typeof workOrderGarages.$inferSelect;
+export type InsertWorkOrderGarage = z.infer<typeof insertWorkOrderGarageSchema>;
+export type WorkOrderWorkshop = typeof workOrderWorkshops.$inferSelect;
+export type InsertWorkOrderWorkshop = z.infer<typeof insertWorkOrderWorkshopSchema>;
+export type WorkOrderMembership = typeof workOrderMemberships.$inferSelect;
+export type InsertWorkOrderMembership = z.infer<typeof insertWorkOrderMembershipSchema>;
+export type WorkOrderStatusHistory = typeof workOrderStatusHistory.$inferSelect;
+export type InsertWorkOrderStatusHistory = z.infer<typeof insertWorkOrderStatusHistorySchema>;
+export type ApprovalStage = typeof approvalStages.$inferSelect;
+export type InsertApprovalStage = z.infer<typeof insertApprovalStageSchema>;
+export type WorkOrderApproval = typeof workOrderApprovals.$inferSelect;
+export type InsertWorkOrderApproval = z.infer<typeof insertWorkOrderApprovalSchema>;
+export type ItemRequisition = typeof itemRequisitions.$inferSelect;
+export type InsertItemRequisition = z.infer<typeof insertItemRequisitionSchema>;
+export type ItemRequisitionLine = typeof itemRequisitionLines.$inferSelect;
+export type InsertItemRequisitionLine = z.infer<typeof insertItemRequisitionLineSchema>;
+export type PurchaseRequest = typeof purchaseRequests.$inferSelect;
+export type InsertPurchaseRequest = z.infer<typeof insertPurchaseRequestSchema>;
+export type EmployeePerformanceSnapshot = typeof employeePerformanceSnapshots.$inferSelect;
+export type InsertEmployeePerformanceSnapshot = z.infer<typeof insertEmployeePerformanceSnapshotSchema>;
+export type EmployeePerformanceTotal = typeof employeePerformanceTotals.$inferSelect;
+export type InsertEmployeePerformanceTotal = z.infer<typeof insertEmployeePerformanceTotalSchema>;
+
 // Extended types with relations
 export type GarageWithDetails = Garage & {
   workshops?: Workshop[];
   employees?: Employee[];
-  workOrders?: WorkOrder[];
+  workOrderAssignments?: WorkOrderGarage[];
 };
 
 export type WorkOrderWithDetails = WorkOrder & {
   equipment?: Equipment;
-  garage?: Garage;
-  workshop?: Workshop;
-  assignedToList?: Employee[]; // Array of assigned employees (team)
-  createdBy?: User;
-  requiredParts?: WorkOrderRequiredPart[];
+  createdBy?: Employee;
+  // New workflow relations
+  garageAssignments?: (WorkOrderGarage & { garage?: Garage })[];
+  workshopAssignments?: (WorkOrderWorkshop & { workshop?: Workshop; foreman?: Employee })[];
+  memberships?: (WorkOrderMembership & { employee?: Employee })[];
+  statusHistory?: (WorkOrderStatusHistory & { changedBy?: Employee })[];
+  itemRequisitions?: ItemRequisition[];
+  approvals?: WorkOrderApproval[];
+  requiredParts?: WorkOrderRequiredPart[]; // Legacy - for historical data
 };
 
 export type WorkshopWithDetails = Workshop & {
@@ -1048,3 +1423,121 @@ export type AttendanceDeviceSettings = typeof attendanceDeviceSettings.$inferSel
 export type InsertAttendanceDeviceSettings = z.infer<typeof insertAttendanceDeviceSettingsSchema>;
 export type DeviceImportLog = typeof deviceImportLogs.$inferSelect;
 export type InsertDeviceImportLog = z.infer<typeof insertDeviceImportLogSchema>;
+
+// Insert schemas and types for D365 sync logs
+export const insertD365SyncLogSchema = createInsertSchema(d365SyncLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type D365SyncLog = typeof d365SyncLogs.$inferSelect;
+export type InsertD365SyncLog = z.infer<typeof insertD365SyncLogSchema>;
+
+// Items table - synchronized from Dynamics 365 Business Central
+export const items = pgTable("items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemNo: text("item_no").notNull().unique(), // D365 "No" field
+  description: text("description").notNull(), // D365 "Description" field
+  description2: text("description_2"), // D365 "Description 2" field
+  type: text("type"), // D365 "Type" field (Inventory, Service, Non-Inventory)
+  baseUnitOfMeasure: text("base_unit_of_measure"), // D365 "Base_Unit_of_Measure"
+  unitPrice: decimal("unit_price", { precision: 12, scale: 2 }), // D365 "Unit_Price"
+  unitCost: decimal("unit_cost", { precision: 12, scale: 2 }), // D365 "Unit_Cost"
+  inventory: decimal("inventory", { precision: 12, scale: 2 }), // D365 "Inventory" (stock level)
+  vendorNo: text("vendor_no"), // D365 "Vendor_No"
+  vendorItemNo: text("vendor_item_no"), // D365 "Vendor_Item_No"
+  lastDateModified: text("last_date_modified"), // D365 "Last_Date_Modified"
+  syncedAt: timestamp("synced_at").defaultNow().notNull(), // When item was last synced from D365
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schema for items
+export const insertItemSchema = createInsertSchema(items).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  syncedAt: true,
+});
+
+// Select types for items
+export type Item = typeof items.$inferSelect;
+export type InsertItem = z.infer<typeof insertItemSchema>;
+
+// Dynamics 365 Settings table - for D365 Business Central connection configuration
+export const dynamics365Settings = pgTable("dynamics365_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bcUrl: text("bc_url").notNull(), // Dynamics 365 Business Central URL (e.g., http://192.168.0.16:7048)
+  bcCompany: text("bc_company").notNull(), // Company name in D365
+  bcUsername: text("bc_username").notNull(), // D365 username
+  bcPassword: text("bc_password").notNull(), // D365 password (encrypted)
+  bcDomain: text("bc_domain"), // Windows domain for NTLM authentication (optional)
+  itemPrefix: text("item_prefix"), // Filter items by prefix (e.g., "SP-") - only sync items starting with this
+  equipmentPrefix: text("equipment_prefix"), // Filter equipment by prefix (e.g., "FA-")
+  syncIntervalHours: integer("sync_interval_hours").default(24), // Auto-sync interval in hours
+  lastSyncDate: timestamp("last_sync_date"), // Last successful PowerShell sync
+  isActive: boolean("is_active").default(true).notNull(), // Whether this configuration is active
+  lastTestDate: timestamp("last_test_date"), // Last time connection was tested
+  lastTestStatus: text("last_test_status"), // Last test result: 'success' or 'failed'
+  lastTestMessage: text("last_test_message"), // Error message if test failed
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (CEO/Admin)
+});
+
+// Insert schema for D365 settings
+export const insertDynamics365SettingsSchema = createInsertSchema(dynamics365Settings).omit({
+  id: true,
+  updatedAt: true,
+  lastTestDate: true,
+  lastTestStatus: true,
+  lastTestMessage: true,
+});
+
+// Select types for D365 settings
+export type Dynamics365Settings = typeof dynamics365Settings.$inferSelect;
+export type InsertDynamics365Settings = z.infer<typeof insertDynamics365SettingsSchema>;
+
+// D365 Preview/Staging table - temporary storage for items fetched by PowerShell before user review
+export const d365ItemsPreview = pgTable("d365_items_preview", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  syncId: varchar("sync_id").notNull(), // Links to sync log
+  itemNo: text("item_no").notNull(),
+  description: text("description"),
+  description2: text("description_2"),
+  type: text("type"),
+  baseUnitOfMeasure: text("base_unit_of_measure"),
+  unitPrice: text("unit_price"),
+  unitCost: text("unit_cost"),
+  inventory: text("inventory"),
+  vendorNo: text("vendor_no"),
+  vendorItemNo: text("vendor_item_no"),
+  lastDateModified: text("last_date_modified"),
+  isSelected: boolean("is_selected").default(true).notNull(), // User can deselect before import
+  alreadyExists: boolean("already_exists").default(false).notNull(), // Flag if item already in database
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type D365ItemPreview = typeof d365ItemsPreview.$inferSelect;
+export const insertD365ItemPreviewSchema = createInsertSchema(d365ItemsPreview).omit({
+  id: true,
+  createdAt: true,
+});
+
+// System Settings table - for server configuration
+export const systemSettings = pgTable("system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serverHost: text("server_host").notNull().default("0.0.0.0"), // Server IP/host
+  serverPort: integer("server_port").notNull().default(3000), // Server port
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (CEO/Admin)
+});
+
+// Insert schema for system settings
+export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+// Select types for system settings
+export type SystemSettings = typeof systemSettings.$inferSelect;
+export type InsertSystemSettings = z.infer<typeof insertSystemSettingsSchema>;

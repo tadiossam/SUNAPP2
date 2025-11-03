@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { eq, or, ilike, sql, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { 
   insertEquipmentCategorySchema,
@@ -26,6 +28,16 @@ import {
   insertApprovalSchema,
   insertEquipmentInspectionSchema,
   insertInspectionChecklistItemSchema,
+  items,
+  insertItemSchema,
+  equipment,
+  d365SyncLogs,
+  insertD365SyncLogSchema,
+  d365ItemsPreview,
+  dynamics365Settings,
+  workOrderGarages,
+  workOrderWorkshops,
+  workshops,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -191,7 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'created',
           'equipment_category',
           category.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -219,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'updated',
           'equipment_category',
           category.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -246,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'deleted',
           'equipment_category',
           req.params.id,
-          req.user.username,
+          req.user.username || 'unknown',
           { id: req.params.id }
         ));
       }
@@ -314,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'created',
           'equipment',
           equipment.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -342,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'updated',
           'equipment',
           equipment.id,
-          req.user.username,
+          req.user.username || 'unknown',
           validatedData
         ));
       }
@@ -369,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'deleted',
           'equipment',
           req.params.id,
-          req.user.username,
+          req.user.username || 'unknown',
           { id: req.params.id }
         ));
       }
@@ -404,7 +416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'created',
           'equipment',
           'bulk',
-          req.user.username,
+          req.user.username || 'unknown',
           { action: 'bulk import', count: created.length }
         ));
       }
@@ -460,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'spare_part', part.id, req.user.username, validatedData
+          'created', 'spare_part', part.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -481,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, validatedData
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -529,7 +541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, { action: '3D model uploaded', fileName }
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', { action: '3D model uploaded', fileName }
         ));
       }
 
@@ -557,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, { model3dPath }
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', { model3dPath }
         ));
       }
       
@@ -583,7 +595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { locationInstructions, requiredTools, installTimeEstimates }
         ));
       }
@@ -631,7 +643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'maintenance', mechanic.id, req.user.username, validatedData
+          'created', 'maintenance', mechanic.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -651,7 +663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'maintenance', mechanic.id, req.user.username, req.body
+          'updated', 'maintenance', mechanic.id, req.user.username || 'unknown', req.body
         ));
       }
       
@@ -705,7 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'maintenance', record.id, req.user.username, recordData
+          'created', 'maintenance', record.id, req.user.username || 'unknown', recordData
         ));
       }
 
@@ -725,7 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'maintenance', record.id, req.user.username, req.body
+          'updated', 'maintenance', record.id, req.user.username || 'unknown', req.body
         ));
       }
       
@@ -760,7 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'parts_usage', req.params.maintenanceId, req.user.username, { parts }
+          'created', 'parts_usage', req.params.maintenanceId, req.user.username || 'unknown', { parts }
         ));
       }
       
@@ -789,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'operating_report', report.id, req.user.username, validatedData
+          'created', 'operating_report', report.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -835,7 +847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'garage', garage.id, req.user.username, validatedData
+          'created', 'garage', garage.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -853,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'garage', garage.id, req.user.username, validatedData
+          'updated', 'garage', garage.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -870,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'deleted', 'garage', req.params.id, req.user.username, {}
+          'deleted', 'garage', req.params.id, req.user.username || 'unknown', {}
         ));
       }
       
@@ -1012,6 +1024,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get workshop details with work orders
+  app.get("/api/workshops/:workshopId/details", async (req, res) => {
+    try {
+      const workshopDetails = await storage.getWorkshopDetails(req.params.workshopId);
+      if (!workshopDetails) {
+        return res.status(404).json({ error: "Workshop not found" });
+      }
+      res.json(workshopDetails);
+    } catch (error) {
+      console.error("Error fetching workshop details:", error);
+      res.status(500).json({ error: "Failed to fetch workshop details" });
+    }
+  });
+
   // Employees
   app.get("/api/employees", async (req, res) => {
     try {
@@ -1053,7 +1079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'employee', employee.id, req.user.username, validatedData
+          'created', 'employee', employee.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -1077,7 +1103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'employee', employee.id, req.user.username, validatedData
+          'updated', 'employee', employee.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -1094,7 +1120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'deleted', 'employee', req.params.id, req.user.username, {}
+          'deleted', 'employee', req.params.id, req.user.username || 'unknown', {}
         ));
       }
       
@@ -1105,50 +1131,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Employee photo upload endpoint
-  app.post("/api/employees/:id/photo", isCEOOrAdmin, upload.single('photo'), async (req, res) => {
+  // Get presigned upload URL for employee photo
+  app.post("/api/employees/:id/photo/upload-url", isCEOOrAdmin, async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-
-      // Get the public object storage path
-      const publicPath = process.env.PUBLIC_OBJECT_SEARCH_PATHS?.split(',')[0] || '';
-      if (!publicPath) {
-        return res.status(500).json({ error: "Object storage not configured" });
-      }
-
-      // Save file to object storage
-      await mkdir(join(publicPath, 'employees'), { recursive: true });
-
-      const ext = req.file.originalname.split('.').pop();
-      const filename = `${nanoid()}.${ext}`;
-      const filePath = join(publicPath, 'employees', filename);
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getPublicObjectUploadURL();
       
-      await writeFile(filePath, req.file.buffer);
-      const photoUrl = `/public/employees/${filename}`;
+      // Extract the object path from the upload URL (before query parameters)
+      const url = new URL(uploadURL);
+      const objectPath = objectStorageService.normalizePublicObjectPath(url.origin + url.pathname);
+      
+      res.json({ uploadURL, objectPath });
+    } catch (error) {
+      console.error("Error generating photo upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Update employee with photo URL after upload
+  app.put("/api/employees/:id/photo", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.body.photoUrl) {
+        return res.status(400).json({ error: "photoUrl is required" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = objectStorageService.normalizePublicObjectPath(req.body.photoUrl);
 
       // Update employee with photo URL
-      const employee = await storage.updateEmployeePhoto(req.params.id, photoUrl);
+      const employee = await storage.updateEmployeePhoto(req.params.id, objectPath);
       if (!employee) {
         return res.status(404).json({ error: "Employee not found" });
       }
 
       res.json(employee);
     } catch (error) {
-      console.error("Error uploading employee photo:", error);
-      res.status(500).json({ error: "Failed to upload photo" });
+      console.error("Error updating employee photo:", error);
+      res.status(500).json({ error: "Failed to update photo" });
     }
   });
 
   // Work Orders
   app.get("/api/work-orders", async (req, res) => {
     try {
-      const { status, assignedToId, garageId } = req.query;
+      const { status, assignedToId, garageId, workshopId } = req.query;
       const workOrders = await storage.getAllWorkOrders({
         status: status as string | undefined,
         assignedToId: assignedToId as string | undefined,
         garageId: garageId as string | undefined,
+        workshopId: workshopId as string | undefined,
       });
       res.json(workOrders);
     } catch (error) {
@@ -1194,10 +1225,244 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/work-orders/:id/assignments", async (req, res) => {
+    try {
+      const workOrderId = req.params.id;
+      
+      // Fetch garage and workshop assignments
+      const garageAssignments = await db
+        .select({ garageId: workOrderGarages.garageId })
+        .from(workOrderGarages)
+        .where(eq(workOrderGarages.workOrderId, workOrderId));
+      
+      const workshopAssignments = await db
+        .select({ workshopId: workOrderWorkshops.workshopId })
+        .from(workOrderWorkshops)
+        .where(eq(workOrderWorkshops.workOrderId, workOrderId));
+      
+      res.json({
+        garageIds: garageAssignments.map((a: { garageId: string }) => a.garageId),
+        workshopIds: workshopAssignments.map((a: { workshopId: string }) => a.workshopId),
+      });
+    } catch (error) {
+      console.error("Error fetching work order assignments:", error);
+      res.status(500).json({ error: "Failed to fetch work order assignments" });
+    }
+  });
+
+  // Foreman dashboard endpoints
+  app.get("/api/work-orders/foreman/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id);
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  app.get("/api/work-orders/foreman/active", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id);
+      res.json(activeWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman active work orders:", error);
+      res.status(500).json({ error: "Failed to fetch active work orders" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/assign-team", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { teamMemberIds } = req.body;
+      
+      if (!teamMemberIds || !Array.isArray(teamMemberIds) || teamMemberIds.length === 0) {
+        return res.status(400).json({ error: "Team member IDs are required" });
+      }
+      
+      await storage.assignTeamToWorkOrder(req.params.id, teamMemberIds, req.user.id);
+      res.json({ success: true, message: "Team assigned successfully" });
+    } catch (error) {
+      console.error("Error assigning team to work order:", error);
+      res.status(500).json({ error: "Failed to assign team to work order" });
+    }
+  });
+
+  app.get("/api/employees/team-members", async (req, res) => {
+    try {
+      // Get all employees who can be team members (not CEO or admin)
+      const teamMembers = await storage.getAllEmployees();
+      const filteredMembers = teamMembers.filter(
+        emp => emp.role !== 'ceo' && emp.role !== 'admin'
+      );
+      res.json(filteredMembers);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
+      res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
+  // Item Requisition endpoints
+  app.post("/api/item-requisitions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { lines, ...requisitionData } = req.body;
+      
+      if (!lines || !Array.isArray(lines) || lines.length === 0) {
+        return res.status(400).json({ error: "At least one line item is required" });
+      }
+      
+      const requisition = await storage.createItemRequisition({
+        ...requisitionData,
+        requesterId: req.user.id,
+      }, lines);
+      
+      res.status(201).json(requisition);
+    } catch (error) {
+      console.error("Error creating item requisition:", error);
+      res.status(500).json({ error: "Failed to create item requisition" });
+    }
+  });
+
+  app.get("/api/item-requisitions/foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user has foreman role by verifying they are assigned as foreman to at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const requisitions = await storage.getItemRequisitionsByForeman(req.user.id);
+      res.json(requisitions);
+    } catch (error) {
+      console.error("Error fetching foreman requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
+  app.get("/api/item-requisitions/store-manager", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can access
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const requisitions = await storage.getItemRequisitionsByStoreManager();
+      res.json(requisitions);
+    } catch (error) {
+      console.error("Error fetching store manager requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/approve-foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman of at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.approveItemRequisitionByForeman(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition approved" });
+    } catch (error) {
+      console.error("Error approving requisition:", error);
+      res.status(500).json({ error: "Failed to approve requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/reject-foreman", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman of at least one workshop
+      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+      if (foremanWorkshops.length === 0) {
+        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.rejectItemRequisitionByForeman(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition rejected" });
+    } catch (error) {
+      console.error("Error rejecting requisition:", error);
+      res.status(500).json({ error: "Failed to reject requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/approve-store", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can approve
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.approveItemRequisitionByStoreManager(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition approved by store manager" });
+    } catch (error) {
+      console.error("Error approving requisition:", error);
+      res.status(500).json({ error: "Failed to approve requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/reject-store", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can reject
+      if (req.user.role !== 'store_manager') {
+        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      }
+      
+      const { remarks } = req.body;
+      await storage.rejectItemRequisitionByStoreManager(req.params.id, req.user.id, remarks);
+      res.json({ success: true, message: "Requisition rejected by store manager" });
+    } catch (error) {
+      console.error("Error rejecting requisition:", error);
+      res.status(500).json({ error: "Failed to reject requisition" });
+    }
+  });
+
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
-      // Extract requiredParts from body
-      const { requiredParts, ...workOrderData } = req.body;
+      // Extract requiredParts, garageIds, and workshopIds from body
+      const { requiredParts, garageIds, workshopIds, ...workOrderData } = req.body;
       
       // Remove empty work order number to allow auto-generation
       if (!workOrderData.workOrderNumber || workOrderData.workOrderNumber.trim() === '') {
@@ -1209,6 +1474,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdById: req.user?.id,
       });
       const workOrder = await storage.createWorkOrder(validatedData);
+      
+      // Save garage assignments
+      if (garageIds && Array.isArray(garageIds) && garageIds.length > 0) {
+        const garageAssignments = garageIds.map((garageId: string) => ({
+          workOrderId: workOrder.id,
+          garageId,
+        }));
+        await db.insert(workOrderGarages).values(garageAssignments);
+      }
+      
+      // Save workshop assignments
+      if (workshopIds && Array.isArray(workshopIds) && workshopIds.length > 0) {
+        const workshopAssignments = workshopIds.map((workshopId: string) => ({
+          workOrderId: workOrder.id,
+          workshopId,
+        }));
+        await db.insert(workOrderWorkshops).values(workshopAssignments);
+      }
       
       // Save required parts if provided
       if (requiredParts && Array.isArray(requiredParts) && requiredParts.length > 0) {
@@ -1225,7 +1508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'created', 'work_order', workOrder.id, req.user.username, validatedData
+          'created', 'work_order', workOrder.id, req.user.username || 'unknown', validatedData
         ));
       }
       
@@ -1238,11 +1521,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/work-orders/:id", isCEOOrAdmin, async (req, res) => {
     try {
-      // Extract requiredParts from body
-      const { requiredParts, ...workOrderData } = req.body;
+      // Extract requiredParts, garageIds, and workshopIds from body
+      const { requiredParts, garageIds, workshopIds, ...workOrderData } = req.body;
       
       const validatedData = insertWorkOrderSchema.parse(workOrderData);
       const workOrder = await storage.updateWorkOrder(req.params.id, validatedData);
+      
+      // Update garage assignments if provided
+      if (garageIds !== undefined && Array.isArray(garageIds)) {
+        // Delete existing garage assignments
+        await db.delete(workOrderGarages).where(eq(workOrderGarages.workOrderId, req.params.id));
+        
+        // Insert new garage assignments
+        if (garageIds.length > 0) {
+          const garageAssignments = garageIds.map((garageId: string) => ({
+            workOrderId: req.params.id,
+            garageId,
+          }));
+          await db.insert(workOrderGarages).values(garageAssignments);
+        }
+      }
+      
+      // Update workshop assignments if provided
+      if (workshopIds !== undefined && Array.isArray(workshopIds)) {
+        // Delete existing workshop assignments
+        await db.delete(workOrderWorkshops).where(eq(workOrderWorkshops.workOrderId, req.params.id));
+        
+        // Insert new workshop assignments
+        if (workshopIds.length > 0) {
+          const workshopAssignments = workshopIds.map((workshopId: string) => ({
+            workOrderId: req.params.id,
+            workshopId,
+          }));
+          await db.insert(workOrderWorkshops).values(workshopAssignments);
+        }
+      }
       
       // Update required parts if provided
       if (requiredParts && Array.isArray(requiredParts)) {
@@ -1455,6 +1768,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/inspections/:id", async (req, res) => {
     try {
       const updatedInspection = await storage.updateInspection(req.params.id, req.body);
+      
+      // If inspection status is being changed to "waiting_for_approval", update reception status to "inspection_complete"
+      if (req.body.status === "waiting_for_approval" && updatedInspection.receptionId) {
+        try {
+          await storage.updateReception(updatedInspection.receptionId, { status: "inspection_complete" });
+        } catch (error) {
+          console.error("Error updating reception status:", error);
+          // Don't fail the inspection update if reception update fails
+        }
+      }
+      
       res.json(updatedInspection);
     } catch (error) {
       console.error("Error updating inspection:", error);
@@ -1474,14 +1798,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create bulk checklist items
+  // Create/Update bulk checklist items (upsert with transaction)
   app.post("/api/inspections/:inspectionId/checklist/bulk", async (req, res) => {
     try {
-      const items = await storage.createBulkChecklistItems(req.body.items);
+      // Validate request body first
+      if (!req.body.items || !Array.isArray(req.body.items)) {
+        return res.status(400).json({ error: "Invalid request: items array required" });
+      }
+
+      // Use transaction to ensure atomicity: delete and insert together
+      const items = await storage.upsertChecklistItems(req.params.inspectionId, req.body.items);
       res.status(201).json(items);
     } catch (error) {
-      console.error("Error creating checklist items:", error);
-      res.status(400).json({ error: "Failed to create checklist items" });
+      console.error("Error upserting checklist items:", error);
+      res.status(400).json({ error: "Failed to upsert checklist items" });
     }
   });
 
@@ -1514,6 +1844,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedInspection = await storage.updateInspection(req.params.id, { 
         status: "completed"
       });
+
+      // Auto-create work order if inspection has associated reception
+      if (inspection.receptionId) {
+        try {
+          const reception = await storage.getReceptionById(inspection.receptionId);
+          if (reception) {
+            // Auto-generate work order number using MAX to avoid duplicates
+            const now = new Date();
+            const year = now.getFullYear();
+            const existingWorkOrders = await storage.getAllWorkOrders();
+            const currentYearWorkOrders = existingWorkOrders.filter(wo => 
+              wo.workOrderNumber?.startsWith(`WO-${year}`)
+            );
+            
+            // Find the highest suffix number to avoid collisions (supports any number of digits)
+            let maxSuffix = 0;
+            for (const wo of currentYearWorkOrders) {
+              const match = wo.workOrderNumber?.match(/WO-\d{4}-(\d+)/);
+              if (match) {
+                const suffix = parseInt(match[1], 10);
+                if (suffix > maxSuffix) {
+                  maxSuffix = suffix;
+                }
+              }
+            }
+            const nextNumber = maxSuffix + 1;
+            const workOrderNumber = `WO-${year}-${String(nextNumber).padStart(3, '0')}`;
+
+            // Determine work type from inspection findings
+            const workType = inspection.overallCondition === "Poor" ? "Major Repair" : "Routine Maintenance";
+
+            // Create work order - let any errors propagate to indicate failure
+            await storage.createWorkOrder({
+              workOrderNumber,
+              equipmentId: reception.equipmentId,
+              workType,
+              priority: inspection.overallCondition === "Poor" ? "High" : "Medium",
+              description: `Work order auto-created from approved inspection ${inspection.inspectionNumber}`,
+              inspectionId: inspection.id,
+              receptionId: reception.id,
+              status: "pending",
+            });
+            
+            // Update reception status to "work_order_created" after work order is created
+            await storage.updateReception(inspection.receptionId, { status: "work_order_created" });
+            
+            console.log(`Successfully created work order ${workOrderNumber} from inspection ${inspection.inspectionNumber}`);
+          }
+        } catch (error) {
+          console.error("Error auto-creating work order from inspection:", error);
+          // Rollback inspection status if work order creation fails
+          await storage.updateInspection(req.params.id, { status: "waiting_for_approval" });
+          return res.status(500).json({ 
+            error: "Failed to create work order from approved inspection. Please try again or create work order manually." 
+          });
+        }
+      }
 
       res.json(updatedInspection);
     } catch (error) {
@@ -1961,22 +2348,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If inspection approval is approved, update inspection status and auto-create work order
       if (approval.approvalType === "inspection" && approval.status === "approved" && approval.referenceId) {
+        let inspection = null;
         try {
-          const inspection = await storage.getInspectionById(approval.referenceId);
+          inspection = await storage.getInspectionById(approval.referenceId);
           if (inspection && inspection.receptionId) {
             // Update inspection status to "completed"
             await storage.updateInspection(inspection.id, { status: "completed" });
             
             const reception = await storage.getReceptionById(inspection.receptionId);
             if (reception) {
-              // Auto-generate work order number
+              // Auto-generate work order number using MAX to avoid duplicates (supports any number of digits)
               const now = new Date();
               const year = now.getFullYear();
               const existingWorkOrders = await storage.getAllWorkOrders();
               const currentYearWorkOrders = existingWorkOrders.filter(wo => 
                 wo.workOrderNumber?.startsWith(`WO-${year}`)
               );
-              const nextNumber = currentYearWorkOrders.length + 1;
+              
+              // Find the highest suffix number to avoid collisions (supports any number of digits)
+              let maxSuffix = 0;
+              for (const wo of currentYearWorkOrders) {
+                const match = wo.workOrderNumber?.match(/WO-\d{4}-(\d+)/);
+                if (match) {
+                  const suffix = parseInt(match[1], 10);
+                  if (suffix > maxSuffix) {
+                    maxSuffix = suffix;
+                  }
+                }
+              }
+              const nextNumber = maxSuffix + 1;
               const workOrderNumber = `WO-${year}-${String(nextNumber).padStart(3, '0')}`;
 
               // Determine work type from inspection findings
@@ -1989,16 +2389,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 workType,
                 priority: inspection.overallCondition === "Poor" ? "High" : "Medium",
                 description: `Work order auto-created from approved inspection ${inspection.inspectionNumber}`,
-                scheduledDate: new Date(),
                 inspectionId: inspection.id,
                 receptionId: reception.id,
                 status: "pending",
               });
+              
+              // Update reception status to "work_order_created" after work order is created
+              await storage.updateReception(inspection.receptionId, { status: "work_order_created" });
+              
+              console.log(`Successfully created work order ${workOrderNumber} from inspection ${inspection.inspectionNumber}`);
             }
           }
         } catch (error) {
           console.error("Error auto-creating work order from inspection:", error);
-          // Don't fail the approval update if work order creation fails
+          // Rollback inspection status if work order creation fails
+          if (inspection) {
+            await storage.updateInspection(inspection.id, { status: "waiting_for_approval" });
+          }
+          // Rollback approval status as well
+          await storage.updateApproval(req.params.id, { status: "pending" });
+          return res.status(500).json({ 
+            error: "Failed to create work order from approved inspection. Please try again or create work order manually." 
+          });
         }
       }
 
@@ -2127,9 +2539,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "File not found" });
       }
       objectStorageService.downloadObject(file, res);
-    } catch (error) {
-      console.error("Error searching for public object:", error);
-      return res.status(500).json({ error: "Internal server error" });
+    } catch (error: any) {
+      // Suppress verbose errors when not in Replit environment (Windows/local development)
+      const isReplitConnectionError = error?.code === 'ECONNREFUSED' && error?.message?.includes('127.0.0.1:1106');
+      if (!isReplitConnectionError) {
+        console.error("Error searching for public object:", error);
+      }
+      return res.status(404).json({ error: "Object storage not available" });
     }
   });
 
@@ -2176,7 +2592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { action: 'tutorial video uploaded', videoUrl: objectPath }
         ));
       }
@@ -2258,7 +2674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { action: 'images uploaded', count: normalizedPaths.length }
         ));
       }
@@ -2301,7 +2717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'updated', 'spare_part', part.id, req.user.username, 
+          'updated', 'spare_part', part.id, req.user.username || 'unknown', 
           { action: 'image deleted', imageUrl }
         ));
       }
@@ -2331,7 +2747,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     timeout: z.number().int().min(1000).max(30000),
   });
 
-  // Get device settings
+  const importSelectedUsersSchema = z.object({
+    userIds: z.array(z.string()).min(1, "At least one user must be selected"),
+    ipAddress: z.string().ip(),
+    port: z.number().int().min(1).max(65535),
+    timeout: z.number().int().min(1000).max(30000),
+  });
+
+  // Get all devices
+  app.get("/api/attendance-devices", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const devices = await storage.getAllAttendanceDevices();
+      res.json(devices);
+    } catch (error) {
+      console.error("Error fetching devices:", error);
+      res.status(500).json({ error: "Failed to fetch devices" });
+    }
+  });
+
+  // Get single device by ID
+  app.get("/api/attendance-devices/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const device = await storage.getAttendanceDeviceById(req.params.id);
+      if (!device) {
+        return res.status(404).json({ error: "Device not found" });
+      }
+      res.json(device);
+    } catch (error) {
+      console.error("Error fetching device:", error);
+      res.status(500).json({ error: "Failed to fetch device" });
+    }
+  });
+
+  // Create new device
+  app.post("/api/attendance-devices", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = deviceSettingsSchema.parse(req.body);
+      const device = await storage.createAttendanceDevice(validatedData);
+      res.status(201).json(device);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid device data", details: error.errors });
+      }
+      console.error("Error creating device:", error);
+      res.status(500).json({ error: "Failed to create device" });
+    }
+  });
+
+  // Update device
+  app.patch("/api/attendance-devices/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = deviceSettingsSchema.partial().parse(req.body);
+      const device = await storage.updateAttendanceDeviceSettings(req.params.id, validatedData);
+      res.json(device);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid device data", details: error.errors });
+      }
+      console.error("Error updating device:", error);
+      res.status(500).json({ error: "Failed to update device" });
+    }
+  });
+
+  // Set active device
+  app.patch("/api/attendance-devices/:id/activate", isCEOOrAdmin, async (req, res) => {
+    try {
+      const device = await storage.setActiveDevice(req.params.id);
+      res.json(device);
+    } catch (error) {
+      console.error("Error activating device:", error);
+      res.status(500).json({ error: "Failed to activate device" });
+    }
+  });
+
+  // Delete device
+  app.delete("/api/attendance-devices/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteAttendanceDevice(req.params.id);
+      res.json({ message: "Device deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      res.status(500).json({ error: "Failed to delete device" });
+    }
+  });
+
+  // Get device settings (backward compatibility - returns active device)
   app.get("/api/attendance-device/settings", isCEOOrAdmin, async (_req, res) => {
     try {
       const settings = await storage.getAttendanceDeviceSettings();
@@ -2342,7 +2842,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save device settings
+  // Save device settings (backward compatibility - creates device and sets as active)
   app.post("/api/attendance-device/settings", isCEOOrAdmin, async (req, res) => {
     try {
       const validatedData = deviceSettingsSchema.parse(req.body);
@@ -2378,6 +2878,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: false,
         message: "Connection failed",
+        error: error.message
+      });
+    }
+  });
+
+  // Fetch users from device (preview without importing)
+  app.post("/api/attendance-device/fetch-users", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = testConnectionSchema.parse(req.body);
+      const { ipAddress, port, timeout } = validatedData;
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(ipAddress, port, timeout);
+      
+      const deviceUsers = await deviceService.getAllUsersWithConnection();
+      
+      res.json({
+        success: true,
+        users: deviceUsers,
+        count: deviceUsers.length
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Invalid parameters", 
+          details: error.errors 
+        });
+      }
+      console.error("Fetch users error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch users",
         error: error.message
       });
     }
@@ -2462,7 +2994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       await storage.updateAttendanceDeviceSettings(settings.id, {
-        lastImportAt: new Date().toISOString(),
+        lastImportAt: new Date(),
       });
 
       res.json({
@@ -2474,6 +3006,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("User import error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Import failed",
+        error: error.message
+      });
+    }
+  });
+
+  // Import selected users from device
+  app.post("/api/attendance-device/import-selected", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = importSelectedUsersSchema.parse(req.body);
+      const { userIds: selectedUserIds, ipAddress, port, timeout } = validatedData;
+
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(ipAddress, port, timeout);
+      
+      const allDeviceUsers = await deviceService.getAllUsersWithConnection();
+      
+      // Filter to only selected users
+      const selectedUsers = allDeviceUsers.filter(user => 
+        selectedUserIds.includes(user.userId)
+      );
+      
+      let imported = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const deviceUser of selectedUsers) {
+        try {
+          // Try multiple matching strategies to find existing employee
+          let existingEmployee = await storage.getEmployeeByDeviceUserId(deviceUser.userId);
+          
+          // If not found by deviceUserId, try matching by employeeId (if deviceUserId is badge number)
+          if (!existingEmployee) {
+            existingEmployee = await storage.getEmployeeByEmployeeId(deviceUser.userId);
+          }
+          
+          // If still not found, try matching by normalized name
+          if (!existingEmployee && deviceUser.name) {
+            existingEmployee = await storage.getEmployeeByName(deviceUser.name.trim());
+          }
+          
+          if (existingEmployee) {
+            // Update existing employee with device ID
+            await storage.updateEmployee(existingEmployee.id, {
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || existingEmployee.fullName,
+            });
+            updated++;
+          } else {
+            // Only create new employee if no match found
+            await storage.createEmployee({
+              employeeId: `EMP-${deviceUser.userId}`,
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || `User ${deviceUser.userId}`,
+              role: 'technician',
+              phoneNumber: '',
+              email: '',
+              garageId: null,
+            });
+            imported++;
+          }
+        } catch (error: any) {
+          console.error(`Error importing user ${deviceUser.userId}:`, error);
+          errors.push(`User ${deviceUser.userId}: ${error.message}`);
+          skipped++;
+        }
+      }
+
+      // Log the import operation
+      const settings = await storage.getAttendanceDeviceSettings();
+      if (settings) {
+        await storage.createDeviceImportLog({
+          deviceId: settings.id,
+          operationType: 'selected_import',
+          status: errors.length > 0 ? 'partial' : 'success',
+          usersImported: imported,
+          usersUpdated: updated,
+          usersSkipped: skipped,
+          errorMessage: errors.length > 0 ? errors.join('; ') : null,
+          importData: JSON.stringify(selectedUsers),
+        });
+
+        await storage.updateAttendanceDeviceSettings(settings.id, {
+          lastImportAt: new Date(),
+        });
+      }
+
+      res.json({
+        success: true,
+        imported,
+        updated,
+        skipped,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Invalid request data", 
+          details: error.errors 
+        });
+      }
+      console.error("Selected user import error:", error);
       res.status(500).json({
         success: false,
         message: "Import failed",
@@ -2583,6 +3221,1813 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching import logs:", error);
       res.status(500).json({ error: "Failed to fetch import logs" });
+    }
+  });
+
+  // ==================== Dynamics 365 Business Central Integration ====================
+
+  // Get D365 settings
+  app.get("/api/dynamics365/settings", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const settings = await storage.getDynamics365Settings();
+      if (settings) {
+        // Don't send password to frontend
+        const { bcPassword, ...safeSettings } = settings;
+        res.json(safeSettings);
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      console.error("Error fetching D365 settings:", error);
+      res.status(500).json({ error: "Failed to fetch D365 settings" });
+    }
+  });
+
+  // Save D365 settings
+  app.post("/api/dynamics365/settings", isCEOOrAdmin, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { bcPassword, ...otherSettings } = req.body;
+      
+      // Get existing settings to preserve password if not provided
+      const existingSettings = await storage.getDynamics365Settings();
+      
+      // Prepare data: keep existing password if new one is empty
+      const dataToSave = {
+        ...otherSettings,
+        bcPassword: bcPassword && bcPassword.trim() !== "" 
+          ? bcPassword 
+          : existingSettings?.bcPassword || bcPassword,
+      };
+      
+      const settings = await storage.saveDynamics365Settings(dataToSave, user.id);
+      
+      // Don't send password to frontend
+      const { bcPassword: _, ...safeSettings } = settings;
+      res.json(safeSettings);
+    } catch (error) {
+      console.error("Error saving D365 settings:", error);
+      res.status(500).json({ error: "Failed to save D365 settings" });
+    }
+  });
+
+  // Test D365 connection with provided settings
+  app.post("/api/dynamics365/test", isCEOOrAdmin, async (req, res) => {
+    try {
+      let { bcUrl, bcUsername, bcPassword, bcCompany } = req.body;
+      
+      // If password is empty, try to get it from saved settings
+      if (!bcPassword || bcPassword.trim() === "") {
+        const existingSettings = await storage.getDynamics365Settings();
+        if (existingSettings?.bcPassword) {
+          bcPassword = existingSettings.bcPassword;
+        } else {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Password is required. Please enter a password or save settings first." 
+          });
+        }
+      }
+      
+      if (!bcUrl || !bcUsername || !bcCompany) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "URL, username, and company name are required" 
+        });
+      }
+
+      // Test connection - try NTLM first, then Basic Auth
+      const testUrl = `${bcUrl}/ODataV4/Company('${encodeURIComponent(bcCompany)}')/items?$top=1`;
+      console.log(`Testing D365 connection:`, {
+        url: testUrl,
+        username: bcUsername,
+        company: bcCompany,
+      });
+      
+      let response: any = null;
+      let authMethod = '';
+      
+      // Try NTLM authentication first
+      try {
+        console.log('Attempting NTLM authentication...');
+        const httpntlm = (await import('httpntlm')).default;
+        
+        response = await new Promise((resolve, reject) => {
+          httpntlm.get({
+            url: testUrl,
+            username: bcUsername,
+            password: bcPassword,
+            workstation: '',
+            domain: '',
+          }, (err: any, res: any) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(res);
+            }
+          });
+        });
+        authMethod = 'NTLM';
+      } catch (ntlmError: any) {
+        console.log('NTLM failed, trying Basic Authentication...', ntlmError.message);
+        
+        // Fall back to Basic Authentication
+        const axios = (await import('axios')).default;
+        
+        try {
+          const axiosResponse = await axios.get(testUrl, {
+            auth: {
+              username: bcUsername,
+              password: bcPassword,
+            },
+            timeout: 10000,
+          });
+          
+          response = {
+            statusCode: axiosResponse.status,
+            body: JSON.stringify(axiosResponse.data),
+          };
+          authMethod = 'Basic';
+        } catch (basicError: any) {
+          // Both failed, throw the basic auth error
+          throw basicError;
+        }
+      }
+      
+      try {
+
+        if (response.statusCode === 200 || response.status === 200) {
+          // Update test result in database if settings exist
+          await storage.updateDynamics365TestResult('success', `Connection successful using ${authMethod} authentication`);
+          
+          console.log(`D365 connection successful using ${authMethod} authentication`);
+          
+          res.json({ 
+            success: true, 
+            message: `Connection successful! Successfully connected to Dynamics 365 Business Central using ${authMethod} authentication.` 
+          });
+        } else {
+          const statusCode = response.statusCode || response.status || 503;
+          await storage.updateDynamics365TestResult('failed', `Unexpected response: ${statusCode}`);
+          res.status(503).json({ 
+            success: false, 
+            message: `Connection failed with status ${statusCode}` 
+          });
+        }
+      } catch (authError: any) {
+        let errorMessage = "Connection failed";
+        let statusCode = 503;
+        
+        console.error('D365 connection error:', authError);
+        
+        if (authError.code === 'ECONNREFUSED') {
+          errorMessage = "Cannot connect to server. Please check the URL and ensure the D365 Business Central server is running.";
+          statusCode = 503;
+        } else if (authError.code === 'ETIMEDOUT' || authError.code === 'ECONNABORTED') {
+          errorMessage = "Connection timeout. The server is not responding.";
+          statusCode = 504;
+        } else if (authError.response?.status === 401 || authError.statusCode === 401) {
+          errorMessage = "Authentication failed. Please check username and password.";
+          statusCode = 401;
+        } else if (authError.response?.status === 403 || authError.statusCode === 403) {
+          errorMessage = "Access forbidden. Please check user permissions in D365.";
+          statusCode = 403;
+        } else if (authError.response?.status === 404 || authError.statusCode === 404) {
+          errorMessage = "Resource not found. Please check the company name and URL path.";
+          statusCode = 404;
+        } else if (authError.response?.status === 503 || authError.statusCode === 503) {
+          errorMessage = "Service unavailable (503). The Dynamics 365 Business Central service is not running or is temporarily down.";
+          statusCode = 503;
+        } else if (authError.response?.status === 500 || authError.statusCode === 500) {
+          errorMessage = "Server error (500). The Dynamics 365 server encountered an internal error.";
+          statusCode = 500;
+        } else if (authError.response?.status || authError.statusCode) {
+          const code = authError.response?.status || authError.statusCode;
+          errorMessage = `HTTP Error ${code}: ${authError.message || 'Unknown error'}`;
+          statusCode = code;
+        } else {
+          errorMessage = authError.message || "Unknown connection error. Ensure D365 Business Central Web Services are enabled.";
+          statusCode = 503;
+        }
+        
+        await storage.updateDynamics365TestResult('failed', errorMessage);
+        
+        res.status(statusCode).json({ 
+          success: false, 
+          message: errorMessage 
+        });
+      }
+    } catch (error: any) {
+      console.error("D365 connection test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Connection test failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Test Dynamics 365 connection (using environment variables - legacy)
+  app.get("/api/dynamics365/test-connection", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const { d365Service } = await import('./services/dynamics365');
+      const isConnected = await d365Service.testConnection();
+      
+      if (isConnected) {
+        res.json({ success: true, message: "Connection successful" });
+      } else {
+        res.status(503).json({ success: false, message: "Connection failed" });
+      }
+    } catch (error: any) {
+      console.error("D365 connection test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Connection test failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Diagnostic endpoint to test all OData endpoints
+  app.get("/api/dynamics365/test-endpoints", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const axios = (await import('axios')).default;
+      const url = process.env.D365_BC_URL;
+      const username = process.env.D365_BC_USERNAME;
+      const password = process.env.D365_BC_PASSWORD;
+      const company = process.env.D365_BC_COMPANY;
+      
+      if (!url || !username || !password || !company) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "D365 credentials not configured" 
+        });
+      }
+
+      // Try different company name variations
+      const companyVariations = [
+        company, // Original: "Sunshine Construction PLC(Test"
+        `${company})`, // Add closing parenthesis: "Sunshine Construction PLC(Test)"
+        company.replace('(Test', ''), // Remove (Test: "Sunshine Construction PLC"
+        company.replace('(Test', '(Test)'), // Fix parenthesis: "Sunshine Construction PLC(Test)"
+      ];
+      
+      const endpoints: string[] = [];
+      
+      // Test each company name variation with different endpoint patterns
+      for (const companyName of companyVariations) {
+        const encodedCompany = encodeURIComponent(companyName);
+        
+        // Note: baseURL already includes /SUNCONBC1/, don't duplicate it
+        endpoints.push(
+          // BC published web service format (lowercase 'items')
+          `ODataV4/Company('${encodedCompany}')/items`,
+          `ODataV4/Company('${encodedCompany}')/Item`,
+          `ODataV4/Company('${encodedCompany}')/Items`,
+          `OData/Company('${encodedCompany}')/items`,
+          `api/v2.0/companies('${encodedCompany}')/items`,
+        );
+      }
+      
+      // Also test without company
+      endpoints.push(
+        `ODataV4/items`,
+        `ODataV4/Item`,
+        `ODataV4/Items`,
+      );
+
+      const results = [];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const fullUrl = `${url}${endpoint}`;
+          console.log(`Testing: ${fullUrl}`);
+          
+          const response = await axios.get(fullUrl, {
+            auth: { username, password },
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            timeout: 10000,
+          });
+          
+          results.push({
+            endpoint,
+            status: response.status,
+            success: true,
+            itemCount: response.data?.value?.length || (Array.isArray(response.data) ? response.data.length : 0),
+          });
+          
+          console.log(`✓ Success: ${endpoint} - ${response.status}`);
+        } catch (error: any) {
+          results.push({
+            endpoint,
+            status: error.response?.status || 'Network Error',
+            success: false,
+            error: error.response?.data?.error?.message || error.message,
+          });
+          
+          console.log(`✗ Failed: ${endpoint} - ${error.response?.status || 'Network Error'}`);
+        }
+      }
+      
+      const successfulEndpoint = results.find(r => r.success);
+      
+      res.json({
+        success: !!successfulEndpoint,
+        message: successfulEndpoint 
+          ? `Found working endpoint: ${successfulEndpoint.endpoint}` 
+          : 'No working endpoint found',
+        workingEndpoint: successfulEndpoint?.endpoint || null,
+        results,
+      });
+    } catch (error: any) {
+      console.error("D365 endpoint test error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Endpoint test failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Sync items from Dynamics 365 (items starting with "SP-")
+  app.post("/api/dynamics365/sync-items", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const { d365Service } = await import('./services/dynamics365');
+      
+      // Fetch items starting with "SP-"
+      const d365Items = await d365Service.fetchItemsByPrefix('SP-');
+      
+      console.log(`Fetched ${d365Items.length} items from Dynamics 365`);
+      
+      // Save items to database
+      let savedCount = 0;
+      let updatedCount = 0;
+      
+      for (const d365Item of d365Items) {
+        try {
+          // Check if item exists
+          const existingItem = await db.select()
+            .from(items)
+            .where(eq(items.itemNo, d365Item.No))
+            .limit(1);
+          
+          const itemData = {
+            itemNo: d365Item.No,
+            description: d365Item.Description,
+            description2: d365Item.Description_2 || null,
+            type: d365Item.Type || null,
+            baseUnitOfMeasure: d365Item.Base_Unit_of_Measure || null,
+            unitPrice: d365Item.Unit_Price?.toString() || null,
+            unitCost: d365Item.Unit_Cost?.toString() || null,
+            inventory: d365Item.Inventory?.toString() || null,
+            vendorNo: d365Item.Vendor_No || null,
+            vendorItemNo: d365Item.Vendor_Item_No || null,
+            lastDateModified: d365Item.Last_Date_Modified || null,
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          if (existingItem.length > 0) {
+            // Update existing item
+            await db.update(items)
+              .set(itemData)
+              .where(eq(items.itemNo, d365Item.No));
+            updatedCount++;
+          } else {
+            // Insert new item
+            await db.insert(items).values(itemData);
+            savedCount++;
+          }
+        } catch (itemError: any) {
+          console.error(`Error saving item ${d365Item.No}:`, itemError.message);
+        }
+      }
+      
+      console.log(`Saved ${savedCount} new items, updated ${updatedCount} items`);
+      
+      res.json({
+        success: true,
+        itemsCount: d365Items.length,
+        savedCount,
+        updatedCount,
+        syncedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("D365 items sync error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Sync failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Get a specific item from Dynamics 365
+  app.get("/api/dynamics365/items/:itemNo", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { itemNo } = req.params;
+      const { d365Service } = await import('./services/dynamics365');
+      
+      const item = await d365Service.fetchItemByNumber(itemNo);
+      
+      if (item) {
+        res.json(item);
+      } else {
+        res.status(404).json({ error: "Item not found" });
+      }
+    } catch (error: any) {
+      console.error("D365 item fetch error:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch item", 
+        message: error.message 
+      });
+    }
+  });
+
+  // Preview items from Dynamics 365 with prefix filtering
+  app.post("/api/dynamics365/preview-items", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { prefix } = req.body;
+      
+      if (!prefix || typeof prefix !== 'string') {
+        return res.status(400).json({ error: "Prefix is required" });
+      }
+
+      // Get D365 settings from database
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ 
+          success: false,
+          error: "D365 settings not configured. Please save settings first." 
+        });
+      }
+
+      const { fetchItemsNTLM } = await import('./services/dynamics365-ntlm');
+      
+      // Fetch items with the specified prefix using NTLM
+      const d365Items = await fetchItemsNTLM({
+        bcUrl: d365Settings.bcUrl,
+        bcCompany: d365Settings.bcCompany,
+        bcUsername: d365Settings.bcUsername,
+        bcPassword: d365Settings.bcPassword,
+      }, prefix);
+      
+      console.log(`Found ${d365Items.length} items with prefix "${prefix}" from Dynamics 365`);
+      
+      // Check which items already exist in database
+      const itemsWithStatus = await Promise.all(d365Items.map(async (d365Item) => {
+        const existingItem = await db.select()
+          .from(items)
+          .where(eq(items.itemNo, d365Item.No))
+          .limit(1);
+        
+        return {
+          ...d365Item,
+          existsInDb: existingItem.length > 0,
+        };
+      }));
+      
+      res.json({
+        success: true,
+        items: itemsWithStatus,
+        totalCount: d365Items.length,
+        newCount: itemsWithStatus.filter(i => !i.existsInDb).length,
+        existingCount: itemsWithStatus.filter(i => i.existsInDb).length,
+      });
+    } catch (error: any) {
+      console.error("D365 preview items error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to preview items", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Preview equipment from Dynamics 365 with prefix filtering
+  app.post("/api/dynamics365/preview-equipment", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { prefix } = req.body;
+      
+      if (!prefix || typeof prefix !== 'string') {
+        return res.status(400).json({ error: "Prefix is required" });
+      }
+
+      // Get D365 settings from database
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ 
+          success: false,
+          error: "D365 settings not configured. Please save settings first." 
+        });
+      }
+
+      const { fetchEquipmentNTLM } = await import('./services/dynamics365-ntlm');
+      
+      // Fetch equipment with the specified prefix using NTLM
+      const d365Equipment = await fetchEquipmentNTLM({
+        bcUrl: d365Settings.bcUrl,
+        bcCompany: d365Settings.bcCompany,
+        bcUsername: d365Settings.bcUsername,
+        bcPassword: d365Settings.bcPassword,
+      }, prefix);
+      
+      console.log(`Found ${d365Equipment.length} equipment with prefix "${prefix}" from Dynamics 365`);
+      
+      // Check which equipment already exist in database
+      const equipmentWithStatus = await Promise.all(d365Equipment.map(async (d365Equip) => {
+        // Check by asset number or other unique identifier
+        const existingEquip = await db.select()
+          .from(equipment)
+          .where(eq(equipment.assetNo, d365Equip.Asset_No || d365Equip.No))
+          .limit(1);
+        
+        return {
+          ...d365Equip,
+          existsInDb: existingEquip.length > 0,
+        };
+      }));
+      
+      res.json({
+        success: true,
+        equipment: equipmentWithStatus,
+        totalCount: d365Equipment.length,
+        newCount: equipmentWithStatus.filter(e => !e.existsInDb).length,
+        existingCount: equipmentWithStatus.filter(e => e.existsInDb).length,
+      });
+    } catch (error: any) {
+      console.error("D365 preview equipment error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to preview equipment", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Receive data from PowerShell script - stores in preview table for user review
+  app.post("/api/dynamics365/receive-data", async (req, res) => {
+    try {
+      const { apiKey, items: receivedItems, equipment: receivedEquipment, syncType } = req.body;
+      
+      // Validate API key (should match D365 settings or system secret)
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings || apiKey !== d365Settings.id) {
+        return res.status(401).json({ 
+          success: false,
+          error: "Invalid API key" 
+        });
+      }
+
+      // Generate unique sync ID for this batch
+      const syncId = sql`gen_random_uuid()`.as("sync_id");
+      const syncIdResult = await db.select({ id: syncId }).from(sql`(SELECT 1) as dummy`);
+      const batchSyncId = syncIdResult[0].id;
+
+      let previewCount = 0;
+      let alreadyExistsCount = 0;
+      const errors: string[] = [];
+
+      // Store items in preview table for user review
+      if (receivedItems && Array.isArray(receivedItems)) {
+        for (const d365Item of receivedItems) {
+          try {
+            // Check if item already exists in database
+            const existingItem = await db.select()
+              .from(items)
+              .where(eq(items.itemNo, d365Item.No))
+              .limit(1);
+            
+            // Store in preview table
+            await db.insert(d365ItemsPreview).values({
+              syncId: batchSyncId,
+              itemNo: d365Item.No,
+              description: d365Item.Description || null,
+              description2: d365Item.Description_2 || null,
+              type: d365Item.Type || null,
+              baseUnitOfMeasure: d365Item.Base_Unit_of_Measure || null,
+              unitPrice: d365Item.Unit_Price?.toString() || null,
+              unitCost: d365Item.Unit_Cost?.toString() || null,
+              inventory: d365Item.Inventory?.toString() || null,
+              vendorNo: d365Item.Vendor_No || null,
+              vendorItemNo: d365Item.Vendor_Item_No || null,
+              lastDateModified: d365Item.Last_Date_Modified || null,
+              isSelected: true, // Default to selected
+              alreadyExists: existingItem.length > 0,
+            });
+
+            previewCount++;
+            if (existingItem.length > 0) {
+              alreadyExistsCount++;
+            }
+          } catch (itemError: any) {
+            console.error(`Error storing item ${d365Item.No} in preview:`, itemError.message);
+            errors.push(`${d365Item.No}: ${itemError.message}`);
+          }
+        }
+      }
+
+      // Log the sync with pending_review status
+      await db.insert(d365SyncLogs).values({
+        syncType: syncType || "powershell_sync",
+        status: "pending_review",
+        prefix: d365Settings.itemPrefix || null,
+        recordsImported: 0, // Will be updated after user imports
+        recordsUpdated: 0,
+        recordsSkipped: 0,
+        totalRecords: previewCount,
+        errorMessage: errors.length > 0 ? errors.join("; ") : null,
+      });
+
+      console.log(`PowerShell sync: ${previewCount} items stored in preview (${alreadyExistsCount} already exist)`);
+
+      res.json({
+        success: true,
+        syncId: batchSyncId,
+        previewCount,
+        newItemsCount: previewCount - alreadyExistsCount,
+        existingItemsCount: alreadyExistsCount,
+        message: "Data received successfully. Please review and import items from the admin panel.",
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      console.error("Receive data error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
+  // Get preview items from most recent PowerShell sync
+  app.get("/api/dynamics365/preview-items", isCEOOrAdmin, async (req, res) => {
+    try {
+      // Get the most recent syncId first
+      const latestSync = await db.select()
+        .from(d365ItemsPreview)
+        .orderBy(desc(d365ItemsPreview.createdAt))
+        .limit(1);
+
+      if (latestSync.length === 0) {
+        return res.json({
+          success: true,
+          syncId: null,
+          items: [],
+          totalCount: 0,
+          newCount: 0,
+          existingCount: 0,
+          syncTimestamp: null,
+        });
+      }
+
+      const mostRecentSyncId = latestSync[0].syncId;
+      const syncTimestamp = latestSync[0].createdAt;
+
+      // Get all items for this specific sync
+      const mostRecentItems = await db.select()
+        .from(d365ItemsPreview)
+        .where(eq(d365ItemsPreview.syncId, mostRecentSyncId))
+        .orderBy(d365ItemsPreview.itemNo);
+
+      res.json({
+        success: true,
+        syncId: mostRecentSyncId,
+        items: mostRecentItems,
+        totalCount: mostRecentItems.length,
+        newCount: mostRecentItems.filter((i: any) => !i.alreadyExists).length,
+        existingCount: mostRecentItems.filter((i: any) => i.alreadyExists).length,
+        syncTimestamp,
+      });
+    } catch (error: any) {
+      console.error("Preview items error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
+  // Import selected items from preview table to actual items table
+  app.post("/api/dynamics365/import-selected", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { syncId, selectedItemIds } = req.body;
+
+      if (!syncId || !Array.isArray(selectedItemIds) || selectedItemIds.length === 0) {
+        return res.status(400).json({ error: "Invalid request: syncId and selectedItemIds required" });
+      }
+
+      // Validate that syncId exists and get all items for this sync
+      const allSyncItems = await db.select()
+        .from(d365ItemsPreview)
+        .where(eq(d365ItemsPreview.syncId, syncId));
+
+      if (allSyncItems.length === 0) {
+        return res.status(404).json({ error: "Sync not found or already imported" });
+      }
+
+      // Validate that all selectedItemIds belong to this sync
+      const validIds = new Set(allSyncItems.map((item: any) => item.id));
+      const invalidIds = selectedItemIds.filter((id: string) => !validIds.has(id));
+      
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ 
+          error: "Invalid item IDs: some items do not belong to this sync",
+          invalidIds 
+        });
+      }
+
+      // Get only the selected preview items
+      const previewItems = allSyncItems.filter((item: any) => selectedItemIds.includes(item.id));
+
+      let savedCount = 0;
+      let updatedCount = 0;
+      const errors: string[] = [];
+
+      // Import each selected item (wrapped in try-catch for individual errors)
+      for (const previewItem of previewItems) {
+        try {
+          const itemData = {
+            itemNo: previewItem.itemNo,
+            description: previewItem.description,
+            description2: previewItem.description2,
+            type: previewItem.type,
+            baseUnitOfMeasure: previewItem.baseUnitOfMeasure,
+            unitPrice: previewItem.unitPrice,
+            unitCost: previewItem.unitCost,
+            inventory: previewItem.inventory,
+            vendorNo: previewItem.vendorNo,
+            vendorItemNo: previewItem.vendorItemNo,
+            lastDateModified: previewItem.lastDateModified,
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          if (previewItem.alreadyExists) {
+            // Update existing item
+            await db.update(items)
+              .set(itemData)
+              .where(eq(items.itemNo, previewItem.itemNo));
+            updatedCount++;
+          } else {
+            // Insert new item
+            await db.insert(items).values(itemData);
+            savedCount++;
+          }
+        } catch (itemError: any) {
+          console.error(`Error importing item ${previewItem.itemNo}:`, itemError.message);
+          errors.push(`${previewItem.itemNo}: ${itemError.message}`);
+        }
+      }
+
+      // Only clean up preview items for this specific sync after successful import
+      // This prevents re-importing the same items
+      await db.delete(d365ItemsPreview)
+        .where(eq(d365ItemsPreview.syncId, syncId));
+
+      // Update sync log
+      await db.update(d365SyncLogs)
+        .set({
+          status: errors.length > 0 ? "partial" : "success",
+          recordsImported: savedCount,
+          recordsUpdated: updatedCount,
+          recordsSkipped: previewItems.length - savedCount - updatedCount,
+        })
+        .where(
+          and(
+            eq(d365SyncLogs.syncType, "powershell_sync"),
+            sql`${d365SyncLogs.createdAt} >= NOW() - INTERVAL '1 hour'` // Recent sync
+          )
+        );
+
+      console.log(`Import complete: ${savedCount} new, ${updatedCount} updated`);
+
+      res.json({
+        success: true,
+        savedCount,
+        updatedCount,
+        totalImported: savedCount + updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      console.error("Import selected error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
+  // Legacy import endpoint (for backward compatibility)
+  app.post("/api/dynamics365/import-items", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { items: selectedItems, prefix } = req.body;
+      
+      if (!Array.isArray(selectedItems) || selectedItems.length === 0) {
+        return res.status(400).json({ error: "No items selected for import" });
+      }
+
+      let savedCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+      
+      for (const d365Item of selectedItems) {
+        try {
+          // Check if item exists
+          const existingItem = await db.select()
+            .from(items)
+            .where(eq(items.itemNo, d365Item.No))
+            .limit(1);
+          
+          const itemData = {
+            itemNo: d365Item.No,
+            description: d365Item.Description,
+            description2: d365Item.Description_2 || null,
+            type: d365Item.Type || null,
+            baseUnitOfMeasure: d365Item.Base_Unit_of_Measure || null,
+            unitPrice: d365Item.Unit_Price?.toString() || null,
+            unitCost: d365Item.Unit_Cost?.toString() || null,
+            inventory: d365Item.Inventory?.toString() || null,
+            vendorNo: d365Item.Vendor_No || null,
+            vendorItemNo: d365Item.Vendor_Item_No || null,
+            lastDateModified: d365Item.Last_Date_Modified || null,
+            syncedAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          if (existingItem.length > 0) {
+            // Update existing item
+            await db.update(items)
+              .set(itemData)
+              .where(eq(items.itemNo, d365Item.No));
+            updatedCount++;
+          } else {
+            // Insert new item
+            await db.insert(items).values(itemData);
+            savedCount++;
+          }
+        } catch (itemError: any) {
+          console.error(`Error saving item ${d365Item.No}:`, itemError.message);
+          errors.push(`${d365Item.No}: ${itemError.message}`);
+          skippedCount++;
+        }
+      }
+      
+      // Create sync log entry
+      const logStatus = errors.length > 0 ? (errors.length === selectedItems.length ? "failed" : "partial") : "success";
+      await db.insert(d365SyncLogs).values({
+        syncType: "items",
+        status: logStatus,
+        prefix: prefix || null,
+        recordsImported: savedCount,
+        recordsUpdated: updatedCount,
+        recordsSkipped: skippedCount,
+        totalRecords: selectedItems.length,
+        errorMessage: errors.length > 0 ? errors.join("; ") : null,
+        importData: JSON.stringify(selectedItems.slice(0, 10)), // Store first 10 items as sample
+      });
+      
+      console.log(`Imported ${savedCount} new items, updated ${updatedCount} items`);
+      
+      res.json({
+        success: true,
+        savedCount,
+        updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+        totalProcessed: selectedItems.length,
+      });
+    } catch (error: any) {
+      console.error("D365 import items error:", error);
+      
+      // Log the failed import
+      try {
+        await db.insert(d365SyncLogs).values({
+          syncType: "items",
+          status: "failed",
+          prefix: req.body.prefix || null,
+          recordsImported: 0,
+          recordsUpdated: 0,
+          recordsSkipped: 0,
+          totalRecords: req.body.items?.length || 0,
+          errorMessage: error.message,
+        });
+      } catch (logError) {
+        console.error("Failed to log import error:", logError);
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: "Import failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Import selected equipment from D365 preview
+  app.post("/api/dynamics365/import-equipment", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { equipment: selectedEquipment, defaultCategoryId, prefix } = req.body;
+      
+      if (!Array.isArray(selectedEquipment) || selectedEquipment.length === 0) {
+        return res.status(400).json({ error: "No equipment selected for import" });
+      }
+
+      let savedCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+      
+      for (const d365Equip of selectedEquipment) {
+        try {
+          // Check if equipment exists by asset number
+          const assetNo = d365Equip.Asset_No || d365Equip.No;
+          const existingEquip = await db.select()
+            .from(equipment)
+            .where(eq(equipment.assetNo, assetNo))
+            .limit(1);
+          
+          const equipData = {
+            categoryId: defaultCategoryId || null,
+            equipmentType: d365Equip.Type || d365Equip.Description?.split(' ')[0] || 'UNKNOWN',
+            make: d365Equip.Make || 'UNKNOWN',
+            model: d365Equip.Model || d365Equip.Description || 'UNKNOWN',
+            assetNo: assetNo,
+            machineSerial: d365Equip.Serial_No || null,
+            plantNumber: d365Equip.Plant_Number || null,
+            price: d365Equip.Unit_Price?.toString() || null,
+            remarks: `Imported from Dynamics 365 - ${d365Equip.Description}`,
+          };
+          
+          if (existingEquip.length > 0) {
+            // Update existing equipment
+            await db.update(equipment)
+              .set(equipData)
+              .where(eq(equipment.assetNo, assetNo));
+            updatedCount++;
+          } else {
+            // Insert new equipment
+            await db.insert(equipment).values(equipData);
+            savedCount++;
+          }
+        } catch (equipError: any) {
+          console.error(`Error saving equipment ${d365Equip.No}:`, equipError.message);
+          errors.push(`${d365Equip.No}: ${equipError.message}`);
+          skippedCount++;
+        }
+      }
+      
+      // Create sync log entry
+      const logStatus = errors.length > 0 ? (errors.length === selectedEquipment.length ? "failed" : "partial") : "success";
+      await db.insert(d365SyncLogs).values({
+        syncType: "equipment",
+        status: logStatus,
+        prefix: prefix || null,
+        recordsImported: savedCount,
+        recordsUpdated: updatedCount,
+        recordsSkipped: skippedCount,
+        totalRecords: selectedEquipment.length,
+        errorMessage: errors.length > 0 ? errors.join("; ") : null,
+        importData: JSON.stringify(selectedEquipment.slice(0, 10)), // Store first 10 items as sample
+      });
+      
+      console.log(`Imported ${savedCount} new equipment, updated ${updatedCount} equipment`);
+      
+      res.json({
+        success: true,
+        savedCount,
+        updatedCount,
+        errors: errors.length > 0 ? errors : undefined,
+        totalProcessed: selectedEquipment.length,
+      });
+    } catch (error: any) {
+      console.error("D365 import equipment error:", error);
+      
+      // Log the failed import
+      try {
+        await db.insert(d365SyncLogs).values({
+          syncType: "equipment",
+          status: "failed",
+          prefix: req.body.prefix || null,
+          recordsImported: 0,
+          recordsUpdated: 0,
+          recordsSkipped: 0,
+          totalRecords: req.body.equipment?.length || 0,
+          errorMessage: error.message,
+        });
+      } catch (logError) {
+        console.error("Failed to log import error:", logError);
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: "Import failed", 
+        error: error.message 
+      });
+    }
+  });
+
+  // Generate PowerShell script for D365 data sync
+  app.get("/api/dynamics365/generate-script", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      // Get system settings for app URL
+      const systemSettings = await storage.getSystemSettings();
+      const appUrl = `http://${systemSettings?.serverHost || '192.168.0.34'}:${systemSettings?.serverPort || 3000}`;
+
+      // Generate PowerShell script
+      const script = `# Dynamics 365 Business Central Data Sync Script
+# Generated: ${new Date().toISOString()}
+# This script fetches data from D365 and sends it to the Gelan Terminal Maintenance app
+
+# Configuration
+$D365Url = "${d365Settings.bcUrl}"
+$CompanyName = "${d365Settings.bcCompany}"
+$AppUrl = "${appUrl}"
+$ApiKey = "${d365Settings.id}"
+
+# Function to fetch data from D365
+function Get-D365Data {
+    param(
+        [string]$Endpoint
+    )
+    
+    $encodedCompany = [System.Web.HttpUtility]::UrlEncode($CompanyName)
+    $url = "$D365Url/ODataV4/Company('$encodedCompany')/$Endpoint"
+    
+    Write-Host "Fetching from: $url"
+    
+    try {
+        # Use Windows Integrated Authentication (works automatically on D365 server)
+        $response = Invoke-RestMethod -Uri $url -Method Get -UseDefaultCredentials
+        return $response.value
+    }
+    catch {
+        Write-Host "Error fetching data: $_"
+        return $null
+    }
+}
+
+# Function to send data to app
+function Send-ToApp {
+    param(
+        [array]$Items,
+        [array]$Equipment,
+        [string]$SyncType
+    )
+    
+    $body = @{
+        apiKey = $ApiKey
+        items = $Items
+        equipment = $Equipment
+        syncType = $SyncType
+    } | ConvertTo-Json -Depth 10
+    
+    try {
+        $response = Invoke-RestMethod -Uri "$AppUrl/api/dynamics365/receive-data" \`
+            -Method Post \`
+            -Body $body \`
+            -ContentType "application/json"
+        
+        Write-Host "✓ Sync successful!"
+        Write-Host "  - Saved: $($response.savedCount)"
+        Write-Host "  - Updated: $($response.updatedCount)"
+        Write-Host "  - Skipped: $($response.skippedCount)"
+        
+        return $response
+    }
+    catch {
+        Write-Host "✗ Error sending data to app: $_"
+        return $null
+    }
+}
+
+# Main execution
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  D365 Data Sync" -ForegroundColor Cyan
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+
+# Fetch items
+Write-Host "Fetching items from D365..." -ForegroundColor Yellow
+$items = Get-D365Data -Endpoint "items"
+
+# Filter by prefix if specified
+$itemPrefix = "${d365Settings.itemPrefix || ''}"
+if ($itemPrefix -and $items) {
+    $itemsBefore = $items.Count
+    $items = $items | Where-Object { $_.No -like "$itemPrefix*" }
+    Write-Host "Filtered items: $($items.Count) of $itemsBefore match prefix '$itemPrefix'" -ForegroundColor Cyan
+}
+
+if ($items) {
+    Write-Host "Found $($items.Count) items" -ForegroundColor Green
+} else {
+    Write-Host "No items found or error occurred" -ForegroundColor Red
+}
+
+# Fetch equipment (try different endpoints)
+Write-Host "Fetching equipment from D365..." -ForegroundColor Yellow
+$equipment = Get-D365Data -Endpoint "FixedAssets"
+
+if (-not $equipment) {
+    $equipment = Get-D365Data -Endpoint "Fixed_Assets"
+}
+
+# Filter by prefix if specified
+$equipmentPrefix = "${d365Settings.equipmentPrefix || ''}"
+if ($equipmentPrefix -and $equipment) {
+    $equipBefore = $equipment.Count
+    $equipment = $equipment | Where-Object { $_.No -like "$equipmentPrefix*" }
+    Write-Host "Filtered equipment: $($equipment.Count) of $equipBefore match prefix '$equipmentPrefix'" -ForegroundColor Cyan
+}
+
+if ($equipment) {
+    Write-Host "Found $($equipment.Count) equipment" -ForegroundColor Green
+} else {
+    Write-Host "No equipment found or endpoint not available" -ForegroundColor Yellow
+}
+
+# Send to app
+if ($items -or $equipment) {
+    Write-Host ""
+    Write-Host "Sending data to Gelan Terminal app..." -ForegroundColor Yellow
+    $result = Send-ToApp -Items $items -Equipment $equipment -SyncType "powershell_sync"
+    
+    if ($result) {
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Green
+        Write-Host "  Sync Complete!" -ForegroundColor Green
+        Write-Host "========================================" -ForegroundColor Green
+    }
+} else {
+    Write-Host ""
+    Write-Host "No data to sync" -ForegroundColor Red
+}
+
+Write-Host ""
+Write-Host "Press any key to exit..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+`;
+
+      // Return as downloadable file
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', 'attachment; filename="D365-Sync.ps1"');
+      res.send(script);
+    } catch (error: any) {
+      console.error("Generate script error:", error);
+      res.status(500).json({ error: "Failed to generate script" });
+    }
+  });
+
+  // ==================== NTLM D365 Direct Connection Routes ====================
+  
+  // Import NTLM helpers
+  const { testD365Connection, fetchD365Customers, fetchD365Items, fetchD365Equipment } = await import("./d365-ntlm");
+
+  // Test D365 connection using NTLM
+  app.post("/api/dynamics365/test-connection-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const result = await testD365Connection(config);
+      
+      // Update test status in database
+      await db.update(dynamics365Settings)
+        .set({
+          lastTestDate: new Date(),
+          lastTestStatus: result.success ? 'success' : 'failed',
+          lastTestMessage: result.success ? 'Connection successful' : result.error || 'Connection failed',
+        })
+        .where(eq(dynamics365Settings.id, d365Settings.id));
+
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          message: "Connected to D365 Business Central successfully!",
+          statusCode: result.statusCode,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Test connection error:", error);
+      res.status(500).json({ error: "Failed to test connection" });
+    }
+  });
+
+  // Fetch customers from D365 using NTLM
+  app.get("/api/dynamics365/customers-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const result = await fetchD365Customers(config, limit);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: result.data,
+          count: result.data?.value?.length || 0,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Fetch customers error:", error);
+      res.status(500).json({ error: "Failed to fetch customers" });
+    }
+  });
+
+  // Fetch items from D365 using NTLM
+  app.get("/api/dynamics365/items-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 1000;
+      const result = await fetchD365Items(config, d365Settings.itemPrefix || undefined, limit);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: result.data,
+          count: result.data?.value?.length || 0,
+          prefix: d365Settings.itemPrefix,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Fetch items error:", error);
+      res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  // Fetch equipment (fixed assets) from D365 using NTLM
+  app.get("/api/dynamics365/equipment-ntlm", isCEOOrAdmin, async (req, res) => {
+    try {
+      const d365Settings = await storage.getDynamics365Settings();
+      if (!d365Settings) {
+        return res.status(400).json({ error: "D365 settings not configured" });
+      }
+
+      const config = {
+        server: d365Settings.bcUrl,
+        company: d365Settings.bcCompany,
+        username: d365Settings.bcUsername,
+        password: d365Settings.bcPassword,
+        domain: d365Settings.bcDomain || undefined,
+      };
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 1000;
+      const result = await fetchD365Equipment(config, d365Settings.equipmentPrefix || undefined, limit);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          data: result.data,
+          count: result.data?.value?.length || 0,
+          prefix: d365Settings.equipmentPrefix,
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: result.error,
+          statusCode: result.statusCode,
+        });
+      }
+    } catch (error: any) {
+      console.error("Fetch equipment error:", error);
+      res.status(500).json({ error: "Failed to fetch equipment" });
+    }
+  });
+
+  // Get D365 sync logs
+  app.get("/api/dynamics365/sync-logs", isCEOOrAdmin, async (req, res) => {
+    try {
+      const logs = await db.select()
+        .from(d365SyncLogs)
+        .orderBy(sql`${d365SyncLogs.createdAt} DESC`)
+        .limit(50); // Last 50 sync operations
+      
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Error fetching D365 sync logs:", error);
+      res.status(500).json({ error: "Failed to fetch sync logs" });
+    }
+  });
+
+  // ==================== Items CRUD Routes ====================
+  
+  // Get all items from database
+  app.get("/api/items", async (req, res) => {
+    try {
+      const { search } = req.query;
+      
+      let query = db.select().from(items).$dynamic();
+      
+      if (search && typeof search === 'string') {
+        query = query.where(
+          or(
+            ilike(items.itemNo, `%${search}%`),
+            ilike(items.description, `%${search}%`)
+          )
+        );
+      }
+      
+      const allItems = await query;
+      res.json(allItems);
+    } catch (error: any) {
+      console.error("Error fetching items:", error);
+      res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  // Get a single item by ID
+  app.get("/api/items/:id", async (req, res) => {
+    try {
+      const item = await db.select()
+        .from(items)
+        .where(eq(items.id, req.params.id))
+        .limit(1);
+      
+      if (item.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      
+      res.json(item[0]);
+    } catch (error: any) {
+      console.error("Error fetching item:", error);
+      res.status(500).json({ error: "Failed to fetch item" });
+    }
+  });
+
+  // Create a new item
+  app.post("/api/items", isCEOOrAdmin, async (req, res) => {
+    try {
+      const itemData = insertItemSchema.parse(req.body);
+      
+      const newItem = await db.insert(items)
+        .values({
+          ...itemData,
+          syncedAt: new Date(),
+        })
+        .returning();
+      
+      res.status(201).json(newItem[0]);
+    } catch (error: any) {
+      console.error("Error creating item:", error);
+      
+      if (error.code === '23505') {
+        return res.status(400).json({ error: "Item with this number already exists" });
+      }
+      
+      res.status(500).json({ error: "Failed to create item" });
+    }
+  });
+
+  // Update an item
+  app.patch("/api/items/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const itemData = insertItemSchema.partial().parse(req.body);
+      
+      const updatedItem = await db.update(items)
+        .set({
+          ...itemData,
+          updatedAt: new Date(),
+        })
+        .where(eq(items.id, req.params.id))
+        .returning();
+      
+      if (updatedItem.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      
+      res.json(updatedItem[0]);
+    } catch (error: any) {
+      console.error("Error updating item:", error);
+      res.status(500).json({ error: "Failed to update item" });
+    }
+  });
+
+  // Delete an item
+  app.delete("/api/items/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const deletedItem = await db.delete(items)
+        .where(eq(items.id, req.params.id))
+        .returning();
+      
+      if (deletedItem.length === 0) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting item:", error);
+      res.status(500).json({ error: "Failed to delete item" });
+    }
+  });
+
+  // ==================== SYSTEM SETTINGS ROUTES ====================
+  
+  // Get system settings
+  app.get("/api/system-settings", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const { systemSettings } = await import("@shared/schema");
+      const settings = await db.select().from(systemSettings).limit(1);
+      
+      if (settings.length === 0) {
+        // Return default settings if none exist
+        return res.json({
+          serverHost: "0.0.0.0",
+          serverPort: 3000,
+        });
+      }
+      
+      res.json(settings[0]);
+    } catch (error: any) {
+      console.error("Error fetching system settings:", error);
+      res.status(500).json({ error: "Failed to fetch system settings" });
+    }
+  });
+
+  // Update system settings
+  app.patch("/api/system-settings", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { systemSettings, insertSystemSettingsSchema } = await import("@shared/schema");
+      const settingsData = insertSystemSettingsSchema.partial().parse(req.body);
+      
+      // Get current user ID from session
+      const userId = (req.user as any)?.id;
+      
+      // Check if settings exist
+      const existing = await db.select().from(systemSettings).limit(1);
+      
+      let updated;
+      if (existing.length === 0) {
+        // Create new settings
+        updated = await db.insert(systemSettings)
+          .values({
+            ...settingsData,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          })
+          .returning();
+      } else {
+        // Update existing settings
+        updated = await db.update(systemSettings)
+          .set({
+            ...settingsData,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          })
+          .where(eq(systemSettings.id, existing[0].id))
+          .returning();
+      }
+      
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error updating system settings:", error);
+      res.status(500).json({ error: "Failed to update system settings" });
+    }
+  });
+
+  // Dashboard analytics endpoint - dynamic data with filters
+  app.get("/api/dashboard/analytics", isAuthenticated, async (req, res) => {
+    try {
+      const { workOrders, workshops, workOrderRequiredParts, spareParts } = await import("@shared/schema");
+      const { sql: drizzleSql, and, gte, lte, between } = await import("drizzle-orm");
+      
+      // Parse query parameters
+      const timePeriod = req.query.timePeriod as string || 'annual'; // daily, weekly, monthly, q1, q2, q3, q4, annual
+      const workshopId = req.query.workshopId as string | undefined; // Optional workshop filter
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      
+      // Build date filter based on time period
+      let dateFilter: any = {};
+      const startOfYear = new Date(year, 0, 1);
+      const endOfYear = new Date(year, 11, 31, 23, 59, 59);
+      
+      if (timePeriod === 'q1') {
+        dateFilter = {
+          start: new Date(year, 0, 1),
+          end: new Date(year, 2, 31, 23, 59, 59)
+        };
+      } else if (timePeriod === 'q2') {
+        dateFilter = {
+          start: new Date(year, 3, 1),
+          end: new Date(year, 5, 30, 23, 59, 59)
+        };
+      } else if (timePeriod === 'q3') {
+        dateFilter = {
+          start: new Date(year, 6, 1),
+          end: new Date(year, 8, 30, 23, 59, 59)
+        };
+      } else if (timePeriod === 'q4') {
+        dateFilter = {
+          start: new Date(year, 9, 1),
+          end: new Date(year, 11, 31, 23, 59, 59)
+        };
+      } else if (timePeriod === 'monthly') {
+        const month = parseInt(req.query.month as string) || new Date().getMonth();
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        dateFilter = {
+          start: new Date(year, month, 1),
+          end: new Date(year, month, lastDay, 23, 59, 59)
+        };
+      } else if (timePeriod === 'weekly') {
+        // Week starts on the date specified
+        const weekStart = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setHours(23, 59, 59);
+        dateFilter = { start: weekStart, end: weekEnd };
+      } else if (timePeriod === 'daily') {
+        const day = req.query.date ? new Date(req.query.date as string) : new Date();
+        const dayEnd = new Date(day);
+        dayEnd.setHours(23, 59, 59);
+        dateFilter = { start: day, end: dayEnd };
+      } else {
+        // Annual
+        dateFilter = { start: startOfYear, end: endOfYear };
+      }
+      
+      // Build filters array
+      const filters: any[] = [];
+      
+      // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
+      // if (workshopId && workshopId !== 'all') {
+      //   // Need to join with work_order_workshops table for multi-workshop filtering
+      // }
+      
+      // Add date filter for completed work orders
+      if (dateFilter.start && dateFilter.end) {
+        filters.push(gte(workOrders.completedAt, dateFilter.start));
+        filters.push(lte(workOrders.completedAt, dateFilter.end));
+      }
+      
+      // Fetch completed work orders with filters
+      const completedOrders = await db.select().from(workOrders)
+        .where(and(
+          eq(workOrders.status, 'completed'),
+          ...filters
+        ));
+      
+      // Fetch all work orders in the date range (for planned count)
+      const allOrdersFilters: any[] = [];
+      // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
+      // if (workshopId && workshopId !== 'all') {
+      //   // Need to join with work_order_workshops table for multi-workshop filtering
+      // }
+      if (dateFilter.start && dateFilter.end) {
+        allOrdersFilters.push(gte(workOrders.createdAt, dateFilter.start));
+        allOrdersFilters.push(lte(workOrders.createdAt, dateFilter.end));
+      }
+      
+      const allOrders = await db.select().from(workOrders)
+        .where(and(...allOrdersFilters));
+      
+      // Fetch workshops data
+      const workshopsData = await db.select().from(workshops);
+      
+      // Calculate KPIs
+      const totalPlanned = allOrders.length;
+      const totalCompleted = completedOrders.length;
+      const accomplishmentRate = totalPlanned > 0 ? (totalCompleted / totalPlanned) * 100 : 0;
+      
+      // Calculate total costs
+      let totalDirectCost = 0;
+      let totalOvertimeCost = 0;
+      let totalOutsourceCost = 0;
+      let totalOverheadCost = 0;
+      let totalCost = 0;
+      
+      for (const order of completedOrders) {
+        const directCost = parseFloat(order.directMaintenanceCost || '0');
+        const overtimeCost = parseFloat(order.overtimeCost || '0');
+        const outsourceCost = parseFloat(order.outsourceCost || '0');
+        const overheadCost = parseFloat(order.overheadCost || '0');
+        
+        totalDirectCost += directCost;
+        totalOvertimeCost += overtimeCost;
+        totalOutsourceCost += outsourceCost;
+        totalOverheadCost += overheadCost;
+        
+        // If no breakdown, use actualCost
+        if (directCost === 0 && overtimeCost === 0 && outsourceCost === 0) {
+          const actualCost = parseFloat(order.actualCost || '0');
+          totalDirectCost += actualCost * 0.7; // Assume 70% direct
+          totalOverheadCost += actualCost * 0.3; // 30% overhead
+          totalCost += actualCost;
+        } else {
+          totalCost += directCost + overtimeCost + outsourceCost + overheadCost;
+        }
+      }
+      
+      // Active workshops count
+      const activeWorkshops = workshopsData.filter((w: any) => w.isActive).length;
+      
+      // Calculate quarterly data for the year
+      const quarterlyData = [];
+      const quarters = [
+        { name: 'Q1', start: new Date(year, 0, 1), end: new Date(year, 2, 31, 23, 59, 59), months: [0, 1, 2] },
+        { name: 'Q2', start: new Date(year, 3, 1), end: new Date(year, 5, 30, 23, 59, 59), months: [3, 4, 5] },
+        { name: 'Q3', start: new Date(year, 6, 1), end: new Date(year, 8, 30, 23, 59, 59), months: [6, 7, 8] },
+        { name: 'Q4', start: new Date(year, 9, 1), end: new Date(year, 11, 31, 23, 59, 59), months: [9, 10, 11] },
+      ];
+      
+      for (const quarter of quarters) {
+        const qFilters: any[] = [];
+        // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
+        // if (workshopId && workshopId !== 'all') {
+        //   // Need to join with work_order_workshops table for multi-workshop filtering
+        // }
+        qFilters.push(gte(workOrders.createdAt, quarter.start));
+        qFilters.push(lte(workOrders.createdAt, quarter.end));
+        
+        const qAllOrders = await db.select().from(workOrders)
+          .where(and(...qFilters));
+        
+        const qCompletedOrders = qAllOrders.filter((o: any) => o.status === 'completed');
+        
+        let qDirectCost = 0;
+        let qOvertimeCost = 0;
+        let qOutsourceCost = 0;
+        let qOverheadCost = 0;
+        
+        for (const order of qCompletedOrders) {
+          const directCost = parseFloat(order.directMaintenanceCost || '0');
+          const overtimeCost = parseFloat(order.overtimeCost || '0');
+          const outsourceCost = parseFloat(order.outsourceCost || '0');
+          const overheadCost = parseFloat(order.overheadCost || '0');
+          
+          if (directCost === 0 && overtimeCost === 0 && outsourceCost === 0) {
+            const actualCost = parseFloat(order.actualCost || '0');
+            qDirectCost += actualCost * 0.7;
+            qOverheadCost += actualCost * 0.3;
+          } else {
+            qDirectCost += directCost;
+            qOvertimeCost += overtimeCost;
+            qOutsourceCost += outsourceCost;
+            qOverheadCost += overheadCost;
+          }
+        }
+        
+        const qTotalCost = qDirectCost + qOvertimeCost + qOutsourceCost + qOverheadCost;
+        const qAccomplishment = qAllOrders.length > 0 ? (qCompletedOrders.length / qAllOrders.length) * 100 : 0;
+        
+        quarterlyData.push({
+          quarter: quarter.name,
+          planned: qAllOrders.length,
+          completed: qCompletedOrders.length,
+          accomplishment: parseFloat(qAccomplishment.toFixed(2)),
+          cost: parseFloat(qTotalCost.toFixed(2)),
+          directCost: parseFloat(qDirectCost.toFixed(2)),
+          overtimeCost: parseFloat(qOvertimeCost.toFixed(2)),
+          outsourceCost: parseFloat(qOutsourceCost.toFixed(2)),
+          overhead: parseFloat(qOverheadCost.toFixed(2)),
+        });
+      }
+      
+      // Calculate workshop/department performance
+      const workshopPerformance = [];
+      for (const workshop of workshopsData) {
+        if (!workshop.isActive) continue;
+        
+        // Get work orders for this workshop
+        const workshopOrders = allOrders.filter((o: any) => o.workshopId === workshop.id);
+        const workshopCompleted = completedOrders.filter((o: any) => o.workshopId === workshop.id);
+        
+        // Calculate quarterly accomplishment for this workshop
+        const q1Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[0].start && created <= quarters[0].end;
+        });
+        const q1Completed = q1Orders.filter((o: any) => o.status === 'completed');
+        
+        const q2Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[1].start && created <= quarters[1].end;
+        });
+        const q2Completed = q2Orders.filter((o: any) => o.status === 'completed');
+        
+        const q3Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[2].start && created <= quarters[2].end;
+        });
+        const q3Completed = q3Orders.filter((o: any) => o.status === 'completed');
+        
+        const q4Orders = workshopOrders.filter((o: any) => {
+          const created = new Date(o.createdAt);
+          return created >= quarters[3].start && created <= quarters[3].end;
+        });
+        const q4Completed = q4Orders.filter((o: any) => o.status === 'completed');
+        
+        // Calculate average cost for this workshop
+        let workshopTotalCost = 0;
+        for (const order of workshopCompleted) {
+          const directCost = parseFloat(order.directMaintenanceCost || '0');
+          const overtimeCost = parseFloat(order.overtimeCost || '0');
+          const outsourceCost = parseFloat(order.outsourceCost || '0');
+          const overheadCost = parseFloat(order.overheadCost || '0');
+          
+          if (directCost === 0 && overtimeCost === 0 && outsourceCost === 0) {
+            const actualCost = parseFloat(order.actualCost || '0');
+            workshopTotalCost += actualCost;
+          } else {
+            workshopTotalCost += directCost + overtimeCost + outsourceCost + overheadCost;
+          }
+        }
+        
+        const avgCost = workshopCompleted.length > 0 ? workshopTotalCost / workshopCompleted.length : 0;
+        
+        workshopPerformance.push({
+          name: workshop.name,
+          q1: q1Orders.length > 0 ? parseFloat(((q1Completed.length / q1Orders.length) * 100).toFixed(2)) : 0,
+          q2: q2Orders.length > 0 ? parseFloat(((q2Completed.length / q2Orders.length) * 100).toFixed(2)) : 0,
+          q3: q3Orders.length > 0 ? parseFloat(((q3Completed.length / q3Orders.length) * 100).toFixed(2)) : 0,
+          q4: q4Orders.length > 0 ? parseFloat(((q4Completed.length / q4Orders.length) * 100).toFixed(2)) : 0,
+          avgCost: parseFloat(avgCost.toFixed(2)),
+          totalCost: parseFloat(workshopTotalCost.toFixed(2)),
+        });
+      }
+      
+      // Return analytics data
+      res.json({
+        kpis: {
+          totalWorkOrders: totalCompleted,
+          totalPlanned: totalPlanned,
+          accomplishmentRate: parseFloat(accomplishmentRate.toFixed(2)),
+          totalCost: parseFloat(totalCost.toFixed(2)),
+          activeWorkshops: activeWorkshops,
+        },
+        costBreakdown: {
+          directMaintenance: parseFloat(totalDirectCost.toFixed(2)),
+          overtime: parseFloat(totalOvertimeCost.toFixed(2)),
+          outsource: parseFloat(totalOutsourceCost.toFixed(2)),
+          overhead: parseFloat(totalOverheadCost.toFixed(2)),
+        },
+        quarterlyData,
+        workshopPerformance,
+        workshops: workshopsData.filter((w: any) => w.isActive).map((w: any) => ({
+          id: w.id,
+          name: w.name,
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error fetching dashboard analytics:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard analytics" });
     }
   });
 

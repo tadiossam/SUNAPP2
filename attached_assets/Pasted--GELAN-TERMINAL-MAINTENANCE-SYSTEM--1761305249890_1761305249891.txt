@@ -1,0 +1,99 @@
+============================================================
+   GELAN TERMINAL MAINTENANCE SYSTEM
+   Sunshine Construction PLC
+============================================================
+
+Checking Node.js...
+Γ£ô Node.js installed
+
+Installing dependencies...
+Γ£ô Dependencies ready
+
+============================================================
+   SERVER STARTING
+============================================================
+
+Server will be available at:
+  - Local access:   http://localhost:3000
+  - Network access: http://192.168.0.34:3000
+
+Other computers can access via: http://192.168.0.34:3000
+
+Default Login:
+  Username: ceo
+  Password: ceo123
+
+Press Ctrl+C to stop the server
+============================================================
+
+🔗 Using node-postgres driver (local database)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+2:26:15 PM [express] Environment: development (NODE_ENV=undefined)
+2:26:15 PM [express] Starting Vite dev server...
+2:26:16 PM [express] Vite dev server ready
+2:26:16 PM [express] serving on port 3000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+2:26:31 PM [express] GET /api/auth/me 304 in 4ms :: {"user":null}
+Error fetching equipment: error: no pg_hba.conf entry for host "192.168.0.34", user "postgres", database "gelan_terminal", no encryption
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.searchEquipment (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:386:27)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:270:22) {
+  length: 166,
+  severity: 'FATAL',
+  code: '28000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '537',
+  routine: 'ClientAuthentication'
+}
+2:26:32 PM [express] GET /api/equipment 500 in 103ms :: {"error":"Failed to fetch equipment"}
+Error fetching equipment categories: Error: read ECONNRESET
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEquipmentCategories (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:301:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:153:26) {
+  errno: -4077,
+  code: 'ECONNRESET',
+  syscall: 'read'
+}
+2:26:32 PM [express] GET /api/equipment-categories 500 in 102ms :: {"error":"Failed to fetch equipme…
+Error fetching employees: error: no pg_hba.conf entry for host "192.168.0.34", user "postgres", database "gelan_terminal", no encryption
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.getAllEmployees (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:909:12)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:1019:25) {
+  length: 166,
+  severity: 'FATAL',
+  code: '28000',
+  detail: undefined,
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'auth.c',
+  line: '537',
+  routine: 'ClientAuthentication'
+}
+2:26:32 PM [express] GET /api/employees 500 in 104ms :: {"error":"Failed to fetch employees"}
+2:26:40 PM [express] POST /api/auth/login 500 in 33ms :: {"message":"Authentication error"}

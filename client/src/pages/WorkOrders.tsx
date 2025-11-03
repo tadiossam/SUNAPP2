@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
@@ -62,24 +62,12 @@ export default function WorkOrdersPage() {
   // Form state
   const [workOrderNumber, setWorkOrderNumber] = useState("");
   const [equipmentId, setEquipmentId] = useState("");
-  const [garageId, setGarageId] = useState("");
-  const [assignedToIds, setAssignedToIds] = useState<string[]>([]); // Array for team assignment
+  const [selectedGarageIds, setSelectedGarageIds] = useState<string[]>([]);
+  const [selectedWorkshopIds, setSelectedWorkshopIds] = useState<string[]>([]);
   const [priority, setPriority] = useState("medium");
   const [workType, setWorkType] = useState("repair");
   const [description, setDescription] = useState("");
-  const [estimatedHours, setEstimatedHours] = useState("");
-  const [estimatedCost, setEstimatedCost] = useState("");
-  const [scheduledDate, setScheduledDate] = useState("");
-  const [notes, setNotes] = useState("");
-  const [selectedParts, setSelectedParts] = useState<SparePart[]>([]);
-  const [partSearchTerm, setPartSearchTerm] = useState("");
-  const [isPartsDialogOpen, setIsPartsDialogOpen] = useState(false);
-  const [tempSelectedParts, setTempSelectedParts] = useState<string[]>([]);
-  
-  // Employee selection dialog state
-  const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
-  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
-  const [tempSelectedEmployees, setTempSelectedEmployees] = useState<string[]>([]);
+  const [isWorkshopDialogOpen, setIsWorkshopDialogOpen] = useState(false);
 
   // Inspection and Maintenance detail dialogs
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
@@ -138,6 +126,17 @@ export default function WorkOrdersPage() {
     enabled: !!viewingInspectionId,
   });
 
+  // Fetch inspection checklist items when viewing
+  const { data: checklistItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspections", viewingInspectionId, "checklist"],
+    queryFn: async () => {
+      if (!viewingInspectionId) return [];
+      const response = await apiRequest("GET", `/api/inspections/${viewingInspectionId}/checklist`);
+      return response.json();
+    },
+    enabled: !!viewingInspectionId,
+  });
+
   // Fetch reception details when viewing
   const { data: receptionDetails, isLoading: isLoadingReception } = useQuery<any>({
     queryKey: ["/api/equipment-receptions", viewingReceptionId],
@@ -164,18 +163,6 @@ export default function WorkOrdersPage() {
     };
     generateWorkOrderNumber();
   }, [isDialogOpen, editingWorkOrder]);
-
-  // Auto-calculate estimated cost based on selected spare parts
-  useEffect(() => {
-    const totalCost = selectedParts.reduce((sum, part) => {
-      const price = parseFloat(part.price || '0');
-      return sum + price;
-    }, 0);
-    
-    if (totalCost > 0) {
-      setEstimatedCost(totalCost.toFixed(2));
-    }
-  }, [selectedParts]);
 
   const createWorkOrderMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -228,17 +215,11 @@ export default function WorkOrdersPage() {
   const resetForm = () => {
     setWorkOrderNumber("");
     setEquipmentId("");
-    setGarageId("");
-    setAssignedToIds([]);
+    setSelectedGarageIds([]);
+    setSelectedWorkshopIds([]);
     setPriority("medium");
     setWorkType("repair");
     setDescription("");
-    setEstimatedHours("");
-    setEstimatedCost("");
-    setScheduledDate("");
-    setNotes("");
-    setSelectedParts([]);
-    setPartSearchTerm("");
     setEditingWorkOrder(null);
     setSelectedInspectionId(null);
   };
@@ -260,96 +241,39 @@ export default function WorkOrdersPage() {
     // Pre-fill the form with inspection and reception data
     setSelectedInspectionId(inspectionId);
     setEquipmentId(reception.equipmentId || "");
-    setGarageId(reception.garageId || "");
+    // Note: Multi-garage assignment will be done manually in the form
     
-    // Build description from driver submission and admin issues
-    let descriptionText = `Process Equipment Maintenance - ${reception.receptionNumber}\n\n`;
-    descriptionText += `--- Driver Submission Details ---\n`;
-    descriptionText += `Driver Name: ${reception.driver?.fullName || 'N/A'}\n`;
-    descriptionText += `Reported Issues: ${reception.reportedIssues || 'None reported'}\n`;
-    descriptionText += `Fuel Level: ${reception.fuelLevel || 'N/A'}\n`;
-    descriptionText += `Kilometrage: ${reception.kilometrage || 'N/A'} km\n`;
-    descriptionText += `Reason: ${reception.reasonForMaintenance || 'N/A'}\n\n`;
-    
-    if (reception.adminReportedIssues) {
-      descriptionText += `--- Issues Reported by Administration Officer ---\n`;
-      descriptionText += `${reception.adminReportedIssues}\n`;
-    }
-    
-    setDescription(descriptionText);
+    // Don't auto-fill description - let user fill it manually
+    setDescription("");
     setWorkType(inspection.serviceType === "Short Term" ? "maintenance" : "repair");
     setPriority("medium");
-    
-    // Set notes with inspection findings and recommendations
-    let notesText = "";
-    if (inspection.findings) {
-      notesText += `Inspection Findings: ${inspection.findings}\n`;
-    }
-    if (inspection.recommendations) {
-      notesText += `Recommendations: ${inspection.recommendations}`;
-    }
-    setNotes(notesText);
 
     // Open the work order dialog
     setIsInspectionSelectOpen(false);
     setIsDialogOpen(true);
   };
 
-  const handleEdit = (workOrder: WorkOrder) => {
+  const handleEdit = async (workOrder: WorkOrder) => {
     setEditingWorkOrder(workOrder);
     setWorkOrderNumber(workOrder.workOrderNumber);
     setEquipmentId(workOrder.equipmentId);
-    setGarageId(workOrder.garageId || "");
-    setAssignedToIds(workOrder.assignedToIds || []);
     setPriority(workOrder.priority);
     setWorkType(workOrder.workType);
     setDescription(workOrder.description);
-    setEstimatedHours(workOrder.estimatedHours || "");
-    setEstimatedCost(workOrder.estimatedCost || "");
     
-    // Format date for datetime-local input (YYYY-MM-DDTHH:mm)
-    if (workOrder.scheduledDate) {
-      const date = new Date(workOrder.scheduledDate);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      setScheduledDate(`${year}-${month}-${day}T${hours}:${minutes}`);
-    } else {
-      setScheduledDate("");
-    }
-    
-    setNotes(workOrder.notes || "");
-    
-    // Hydrate selected parts from work order required parts
-    if (workOrder.requiredParts && spareParts) {
-      const partsToSelect = workOrder.requiredParts
-        .map(reqPart => {
-          // Try to find the part in the spare parts list
-          const fullPart = spareParts.find(sp => sp.id === reqPart.sparePartId);
-          if (fullPart) {
-            return fullPart;
-          }
-          // If not found, create a partial SparePart from the denormalized data
-          return {
-            id: reqPart.sparePartId || reqPart.id,
-            partName: reqPart.partName,
-            partNumber: reqPart.partNumber,
-            stockStatus: reqPart.stockStatus || 'unknown',
-          } as SparePart;
-        })
-        .filter(Boolean);
-      setSelectedParts(partsToSelect);
-    } else if (workOrder.requiredParts) {
-      // If spareParts not loaded yet, create partial parts from denormalized data
-      const partsToSelect = workOrder.requiredParts.map(reqPart => ({
-        id: reqPart.sparePartId || reqPart.id,
-        partName: reqPart.partName,
-        partNumber: reqPart.partNumber,
-        stockStatus: reqPart.stockStatus || 'unknown',
-      } as SparePart));
-      setSelectedParts(partsToSelect);
+    // Load garage and workshop assignments for this work order
+    try {
+      const response = await fetch(`/api/work-orders/${workOrder.id}/assignments`);
+      if (response.ok) {
+        const assignments = await response.json();
+        setSelectedGarageIds(assignments.garageIds || []);
+        setSelectedWorkshopIds(assignments.workshopIds || []);
+      }
+    } catch (error) {
+      console.error("Failed to load work order assignments:", error);
+      // Continue with empty arrays if fetch fails
+      setSelectedGarageIds([]);
+      setSelectedWorkshopIds([]);
     }
     
     setIsDialogOpen(true);
@@ -365,60 +289,6 @@ export default function WorkOrdersPage() {
     }
   };
 
-  const openPartsDialog = () => {
-    setTempSelectedParts(selectedParts.map(p => p.id));
-    setIsPartsDialogOpen(true);
-  };
-
-  const togglePartSelection = (partId: string) => {
-    setTempSelectedParts(prev => {
-      if (prev.includes(partId)) {
-        return prev.filter(id => id !== partId);
-      } else {
-        return [...prev, partId];
-      }
-    });
-  };
-
-  const confirmPartsSelection = () => {
-    setSelectedParts(prev => {
-      const selected = spareParts?.filter(p => tempSelectedParts.includes(p.id)) || [];
-      return selected;
-    });
-    setIsPartsDialogOpen(false);
-    setPartSearchTerm("");
-  };
-
-  const removePart = (partId: string) => {
-    setSelectedParts(selectedParts.filter(p => p.id !== partId));
-  };
-
-  // Employee selection dialog functions
-  const openEmployeeDialog = () => {
-    setTempSelectedEmployees(assignedToIds);
-    setIsEmployeeDialogOpen(true);
-  };
-
-  const toggleEmployeeSelection = (employeeId: string) => {
-    setTempSelectedEmployees(prev => {
-      if (prev.includes(employeeId)) {
-        return prev.filter(id => id !== employeeId);
-      } else {
-        return [...prev, employeeId];
-      }
-    });
-  };
-
-  const confirmEmployeeSelection = () => {
-    setAssignedToIds(tempSelectedEmployees);
-    setIsEmployeeDialogOpen(false);
-    setEmployeeSearchTerm("");
-  };
-
-  const removeEmployee = (employeeId: string) => {
-    setAssignedToIds(assignedToIds.filter(id => id !== employeeId));
-  };
-
   const getStockStatusColor = (status: string) => {
     switch (status) {
       case "in_stock": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
@@ -427,20 +297,6 @@ export default function WorkOrdersPage() {
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
   };
-
-  const filteredSpareParts = spareParts?.filter(part => 
-    partSearchTerm === "" ||
-    part.partNumber.toLowerCase().includes(partSearchTerm.toLowerCase()) ||
-    part.partName.toLowerCase().includes(partSearchTerm.toLowerCase())
-  );
-
-  const filteredEmployees = employees?.filter(emp => 
-    emp.isActive && (
-      employeeSearchTerm === "" ||
-      emp.fullName.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
-      emp.role.toLowerCase().includes(employeeSearchTerm.toLowerCase())
-    )
-  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -461,23 +317,13 @@ export default function WorkOrdersPage() {
     createWorkOrderMutation.mutate({
       workOrderNumber,
       equipmentId,
-      garageId: garageId || undefined,
-      assignedToIds: assignedToIds.length > 0 ? assignedToIds : undefined,
+      garageIds: selectedGarageIds,
+      workshopIds: selectedWorkshopIds,
       priority,
       workType,
       description,
-      estimatedHours: estimatedHours || undefined,
-      estimatedCost: estimatedCost || undefined,
-      scheduledDate: scheduledDate || undefined,
-      notes: notes || undefined,
       inspectionId: selectedInspectionId || undefined,
       receptionId: selectedInspection?.receptionId || undefined,
-      requiredParts: selectedParts.map(part => ({
-        partId: part.id,
-        partName: part.partName,
-        partNumber: part.partNumber,
-        stockStatus: part.stockStatus,
-      })),
     });
   };
 
@@ -794,6 +640,39 @@ export default function WorkOrdersPage() {
             </DialogDescription>
           </DialogHeader>
 
+          {/* View Inspection / View Maintenance Buttons */}
+          {(selectedInspectionId || editingWorkOrder?.inspectionId || editingWorkOrder?.receptionId || (selectedInspectionId && completedInspections.find(i => i.id === selectedInspectionId)?.reception)) && (
+            <div className="flex gap-2 pb-2 border-b">
+              {(selectedInspectionId || editingWorkOrder?.inspectionId) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewingInspectionId(selectedInspectionId || editingWorkOrder?.inspectionId || null)}
+                  data-testid="button-view-inspection"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View Inspection
+                </Button>
+              )}
+              {(editingWorkOrder?.receptionId || (selectedInspectionId && completedInspections.find(i => i.id === selectedInspectionId)?.reception)) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const receptionId = editingWorkOrder?.receptionId || completedInspections.find(i => i.id === selectedInspectionId)?.reception?.id;
+                    if (receptionId) setViewingReceptionId(receptionId);
+                  }}
+                  data-testid="button-view-maintenance"
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View Maintenance
+                </Button>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Work Order Number */}
@@ -858,165 +737,58 @@ export default function WorkOrdersPage() {
                 </Select>
               </div>
 
-              {/* Garage */}
-              <div className="space-y-2">
-                <Label htmlFor="garage">Garage/Workshop</Label>
-                <Select value={garageId} onValueChange={setGarageId}>
-                  <SelectTrigger data-testid="select-garage">
-                    <SelectValue placeholder="Select garage (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {garages?.map((garage) => (
-                      <SelectItem key={garage.id} value={garage.id}>
-                        {garage.name} - {garage.location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
 
-              {/* Assigned To - Team Selection */}
-              <div className="space-y-2 col-span-2">
-                <Label>Assign To (Team)</Label>
-                <Input
-                  readOnly
-                  value={assignedToIds.length === 0 ? "" : `${assignedToIds.length} team member${assignedToIds.length !== 1 ? 's' : ''} selected`}
-                  placeholder="Click to select team members"
-                  onClick={openEmployeeDialog}
-                  className="cursor-pointer"
-                  data-testid="input-select-team-members"
-                />
-                
-                {/* Selected Employees Display */}
-                {assignedToIds.length > 0 && (
-                  <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
-                    {employees?.filter(emp => emp.isActive && assignedToIds.includes(emp.id))?.map((emp) => (
-                      <div key={emp.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{emp.fullName}</span>
-                          <span className="text-xs text-muted-foreground">{emp.role}</span>
-                        </div>
+            {/* Multi-Garage Selection */}
+            <div className="space-y-3 p-4 border-2 rounded-lg bg-muted/30">
+              <Label className="flex items-center gap-2 text-lg font-semibold">
+                <Building2 className="h-5 w-5" />
+                Assign Garages & Workshops
+              </Label>
+              
+              {/* Selected Garages Display */}
+              {selectedGarageIds.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-3 bg-background rounded-md">
+                  {selectedGarageIds.map((garageId) => {
+                    const garage = garages?.find(g => g.id === garageId);
+                    return garage ? (
+                      <div key={garageId} className="flex items-center gap-2 bg-primary/10 rounded-md pl-3 pr-1 py-1 border border-primary/20">
+                        <span className="text-sm font-medium">{garage.name}</span>
                         <Button
                           type="button"
                           size="icon"
                           variant="ghost"
                           className="h-6 w-6"
-                          onClick={() => removeEmployee(emp.id)}
-                          data-testid={`button-remove-employee-${emp.id}`}
+                          onClick={() => setSelectedGarageIds(prev => prev.filter(id => id !== garageId))}
+                          data-testid={`button-remove-garage-${garageId}`}
                         >
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Required Spare Parts */}
-            <div className="space-y-3 p-4 border-2 border-primary rounded-lg bg-primary/5">
-              <Label className="flex items-center gap-2 text-lg font-semibold text-primary">
-                <Package className="h-5 w-5" />
-                Required Spare Parts
-              </Label>
-              
-              {/* Selected Parts Display */}
-              {selectedParts.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-muted rounded-md">
-                  {selectedParts.map((part) => (
-                    <div key={part.id} className="flex items-center gap-2 bg-background rounded-md pl-3 pr-1 py-1 border">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{part.partName}</span>
-                        <span className="text-xs text-muted-foreground">{part.partNumber}</span>
-                      </div>
-                      <Badge className={getStockStatusColor(part.stockStatus)} data-testid={`badge-stock-${part.id}`}>
-                        {part.stockStatus.replace("_", " ")}
-                      </Badge>
-                      {part.stockStatus === "out_of_stock" && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-xs"
-                          onClick={() => {
-                            toast({
-                              title: "Purchase Request",
-                              description: `Request purchase for ${part.partName}`,
-                            });
-                          }}
-                          data-testid={`button-request-purchase-${part.id}`}
-                        >
-                          <ShoppingCart className="h-3 w-3 mr-1" />
-                          Request Purchase
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => removePart(part.id)}
-                        data-testid={`button-remove-part-${part.id}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                    ) : null;
+                  })}
                 </div>
               )}
 
-              {/* Select Parts Button */}
-              <Button
-                type="button"
-                variant="default"
-                onClick={openPartsDialog}
-                className="w-full h-12 text-base font-semibold"
-                data-testid="button-select-spare-parts"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                {selectedParts.length === 0 ? "Click Here to Select Spare Parts" : `Manage Selected Parts (${selectedParts.length})`}
-              </Button>
-            </div>
+              {/* Select Garages Button */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsWorkshopDialogOpen(true)}
+                  className="h-10"
+                  data-testid="button-select-garages-workshops"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  {selectedGarageIds.length === 0 ? "Select Garages" : `Manage Garages (${selectedGarageIds.length})`}
+                </Button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Scheduled Date */}
-              <div className="space-y-2">
-                <Label htmlFor="scheduledDate">Scheduled Date</Label>
-                <Input
-                  id="scheduledDate"
-                  type="datetime-local"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  data-testid="input-scheduled-date"
-                />
-              </div>
-
-              {/* Estimated Hours */}
-              <div className="space-y-2">
-                <Label htmlFor="estimatedHours">Estimated Hours</Label>
-                <Input
-                  id="estimatedHours"
-                  type="number"
-                  step="0.5"
-                  value={estimatedHours}
-                  onChange={(e) => setEstimatedHours(e.target.value)}
-                  placeholder="e.g., 4.5"
-                  data-testid="input-estimated-hours"
-                />
-              </div>
-
-              {/* Estimated Cost */}
-              <div className="space-y-2">
-                <Label htmlFor="estimatedCost">Estimated Cost (USD)</Label>
-                <Input
-                  id="estimatedCost"
-                  type="number"
-                  step="0.01"
-                  value={estimatedCost}
-                  onChange={(e) => setEstimatedCost(e.target.value)}
-                  placeholder="e.g., 1500.00"
-                  data-testid="input-estimated-cost"
-                />
+                {selectedWorkshopIds.length > 0 && (
+                  <div className="text-sm text-muted-foreground flex items-center">
+                    <Wrench className="h-4 w-4 mr-1" />
+                    {selectedWorkshopIds.length} workshop{selectedWorkshopIds.length !== 1 ? 's' : ''} selected
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1030,19 +802,6 @@ export default function WorkOrdersPage() {
                 placeholder="Describe the work to be done..."
                 rows={3}
                 data-testid="textarea-description"
-              />
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any additional information..."
-                rows={2}
-                data-testid="textarea-notes"
               />
             </div>
 
@@ -1073,201 +832,155 @@ export default function WorkOrdersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Spare Parts Selection Dialog */}
-      <Dialog open={isPartsDialogOpen} onOpenChange={setIsPartsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-spare-parts">
+      {/* Workshop Selection Dialog */}
+      <Dialog open={isWorkshopDialogOpen} onOpenChange={setIsWorkshopDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-garages-workshops">
           <DialogHeader>
-            <DialogTitle>Select Spare Parts</DialogTitle>
+            <DialogTitle>Select Garages & Workshops</DialogTitle>
             <DialogDescription>
-              Choose the spare parts required for this work order
+              First select garages, then select workshops from those garages
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search spare parts by name or part number..."
-                value={partSearchTerm}
-                onChange={(e) => setPartSearchTerm(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-parts-dialog"
-              />
+          <div className="flex-1 overflow-y-auto">
+            {/* Step 1: Select Garages */}
+            <div className="mb-6">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                Step 1: Select Garages
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {garages && garages.length > 0 ? (
+                  garages.map((garage: any) => (
+                    <div
+                      key={garage.id}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        selectedGarageIds.includes(garage.id)
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => {
+                        setSelectedGarageIds(prev =>
+                          prev.includes(garage.id)
+                            ? prev.filter(id => id !== garage.id)
+                            : [...prev, garage.id]
+                        );
+                      }}
+                      data-testid={`garage-option-${garage.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedGarageIds.includes(garage.id)}
+                          onChange={() => {}}
+                          className="h-4 w-4"
+                          data-testid={`checkbox-garage-${garage.id}`}
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium">{garage.name}</p>
+                          <p className="text-xs text-muted-foreground">{garage.location}</p>
+                          {garage.workshops && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {garage.workshops.length} workshop{garage.workshops.length !== 1 ? 's' : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 py-8 text-center text-muted-foreground">
+                    No garages available
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Parts List */}
-            <div className="flex-1 overflow-y-auto border rounded-md">
-              {filteredSpareParts && filteredSpareParts.length > 0 ? (
-                <div className="divide-y">
-                  {filteredSpareParts.map((part) => (
-                    <div
-                      key={part.id}
-                      className="flex items-center gap-3 p-4 hover-elevate cursor-pointer"
-                      onClick={() => togglePartSelection(part.id)}
-                      data-testid={`part-option-${part.id}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={tempSelectedParts.includes(part.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          togglePartSelection(part.id);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-4 w-4 rounded border-gray-300"
-                        data-testid={`checkbox-part-${part.id}`}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{part.partName}</div>
-                        <div className="text-sm text-muted-foreground">{part.partNumber}</div>
-                        {part.category && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Category: {part.category}
+            {/* Step 2: Select Workshops (only from selected garages) */}
+            {selectedGarageIds.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Wrench className="h-5 w-5 text-primary" />
+                  Step 2: Select Workshops from Selected Garages
+                </h3>
+                <div className="space-y-4">
+                  {garages
+                    ?.filter((garage: any) => selectedGarageIds.includes(garage.id))
+                    .map((garage: any) => (
+                      <div key={garage.id} className="border rounded-lg p-3">
+                        <p className="text-sm font-medium mb-2 text-muted-foreground">{garage.name}</p>
+                        {garage.workshops && garage.workshops.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {garage.workshops.map((workshop: any) => (
+                              <div
+                                key={workshop.id}
+                                className={`p-2 rounded-md border cursor-pointer transition-all ${
+                                  selectedWorkshopIds.includes(workshop.id)
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                                onClick={() => {
+                                  setSelectedWorkshopIds(prev =>
+                                    prev.includes(workshop.id)
+                                      ? prev.filter(id => id !== workshop.id)
+                                      : [...prev, workshop.id]
+                                  );
+                                }}
+                                data-testid={`workshop-option-${workshop.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedWorkshopIds.includes(workshop.id)}
+                                    onChange={() => {}}
+                                    className="h-4 w-4"
+                                    data-testid={`checkbox-workshop-${workshop.id}`}
+                                  />
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{workshop.name}</p>
+                                    {workshop.foreman && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {workshop.foreman.fullName}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No workshops in this garage</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Badge className={getStockStatusColor(part.stockStatus)}>
-                          {part.stockStatus.replace("_", " ")}
-                        </Badge>
-                        {part.price && (
-                          <span className="text-sm font-medium">${part.price}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
-                  {partSearchTerm ? "No parts found matching your search" : "No spare parts available"}
-                </div>
-              )}
-            </div>
-
-            {/* Selection Summary */}
-            {tempSelectedParts.length > 0 && (
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium">
-                  {tempSelectedParts.length} part{tempSelectedParts.length !== 1 ? 's' : ''} selected
-                </p>
               </div>
             )}
           </div>
 
-          {/* Dialog Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsPartsDialogOpen(false);
-                setPartSearchTerm("");
-              }}
-              data-testid="button-cancel-parts-selection"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmPartsSelection}
-              data-testid="button-confirm-parts-selection"
-            >
-              Confirm Selection
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Employee Selection Dialog */}
-      <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-select-team-members">
-          <DialogHeader>
-            <DialogTitle>Select Team Members</DialogTitle>
-            <DialogDescription>
-              Choose the employees to assign to this work order
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-hidden flex flex-col gap-4">
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search employees by name or role..."
-                value={employeeSearchTerm}
-                onChange={(e) => setEmployeeSearchTerm(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-employees-dialog"
-              />
+          <div className="flex justify-between items-center pt-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              {selectedGarageIds.length} garage{selectedGarageIds.length !== 1 ? 's' : ''} •{' '}
+              {selectedWorkshopIds.length} workshop{selectedWorkshopIds.length !== 1 ? 's' : ''}
             </div>
-
-            {/* Employees List */}
-            <div className="flex-1 overflow-y-auto border rounded-md">
-              {filteredEmployees && filteredEmployees.length > 0 ? (
-                <div className="divide-y">
-                  {filteredEmployees.map((emp) => (
-                    <div
-                      key={emp.id}
-                      className="flex items-center gap-3 p-4 hover-elevate cursor-pointer"
-                      onClick={() => toggleEmployeeSelection(emp.id)}
-                      data-testid={`employee-option-${emp.id}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={tempSelectedEmployees.includes(emp.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          toggleEmployeeSelection(emp.id);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-4 w-4 rounded border-gray-300"
-                        data-testid={`checkbox-employee-${emp.id}`}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{emp.fullName}</div>
-                        <div className="text-sm text-muted-foreground">{emp.role}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full p-8 text-muted-foreground">
-                  {employeeSearchTerm ? "No employees found matching your search" : "No active employees available"}
-                </div>
-              )}
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsWorkshopDialogOpen(false)}
+                data-testid="button-cancel-workshop-selection"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setIsWorkshopDialogOpen(false)}
+                disabled={selectedGarageIds.length === 0 || selectedWorkshopIds.length === 0}
+                data-testid="button-confirm-workshop-selection"
+              >
+                Confirm Selection
+              </Button>
             </div>
-
-            {/* Selection Summary */}
-            {tempSelectedEmployees.length > 0 && (
-              <div className="p-3 bg-muted rounded-md">
-                <p className="text-sm font-medium">
-                  {tempSelectedEmployees.length} employee{tempSelectedEmployees.length !== 1 ? 's' : ''} selected
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Dialog Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsEmployeeDialogOpen(false);
-                setEmployeeSearchTerm("");
-              }}
-              data-testid="button-cancel-employee-selection"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmEmployeeSelection}
-              data-testid="button-confirm-employee-selection"
-            >
-              Confirm Selection
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1296,11 +1009,11 @@ export default function WorkOrdersPage() {
 
       {/* Inspection Details Dialog */}
       <Dialog open={!!viewingInspectionId} onOpenChange={(open) => !open && setViewingInspectionId(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-inspection-details">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-inspection-details">
           <DialogHeader>
-            <DialogTitle>Inspection Details</DialogTitle>
+            <DialogTitle>Equipment Inspection Report</DialogTitle>
             <DialogDescription>
-              View complete inspection information
+              Comprehensive inspection and reception details
             </DialogDescription>
           </DialogHeader>
           {isLoadingInspection ? (
@@ -1308,43 +1021,113 @@ export default function WorkOrdersPage() {
               <div className="text-muted-foreground">Loading inspection details...</div>
             </div>
           ) : inspectionDetails ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Inspection Number</Label>
-                  <p className="font-medium">{inspectionDetails.inspectionNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Service Type</Label>
-                  <p className="font-medium">{inspectionDetails.serviceType}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Overall Condition</Label>
-                  <Badge className={
-                    inspectionDetails.overallCondition === "Good" ? "bg-green-500" :
-                    inspectionDetails.overallCondition === "Fair" ? "bg-yellow-500" : "bg-red-500"
-                  }>
-                    {inspectionDetails.overallCondition}
-                  </Badge>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <Badge>{inspectionDetails.status}</Badge>
-                </div>
-              </div>
-              
-              {inspectionDetails.findings && (
-                <div>
-                  <Label className="text-muted-foreground">Findings</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.findings}</p>
-                </div>
-              )}
-              
-              {inspectionDetails.recommendations && (
-                <div>
-                  <Label className="text-muted-foreground">Recommendations</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{inspectionDetails.recommendations}</p>
-                </div>
+            <div className="space-y-6">
+              {/* Equipment Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Equipment Details</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Inspection Number:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.inspectionNumber || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Equipment:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.reception?.equipment?.model || inspectionDetails.reception?.equipment?.plantNumber || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Plant Number:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.reception?.plantNumber || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Service Type:</Label>
+                    <div className="mt-1">
+                      <Badge variant="secondary">{inspectionDetails.serviceType || "N/A"}</Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Inspector:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.inspector?.fullName || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Completed Date:</Label>
+                    <p className="font-medium mt-1">
+                      {inspectionDetails.inspectionDate 
+                        ? new Date(inspectionDetails.inspectionDate).toLocaleDateString('en-US', { 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            year: 'numeric' 
+                          })
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Status:</Label>
+                    <div className="mt-1">
+                      <Badge>{inspectionDetails.status}</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Inspection Checklist Summary */}
+              {checklistItems.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Inspection Checklist (የማረጋገጫ ዝርዝር)</CardTitle>
+                    <p className="text-sm text-muted-foreground">Items with selected status</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ተ.ቁ</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">የመሳሪያዉ ዝርዝር</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ያለበት ሁኔታ</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ተጨማሪ አስተያየት</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {checklistItems
+                            .filter((item: any) => {
+                              // Only show items with at least one checkbox selected
+                              return item.hasItem || item.doesNotHave || item.isWorking || 
+                                     item.notWorking || item.isBroken || item.isCracked;
+                            })
+                            .map((item: any, index: number) => {
+                              // Determine which status is selected
+                              let selectedStatus = "";
+                              if (item.hasItem) selectedStatus = "አለዉ";
+                              else if (item.doesNotHave) selectedStatus = "የለዉም";
+                              else if (item.isWorking) selectedStatus = "የሚሰራ";
+                              else if (item.notWorking) selectedStatus = "የማይሰራ";
+                              else if (item.isBroken) selectedStatus = "የተሰበረ";
+                              else if (item.isCracked) selectedStatus = "የተሰነጠቀ";
+
+                              return (
+                                <tr key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                  <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
+                                  <td className="px-4 py-2 text-sm font-medium">{item.itemDescription}</td>
+                                  <td className="px-4 py-2 text-sm">{selectedStatus}</td>
+                                  <td className="px-4 py-2 text-sm text-muted-foreground">{item.comments || "-"}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                      {checklistItems.filter((item: any) => 
+                        item.hasItem || item.doesNotHave || item.isWorking || 
+                        item.notWorking || item.isBroken || item.isCracked
+                      ).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No checklist items selected
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </div>
           ) : (
@@ -1385,11 +1168,11 @@ export default function WorkOrdersPage() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Kilometrage</Label>
-                  <p className="font-medium">{receptionDetails.kilometrage} km</p>
+                  <p className="font-medium">{receptionDetails.kilometreRiding || 'N/A'} km</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Fuel Level</Label>
-                  <Badge>{receptionDetails.fuelLevel}</Badge>
+                  <Badge>{receptionDetails.fuelLevel || 'N/A'}</Badge>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Status</Label>
@@ -1397,24 +1180,44 @@ export default function WorkOrdersPage() {
                 </div>
               </div>
               
-              {receptionDetails.reasonForMaintenance && (
-                <div>
-                  <Label className="text-muted-foreground">Reason for Maintenance</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reasonForMaintenance}</p>
+              {/* Driver Information */}
+              {receptionDetails.driver && (
+                <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <Label className="text-muted-foreground font-semibold">Driver Information</Label>
+                  <div className="mt-2 space-y-1">
+                    <p className="font-medium">{receptionDetails.driver.fullName}</p>
+                    {receptionDetails.driver.email && (
+                      <p className="text-sm text-muted-foreground">{receptionDetails.driver.email}</p>
+                    )}
+                    {receptionDetails.driver.phoneNumber && (
+                      <p className="text-sm text-muted-foreground">{receptionDetails.driver.phoneNumber}</p>
+                    )}
+                  </div>
                 </div>
               )}
               
-              {receptionDetails.reportedIssues && (
+              {receptionDetails.reasonOfMaintenance && (
                 <div>
-                  <Label className="text-muted-foreground">Reported Issues</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reportedIssues}</p>
+                  <Label className="text-muted-foreground">Reason for Maintenance</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reasonOfMaintenance}</p>
+                </div>
+              )}
+              
+              {receptionDetails.issuesReported && (
+                <div>
+                  <Label className="text-muted-foreground">Driver Reported Issues</Label>
+                  <p className="mt-1 p-3 bg-amber-50 dark:bg-amber-950 rounded-md text-sm border border-amber-200 dark:border-amber-800">
+                    {receptionDetails.issuesReported}
+                  </p>
                 </div>
               )}
 
-              {receptionDetails.adminIssues && (
+              {receptionDetails.adminIssuesReported && (
                 <div>
-                  <Label className="text-muted-foreground">Admin Review Notes</Label>
-                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.adminIssues}</p>
+                  <Label className="text-muted-foreground">Issues Reported by Administration Officer</Label>
+                  <p className="mt-1 p-3 bg-blue-50 dark:bg-blue-950 rounded-md text-sm border border-blue-200 dark:border-blue-800">
+                    {receptionDetails.adminIssuesReported}
+                  </p>
                 </div>
               )}
             </div>

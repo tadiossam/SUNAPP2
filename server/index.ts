@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -60,9 +63,15 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  const env = app.get("env");
+  log(`Environment: ${env} (NODE_ENV=${process.env.NODE_ENV})`);
+  
+  if (env === "development") {
+    log("Starting Vite dev server...");
     await setupVite(app, server);
+    log("Vite dev server ready");
   } else {
+    log("Starting production static server...");
     serveStatic(app);
   }
 
@@ -71,11 +80,14 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  
+  // reusePort is not supported on Windows, so only use it on Linux/Mac
+  const isWindows = process.platform === 'win32';
+  const listenOptions = isWindows 
+    ? { port, host: "0.0.0.0" }
+    : { port, host: "0.0.0.0", reusePort: true };
+  
+  server.listen(listenOptions, () => {
     log(`serving on port ${port}`);
   });
 })();

@@ -4,19 +4,21 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench, UserCheck } from "lucide-react";
+import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench, UserCheck, ChevronDown, ChevronUp, FileText, CheckCircle, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertGarageSchema, type InsertGarage, type GarageWithDetails } from "@shared/schema";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export default function Garages() {
   const { t } = useLanguage();
@@ -35,6 +37,7 @@ export default function Garages() {
   const [isMemberSearchOpen, setIsMemberSearchOpen] = useState(false);
   const [isEditForemanSearchOpen, setIsEditForemanSearchOpen] = useState(false);
   const [isEditMemberSearchOpen, setIsEditMemberSearchOpen] = useState(false);
+  
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
     queryKey: ["/api/garages"],
@@ -182,6 +185,12 @@ export default function Garages() {
       foremanId: "",
       description: "",
       memberIds: [] as string[],
+      monthlyTarget: undefined as number | undefined,
+      q1Target: undefined as number | undefined,
+      q2Target: undefined as number | undefined,
+      q3Target: undefined as number | undefined,
+      q4Target: undefined as number | undefined,
+      annualTarget: undefined as number | undefined,
     },
   });
 
@@ -191,6 +200,12 @@ export default function Garages() {
       foremanId: "",
       description: "",
       memberIds: [] as string[],
+      monthlyTarget: undefined as number | undefined,
+      q1Target: undefined as number | undefined,
+      q2Target: undefined as number | undefined,
+      q3Target: undefined as number | undefined,
+      q4Target: undefined as number | undefined,
+      annualTarget: undefined as number | undefined,
     },
   });
 
@@ -255,6 +270,12 @@ export default function Garages() {
       foremanId: workshop.foremanId || "",
       description: workshop.description || "",
       memberIds: memberIds,
+      monthlyTarget: workshop.monthlyTarget || undefined,
+      q1Target: workshop.q1Target || undefined,
+      q2Target: workshop.q2Target || undefined,
+      q3Target: workshop.q3Target || undefined,
+      q4Target: workshop.q4Target || undefined,
+      annualTarget: workshop.annualTarget || undefined,
     });
     setIsEditWorkshopDialogOpen(true);
   };
@@ -282,7 +303,8 @@ export default function Garages() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="h-full overflow-auto">
+      <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Building2 className="h-8 w-8 text-primary" />
@@ -379,7 +401,12 @@ export default function Garages() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {garages?.map((garage) => (
-            <Card key={garage.id} className="hover-elevate" data-testid={`card-garage-${garage.id}`}>
+            <Card 
+              key={garage.id} 
+              className="hover-elevate cursor-pointer" 
+              onClick={() => setLocation(`/garages/${garage.id}`)}
+              data-testid={`card-garage-${garage.id}`}
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{garage.name}</span>
@@ -432,79 +459,12 @@ export default function Garages() {
                 </div>
                 {garage.workshops && garage.workshops.length > 0 && (
                   <div className="pt-2 border-t">
-                    <p className="text-sm font-medium mb-2">Workshops: {garage.workshops.length}</p>
-                    <div className="space-y-2">
-                      {garage.workshops.map((workshop: any) => (
-                        <Card key={workshop.id} className="p-2" data-testid={`card-workshop-${workshop.id}`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{workshop.name}</p>
-                              {workshop.foremanId && employees?.find((e) => e.id === workshop.foremanId) && (
-                                <p className="text-xs text-muted-foreground">
-                                  Foreman: {employees.find((e) => e.id === workshop.foremanId)?.fullName}
-                                </p>
-                              )}
-                              <p className="text-xs text-muted-foreground">
-                                Members: {workshop.membersList?.length || 0}
-                              </p>
-                            </div>
-                            {isCEOorAdmin && (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditWorkshop(workshop);
-                                  }}
-                                  data-testid={`button-edit-workshop-${workshop.id}`}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteWorkshop(workshop.id);
-                                  }}
-                                  data-testid={`button-delete-workshop-${workshop.id}`}
-                                >
-                                  <Trash2 className="h-3 w-3 text-destructive" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </Card>
-                      ))}
+                    <div className="flex items-center gap-2 text-sm">
+                      <Wrench className="h-4 w-4 text-muted-foreground" />
+                      <span>Workshops: {garage.workshops.length}</span>
                     </div>
                   </div>
                 )}
-                <div className="flex gap-2 pt-2">
-                  {isCEOorAdmin && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleAddWorkshop(garage)}
-                      data-testid={`button-add-workshop-${garage.id}`}
-                    >
-                      <Wrench className="h-4 w-4 mr-2" />
-                      Add Workshop
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setLocation(`/garages/${garage.id}`)}
-                    data-testid={`button-view-garage-${garage.id}`}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           ))}
@@ -610,9 +570,12 @@ export default function Garages() {
 
       {/* Add Workshop Dialog */}
       <Dialog open={isWorkshopDialogOpen} onOpenChange={setIsWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Workshop to {selectedGarageForWorkshop?.name}</DialogTitle>
+            <DialogDescription>
+              Create a new workshop with a foreman, team members, and planning targets.
+            </DialogDescription>
           </DialogHeader>
           <Form {...workshopForm}>
             <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="space-y-4">
@@ -675,6 +638,8 @@ export default function Garages() {
                   </FormItem>
                 )}
               />
+
+              {/* Workshop Members Section */}
               <div className="space-y-2">
                 <FormLabel>Workshop Members *</FormLabel>
                 <Button
@@ -690,6 +655,137 @@ export default function Garages() {
                     : "Select team members"}
                 </Button>
               </div>
+
+              {/* Planning Targets Section */}
+              <div className="border-t pt-4 space-y-3">
+                <h3 className="text-sm font-medium">Planning Targets (Optional)</h3>
+                <p className="text-xs text-muted-foreground">Set planned work order targets for dashboard reporting</p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={workshopForm.control}
+                    name="monthlyTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Monthly Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-monthly-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="annualTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Annual Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-annual-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={workshopForm.control}
+                    name="q1Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q1 Target (Jan-Mar)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q1-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q2Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q2 Target (Apr-Jun)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q2-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q3Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q3 Target (Jul-Sep)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q3-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q4Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q4 Target (Oct-Dec)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-q4-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
               <DialogFooter>
                 <Button
                   type="submit"
@@ -706,9 +802,12 @@ export default function Garages() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Workshop</DialogTitle>
+            <DialogDescription>
+              Update workshop details, foreman, team members, and planning targets.
+            </DialogDescription>
           </DialogHeader>
           <Form {...editWorkshopForm}>
             <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
@@ -771,6 +870,8 @@ export default function Garages() {
                   </FormItem>
                 )}
               />
+
+              {/* Workshop Members Section */}
               <div className="space-y-2">
                 <FormLabel>Workshop Members *</FormLabel>
                 <Button
@@ -786,6 +887,137 @@ export default function Garages() {
                     : "Select team members"}
                 </Button>
               </div>
+
+              {/* Planning Targets Section */}
+              <div className="border-t pt-4 space-y-3">
+                <h3 className="text-sm font-medium">Planning Targets (Optional)</h3>
+                <p className="text-xs text-muted-foreground">Set planned work order targets for dashboard reporting</p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="monthlyTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Monthly Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-monthly-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="annualTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Annual Target</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-annual-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q1Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q1 Target (Jan-Mar)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q1-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q2Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q2 Target (Apr-Jun)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q2-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q3Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q3 Target (Jul-Sep)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q3-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q4Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Q4 Target (Oct-Dec)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            data-testid="input-edit-q4-target"
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
               <DialogFooter>
                 <Button
                   type="submit"
@@ -855,6 +1087,7 @@ export default function Garages() {
           editWorkshopForm.setValue('memberIds', ids);
         }}
       />
+      </div>
     </div>
   );
 }

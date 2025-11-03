@@ -37,7 +37,11 @@ import {
   Users,
   Edit,
   Trash2,
-  Plus
+  Plus,
+  Eye,
+  Calendar,
+  Clock,
+  DollarSign
 } from "lucide-react";
 import type { Garage, WorkOrder, Workshop, Employee } from "@shared/schema";
 import { insertWorkshopSchema } from "@shared/schema";
@@ -60,6 +64,8 @@ export default function GarageDetails() {
   const [editingWorkshop, setEditingWorkshop] = useState<any | null>(null);
   const [isEditWorkshopDialogOpen, setIsEditWorkshopDialogOpen] = useState(false);
   const [isAddWorkshopDialogOpen, setIsAddWorkshopDialogOpen] = useState(false);
+  const [selectedWorkshopForDetails, setSelectedWorkshopForDetails] = useState<Workshop | null>(null);
+  const [isWorkshopDetailsDialogOpen, setIsWorkshopDetailsDialogOpen] = useState(false);
 
   // Employee search dialog states
   const [isForemanSearchOpen, setIsForemanSearchOpen] = useState(false);
@@ -81,6 +87,12 @@ export default function GarageDetails() {
     queryKey: ["/api/employees"],
   });
 
+  // Fetch work orders for selected workshop
+  const { data: workshopWorkOrders = [] } = useQuery<WorkOrder[]>({
+    queryKey: [`/api/work-orders`, { workshopId: selectedWorkshopForDetails?.id }],
+    enabled: !!selectedWorkshopForDetails?.id,
+  });
+
   const workshopForm = useForm({
     resolver: zodResolver(insertWorkshopSchema.extend({
       memberIds: z.array(z.string()).min(1, "At least one team member is required"),
@@ -90,7 +102,13 @@ export default function GarageDetails() {
       foremanId: "",
       description: "",
       garageId: id,
-      memberIds: [],
+      memberIds: [] as string[],
+      monthlyTarget: undefined,
+      q1Target: undefined,
+      q2Target: undefined,
+      q3Target: undefined,
+      q4Target: undefined,
+      annualTarget: undefined,
     },
   });
 
@@ -103,16 +121,19 @@ export default function GarageDetails() {
       foremanId: "",
       description: "",
       garageId: id,
-      memberIds: [],
+      memberIds: [] as string[],
+      monthlyTarget: undefined,
+      q1Target: undefined,
+      q2Target: undefined,
+      q3Target: undefined,
+      q4Target: undefined,
+      annualTarget: undefined,
     },
   });
 
   const createWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("/api/workshops", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("POST", "/api/workshops", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
@@ -136,10 +157,7 @@ export default function GarageDetails() {
 
   const updateWorkshopMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return await apiRequest(`/api/workshops/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
+      return await apiRequest("PUT", `/api/workshops/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
@@ -164,9 +182,7 @@ export default function GarageDetails() {
 
   const deleteWorkshopMutation = useMutation({
     mutationFn: async (workshopId: string) => {
-      return await apiRequest(`/api/workshops/${workshopId}`, {
-        method: "DELETE",
-      });
+      return await apiRequest("DELETE", `/api/workshops/${workshopId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
@@ -213,6 +229,12 @@ export default function GarageDetails() {
       description: workshop.description || "",
       garageId: workshop.garageId,
       memberIds: memberIds,
+      monthlyTarget: workshop.monthlyTarget ?? undefined,
+      q1Target: workshop.q1Target ?? undefined,
+      q2Target: workshop.q2Target ?? undefined,
+      q3Target: workshop.q3Target ?? undefined,
+      q4Target: workshop.q4Target ?? undefined,
+      annualTarget: workshop.annualTarget ?? undefined,
     });
     setIsEditWorkshopDialogOpen(true);
   };
@@ -221,6 +243,11 @@ export default function GarageDetails() {
     if (confirm(`Are you sure you want to delete "${workshopName}"? This action cannot be undone.`)) {
       deleteWorkshopMutation.mutate(workshopId);
     }
+  };
+
+  const handleViewWorkshopDetails = (workshop: Workshop) => {
+    setSelectedWorkshopForDetails(workshop);
+    setIsWorkshopDetailsDialogOpen(true);
   };
 
   const selectedForeman = employees.find((e) => e.id === selectedForemanId);
@@ -252,7 +279,8 @@ export default function GarageDetails() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="h-full overflow-auto">
+      <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 
@@ -383,6 +411,17 @@ export default function GarageDetails() {
                         {workshop.description}
                       </p>
                     )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => handleViewWorkshopDetails(workshop)}
+                      data-testid={`button-view-workshop-details-${workshop.id}`}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
                   </div>
                 </Card>
               ))}
@@ -445,12 +484,13 @@ export default function GarageDetails() {
 
       {/* Add Workshop Dialog */}
       <Dialog open={isAddWorkshopDialogOpen} onOpenChange={setIsAddWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Add Workshop to {garage.name}</DialogTitle>
           </DialogHeader>
           <Form {...workshopForm}>
-            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="space-y-4">
+            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="flex flex-col overflow-hidden">
+              <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 140px)' }}>
               <FormField
                 control={workshopForm.control}
                 name="name"
@@ -526,7 +566,140 @@ export default function GarageDetails() {
                 </Button>
               </div>
 
-              <div className="flex gap-2">
+              {/* Planning Targets */}
+              <div className="space-y-3">
+                <FormLabel className="text-base">Planning Targets (Optional)</FormLabel>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={workshopForm.control}
+                    name="monthlyTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Monthly</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-monthly-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="annualTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Annual</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-annual-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q1Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q1 (Jan-Mar)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-q1-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q2Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q2 (Apr-Jun)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-q2-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q3Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q3 (Jul-Sep)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-q3-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={workshopForm.control}
+                    name="q4Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q4 (Oct-Dec)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-q4-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+              </div>
+
+              <div className="flex gap-2 pt-4 mt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -551,12 +724,13 @@ export default function GarageDetails() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Workshop</DialogTitle>
           </DialogHeader>
           <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
+            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col overflow-hidden">
+              <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 140px)' }}>
               <FormField
                 control={editWorkshopForm.control}
                 name="name"
@@ -632,7 +806,140 @@ export default function GarageDetails() {
                 </Button>
               </div>
 
-              <div className="flex gap-2">
+              {/* Planning Targets */}
+              <div className="space-y-3">
+                <FormLabel className="text-base">Planning Targets (Optional)</FormLabel>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="monthlyTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Monthly</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-edit-monthly-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="annualTarget"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Annual</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-edit-annual-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q1Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q1 (Jan-Mar)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-edit-q1-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q2Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q2 (Apr-Jun)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-edit-q2-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q3Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q3 (Jul-Sep)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-edit-q3-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="q4Target"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Q4 (Oct-Dec)</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="number"
+                            placeholder="0"
+                            value={field.value ?? ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-edit-q4-target"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+              </div>
+
+              <div className="flex gap-2 pt-4 mt-4 border-t">
                 <Button
                   type="button"
                   variant="outline"
@@ -706,6 +1013,203 @@ export default function GarageDetails() {
           editWorkshopForm.setValue("memberIds", ids);
         }}
       />
+
+      {/* Workshop Details Dialog - Shows Work Orders */}
+      <Dialog open={isWorkshopDetailsDialogOpen} onOpenChange={setIsWorkshopDetailsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="h-5 w-5" />
+              {selectedWorkshopForDetails?.name} - Work Orders
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto pr-2">
+            {workshopWorkOrders && workshopWorkOrders.length > 0 ? (
+              <div className="space-y-3">
+                {workshopWorkOrders.map((order) => (
+                  <Card key={order.id} className="p-4" data-testid={`workshop-work-order-${order.id}`}>
+                    <div className="space-y-3">
+                      {/* Header Row */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-lg">{order.workOrderNumber}</h4>
+                          <p className="text-sm text-muted-foreground mt-1">{order.description}</p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Badge variant={
+                            order.status === 'completed' ? 'default' :
+                            order.status === 'in_progress' ? 'default' :
+                            order.status === 'cancelled' ? 'secondary' :
+                            'outline'
+                          }>
+                            {order.status?.replace(/_/g, ' ')}
+                          </Badge>
+                          <Badge variant={
+                            order.priority === 'urgent' ? 'destructive' : 
+                            order.priority === 'high' ? 'default' : 
+                            'secondary'
+                          }>
+                            {order.priority}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Work Order Details Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-3 border-t">
+                        {/* Work Type */}
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Work Type</p>
+                            <p className="text-sm font-medium capitalize">{order.workType?.replace(/_/g, ' ')}</p>
+                          </div>
+                        </div>
+
+                        {/* Scheduled Date */}
+                        {order.scheduledDate && (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Scheduled</p>
+                              <p className="text-sm font-medium">
+                                {new Date(order.scheduledDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Completed Date */}
+                        {order.completedAt && (
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Completed</p>
+                              <p className="text-sm font-medium">
+                                {new Date(order.completedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Estimated Hours */}
+                        {order.estimatedHours && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Est. Hours</p>
+                              <p className="text-sm font-medium">{order.estimatedHours}h</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actual Hours */}
+                        {order.actualHours && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Actual Hours</p>
+                              <p className="text-sm font-medium">{order.actualHours}h</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Total Cost */}
+                        {order.actualCost && (
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-xs text-muted-foreground">Total Cost</p>
+                              <p className="text-sm font-medium">
+                                {parseFloat(order.actualCost).toLocaleString('en-US', {
+                                  style: 'currency',
+                                  currency: 'ETB',
+                                  minimumFractionDigits: 0,
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Cost Breakdown - if available */}
+                      {(order.directMaintenanceCost || order.overtimeCost || order.outsourceCost) && (
+                        <div className="pt-3 border-t">
+                          <p className="text-xs text-muted-foreground mb-2">Cost Breakdown:</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {order.directMaintenanceCost && parseFloat(order.directMaintenanceCost) > 0 && (
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">Direct: </span>
+                                <span className="font-medium">
+                                  {parseFloat(order.directMaintenanceCost).toLocaleString('en-US', {
+                                    style: 'currency',
+                                    currency: 'ETB',
+                                    minimumFractionDigits: 0,
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                            {order.overtimeCost && parseFloat(order.overtimeCost) > 0 && (
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">Overtime: </span>
+                                <span className="font-medium">
+                                  {parseFloat(order.overtimeCost).toLocaleString('en-US', {
+                                    style: 'currency',
+                                    currency: 'ETB',
+                                    minimumFractionDigits: 0,
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                            {order.outsourceCost && parseFloat(order.outsourceCost) > 0 && (
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">Outsource: </span>
+                                <span className="font-medium">
+                                  {parseFloat(order.outsourceCost).toLocaleString('en-US', {
+                                    style: 'currency',
+                                    currency: 'ETB',
+                                    minimumFractionDigits: 0,
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                            {order.overheadCost && parseFloat(order.overheadCost) > 0 && (
+                              <div className="text-sm">
+                                <span className="text-muted-foreground">Overhead: </span>
+                                <span className="font-medium">
+                                  {parseFloat(order.overheadCost).toLocaleString('en-US', {
+                                    style: 'currency',
+                                    currency: 'ETB',
+                                    minimumFractionDigits: 0,
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {order.notes && (
+                        <div className="pt-3 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">Notes:</p>
+                          <p className="text-sm">{order.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Activity className="h-12 w-12 mx-auto mb-3 opacity-50 text-muted-foreground" />
+                <p className="text-muted-foreground">No work orders assigned to this workshop yet</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      </div>
     </div>
   );
 }

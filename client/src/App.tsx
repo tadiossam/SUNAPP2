@@ -9,6 +9,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import DashboardPage from "@/pages/Dashboard";
 import EquipmentPage from "@/pages/Equipment";
 import EquipmentCategoryPage from "@/pages/EquipmentCategory";
 import EquipmentReceptionPage from "@/pages/EquipmentReception";
@@ -21,11 +22,19 @@ import MaintenancePage from "@/pages/Maintenance";
 import LoginPage from "@/pages/Login";
 import GaragesPage from "@/pages/Garages";
 import GarageDetailsPage from "@/pages/GarageDetails";
+import GarageDetailPage from "@/pages/GarageDetail";
+import WorkshopDetailPage from "@/pages/WorkshopDetail";
 import EmployeesPage from "@/pages/Employees";
 import ApprovalsPage from "@/pages/Approvals";
 import WorkOrdersPage from "@/pages/WorkOrders";
 import PartsLocationsPage from "@/pages/PartsLocations";
 import AdminPage from "@/pages/Admin";
+import AdminSettingsPage from "@/pages/AdminSettings";
+import ItemsPage from "@/pages/Items";
+import StoreManagerDashboard from "@/pages/StoreManagerDashboard";
+import TeamPerformance from "@/pages/TeamPerformance";
+import ForemanDashboard from "@/pages/ForemanDashboard";
+import VerifierDashboard from "@/pages/VerifierDashboard";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
@@ -36,7 +45,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={LoginPage} />
-      <Route path="/" component={EquipmentPage} />
+      <Route path="/" component={DashboardPage} />
+      <Route path="/dashboard" component={DashboardPage} />
       <Route path="/equipment/category/:type" component={EquipmentCategoryPage} />
       <Route path="/equipment" component={EquipmentPage} />
       <Route path="/equipment-reception" component={EquipmentReceptionPage} />
@@ -46,13 +56,21 @@ function Router() {
       <Route path="/maintenance" component={MaintenancePage} />
       <Route path="/models" component={ModelsPage} />
       <Route path="/upload" component={UploadModelPage} />
-      <Route path="/garages/:id" component={GarageDetailsPage} />
+      <Route path="/garages/:id/old" component={GarageDetailsPage} />
+      <Route path="/garages/:id" component={GarageDetailPage} />
       <Route path="/garages" component={GaragesPage} />
+      <Route path="/workshops/:id" component={WorkshopDetailPage} />
       <Route path="/employees" component={EmployeesPage} />
       <Route path="/approvals" component={ApprovalsPage} />
       <Route path="/work-orders" component={WorkOrdersPage} />
       <Route path="/parts-locations" component={PartsLocationsPage} />
+      <Route path="/items" component={ItemsPage} />
+      <Route path="/store-manager" component={StoreManagerDashboard} />
+      <Route path="/foreman" component={ForemanDashboard} />
+      <Route path="/verifier" component={VerifierDashboard} />
+      <Route path="/team-performance" component={TeamPerformance} />
       <Route path="/admin" component={AdminPage} />
+      <Route path="/admin-settings" component={AdminSettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -145,7 +163,7 @@ function AppContent() {
               <LanguageToggle />
             </div>
           </header>
-          <main className="flex-1 overflow-hidden bg-background">
+          <main className="flex-1 overflow-auto bg-background">
             <Router />
           </main>
         </div>

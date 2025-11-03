@@ -7,12 +7,14 @@ import {
   maintenanceRecords,
   partsUsageHistory,
   operatingBehaviorReports,
-  users,
   garages,
   workshops,
   workshopMembers,
   employees,
   workOrders,
+  workOrderGarages,
+  workOrderWorkshops,
+  workOrderMemberships,
   workOrderRequiredParts,
   partsStorageLocations,
   equipmentLocations,
@@ -23,10 +25,15 @@ import {
   repairEstimates,
   partsRequests,
   approvals,
+  itemRequisitions,
+  itemRequisitionLines,
   attendanceDeviceSettings,
   deviceImportLogs,
   equipmentInspections,
   inspectionChecklistItems,
+  items,
+  dynamics365Settings,
+  systemSettings,
   type EquipmentCategory,
   type InsertEquipmentCategory,
   type Equipment,
@@ -85,9 +92,15 @@ import {
   type InsertEquipmentInspection,
   type InspectionChecklistItem,
   type InsertInspectionChecklistItem,
+  type Item,
+  type InsertItem,
+  type Dynamics365Settings,
+  type InsertDynamics365Settings,
+  type SystemSettings,
+  type InsertSystemSettings,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, ilike, or, and, sql, desc, inArray } from "drizzle-orm";
+import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // Equipment Category operations
@@ -165,7 +178,7 @@ export interface IStorage {
 
   // Garage Management Operations
   // Garages
-  getAllGarages(): Promise<Garage[]>;
+  getAllGarages(): Promise<GarageWithDetails[]>;
   getGarageById(id: string): Promise<GarageWithDetails | undefined>;
   createGarage(data: InsertGarage): Promise<Garage>;
   updateGarage(id: string, data: Partial<InsertGarage>): Promise<Garage>;
@@ -179,6 +192,7 @@ export interface IStorage {
   addWorkshopMember(data: InsertWorkshopMember): Promise<WorkshopMember>;
   removeWorkshopMember(workshopId: string, employeeId: string): Promise<void>;
   getWorkshopMembers(workshopId: string): Promise<Employee[]>;
+  getWorkshopDetails(workshopId: string): Promise<any>;
 
   // Employees
   getAllEmployees(role?: string, garageId?: string): Promise<Employee[]>;
@@ -189,12 +203,15 @@ export interface IStorage {
   deleteEmployee(id: string): Promise<void>;
 
   // Work Orders
-  getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]>;
+  getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string }): Promise<WorkOrderWithDetails[]>;
   getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined>;
   getWorkOrdersByPrefix(prefix: string): Promise<WorkOrder[]>;
   createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;
   updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder>;
   deleteWorkOrder(id: string): Promise<void>;
+  getForemanPendingWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
+  getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
+  assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void>;
   
   // Work Order Required Parts
   getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]>;
@@ -252,6 +269,8 @@ export interface IStorage {
   createChecklistItem(data: InsertInspectionChecklistItem): Promise<InspectionChecklistItem>;
   createBulkChecklistItems(items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]>;
   updateChecklistItem(id: string, data: Partial<InsertInspectionChecklistItem>): Promise<InspectionChecklistItem>;
+  deleteChecklistItemsByInspection(inspectionId: string): Promise<void>;
+  upsertChecklistItems(inspectionId: string, items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]>;
   
   // Damage Reports
   getDamageReportsByReception(receptionId: string): Promise<DamageReport[]>;
@@ -284,15 +303,46 @@ export interface IStorage {
   approvePartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
   rejectPartsRequest(partsRequestId: string, approvedById: string, notes?: string): Promise<void>;
 
+  // Item Requisitions
+  createItemRequisition(requisitionData: any, lines: any[]): Promise<any>;
+  getItemRequisitionsByForeman(foremanId: string): Promise<any[]>;
+  getItemRequisitionsByStoreManager(): Promise<any[]>;
+  approveItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
+  rejectItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
+  approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
+  rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
+
   // Attendance Device Operations
+  getAllAttendanceDevices(): Promise<any[]>;
   getAttendanceDeviceSettings(): Promise<any | undefined>;
+  getAttendanceDeviceById(id: string): Promise<any | undefined>;
+  createAttendanceDevice(data: any): Promise<any>;
   saveAttendanceDeviceSettings(data: any): Promise<any>;
   updateAttendanceDeviceSettings(id: string, data: Partial<any>): Promise<any>;
+  setActiveDevice(id: string): Promise<any>;
+  deleteAttendanceDevice(id: string): Promise<void>;
   getEmployeeByDeviceUserId(deviceUserId: string): Promise<Employee | undefined>;
   getEmployeeByEmployeeId(employeeId: string): Promise<Employee | undefined>;
   getEmployeeByName(fullName: string): Promise<Employee | undefined>;
   createDeviceImportLog(data: any): Promise<any>;
   getDeviceImportLogs(): Promise<any[]>;
+
+  // Dynamics 365 Settings Operations
+  getDynamics365Settings(): Promise<Dynamics365Settings | undefined>;
+  saveDynamics365Settings(data: InsertDynamics365Settings, updatedById: string): Promise<Dynamics365Settings>;
+  updateDynamics365TestResult(testStatus: string, testMessage?: string): Promise<void>;
+
+  // System Settings Operations
+  getSystemSettings(): Promise<SystemSettings | undefined>;
+  saveSystemSettings(data: InsertSystemSettings, updatedById: string): Promise<SystemSettings>;
+  
+  // Items (D365) Operations
+  getAllItems(): Promise<Item[]>;
+  getItemById(id: string): Promise<Item | undefined>;
+  getItemByItemNo(itemNo: string): Promise<Item | undefined>;
+  createItem(data: InsertItem): Promise<Item>;
+  updateItem(id: string, data: Partial<InsertItem>): Promise<Item>;
+  deleteItem(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -736,12 +786,12 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // User operations
+  // User operations (using employees table)
   async updateUserLanguage(userId: string, language: string): Promise<void> {
     await db
-      .update(users)
+      .update(employees)
       .set({ language })
-      .where(eq(users.id, userId));
+      .where(eq(employees.id, userId));
   }
 
   // ============================================
@@ -749,8 +799,23 @@ export class DatabaseStorage implements IStorage {
   // ============================================
 
   // Garages
-  async getAllGarages(): Promise<Garage[]> {
-    return await db.select().from(garages).orderBy(garages.name);
+  async getAllGarages(): Promise<GarageWithDetails[]> {
+    const allGarages = await db.select().from(garages).orderBy(garages.name);
+    
+    // Fetch workshops for each garage
+    const garagesWithDetails = await Promise.all(
+      allGarages.map(async (garage) => {
+        const workshopsList = await this.getWorkshopsByGarage(garage.id);
+        return {
+          ...garage,
+          workshops: workshopsList,
+          employees: [],
+          workOrders: [],
+        };
+      })
+    );
+    
+    return garagesWithDetails;
   }
 
   async getGarageById(id: string): Promise<GarageWithDetails | undefined> {
@@ -760,7 +825,17 @@ export class DatabaseStorage implements IStorage {
     // Fetch workshops with full details (foreman and members)
     const workshopsList = await this.getWorkshopsByGarage(id);
     const employeesList = await db.select().from(employees).where(eq(employees.garageId, id));
-    const orders = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
+    
+    // Fetch work orders for this garage using the junction table
+    const garageWorkOrders = await db
+      .select({ workOrderId: workOrderGarages.workOrderId })
+      .from(workOrderGarages)
+      .where(eq(workOrderGarages.garageId, id));
+    
+    const workOrderIds = garageWorkOrders.map(wo => wo.workOrderId);
+    const orders = workOrderIds.length > 0 
+      ? await db.select().from(workOrders).where(inArray(workOrders.id, workOrderIds))
+      : [];
 
     return {
       ...garage,
@@ -893,6 +968,61 @@ export class DatabaseStorage implements IStorage {
     return membersList.filter(Boolean) as Employee[];
   }
 
+  async getWorkshopDetails(workshopId: string): Promise<any> {
+    // Get workshop info
+    const [workshop] = await db.select().from(workshops).where(eq(workshops.id, workshopId));
+    if (!workshop) {
+      return null;
+    }
+
+    // Get workshop members
+    const members = await this.getWorkshopMembers(workshopId);
+
+    // Get foreman info
+    let foreman = null;
+    if (workshop.foremanId) {
+      const [foremanData] = await db.select().from(employees).where(eq(employees.id, workshop.foremanId));
+      foreman = foremanData || null;
+    }
+
+    // Get work orders assigned to this workshop
+    const workOrderAssignments = await db
+      .select()
+      .from(workOrderWorkshops)
+      .where(eq(workOrderWorkshops.workshopId, workshopId));
+
+    const workOrderIds = workOrderAssignments.map(a => a.workOrderId);
+
+    let workOrdersData = [];
+    let statusBreakdown: Record<string, number> = {};
+
+    if (workOrderIds.length > 0) {
+      workOrdersData = await db
+        .select()
+        .from(workOrders)
+        .where(inArray(workOrders.id, workOrderIds));
+
+      // Calculate status breakdown
+      statusBreakdown = workOrdersData.reduce((acc, wo) => {
+        acc[wo.status] = (acc[wo.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+    }
+
+    return {
+      workshop,
+      foreman,
+      members,
+      workOrders: workOrdersData,
+      statusBreakdown,
+      stats: {
+        totalWorkOrders: workOrdersData.length,
+        totalMembers: members.length,
+        completedWorkOrders: workOrdersData.filter(wo => wo.status === 'completed').length,
+      },
+    };
+  }
+
   // Employees
   async getAllEmployees(role?: string, garageId?: string): Promise<Employee[]> {
     const conditions = [];
@@ -934,7 +1064,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Orders
-  async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string }): Promise<WorkOrderWithDetails[]> {
+  async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string }): Promise<WorkOrderWithDetails[]> {
     const conditions = [];
     
     if (filters?.status) {
@@ -947,50 +1077,60 @@ export class DatabaseStorage implements IStorage {
     if (filters?.garageId) {
       conditions.push(eq(workOrders.garageId, filters.garageId));
     }
+    if (filters?.workshopId) {
+      conditions.push(eq(workOrders.workshopId, filters.workshopId));
+    }
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     
     const orders = await db.select().from(workOrders).where(whereClause).orderBy(desc(workOrders.createdAt));
     
-    const ordersWithDetails = await Promise.all(
-      orders.map(async (order) => {
-        const [equipmentData] = await db.select().from(equipment).where(eq(equipment.id, order.equipmentId));
-        let garage = undefined;
-        if (order.garageId) {
-          [garage] = await db.select().from(garages).where(eq(garages.id, order.garageId));
-        }
-        let workshop = undefined;
-        if (order.workshopId) {
-          [workshop] = await db.select().from(workshops).where(eq(workshops.id, order.workshopId));
-        }
-        
-        // Get assigned employees from assignedToIds array
-        let assignedToList: Employee[] = [];
-        if (order.assignedToIds && order.assignedToIds.length > 0) {
-          assignedToList = await db.select().from(employees).where(inArray(employees.id, order.assignedToIds));
-        }
-        
-        let createdBy = undefined;
-        if (order.createdById) {
-          [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
-        }
-        
-        // Get required parts
-        const requiredParts = await this.getWorkOrderRequiredParts(order.id);
-        
-        return {
-          ...order,
-          equipment: equipmentData,
-          garage,
-          workshop,
-          assignedToList,
-          createdBy,
-          requiredParts,
-        };
-      })
-    );
+    if (orders.length === 0) return [];
+
+    // Collect all unique IDs for batch fetching (performance optimization)
+    const equipmentIds = Array.from(new Set(orders.map((o: any) => o.equipmentId).filter(Boolean))) as string[];
+    const garageIds = Array.from(new Set(orders.map((o: any) => o.garageId).filter(Boolean))) as string[];
+    const workshopIds = Array.from(new Set(orders.map((o: any) => o.workshopId).filter(Boolean))) as string[];
+    const employeeIds = Array.from(new Set(orders.flatMap((o: any) => o.assignedToIds || []))) as string[];
+    const userIds = Array.from(new Set(orders.map((o: any) => o.createdById).filter(Boolean))) as string[];
+    const workOrderIds = orders.map((o: any) => o.id);
+
+    // Batch fetch all related data in parallel instead of N queries per order
+    const [equipmentList, garageList, workshopList, employeeList, userList, requiredPartsList] = await Promise.all([
+      equipmentIds.length > 0 ? db.select().from(equipment).where(inArray(equipment.id, equipmentIds)) : Promise.resolve([]),
+      garageIds.length > 0 ? db.select().from(garages).where(inArray(garages.id, garageIds)) : Promise.resolve([]),
+      workshopIds.length > 0 ? db.select().from(workshops).where(inArray(workshops.id, workshopIds)) : Promise.resolve([]),
+      employeeIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, employeeIds)) : Promise.resolve([]),
+      userIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, userIds)) : Promise.resolve([]),
+      db.select().from(workOrderRequiredParts).where(inArray(workOrderRequiredParts.workOrderId, workOrderIds)),
+    ]);
+
+    // Create lookup maps for O(1) access
+    const equipmentMap = new Map(equipmentList.map((e: any) => [e.id, e]));
+    const garageMap = new Map(garageList.map((g: any) => [g.id, g]));
+    const workshopMap = new Map(workshopList.map((w: any) => [w.id, w]));
+    const employeeMap = new Map(employeeList.map((e: any) => [e.id, e]));
+    const userMap = new Map(userList.map((u: any) => [u.id, u]));
     
-    return ordersWithDetails;
+    // Group required parts by work order ID
+    const requiredPartsMap = new Map<string, typeof requiredPartsList>();
+    for (const part of requiredPartsList) {
+      if (!requiredPartsMap.has(part.workOrderId)) {
+        requiredPartsMap.set(part.workOrderId, []);
+      }
+      requiredPartsMap.get(part.workOrderId)!.push(part);
+    }
+
+    // Map related data back to work orders
+    return orders.map((order: any) => ({
+      ...order,
+      equipment: equipmentMap.get(order.equipmentId),
+      garage: order.garageId ? garageMap.get(order.garageId) : undefined,
+      workshop: order.workshopId ? workshopMap.get(order.workshopId) : undefined,
+      assignedToList: (order.assignedToIds || []).map((id: any) => employeeMap.get(id)).filter(Boolean) as Employee[],
+      createdBy: order.createdById ? userMap.get(order.createdById) : undefined,
+      requiredParts: requiredPartsMap.get(order.id) || [],
+    }));
   }
 
   async getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined> {
@@ -1015,7 +1155,7 @@ export class DatabaseStorage implements IStorage {
     
     let createdBy = undefined;
     if (order.createdById) {
-      [createdBy] = await db.select().from(users).where(eq(users.id, order.createdById));
+      [createdBy] = await db.select().from(employees).where(eq(employees.id, order.createdById));
     }
     
     // Get required parts
@@ -1075,6 +1215,137 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWorkOrder(id: string): Promise<void> {
     await db.delete(workOrders).where(eq(workOrders.id, id));
+  }
+
+  async getForemanPendingWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]> {
+    // Get workshops where this employee is the foreman
+    const foremanWorkshops = await db
+      .select()
+      .from(workshops)
+      .where(eq(workshops.foremanId, foremanId));
+    
+    if (foremanWorkshops.length === 0) {
+      return [];
+    }
+    
+    const workshopIds = foremanWorkshops.map(w => w.id);
+    
+    // Get work orders assigned to these workshops that need team assignment
+    const workOrderWorkshopLinks = await db
+      .select()
+      .from(workOrderWorkshops)
+      .where(inArray(workOrderWorkshops.workshopId, workshopIds));
+    
+    const workOrderIds = workOrderWorkshopLinks.map(link => link.workOrderId);
+    
+    if (workOrderIds.length === 0) {
+      return [];
+    }
+    
+    // Get work orders with status pending_foreman_assignment or pending_team_acceptance
+    const pendingOrders = await db
+      .select()
+      .from(workOrders)
+      .where(
+        and(
+          inArray(workOrders.id, workOrderIds),
+          or(
+            eq(workOrders.status, "pending_foreman_assignment"),
+            eq(workOrders.status, "pending_team_acceptance")
+          )
+        )
+      );
+    
+    // Get full details for each order
+    const ordersWithDetails = await Promise.all(
+      pendingOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]> {
+    // Get work orders where the foreman is assigned
+    const foremanMemberships = await db
+      .select()
+      .from(workOrderMemberships)
+      .where(
+        and(
+          eq(workOrderMemberships.employeeId, foremanId),
+          eq(workOrderMemberships.role, "foreman"),
+          eq(workOrderMemberships.isActive, true)
+        )
+      );
+    
+    if (foremanMemberships.length === 0) {
+      return [];
+    }
+    
+    const workOrderIds = foremanMemberships.map(m => m.workOrderId);
+    
+    // Get work orders with active statuses
+    const activeOrders = await db
+      .select()
+      .from(workOrders)
+      .where(
+        and(
+          inArray(workOrders.id, workOrderIds),
+          or(
+            eq(workOrders.status, "active"),
+            eq(workOrders.status, "in_progress"),
+            eq(workOrders.status, "awaiting_parts"),
+            eq(workOrders.status, "waiting_purchase")
+          )
+        )
+      );
+    
+    // Get full details for each order
+    const ordersWithDetails = await Promise.all(
+      activeOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void> {
+    // Insert foreman membership if not exists
+    const existingForemanMembership = await db
+      .select()
+      .from(workOrderMemberships)
+      .where(
+        and(
+          eq(workOrderMemberships.workOrderId, workOrderId),
+          eq(workOrderMemberships.employeeId, foremanId),
+          eq(workOrderMemberships.role, "foreman")
+        )
+      );
+    
+    if (existingForemanMembership.length === 0) {
+      await db.insert(workOrderMemberships).values({
+        workOrderId,
+        employeeId: foremanId,
+        role: "foreman",
+        assignedBy: foremanId,
+      });
+    }
+    
+    // Insert team member memberships
+    const teamMemberValues = teamMemberIds.map(memberId => ({
+      workOrderId,
+      employeeId: memberId,
+      role: "team_member",
+      assignedBy: foremanId,
+    }));
+    
+    if (teamMemberValues.length > 0) {
+      await db.insert(workOrderMemberships).values(teamMemberValues);
+    }
+    
+    // Update work order status to active
+    await db
+      .update(workOrders)
+      .set({ status: "active" })
+      .where(eq(workOrders.id, workOrderId));
   }
 
   async getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]> {
@@ -1221,35 +1492,38 @@ export class DatabaseStorage implements IStorage {
       .where(whereClause)
       .orderBy(desc(equipmentReceptions.arrivalDate));
 
-    // Get related data for each reception
-    const results: EquipmentReceptionWithDetails[] = [];
-    for (const reception of receptions) {
-      const equipmentData = reception.equipmentId
-        ? await this.getEquipmentById(reception.equipmentId)
-        : undefined;
-      const driverData = reception.driverId
-        ? await this.getEmployeeById(reception.driverId)
-        : undefined;
-      const mechanicData = reception.mechanicId
-        ? await this.getEmployeeById(reception.mechanicId)
-        : undefined;
-      const inspectionOfficerData = reception.inspectionOfficerId
-        ? await this.getEmployeeById(reception.inspectionOfficerId)
-        : undefined;
-      const workOrderData = reception.workOrderId
-        ? await this.getWorkOrderById(reception.workOrderId)
-        : undefined;
+    if (receptions.length === 0) return [];
 
-      results.push({
-        ...reception,
-        equipment: equipmentData,
-        driver: driverData,
-        mechanic: mechanicData,
-        inspectionOfficer: inspectionOfficerData,
-        workOrder: workOrderData,
-      });
-    }
-    return results;
+    // Collect all unique IDs for batch fetching (performance optimization)
+    const equipmentIds = Array.from(new Set(receptions.map((r: any) => r.equipmentId).filter(Boolean))) as string[];
+    const employeeIds = Array.from(new Set([
+      ...receptions.map((r: any) => r.driverId),
+      ...receptions.map((r: any) => r.mechanicId),
+      ...receptions.map((r: any) => r.inspectionOfficerId),
+    ].filter(Boolean))) as string[];
+    const workOrderIds = Array.from(new Set(receptions.map((r: any) => r.workOrderId).filter(Boolean))) as string[];
+
+    // Batch fetch all related data in just 3 queries instead of N queries
+    const [equipmentList, employeeList, workOrderList] = await Promise.all([
+      equipmentIds.length > 0 ? db.select().from(equipment).where(inArray(equipment.id, equipmentIds)) : Promise.resolve([]),
+      employeeIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, employeeIds)) : Promise.resolve([]),
+      workOrderIds.length > 0 ? db.select().from(workOrders).where(inArray(workOrders.id, workOrderIds)) : Promise.resolve([]),
+    ]);
+
+    // Create lookup maps for O(1) access
+    const equipmentMap = new Map(equipmentList.map((e: any) => [e.id, e]));
+    const employeeMap = new Map(employeeList.map((e: any) => [e.id, e]));
+    const workOrderMap = new Map(workOrderList.map((w: any) => [w.id, w]));
+
+    // Map related data back to receptions
+    return receptions.map((reception: any) => ({
+      ...reception,
+      equipment: reception.equipmentId ? equipmentMap.get(reception.equipmentId) : undefined,
+      driver: reception.driverId ? employeeMap.get(reception.driverId) : undefined,
+      mechanic: reception.mechanicId ? employeeMap.get(reception.mechanicId) : undefined,
+      inspectionOfficer: reception.inspectionOfficerId ? employeeMap.get(reception.inspectionOfficerId) : undefined,
+      workOrder: reception.workOrderId ? workOrderMap.get(reception.workOrderId) : undefined,
+    }));
   }
 
   async getReceptionById(id: string): Promise<EquipmentReceptionWithDetails | undefined> {
@@ -1387,12 +1661,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Equipment Inspections
-  async getInspectionById(id: string): Promise<EquipmentInspection | undefined> {
-    const [result] = await db
+  async getInspectionById(id: string): Promise<any | undefined> {
+    const [inspection] = await db
       .select()
       .from(equipmentInspections)
       .where(eq(equipmentInspections.id, id));
-    return result || undefined;
+    
+    if (!inspection) return undefined;
+
+    // Fetch related reception data
+    const reception = inspection.receptionId
+      ? await this.getReceptionById(inspection.receptionId)
+      : undefined;
+
+    // Fetch inspector data
+    const inspector = inspection.inspectorId
+      ? await this.getEmployeeById(inspection.inspectorId)
+      : undefined;
+
+    return {
+      ...inspection,
+      reception,
+      inspector,
+    };
   }
 
   async getInspectionByReceptionId(receptionId: string): Promise<EquipmentInspection | undefined> {
@@ -1621,6 +1912,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(inspectionChecklistItems.id, id))
       .returning();
     return result;
+  }
+
+  async deleteChecklistItemsByInspection(inspectionId: string): Promise<void> {
+    await db
+      .delete(inspectionChecklistItems)
+      .where(eq(inspectionChecklistItems.inspectionId, inspectionId));
+  }
+
+  async upsertChecklistItems(inspectionId: string, items: InsertInspectionChecklistItem[]): Promise<InspectionChecklistItem[]> {
+    // Use a transaction to ensure atomicity: delete and insert happen together or not at all
+    return await db.transaction(async (tx) => {
+      // Delete existing checklist items for this inspection
+      await tx
+        .delete(inspectionChecklistItems)
+        .where(eq(inspectionChecklistItems.inspectionId, inspectionId));
+      
+      // Insert new checklist items
+      if (items.length === 0) return [];
+      const results = await tx.insert(inspectionChecklistItems).values(items).returning();
+      return results;
+    });
   }
 
   // Damage Reports
@@ -1874,7 +2186,189 @@ export class DatabaseStorage implements IStorage {
       .where(eq(partsRequests.id, partsRequestId));
   }
 
+  // Item Requisitions
+  async createItemRequisition(requisitionData: any, lines: any[]): Promise<any> {
+    // Generate requisition number
+    const currentYear = new Date().getFullYear();
+    const prefix = `REQ-${currentYear}-`;
+    const existingReqs = await db
+      .select()
+      .from(itemRequisitions)
+      .where(sql`${itemRequisitions.requisitionNumber} LIKE ${prefix + '%'}`)
+      .orderBy(desc(itemRequisitions.requisitionNumber));
+    
+    let nextNumber = 1;
+    if (existingReqs.length > 0) {
+      const lastNumber = existingReqs[0].requisitionNumber.split('-')[2];
+      nextNumber = parseInt(lastNumber) + 1;
+    }
+    
+    const requisitionNumber = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+    
+    // Create requisition
+    const [requisition] = await db.insert(itemRequisitions).values({
+      ...requisitionData,
+      requisitionNumber,
+      status: 'pending_foreman',
+    }).returning();
+    
+    // Create requisition lines
+    if (lines.length > 0) {
+      const linesWithReqId = lines.map((line, index) => ({
+        ...line,
+        requisitionId: requisition.id,
+        lineNumber: index + 1,
+      }));
+      await db.insert(itemRequisitionLines).values(linesWithReqId);
+    }
+    
+    return requisition;
+  }
+
+  async getItemRequisitionsByForeman(foremanId: string): Promise<any[]> {
+    // Get workshops where this employee is the foreman
+    const foremanWorkshops = await db
+      .select()
+      .from(workshops)
+      .where(eq(workshops.foremanId, foremanId));
+    
+    if (foremanWorkshops.length === 0) {
+      return [];
+    }
+    
+    const workshopIds = foremanWorkshops.map(w => w.id);
+    
+    // Get requisitions from these workshops with pending_foreman status
+    const requisitions = await db
+      .select()
+      .from(itemRequisitions)
+      .where(
+        and(
+          inArray(itemRequisitions.workshopId, workshopIds),
+          eq(itemRequisitions.foremanApprovalStatus, 'pending')
+        )
+      )
+      .orderBy(desc(itemRequisitions.createdAt));
+    
+    // Get lines for each requisition
+    const requisitionsWithLines = await Promise.all(
+      requisitions.map(async (req) => {
+        const lines = await db
+          .select()
+          .from(itemRequisitionLines)
+          .where(eq(itemRequisitionLines.requisitionId, req.id))
+          .orderBy(itemRequisitionLines.lineNumber);
+        
+        const [requester] = await db
+          .select()
+          .from(employees)
+          .where(eq(employees.id, req.requesterId));
+        
+        return { ...req, lines, requester };
+      })
+    );
+    
+    return requisitionsWithLines;
+  }
+
+  async getItemRequisitionsByStoreManager(): Promise<any[]> {
+    // Get requisitions with pending_store status (already approved by foreman)
+    const requisitions = await db
+      .select()
+      .from(itemRequisitions)
+      .where(
+        and(
+          eq(itemRequisitions.foremanApprovalStatus, 'approved'),
+          eq(itemRequisitions.storeApprovalStatus, 'pending')
+        )
+      )
+      .orderBy(desc(itemRequisitions.createdAt));
+    
+    // Get lines for each requisition
+    const requisitionsWithLines = await Promise.all(
+      requisitions.map(async (req) => {
+        const lines = await db
+          .select()
+          .from(itemRequisitionLines)
+          .where(eq(itemRequisitionLines.requisitionId, req.id))
+          .orderBy(itemRequisitionLines.lineNumber);
+        
+        const [requester] = await db
+          .select()
+          .from(employees)
+          .where(eq(employees.id, req.requesterId));
+        
+        const [workshop] = req.workshopId
+          ? await db.select().from(workshops).where(eq(workshops.id, req.workshopId))
+          : [null];
+        
+        return { ...req, lines, requester, workshop };
+      })
+    );
+    
+    return requisitionsWithLines;
+  }
+
+  async approveItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        foremanApprovalStatus: 'approved',
+        foremanApprovedById: foremanId,
+        foremanApprovedAt: new Date(),
+        foremanRemarks: remarks,
+        status: 'pending_store',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async rejectItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        foremanApprovalStatus: 'rejected',
+        foremanApprovedById: foremanId,
+        foremanApprovedAt: new Date(),
+        foremanRemarks: remarks,
+        status: 'rejected',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        storeApprovalStatus: 'approved',
+        storeApprovedById: storeManagerId,
+        storeApprovedAt: new Date(),
+        storeRemarks: remarks,
+        status: 'approved',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void> {
+    await db
+      .update(itemRequisitions)
+      .set({
+        storeApprovalStatus: 'rejected',
+        storeApprovedById: storeManagerId,
+        storeApprovedAt: new Date(),
+        storeRemarks: remarks,
+        status: 'rejected',
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+  }
+
   // Attendance Device Operations
+  async getAllAttendanceDevices(): Promise<any[]> {
+    return await db
+      .select()
+      .from(attendanceDeviceSettings)
+      .orderBy(desc(attendanceDeviceSettings.isActive), attendanceDeviceSettings.deviceName);
+  }
+
   async getAttendanceDeviceSettings(): Promise<any | undefined> {
     const [result] = await db
       .select()
@@ -1882,6 +2376,22 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendanceDeviceSettings.isActive, true))
       .limit(1);
     return result || undefined;
+  }
+
+  async getAttendanceDeviceById(id: string): Promise<any | undefined> {
+    const [result] = await db
+      .select()
+      .from(attendanceDeviceSettings)
+      .where(eq(attendanceDeviceSettings.id, id));
+    return result || undefined;
+  }
+
+  async createAttendanceDevice(data: any): Promise<any> {
+    const [result] = await db
+      .insert(attendanceDeviceSettings)
+      .values({ ...data, isActive: false })
+      .returning();
+    return result;
   }
 
   async saveAttendanceDeviceSettings(data: any): Promise<any> {
@@ -1905,6 +2415,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendanceDeviceSettings.id, id))
       .returning();
     return result;
+  }
+
+  async setActiveDevice(id: string): Promise<any> {
+    // Deactivate all devices
+    await db
+      .update(attendanceDeviceSettings)
+      .set({ isActive: false });
+
+    // Activate the selected device
+    const [result] = await db
+      .update(attendanceDeviceSettings)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(attendanceDeviceSettings.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteAttendanceDevice(id: string): Promise<void> {
+    await db
+      .delete(attendanceDeviceSettings)
+      .where(eq(attendanceDeviceSettings.id, id));
   }
 
   async getEmployeeByDeviceUserId(deviceUserId: string): Promise<Employee | undefined> {
@@ -1949,6 +2480,132 @@ export class DatabaseStorage implements IStorage {
       .from(deviceImportLogs)
       .orderBy(desc(deviceImportLogs.createdAt))
       .limit(50);
+  }
+
+  // Dynamics 365 Settings Operations
+  async getDynamics365Settings(): Promise<Dynamics365Settings | undefined> {
+    const [result] = await db
+      .select()
+      .from(dynamics365Settings)
+      .where(eq(dynamics365Settings.isActive, true))
+      .limit(1);
+    return result || undefined;
+  }
+
+  async saveDynamics365Settings(data: InsertDynamics365Settings, updatedById: string): Promise<Dynamics365Settings> {
+    // Deactivate all existing settings
+    await db
+      .update(dynamics365Settings)
+      .set({ isActive: false });
+
+    // Create new active settings
+    const [result] = await db
+      .insert(dynamics365Settings)
+      .values({
+        ...data,
+        isActive: true,
+        updatedBy: updatedById,
+      })
+      .returning();
+    return result;
+  }
+
+  async updateDynamics365TestResult(testStatus: string, testMessage?: string): Promise<void> {
+    const settings = await this.getDynamics365Settings();
+    if (settings) {
+      await db
+        .update(dynamics365Settings)
+        .set({
+          lastTestDate: new Date(),
+          lastTestStatus: testStatus,
+          lastTestMessage: testMessage || null,
+        })
+        .where(eq(dynamics365Settings.id, settings.id));
+    }
+  }
+
+  // System Settings Operations
+  async getSystemSettings(): Promise<SystemSettings | undefined> {
+    const [result] = await db
+      .select()
+      .from(systemSettings)
+      .limit(1);
+    return result || undefined;
+  }
+
+  async saveSystemSettings(data: InsertSystemSettings, updatedById: string): Promise<SystemSettings> {
+    const existing = await this.getSystemSettings();
+    
+    if (existing) {
+      // Update existing settings
+      const [result] = await db
+        .update(systemSettings)
+        .set({
+          ...data,
+          updatedBy: updatedById,
+          updatedAt: new Date(),
+        })
+        .where(eq(systemSettings.id, existing.id))
+        .returning();
+      return result;
+    } else {
+      // Create new settings
+      const [result] = await db
+        .insert(systemSettings)
+        .values({
+          ...data,
+          updatedBy: updatedById,
+        })
+        .returning();
+      return result;
+    }
+  }
+
+  // Items (D365) Operations
+  async getAllItems(): Promise<Item[]> {
+    return await db
+      .select()
+      .from(items)
+      .orderBy(desc(items.syncedAt));
+  }
+
+  async getItemById(id: string): Promise<Item | undefined> {
+    const [result] = await db
+      .select()
+      .from(items)
+      .where(eq(items.id, id));
+    return result || undefined;
+  }
+
+  async getItemByItemNo(itemNo: string): Promise<Item | undefined> {
+    const [result] = await db
+      .select()
+      .from(items)
+      .where(eq(items.itemNo, itemNo));
+    return result || undefined;
+  }
+
+  async createItem(data: InsertItem): Promise<Item> {
+    const [result] = await db
+      .insert(items)
+      .values(data)
+      .returning();
+    return result;
+  }
+
+  async updateItem(id: string, data: Partial<InsertItem>): Promise<Item> {
+    const [result] = await db
+      .update(items)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(items.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteItem(id: string): Promise<void> {
+    await db
+      .delete(items)
+      .where(eq(items.id, id));
   }
 }
 

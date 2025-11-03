@@ -1,0 +1,272 @@
+============================================================
+   GELAN TERMINAL MAINTENANCE SYSTEM
+   Sunshine Construction PLC
+============================================================
+
+Checking Node.js...
+Γ£ô Node.js installed
+
+Installing dependencies...
+Γ£ô Dependencies ready
+
+============================================================
+   SERVER STARTING
+============================================================
+
+Server will be available at:
+  - Local access:   http://localhost:3000
+  - Network access: http://192.168.0.34:3000
+
+Other computers can access via: http://192.168.0.34:3000
+
+Default Login:
+  Username: ceo
+  Password: ceo123
+
+Press Ctrl+C to stop the server
+============================================================
+
+🔗 Using node-postgres driver (local database)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+11:15:20 AM [express] Environment: development (NODE_ENV=undefined)
+11:15:20 AM [express] Starting Vite dev server...
+11:15:20 AM [express] Vite dev server ready
+11:15:20 AM [express] serving on port 3000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+11:15:32 AM [express] GET /api/auth/me 200 in 5ms :: {"user":null}
+11:15:33 AM [express] GET /api/system-settings 403 in 2ms :: {"message":"Access denied. CEO or Admin …
+11:15:33 AM [express] GET /api/dynamics365/sync-logs 403 in 2ms :: {"message":"Access denied. CEO or …
+11:15:33 AM [express] GET /api/dynamics365/settings 403 in 1ms :: {"message":"Access denied. CEO or A…
+11:15:33 AM [express] GET /api/equipment-categories 200 in 8ms :: [{"id":"e061b343-8651-4ee1-892b-a6d…
+11:15:33 AM [express] GET /api/attendance-device/logs 403 in 1ms :: {"message":"Access denied. CEO or…
+11:15:33 AM [express] GET /api/attendance-device/settings 403 in 1ms :: {"message":"Access denied. CE…
+11:15:33 AM [express] GET /api/attendance-devices 403 in 1ms :: {"message":"Access denied. CEO or Adm…
+11:15:42 AM [express] POST /api/auth/login 200 in 76ms :: {"user":{"id":"08727589-f23b-4953-a05c-1ce7…
+11:15:42 AM [express] GET /api/auth/me 200 in 1ms :: {"user":{"id":"08727589-f23b-4953-a05c-1ce7af424…
+11:15:42 AM [express] GET /api/equipment 200 in 21ms :: [{"id":"9a6d9dc9-4d45-4138-b4fd-5305e2bf5511"…
+11:15:42 AM [express] GET /api/employees 200 in 10ms :: [{"id":"51f5da01-eceb-4355-bd8f-79c6e980a0b3"…
+11:15:48 AM [express] GET /api/system-settings 200 in 8ms :: {"serverHost":"0.0.0.0","serverPort":300…
+11:15:48 AM [express] GET /api/dynamics365/settings 200 in 12ms
+11:15:48 AM [express] GET /api/attendance-device/settings 200 in 3ms :: {"id":"ec100b03-0653-4f3f-a55…
+11:15:48 AM [express] GET /api/attendance-devices 200 in 5ms :: [{"id":"ec100b03-0653-4f3f-a55a-ba4a0…
+11:15:48 AM [express] GET /api/dynamics365/sync-logs 200 in 5ms :: []
+11:15:48 AM [express] GET /api/attendance-device/logs 200 in 3ms :: [{"id":"14b5f02a-d632-4bdb-88b3-4…
+Error searching for public object: GaxiosError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+    at Gaxios._request (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\gaxios\src\gaxios.ts:157:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async UrlSubjectTokenSupplier.getSubjectToken (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\urlsubjecttokensupplier.js:54:30)
+    at async IdentityPoolClient._BaseExternalAccountClient_internalRefreshAccessTokenAsync (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\baseexternalclient.js:408:26) {
+  config: {
+    retry: true,
+    retryConfig: {
+      httpMethodsToRetry: [Array],
+      currentRetryAttempt: 2,
+      retry: 3,
+      noResponseRetries: 2,
+      retryDelayMultiplier: 2,
+      timeOfFirstRequest: 1761552954192,
+      totalTimeout: 9007199254740991,
+      maxRetryDelay: 9007199254740991,
+      statusCodesToRetry: [Array]
+    },
+    url: 'http://127.0.0.1:1106/credential',
+    method: 'GET',
+    headers: {
+      'User-Agent': 'google-api-nodejs-client/9.15.1',
+      'x-goog-api-client': 'gl-node/22.21.0',
+      Accept: 'application/json'
+    },
+    responseType: 'json',
+    paramsSerializer: [Function: paramsSerializer],
+    validateStatus: [Function: validateStatus],
+    errorRedactor: [Function: defaultErrorRedactor]
+  },
+  response: undefined,
+  error: FetchError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+      at ClientRequest.<anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\node-fetch\lib\index.js:1501:11)
+      at ClientRequest.emit (node:events:519:28)
+      at emitErrorEvent (node:_http_client:107:11)
+      at Socket.socketErrorListener (node:_http_client:574:5)
+      at Socket.emit (node:events:519:28)
+      at emitErrorNT (node:internal/streams/destroy:170:8)
+      at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    type: 'system',
+    errno: 'ECONNREFUSED',
+    code: 'ECONNREFUSED'
+  },
+  code: 'ECONNREFUSED',
+  [Symbol(gaxios-gaxios-error)]: '6.7.1'
+}
+Error searching for public object: GaxiosError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+    at Gaxios._request (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\gaxios\src\gaxios.ts:157:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async UrlSubjectTokenSupplier.getSubjectToken (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\urlsubjecttokensupplier.js:54:30)
+    at async IdentityPoolClient._BaseExternalAccountClient_internalRefreshAccessTokenAsync (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\baseexternalclient.js:408:26) {
+  config: {
+    retry: true,
+    retryConfig: {
+      httpMethodsToRetry: [Array],
+      currentRetryAttempt: 2,
+      retry: 3,
+      noResponseRetries: 2,
+      retryDelayMultiplier: 2,
+      timeOfFirstRequest: 1761552954192,
+      totalTimeout: 9007199254740991,
+      maxRetryDelay: 9007199254740991,
+      statusCodesToRetry: [Array]
+    },
+    url: 'http://127.0.0.1:1106/credential',
+    method: 'GET',
+    headers: {
+      'User-Agent': 'google-api-nodejs-client/9.15.1',
+      'x-goog-api-client': 'gl-node/22.21.0',
+      Accept: 'application/json'
+    },
+    responseType: 'json',
+    paramsSerializer: [Function: paramsSerializer],
+    validateStatus: [Function: validateStatus],
+    errorRedactor: [Function: defaultErrorRedactor]
+  },
+  response: undefined,
+  error: FetchError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+      at ClientRequest.<anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\node-fetch\lib\index.js:1501:11)
+      at ClientRequest.emit (node:events:519:28)
+      at emitErrorEvent (node:_http_client:107:11)
+      at Socket.socketErrorListener (node:_http_client:574:5)
+      at Socket.emit (node:events:519:28)
+      at emitErrorNT (node:internal/streams/destroy:170:8)
+      at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    type: 'system',
+    errno: 'ECONNREFUSED',
+    code: 'ECONNREFUSED'
+  },
+  code: 'ECONNREFUSED',
+  [Symbol(gaxios-gaxios-error)]: '6.7.1'
+}
+11:15:57 AM [express] GET /api/parts-locations 200 in 13ms
+TCP connection successful
+11:16:01 AM [express] POST /api/attendance-device/fetch-users 200 in 327ms :: {"success":true,"users"…
+11:16:11 AM [express] GET /api/auth/me 304 in 1ms :: {"user":{"id":"08727589-f23b-4953-a05c-1ce7af424…
+11:16:11 AM [express] GET /api/employees 304 in 12ms :: [{"id":"51f5da01-eceb-4355-bd8f-79c6e980a0b3"…
+Error searching for public object: GaxiosError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+    at Gaxios._request (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\gaxios\src\gaxios.ts:157:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async UrlSubjectTokenSupplier.getSubjectToken (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\urlsubjecttokensupplier.js:54:30)
+    at async IdentityPoolClient._BaseExternalAccountClient_internalRefreshAccessTokenAsync (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\baseexternalclient.js:408:26) {
+  config: {
+    retry: true,
+    retryConfig: {
+      httpMethodsToRetry: [Array],
+      currentRetryAttempt: 2,
+      retry: 3,
+      noResponseRetries: 2,
+      retryDelayMultiplier: 2,
+      timeOfFirstRequest: 1761552971772,
+      totalTimeout: 9007199254740991,
+      maxRetryDelay: 9007199254740991,
+      statusCodesToRetry: [Array]
+    },
+    url: 'http://127.0.0.1:1106/credential',
+    method: 'GET',
+    headers: {
+      'User-Agent': 'google-api-nodejs-client/9.15.1',
+      'x-goog-api-client': 'gl-node/22.21.0',
+      Accept: 'application/json'
+    },
+    responseType: 'json',
+    paramsSerializer: [Function: paramsSerializer],
+    validateStatus: [Function: validateStatus],
+    errorRedactor: [Function: defaultErrorRedactor]
+  },
+  response: undefined,
+  error: FetchError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+      at ClientRequest.<anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\node-fetch\lib\index.js:1501:11)
+      at ClientRequest.emit (node:events:519:28)
+      at emitErrorEvent (node:_http_client:107:11)
+      at Socket.socketErrorListener (node:_http_client:574:5)
+      at Socket.emit (node:events:519:28)
+      at emitErrorNT (node:internal/streams/destroy:170:8)
+      at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    type: 'system',
+    errno: 'ECONNREFUSED',
+    code: 'ECONNREFUSED'
+  },
+  code: 'ECONNREFUSED',
+  [Symbol(gaxios-gaxios-error)]: '6.7.1'
+}
+Error searching for public object: GaxiosError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+    at Gaxios._request (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\gaxios\src\gaxios.ts:157:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async UrlSubjectTokenSupplier.getSubjectToken (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\urlsubjecttokensupplier.js:54:30)
+    at async IdentityPoolClient._BaseExternalAccountClient_internalRefreshAccessTokenAsync (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\google-auth-library\build\src\auth\baseexternalclient.js:408:26) {
+  config: {
+    retry: true,
+    retryConfig: {
+      httpMethodsToRetry: [Array],
+      currentRetryAttempt: 2,
+      retry: 3,
+      noResponseRetries: 2,
+      retryDelayMultiplier: 2,
+      timeOfFirstRequest: 1761552971772,
+      totalTimeout: 9007199254740991,
+      maxRetryDelay: 9007199254740991,
+      statusCodesToRetry: [Array]
+    },
+    url: 'http://127.0.0.1:1106/credential',
+    method: 'GET',
+    headers: {
+      'User-Agent': 'google-api-nodejs-client/9.15.1',
+      'x-goog-api-client': 'gl-node/22.21.0',
+      Accept: 'application/json'
+    },
+    responseType: 'json',
+    paramsSerializer: [Function: paramsSerializer],
+    validateStatus: [Function: validateStatus],
+    errorRedactor: [Function: defaultErrorRedactor]
+  },
+  response: undefined,
+  error: FetchError: request to http://127.0.0.1:1106/credential failed, reason: connect ECONNREFUSED 127.0.0.1:1106
+      at ClientRequest.<anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\node-fetch\lib\index.js:1501:11)
+      at ClientRequest.emit (node:events:519:28)
+      at emitErrorEvent (node:_http_client:107:11)
+      at Socket.socketErrorListener (node:_http_client:574:5)
+      at Socket.emit (node:events:519:28)
+      at emitErrorNT (node:internal/streams/destroy:170:8)
+      at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+      at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+    type: 'system',
+    errno: 'ECONNREFUSED',
+    code: 'ECONNREFUSED'
+  },
+  code: 'ECONNREFUSED',
+  [Symbol(gaxios-gaxios-error)]: '6.7.1'
+}
+11:16:17 AM [express] GET /api/attendance-devices 304 in 4ms :: [{"id":"ec100b03-0653-4f3f-a55a-ba4a0…
+11:16:17 AM [express] GET /api/dynamics365/sync-logs 304 in 6ms :: []
+11:16:17 AM [express] GET /api/system-settings 304 in 133ms :: {"serverHost":"0.0.0.0","serverPort":3…
+11:16:17 AM [express] GET /api/dynamics365/settings 304 in 4ms
+11:16:17 AM [express] GET /api/attendance-device/logs 304 in 4ms :: [{"id":"14b5f02a-d632-4bdb-88b3-4…
+11:16:17 AM [express] GET /api/equipment-categories 200 in 6ms :: [{"id":"e061b343-8651-4ee1-892b-a6d…
+11:16:17 AM [express] GET /api/attendance-device/settings 304 in 5ms :: {"id":"ec100b03-0653-4f3f-a55…
+11:16:35 AM [express] DELETE /api/attendance-devices/e86dcea3-ee41-4aaf-b73c-39586ffff746 200 in 22ms…
+11:16:35 AM [express] GET /api/attendance-device/settings 304 in 1ms :: {"id":"ec100b03-0653-4f3f-a55…
+11:16:35 AM [express] GET /api/attendance-devices 200 in 2ms :: [{"id":"ec100b03-0653-4f3f-a55a-ba4a0…
+11:17:46 AM [express] POST /api/attendance-devices 201 in 4ms :: {"id":"f0865748-ac5f-4e17-bca2-dd723…
+11:17:46 AM [express] GET /api/attendance-devices 200 in 2ms :: [{"id":"ec100b03-0653-4f3f-a55a-ba4a0…
+11:17:49 AM [express] PATCH /api/attendance-devices/f0865748-ac5f-4e17-bca2-dd7232e22958/activate 200…
+11:17:49 AM [express] GET /api/attendance-devices 200 in 2ms :: [{"id":"f0865748-ac5f-4e17-bca2-dd723…
+11:17:49 AM [express] GET /api/attendance-device/settings 200 in 3ms :: {"id":"f0865748-ac5f-4e17-bca…
+TCP connection successful
+11:17:53 AM [express] POST /api/attendance-device/fetch-users 200 in 145ms :: {"success":true,"users"…
+11:17:57 AM [express] POST /api/attendance-device/import 200 in 5ms
+11:18:04 AM [express] POST /api/attendance-device/import 200 in 4ms
+11:18:20 AM [express] POST /api/attendance-device/import 200 in 4ms
+11:18:24 AM [express] POST /api/attendance-device/import 200 in 4ms
+11:18:36 AM [express] PATCH /api/attendance-devices/ec100b03-0653-4f3f-a55a-ba4a0cd82709/activate 200…
+11:18:36 AM [express] GET /api/attendance-devices 200 in 2ms :: [{"id":"ec100b03-0653-4f3f-a55a-ba4a0…
+11:18:36 AM [express] GET /api/attendance-device/settings 200 in 1ms :: {"id":"ec100b03-0653-4f3f-a55…
+11:18:39 AM [express] POST /api/attendance-device/import 200 in 4ms

@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
-import { users, employees } from "@shared/schema";
+import { employees } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import type { User, Employee } from "@shared/schema";
 
@@ -19,8 +19,8 @@ interface JWTPayload {
 export function generateToken(user: User): string {
   const payload: JWTPayload = {
     id: user.id,
-    username: user.username,
-    role: user.role,
+    username: user.username || '',
+    role: user.role || 'user',
   };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "24h" });
 }
@@ -34,23 +34,9 @@ export function verifyToken(token: string): JWTPayload | null {
   }
 }
 
-// Verify user credentials - checks both users and employees tables
+// Verify user credentials - checks employees table only
 export async function verifyCredentials(username: string, password: string): Promise<User | null> {
-  // First check the users table
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.username, username))
-    .limit(1);
-
-  if (user) {
-    const isValid = await bcrypt.compare(password, user.password);
-    if (isValid) {
-      return user;
-    }
-  }
-
-  // If not found in users table, check employees table
+  // Check employees table
   const [employee] = await db
     .select()
     .from(employees)
@@ -69,10 +55,10 @@ export async function verifyCredentials(username: string, password: string): Pro
   // Convert employee to User-like structure for authentication
   return {
     id: employee.id,
-    username: employee.username,
-    password: employee.password,
+    username: employee.username || '',
+    password: employee.password || '',
     fullName: employee.fullName,
-    role: employee.role,
+    role: employee.role || 'user',
     language: employee.language || 'en',
     createdAt: employee.createdAt,
   } as User;
@@ -94,19 +80,7 @@ export async function authenticateToken(req: any, res: Response, next: NextFunct
     return next();
   }
 
-  // Fetch full user from database (check users table first)
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, payload.id))
-    .limit(1);
-
-  if (user) {
-    req.user = user;
-    return next();
-  }
-
-  // If not found in users table, check employees table
+  // Fetch full user from employees table
   const [employee] = await db
     .select()
     .from(employees)
@@ -117,10 +91,10 @@ export async function authenticateToken(req: any, res: Response, next: NextFunct
     // Convert employee to User-like structure
     req.user = {
       id: employee.id,
-      username: employee.username,
-      password: employee.password,
+      username: employee.username || '',
+      password: employee.password || '',
       fullName: employee.fullName,
-      role: employee.role,
+      role: employee.role || 'user',
       language: employee.language || 'en',
       createdAt: employee.createdAt,
     } as User;

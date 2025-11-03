@@ -1,0 +1,60 @@
+Γ£ô Dependencies ready
+
+============================================================
+   SERVER STARTING
+============================================================
+
+Server will be available at:
+  - Local access:   http://localhost:3000
+  - Network access: http://192.168.0.34:3000
+
+Other computers can access via: http://192.168.0.34:3000
+
+Default Login:
+  Username: ceo
+  Password: ceo123
+
+Press Ctrl+C to stop the server
+============================================================
+
+🔗 Using node-postgres driver (local database)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+7:17:54 AM [express] Environment: development (NODE_ENV=undefined)
+7:17:54 AM [express] Starting Vite dev server...
+7:17:54 AM [express] Vite dev server ready
+7:17:54 AM [express] serving on port 3000
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+7:18:00 AM [express] GET /api/auth/me 304 in 5ms :: {"user":{"id":"08727589-f23b-4953-a05c-1ce7af424…
+7:18:00 AM [express] GET /api/system-settings 304 in 8ms :: {"serverHost":"0.0.0.0","serverPort":300…
+7:18:00 AM [express] GET /api/dynamics365/sync-logs 304 in 4ms :: []
+7:18:00 AM [express] GET /api/equipment-categories 200 in 4ms :: [{"id":"e061b343-8651-4ee1-892b-a6d…
+7:18:00 AM [express] GET /api/attendance-devices 304 in 6ms :: [{"id":"f0865748-ac5f-4e17-bca2-dd723…
+7:18:00 AM [express] GET /api/attendance-device/logs 304 in 7ms :: [{"id":"3004ef3b-73ad-409b-9ede-b…
+7:18:00 AM [express] GET /api/attendance-device/settings 304 in 7ms :: {"id":"f0865748-ac5f-4e17-bca…
+7:18:00 AM [express] GET /api/dynamics365/settings 200 in 7ms
+Error saving D365 settings: error: insert or update on table "dynamics365_settings" violates foreign key constraint "dynamics365_settings_updated_by_fkey"
+    at C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\node_modules\src\node-postgres\session.ts:104:19)
+    at async DatabaseStorage.saveDynamics365Settings (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\storage.ts:2099:22)
+    at async <anonymous> (C:\Users\Solmix\Documents\GitHub\SUNAPP2\server\routes.ts:2966:24) {
+  length: 350,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (updated_by)=(08727589-f23b-4953-a05c-1ce7af424669) is not present in table "employees".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'dynamics365_settings',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'dynamics365_settings_updated_by_fkey',
+  file: 'ri_triggers.c',
+  line: '2783',
+  routine: 'ri_ReportViolation'
+}
+7:18:20 AM [express] POST /api/dynamics365/settings 500 in 313ms :: {"error":"Failed to save D365 se…

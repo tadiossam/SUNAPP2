@@ -1,0 +1,28 @@
+{
+  "name": "gelan-api-sync",
+  "version": "1.0.0",
+  "description": "Node.js project to fetch Business Central OData",
+  "main": "bctest.js",
+  "type": "module",
+  "scripts": {
+    "start": "node bctest.js"
+  },
+  "keywords": [
+    "business-central",
+    "odata",
+    "nodejs",
+    "api"
+  ],
+  "author": "Solomon Sintayehu",
+  "license": "MIT",
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "bootstrap": "^5.3.8",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "httpntlm": "^1.8.13",
+    "node-fetch": "^3.3.2",
+    "react-bootstrap": "^2.10.10",
+    "readline-sync": "^1.4.10"
+  }
+}

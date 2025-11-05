@@ -49,14 +49,14 @@ interface PurchaseRequest {
 const statusColors: Record<string, string> = {
   pending: "warning",
   ordered: "info",
-  received: "success",
+  completed: "success",
   cancelled: "destructive",
 };
 
 const statusIcons: Record<string, any> = {
   pending: Clock,
   ordered: Package,
-  received: CheckCircle2,
+  completed: CheckCircle2,
   cancelled: XCircle,
 };
 
@@ -97,7 +97,7 @@ export default function PurchaseOrders() {
   const markAsReceivedMutation = useMutation({
     mutationFn: async (data: { id: string; quantityReceived: number }) => {
       return apiRequest("PATCH", `/api/purchase-requests/${data.id}`, {
-        status: "received",
+        status: "completed",
         receivedDate: new Date().toISOString(),
         quantityReceived: data.quantityReceived,
       });
@@ -106,7 +106,7 @@ export default function PurchaseOrders() {
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-requests'] });
       toast({
         title: "Success",
-        description: "Purchase order marked as received and stock updated",
+        description: "Purchase order marked as completed and stock updated",
       });
       setSelectedPO(null);
     },
@@ -409,7 +409,7 @@ export default function PurchaseOrders() {
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="ordered">Ordered</SelectItem>
-            <SelectItem value="received">Received</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>

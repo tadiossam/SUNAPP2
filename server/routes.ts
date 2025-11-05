@@ -1131,6 +1131,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete all employees imported from biometric device
+  app.delete("/api/biometric-imports/delete-all-employees", isCEOOrAdmin, async (req, res) => {
+    try {
+      // Get all employees with deviceUserId (imported from biometric device)
+      const employees = await db.select()
+        .from(schema.employees)
+        .where(sql`${schema.employees.deviceUserId} IS NOT NULL`);
+      
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      for (const employee of employees) {
+        try {
+          await storage.deleteEmployee(employee.id);
+          deletedCount++;
+        } catch (error: any) {
+          console.error(`Error deleting employee ${employee.id}:`, error);
+          errors.push(`${employee.fullName}: ${error.message}`);
+        }
+      }
+
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted', 'biometric_employees', 'bulk', req.user.username || 'unknown', 
+          { deletedCount, totalFound: employees.length }
+        ));
+      }
+
+      res.json({
+        success: true,
+        message: `Deleted ${deletedCount} employees imported from biometric device`,
+        deletedCount,
+        totalFound: employees.length,
+        errors: errors.length > 0 ? errors : undefined
+      });
+    } catch (error: any) {
+      console.error("Error deleting biometric employees:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to delete biometric employees",
+        message: error.message 
+      });
+    }
+  });
+
   // Get presigned upload URL for employee photo
   app.post("/api/employees/:id/photo/upload-url", isCEOOrAdmin, async (req, res) => {
     try {

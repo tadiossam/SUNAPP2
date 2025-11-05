@@ -55,6 +55,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -975,6 +986,27 @@ export default function AdminSettings() {
     },
   });
 
+  const deleteAllBiometricEmployeesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/biometric-imports/delete-all-employees", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      toast({
+        title: "Employees Deleted",
+        description: `Deleted ${data.deletedCount} employees imported from biometric device`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete biometric employees",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Animate progress bar during import
   useEffect(() => {
     if (importSelectedUsersMutation.isPending) {
@@ -1031,8 +1063,7 @@ export default function AdminSettings() {
     const query = userSearchQuery.toLowerCase();
     return (
       user.userId?.toLowerCase().includes(query) ||
-      user.name?.toLowerCase().includes(query) ||
-      user.cardno?.toString().toLowerCase().includes(query)
+      user.name?.toLowerCase().includes(query)
     );
   });
 
@@ -1334,6 +1365,38 @@ export default function AdminSettings() {
                       <RefreshCw className={`h-4 w-4 mr-2 ${syncUsersMutation.isPending ? "animate-spin" : ""}`} />
                       {syncUsersMutation.isPending ? "Syncing..." : "Sync New Users"}
                     </Button>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          disabled={deleteAllBiometricEmployeesMutation.isPending}
+                          data-testid="button-delete-all-biometric-employees"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {deleteAllBiometricEmployeesMutation.isPending ? "Deleting..." : "Delete All Employees"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete All Biometric Employees?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete all employees that were imported from the biometric device. 
+                            This action cannot be undone. Manually created employees will not be affected.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel data-testid="button-cancel-delete-all">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteAllBiometricEmployeesMutation.mutate()}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            data-testid="button-confirm-delete-all"
+                          >
+                            Delete All
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
 
                   <Alert>
@@ -1341,7 +1404,8 @@ export default function AdminSettings() {
                     <AlertDescription className="text-sm">
                       <strong>Fetch & Preview:</strong> Fetch users from device and select which ones to import.<br />
                       <strong>Import All:</strong> Import all users from device without preview.<br />
-                      <strong>Sync New Users:</strong> Import only new users added since last sync.
+                      <strong>Sync New Users:</strong> Import only new users added since last sync.<br />
+                      <strong>Delete All Employees:</strong> Permanently delete all employees imported from biometric device.
                     </AlertDescription>
                   </Alert>
                 </CardContent>
@@ -1990,7 +2054,7 @@ export default function AdminSettings() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by User ID, Name, or Card Number..."
+              placeholder="Search by User ID or Name..."
               value={userSearchQuery}
               onChange={(e) => setUserSearchQuery(e.target.value)}
               className="pl-9"
@@ -2039,18 +2103,14 @@ export default function AdminSettings() {
                         onCheckedChange={() => toggleUserSelection(user.userId)}
                         data-testid={`checkbox-user-${user.userId}`}
                       />
-                      <div className="flex-1 grid grid-cols-3 gap-4">
+                      <div className="flex-1 grid grid-cols-2 gap-4">
                         <div>
                           <Label className="text-xs text-muted-foreground">User ID</Label>
                           <p className="font-medium">{user.userId}</p>
                         </div>
                         <div>
-                          <Label className="text-xs text-muted-foreground">Name</Label>
+                          <Label className="text-xs text-muted-foreground">Full Name</Label>
                           <p className="font-medium">{user.name || "N/A"}</p>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Card No</Label>
-                          <p className="text-sm">{user.cardno || "N/A"}</p>
                         </div>
                       </div>
                     </div>

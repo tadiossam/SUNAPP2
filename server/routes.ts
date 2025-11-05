@@ -1364,7 +1364,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const workOrders = await storage.getWorkOrdersByTeamMember(req.user.id);
+      // Admin can see all team member work orders
+      const isAdmin = hasRole(req.user, 'admin');
+      const workOrders = await storage.getWorkOrdersByTeamMember(req.user.id, isAdmin);
       res.json(workOrders);
     } catch (error) {
       console.error("Error fetching team member work orders:", error);
@@ -1559,8 +1561,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      // Get all requisitions where the requester is the current user
-      const requisitions = await db
+      // Admin can see all requisitions, team members see only their own
+      const isAdmin = hasRole(req.user, 'admin');
+      
+      // Build query - all for admin, only requester's for team members
+      let query = db
         .select({
           id: itemRequisitions.id,
           requisitionNumber: itemRequisitions.requisitionNumber,
@@ -1572,9 +1577,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           storeRemarks: itemRequisitions.storeRemarks,
           createdAt: itemRequisitions.createdAt,
         })
-        .from(itemRequisitions)
-        .where(eq(itemRequisitions.requesterId, req.user.id))
-        .orderBy(desc(itemRequisitions.createdAt));
+        .from(itemRequisitions);
+      
+      // Apply filter only for non-admin users
+      if (!isAdmin) {
+        query = query.where(eq(itemRequisitions.requesterId, req.user.id));
+      }
+      
+      const requisitions = await query.orderBy(desc(itemRequisitions.createdAt));
 
       // Fetch work order numbers and lines for each requisition
       const requisitionsWithDetails = await Promise.all(

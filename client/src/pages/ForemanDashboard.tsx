@@ -248,16 +248,23 @@ export default function ForemanDashboard() {
       {/* Team Assignment Dialog */}
       <EmployeeSearchDialog
         open={isAssignDialogOpen}
-        onOpenChange={setIsAssignDialogOpen}
+        onOpenChange={(open) => {
+          setIsAssignDialogOpen(open);
+          if (!open) {
+            setSelectedTeamMembers([]);
+            setSelectedWorkOrder(null);
+          }
+        }}
         mode="multiple"
         selectedIds={selectedTeamMembers}
-        onConfirm={(ids) => {
-          if (selectedWorkOrder && ids.length > 0) {
+        onSelect={(teamMemberIds) => {
+          if (selectedWorkOrder && teamMemberIds.length > 0) {
             assignTeamMutation.mutate({
               workOrderId: selectedWorkOrder.id,
-              teamMemberIds: ids,
+              teamMemberIds,
             });
           }
+          setSelectedTeamMembers(teamMemberIds);
         }}
         title="Assign Team Members"
         description="Select one or more team members to assign to this work order"

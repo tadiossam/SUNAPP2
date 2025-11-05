@@ -35,6 +35,7 @@ import StoreManagerDashboard from "@/pages/StoreManagerDashboard";
 import TeamPerformance from "@/pages/TeamPerformance";
 import ForemanDashboard from "@/pages/ForemanDashboard";
 import VerifierDashboard from "@/pages/VerifierDashboard";
+import TeamDashboard from "@/pages/TeamDashboard";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
@@ -68,6 +69,7 @@ function Router() {
       <Route path="/store-manager" component={StoreManagerDashboard} />
       <Route path="/foreman" component={ForemanDashboard} />
       <Route path="/verifier" component={VerifierDashboard} />
+      <Route path="/my-work" component={TeamDashboard} />
       <Route path="/team-performance" component={TeamPerformance} />
       <Route path="/admin" component={AdminPage} />
       <Route path="/admin-settings" component={AdminSettingsPage} />

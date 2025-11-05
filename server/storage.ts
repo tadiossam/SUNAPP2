@@ -211,6 +211,7 @@ export interface IStorage {
   deleteWorkOrder(id: string): Promise<void>;
   getForemanPendingWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
   getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
+  getWorkOrdersByTeamMember(teamMemberId: string): Promise<WorkOrderWithDetails[]>;
   assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void>;
   
   // Work Order Required Parts
@@ -1302,6 +1303,40 @@ export class DatabaseStorage implements IStorage {
     // Get full details for each order
     const ordersWithDetails = await Promise.all(
       activeOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async getWorkOrdersByTeamMember(teamMemberId: string): Promise<WorkOrderWithDetails[]> {
+    // Get work orders where the user is a team member
+    const teamMemberships = await db
+      .select()
+      .from(workOrderMemberships)
+      .where(
+        and(
+          eq(workOrderMemberships.employeeId, teamMemberId),
+          eq(workOrderMemberships.role, "team_member"),
+          eq(workOrderMemberships.isActive, true)
+        )
+      );
+    
+    if (teamMemberships.length === 0) {
+      return [];
+    }
+    
+    const workOrderIds = teamMemberships.map(m => m.workOrderId);
+    
+    // Get work orders (all active statuses)
+    const assignedOrders = await db
+      .select()
+      .from(workOrders)
+      .where(inArray(workOrders.id, workOrderIds))
+      .orderBy(desc(workOrders.createdAt));
+    
+    // Get full details for each order
+    const ordersWithDetails = await Promise.all(
+      assignedOrders.map(order => this.getWorkOrderById(order.id))
     );
     
     return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];

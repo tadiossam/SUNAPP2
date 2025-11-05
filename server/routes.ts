@@ -1343,6 +1343,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Team member dashboard endpoint - get work orders assigned to current user
+  app.get("/api/work-orders/my-assignments", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const workOrders = await storage.getWorkOrdersByTeamMember(req.user.id);
+      res.json(workOrders);
+    } catch (error) {
+      console.error("Error fetching team member work orders:", error);
+      res.status(500).json({ error: "Failed to fetch assigned work orders" });
+    }
+  });
+
   app.get("/api/employees/team-members", async (req, res) => {
     try {
       // Get all employees who can be team members (not CEO or admin)

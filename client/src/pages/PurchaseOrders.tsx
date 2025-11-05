@@ -621,29 +621,6 @@ export default function PurchaseOrders() {
                   </div>
                 )}
               </div>
-
-              <DialogFooter className="flex gap-2">
-                {selectedPO.status === 'pending' && (
-                  <Button
-                    onClick={() => markAsOrderedMutation.mutate(selectedPO.id)}
-                    disabled={markAsOrderedMutation.isPending}
-                    data-testid="button-mark-ordered"
-                  >
-                    <Truck className="h-4 w-4 mr-2" />
-                    {markAsOrderedMutation.isPending ? 'Processing...' : 'Mark as Ordered'}
-                  </Button>
-                )}
-                {selectedPO.status === 'ordered' && (
-                  <Button
-                    onClick={handleMarkAsReceived}
-                    disabled={markAsReceivedMutation.isPending}
-                    data-testid="button-mark-received"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    {markAsReceivedMutation.isPending ? 'Processing...' : 'Mark as Received'}
-                  </Button>
-                )}
-              </DialogFooter>
             </div>
           )}
         </DialogContent>

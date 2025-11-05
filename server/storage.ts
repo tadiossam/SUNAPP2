@@ -2448,13 +2448,13 @@ export class DatabaseStorage implements IStorage {
         const linesWithStock = await Promise.all(
           lines.map(async (line) => {
             if (line.sparePartId) {
-              // Get total available stock for this part
-              const stockLocations = await db
+              // Get the spare part to check its stock quantity
+              const [part] = await db
                 .select()
-                .from(partsStorageLocations)
-                .where(eq(partsStorageLocations.partId, line.sparePartId));
+                .from(spareParts)
+                .where(eq(spareParts.id, line.sparePartId));
               
-              const totalStock = stockLocations.reduce((sum, loc) => sum + loc.quantity, 0);
+              const totalStock = part?.stockQuantity || 0;
               
               // Determine stock status
               let stockStatus = 'out_of_stock';
@@ -2544,34 +2544,30 @@ export class DatabaseStorage implements IStorage {
         if (line.sparePartId) {
           const quantityNeeded = line.quantityApproved || line.quantityRequested;
           
-          // Get available stock for this part with row locks
-          const stockLocations = await tx
+          // Get available stock for this part with row lock
+          const [part] = await tx
             .select()
-            .from(partsStorageLocations)
-            .where(eq(partsStorageLocations.partId, line.sparePartId))
-            .for('update')
-            .orderBy(desc(partsStorageLocations.quantity));
+            .from(spareParts)
+            .where(eq(spareParts.id, line.sparePartId))
+            .for('update');
 
+          if (!part) continue;
+
+          const availableStock = part.stockQuantity || 0;
           let remainingQuantity = quantityNeeded;
           
           // Deduct from available stock
-          for (const location of stockLocations) {
-            if (remainingQuantity <= 0) break;
+          if (availableStock > 0) {
+            const deductQuantity = Math.min(availableStock, quantityNeeded);
+            const newQuantity = availableStock - deductQuantity;
             
-            const deductQuantity = Math.min(location.quantity, remainingQuantity);
-            if (deductQuantity > 0) {
-              const newQuantity = location.quantity - deductQuantity;
-              
-              // Prevent negative stock
-              if (newQuantity < 0) continue;
-              
-              await tx
-                .update(partsStorageLocations)
-                .set({ quantity: newQuantity })
-                .where(eq(partsStorageLocations.id, location.id));
-              
-              remainingQuantity -= deductQuantity;
-            }
+            // Update the stock quantity
+            await tx
+              .update(spareParts)
+              .set({ stockQuantity: newQuantity })
+              .where(eq(spareParts.id, line.sparePartId));
+            
+            remainingQuantity -= deductQuantity;
           }
 
           // If stock is insufficient, create purchase request
@@ -2733,33 +2729,33 @@ export class DatabaseStorage implements IStorage {
           const quantityNeeded = decision.quantityApproved || line.quantityRequested;
 
           if (line.sparePartId) {
-            // Get available stock for this part with row locks
-            const stockLocations = await tx
+            // Get available stock for this part with row lock
+            const [part] = await tx
               .select()
-              .from(partsStorageLocations)
-              .where(eq(partsStorageLocations.partId, line.sparePartId))
-              .for('update')
-              .orderBy(desc(partsStorageLocations.quantity));
+              .from(spareParts)
+              .where(eq(spareParts.id, line.sparePartId))
+              .for('update');
 
+            if (!part) {
+              // Part not found, skip
+              continue;
+            }
+
+            const availableStock = part.stockQuantity || 0;
             let remainingQuantity = quantityNeeded;
 
             // Deduct from available stock
-            for (const location of stockLocations) {
-              if (remainingQuantity <= 0) break;
+            if (availableStock > 0) {
+              const deductQuantity = Math.min(availableStock, quantityNeeded);
+              const newQuantity = availableStock - deductQuantity;
 
-              const deductQuantity = Math.min(location.quantity, remainingQuantity);
-              if (deductQuantity > 0) {
-                const newQuantity = location.quantity - deductQuantity;
+              // Update the stock quantity
+              await tx
+                .update(spareParts)
+                .set({ stockQuantity: newQuantity })
+                .where(eq(spareParts.id, line.sparePartId));
 
-                if (newQuantity < 0) continue;
-
-                await tx
-                  .update(partsStorageLocations)
-                  .set({ quantity: newQuantity })
-                  .where(eq(partsStorageLocations.id, location.id));
-
-                remainingQuantity -= deductQuantity;
-              }
+              remainingQuantity -= deductQuantity;
             }
 
             // If stock is insufficient, create purchase request

@@ -3096,13 +3096,53 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePurchaseRequest(id: string, data: Partial<typeof purchaseRequests.$inferInsert>): Promise<void> {
-    await db
-      .update(purchaseRequests)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(purchaseRequests.id, id));
+    await db.transaction(async (tx) => {
+      // Get the purchase request
+      const [purchaseRequest] = await tx
+        .select()
+        .from(purchaseRequests)
+        .where(eq(purchaseRequests.id, id))
+        .limit(1);
+
+      if (!purchaseRequest) {
+        throw new Error("Purchase request not found");
+      }
+
+      // If marking as received, update stock
+      if (data.status === 'received' && data.quantityReceived) {
+        const [line] = await tx
+          .select()
+          .from(itemRequisitionLines)
+          .where(eq(itemRequisitionLines.id, purchaseRequest.requisitionLineId))
+          .limit(1);
+
+        if (line && line.sparePartId) {
+          // Add received quantity to stock
+          const [part] = await tx
+            .select()
+            .from(spareParts)
+            .where(eq(spareParts.id, line.sparePartId))
+            .limit(1);
+
+          if (part) {
+            const newStock = (part.stockQuantity || 0) + data.quantityReceived;
+            await tx
+              .update(spareParts)
+              .set({ stockQuantity: newStock })
+              .where(eq(spareParts.id, line.sparePartId));
+          }
+        }
+      }
+
+      // Update the purchase request
+      await tx
+        .update(purchaseRequests)
+        .set({
+          ...data,
+          updatedAt: new Date(),
+        })
+        .where(eq(purchaseRequests.id, id));
+    });
   }
 
   async confirmPartsReceipt(requisitionId: string, teamMemberId: string): Promise<void> {

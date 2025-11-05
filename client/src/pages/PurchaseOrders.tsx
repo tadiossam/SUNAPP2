@@ -5,23 +5,21 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Search, 
   Printer, 
-  Edit2, 
   Package, 
-  Calendar, 
   DollarSign,
-  Truck,
   FileText,
   CheckCircle2,
   Clock,
-  XCircle
+  XCircle,
+  Truck,
+  User
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -31,29 +29,20 @@ interface PurchaseRequest {
   quantityRequested: number;
   quantityReceived: number;
   status: string;
-  vendorName: string;
-  vendorContact: string;
-  vendorPhone: string;
-  vendorEmail: string;
-  vendorAddress: string;
   unitPrice: string;
   totalPrice: string;
   currency: string;
-  requestDate: string;
-  expectedDeliveryDate: string;
+  dateRequested: string;
+  dateApproved: string;
   orderDate: string;
   receivedDate: string;
-  shippingMethod: string;
-  deliveryAddress: string;
-  trackingNumber: string;
-  paymentTerms: string;
-  paymentStatus: string;
   notes: string;
-  internalNotes: string;
   createdAt: string;
   lineItem: any;
   requisition: any;
   sparePart: any;
+  requestedBy: any;
+  foremanApprovedBy: any;
   storeManager: any;
 }
 
@@ -61,41 +50,64 @@ const statusColors: Record<string, string> = {
   pending: "warning",
   ordered: "info",
   received: "success",
-  partially_received: "secondary",
-  canceled: "destructive",
+  cancelled: "destructive",
 };
 
 const statusIcons: Record<string, any> = {
   pending: Clock,
   ordered: Package,
   received: CheckCircle2,
-  partially_received: Truck,
-  canceled: XCircle,
+  cancelled: XCircle,
 };
 
 export default function PurchaseOrders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedPO, setSelectedPO] = useState<PurchaseRequest | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<PurchaseRequest>>({});
   const { toast } = useToast();
 
   const { data: purchaseOrders, isLoading } = useQuery<PurchaseRequest[]>({
     queryKey: ['/api/purchase-requests'],
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async (data: { id: string; updates: Partial<PurchaseRequest> }) => {
-      return apiRequest(`/api/purchase-requests/${data.id}`, "PATCH", data.updates);
+  const markAsOrderedMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/purchase-requests/${id}`, {
+        status: "ordered",
+        orderDate: new Date().toISOString(),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/purchase-requests'] });
       toast({
         title: "Success",
-        description: "Purchase order updated successfully",
+        description: "Purchase order marked as ordered",
       });
-      setIsEditMode(false);
+      setSelectedPO(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const markAsReceivedMutation = useMutation({
+    mutationFn: async (data: { id: string; quantityReceived: number }) => {
+      return apiRequest("PATCH", `/api/purchase-requests/${data.id}`, {
+        status: "received",
+        receivedDate: new Date().toISOString(),
+        quantityReceived: data.quantityReceived,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchase-requests'] });
+      toast({
+        title: "Success",
+        description: "Purchase order marked as received and stock updated",
+      });
       setSelectedPO(null);
     },
     onError: (error: Error) => {
@@ -111,8 +123,9 @@ export default function PurchaseOrders() {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
       po.purchaseRequestNumber.toLowerCase().includes(searchLower) ||
-      (po.vendorName?.toLowerCase()?.includes(searchLower) ?? false) ||
-      (po.sparePart?.partName?.toLowerCase()?.includes(searchLower) ?? false);
+      (po.sparePart?.partName?.toLowerCase()?.includes(searchLower) ?? false) ||
+      (po.lineItem?.description?.toLowerCase()?.includes(searchLower) ?? false) ||
+      (po.requestedBy?.fullName?.toLowerCase()?.includes(searchLower) ?? false);
     
     const matchesStatus = statusFilter === "all" || po.status === statusFilter;
     
@@ -210,12 +223,25 @@ export default function PurchaseOrders() {
             padding-top: 20px;
             border-top: 1px solid #ccc;
           }
-          .signature-line {
+          .signature-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
             margin-top: 40px;
+          }
+          .signature-line {
             border-top: 1px solid #000;
             padding-top: 5px;
             text-align: center;
             font-size: 12px;
+          }
+          .signature-name {
+            font-weight: bold;
+            margin-top: 5px;
+          }
+          .signature-role {
+            font-size: 10px;
+            color: #666;
           }
           .notes {
             background: #f9f9f9;
@@ -234,34 +260,6 @@ export default function PurchaseOrders() {
           <div class="subtitle">Gelan Terminal Maintenance Division</div>
           <div class="po-title">PURCHASE ORDER</div>
           <div style="font-size: 18px; font-weight: bold;">${po.purchaseRequestNumber}</div>
-        </div>
-
-        <div class="section">
-          <div class="section-title">Vendor Information</div>
-          <div class="info-grid">
-            <div class="info-item">
-              <div class="info-label">Vendor Name</div>
-              <div class="info-value">${po.vendorName || 'To be determined'}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Contact Person</div>
-              <div class="info-value">${po.vendorContact || '-'}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Phone</div>
-              <div class="info-value">${po.vendorPhone || '-'}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Email</div>
-              <div class="info-value">${po.vendorEmail || '-'}</div>
-            </div>
-          </div>
-          ${po.vendorAddress ? `
-          <div class="info-item" style="margin-top: 10px;">
-            <div class="info-label">Address</div>
-            <div class="info-value">${po.vendorAddress}</div>
-          </div>
-          ` : ''}
         </div>
 
         <div class="section">
@@ -295,43 +293,30 @@ export default function PurchaseOrders() {
         </div>
 
         <div class="section">
-          <div class="section-title">Delivery Information</div>
+          <div class="section-title">Dates</div>
           <div class="info-grid">
             <div class="info-item">
-              <div class="info-label">Request Date</div>
-              <div class="info-value">${format(new Date(po.requestDate), 'MMM dd, yyyy')}</div>
+              <div class="info-label">Date Requested</div>
+              <div class="info-value">${format(new Date(po.dateRequested), 'MMM dd, yyyy')}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Expected Delivery</div>
-              <div class="info-value">${po.expectedDeliveryDate ? format(new Date(po.expectedDeliveryDate), 'MMM dd, yyyy') : 'TBD'}</div>
+              <div class="info-label">Date Approved for Purchase</div>
+              <div class="info-value">${format(new Date(po.dateApproved), 'MMM dd, yyyy')}</div>
             </div>
-            ${po.shippingMethod ? `
+            ${po.orderDate ? `
             <div class="info-item">
-              <div class="info-label">Shipping Method</div>
-              <div class="info-value">${po.shippingMethod}</div>
+              <div class="info-label">Date Ordered</div>
+              <div class="info-value">${format(new Date(po.orderDate), 'MMM dd, yyyy')}</div>
             </div>
             ` : ''}
-            ${po.trackingNumber ? `
+            ${po.receivedDate ? `
             <div class="info-item">
-              <div class="info-label">Tracking Number</div>
-              <div class="info-value">${po.trackingNumber}</div>
+              <div class="info-label">Date Received</div>
+              <div class="info-value">${format(new Date(po.receivedDate), 'MMM dd, yyyy')}</div>
             </div>
             ` : ''}
           </div>
-          ${po.deliveryAddress ? `
-          <div class="info-item" style="margin-top: 10px;">
-            <div class="info-label">Delivery Address</div>
-            <div class="info-value">${po.deliveryAddress}</div>
-          </div>
-          ` : ''}
         </div>
-
-        ${po.paymentTerms ? `
-        <div class="section">
-          <div class="section-title">Payment Terms</div>
-          <div class="info-value">${po.paymentTerms}</div>
-        </div>
-        ` : ''}
 
         ${po.notes ? `
         <div class="notes">
@@ -340,21 +325,26 @@ export default function PurchaseOrders() {
         </div>
         ` : ''}
 
-        <div class="footer">
-          <div class="info-grid">
-            <div>
-              <div class="signature-line">
-                <div>Prepared By</div>
-                <div style="margin-top: 5px;">${po.storeManager?.fullName || ''}</div>
-                <div style="font-size: 10px; color: #666;">Store Manager</div>
-              </div>
+        <div class="signature-section">
+          <div>
+            <div class="signature-line">
+              <div class="info-label">Requested by</div>
+              <div class="signature-name">${po.requestedBy?.fullName || ''}</div>
+              <div class="signature-role">Team Member</div>
             </div>
-            <div>
-              <div class="signature-line">
-                <div>Approved By</div>
-                <div style="margin-top: 5px;">_____________________</div>
-                <div style="font-size: 10px; color: #666;">Authorization</div>
-              </div>
+          </div>
+          <div>
+            <div class="signature-line">
+              <div class="info-label">Prepared by</div>
+              <div class="signature-name">${po.storeManager?.fullName || ''}</div>
+              <div class="signature-role">Store Manager</div>
+            </div>
+          </div>
+          <div>
+            <div class="signature-line">
+              <div class="info-label">Approved by</div>
+              <div class="signature-name">${po.foremanApprovedBy?.fullName || ''}</div>
+              <div class="signature-role">Foreman</div>
             </div>
           </div>
         </div>
@@ -374,12 +364,12 @@ export default function PurchaseOrders() {
     }, 250);
   };
 
-  const handleSaveEdit = () => {
+  const handleMarkAsReceived = () => {
     if (!selectedPO) return;
     
-    updateMutation.mutate({
+    markAsReceivedMutation.mutate({
       id: selectedPO.id,
-      updates: editForm,
+      quantityReceived: selectedPO.quantityRequested,
     });
   };
 
@@ -404,7 +394,7 @@ export default function PurchaseOrders() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by PO number, vendor, or part name..."
+            placeholder="Search by PO number, part name, or requester..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -419,9 +409,8 @@ export default function PurchaseOrders() {
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="ordered">Ordered</SelectItem>
-            <SelectItem value="partially_received">Partially Received</SelectItem>
             <SelectItem value="received">Received</SelectItem>
-            <SelectItem value="canceled">Canceled</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -455,16 +444,16 @@ export default function PurchaseOrders() {
                         <div className="font-medium">{po.sparePart?.partName || po.lineItem?.description || '-'}</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Vendor</div>
-                        <div className="font-medium">{po.vendorName || 'TBD'}</div>
+                        <div className="text-muted-foreground">Requested By</div>
+                        <div className="font-medium">{po.requestedBy?.fullName || '-'}</div>
                       </div>
                       <div>
                         <div className="text-muted-foreground">Quantity</div>
                         <div className="font-medium">{po.quantityRequested} units</div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Request Date</div>
-                        <div className="font-medium">{format(new Date(po.requestDate), 'MMM dd, yyyy')}</div>
+                        <div className="text-muted-foreground">Date Requested</div>
+                        <div className="font-medium">{format(new Date(po.dateRequested), 'MMM dd, yyyy')}</div>
                       </div>
                     </div>
 
@@ -488,11 +477,7 @@ export default function PurchaseOrders() {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => {
-                        setSelectedPO(po);
-                        setEditForm(po);
-                        setIsEditMode(false);
-                      }}
+                      onClick={() => setSelectedPO(po)}
                       data-testid={`button-view-${po.id}`}
                     >
                       <FileText className="h-4 w-4" />
@@ -510,52 +495,15 @@ export default function PurchaseOrders() {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Purchase Order Details</span>
-              <div className="flex gap-2">
-                {!isEditMode ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => selectedPO && handlePrint(selectedPO)}
-                      data-testid="button-print-modal"
-                    >
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditMode(true)}
-                      data-testid="button-edit-modal"
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Edit
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setIsEditMode(false);
-                        setEditForm(selectedPO || {});
-                      }}
-                      data-testid="button-cancel-edit"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSaveEdit}
-                      disabled={updateMutation.isPending}
-                      data-testid="button-save-edit"
-                    >
-                      {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                  </>
-                )}
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => selectedPO && handlePrint(selectedPO)}
+                data-testid="button-print-modal"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
             </DialogTitle>
           </DialogHeader>
 
@@ -569,27 +517,9 @@ export default function PurchaseOrders() {
                   </div>
                   <div>
                     <Label>Status</Label>
-                    {isEditMode ? (
-                      <Select
-                        value={editForm.status}
-                        onValueChange={(value) => setEditForm({ ...editForm, status: value })}
-                      >
-                        <SelectTrigger data-testid="select-edit-status">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="ordered">Ordered</SelectItem>
-                          <SelectItem value="partially_received">Partially Received</SelectItem>
-                          <SelectItem value="received">Received</SelectItem>
-                          <SelectItem value="canceled">Canceled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge variant={statusColors[selectedPO.status] as any} className="text-sm">
-                        {selectedPO.status.replace(/_/g, ' ')}
-                      </Badge>
-                    )}
+                    <Badge variant={statusColors[selectedPO.status] as any} className="text-sm">
+                      {selectedPO.status.replace(/_/g, ' ')}
+                    </Badge>
                   </div>
                 </div>
 
@@ -623,221 +553,105 @@ export default function PurchaseOrders() {
                 </div>
 
                 <div>
-                  <h3 className="font-semibold mb-3">Vendor Information</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Vendor Name</Label>
-                      {isEditMode ? (
-                        <Input
-                          value={editForm.vendorName || ''}
-                          onChange={(e) => setEditForm({ ...editForm, vendorName: e.target.value })}
-                          data-testid="input-vendor-name"
-                        />
-                      ) : (
-                        <div>{selectedPO.vendorName || '-'}</div>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Contact Person</Label>
-                      {isEditMode ? (
-                        <Input
-                          value={editForm.vendorContact || ''}
-                          onChange={(e) => setEditForm({ ...editForm, vendorContact: e.target.value })}
-                          data-testid="input-vendor-contact"
-                        />
-                      ) : (
-                        <div>{selectedPO.vendorContact || '-'}</div>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Phone</Label>
-                      {isEditMode ? (
-                        <Input
-                          value={editForm.vendorPhone || ''}
-                          onChange={(e) => setEditForm({ ...editForm, vendorPhone: e.target.value })}
-                          data-testid="input-vendor-phone"
-                        />
-                      ) : (
-                        <div>{selectedPO.vendorPhone || '-'}</div>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      {isEditMode ? (
-                        <Input
-                          type="email"
-                          value={editForm.vendorEmail || ''}
-                          onChange={(e) => setEditForm({ ...editForm, vendorEmail: e.target.value })}
-                          data-testid="input-vendor-email"
-                        />
-                      ) : (
-                        <div>{selectedPO.vendorEmail || '-'}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Label>Address</Label>
-                    {isEditMode ? (
-                      <Textarea
-                        value={editForm.vendorAddress || ''}
-                        onChange={(e) => setEditForm({ ...editForm, vendorAddress: e.target.value })}
-                        data-testid="textarea-vendor-address"
-                      />
-                    ) : (
-                      <div>{selectedPO.vendorAddress || '-'}</div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Pricing
+                    <User className="h-4 w-4" />
+                    Personnel
                   </h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid gap-2 text-sm">
                     <div>
-                      <Label>Unit Price</Label>
-                      {isEditMode ? (
-                        <Input
-                          value={editForm.unitPrice || ''}
-                          onChange={(e) => setEditForm({ ...editForm, unitPrice: e.target.value })}
-                          data-testid="input-unit-price"
-                        />
-                      ) : (
-                        <div>{selectedPO.unitPrice || '-'}</div>
-                      )}
+                      <span className="text-muted-foreground">Requested By:</span>{' '}
+                      {selectedPO.requestedBy?.fullName || '-'}
                     </div>
                     <div>
-                      <Label>Total Price</Label>
-                      {isEditMode ? (
-                        <Input
-                          value={editForm.totalPrice || ''}
-                          onChange={(e) => setEditForm({ ...editForm, totalPrice: e.target.value })}
-                          data-testid="input-total-price"
-                        />
-                      ) : (
-                        <div>{selectedPO.totalPrice || '-'}</div>
-                      )}
+                      <span className="text-muted-foreground">Approved By (Foreman):</span>{' '}
+                      {selectedPO.foremanApprovedBy?.fullName || '-'}
                     </div>
                     <div>
-                      <Label>Currency</Label>
-                      {isEditMode ? (
-                        <Select
-                          value={editForm.currency}
-                          onValueChange={(value) => setEditForm({ ...editForm, currency: value })}
-                        >
-                          <SelectTrigger data-testid="select-currency">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ETB">ETB</SelectItem>
-                            <SelectItem value="USD">USD</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div>{selectedPO.currency || 'ETB'}</div>
-                      )}
+                      <span className="text-muted-foreground">Prepared By (Store Manager):</span>{' '}
+                      {selectedPO.storeManager?.fullName || '-'}
                     </div>
-                  </div>
-                  <div className="mt-4">
-                    <Label>Payment Terms</Label>
-                    {isEditMode ? (
-                      <Textarea
-                        value={editForm.paymentTerms || ''}
-                        onChange={(e) => setEditForm({ ...editForm, paymentTerms: e.target.value })}
-                        placeholder="e.g., Net 30 days"
-                        data-testid="textarea-payment-terms"
-                      />
-                    ) : (
-                      <div>{selectedPO.paymentTerms || '-'}</div>
-                    )}
                   </div>
                 </div>
 
-                <div>
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Truck className="h-4 w-4" />
-                    Delivery Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Expected Delivery Date</Label>
-                      {isEditMode ? (
-                        <Input
-                          type="date"
-                          value={editForm.expectedDeliveryDate ? new Date(editForm.expectedDeliveryDate).toISOString().split('T')[0] : ''}
-                          onChange={(e) => setEditForm({ ...editForm, expectedDeliveryDate: e.target.value })}
-                          data-testid="input-expected-date"
-                        />
-                      ) : (
-                        <div>{selectedPO.expectedDeliveryDate ? format(new Date(selectedPO.expectedDeliveryDate), 'MMM dd, yyyy') : 'TBD'}</div>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Shipping Method</Label>
-                      {isEditMode ? (
-                        <Input
-                          value={editForm.shippingMethod || ''}
-                          onChange={(e) => setEditForm({ ...editForm, shippingMethod: e.target.value })}
-                          data-testid="input-shipping-method"
-                        />
-                      ) : (
-                        <div>{selectedPO.shippingMethod || '-'}</div>
-                      )}
-                    </div>
-                    <div>
-                      <Label>Tracking Number</Label>
-                      {isEditMode ? (
-                        <Input
-                          value={editForm.trackingNumber || ''}
-                          onChange={(e) => setEditForm({ ...editForm, trackingNumber: e.target.value })}
-                          data-testid="input-tracking-number"
-                        />
-                      ) : (
-                        <div>{selectedPO.trackingNumber || '-'}</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Label>Delivery Address</Label>
-                    {isEditMode ? (
-                      <Textarea
-                        value={editForm.deliveryAddress || ''}
-                        onChange={(e) => setEditForm({ ...editForm, deliveryAddress: e.target.value })}
-                        data-testid="textarea-delivery-address"
-                      />
-                    ) : (
-                      <div>{selectedPO.deliveryAddress || '-'}</div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Notes</Label>
-                  {isEditMode ? (
-                    <Textarea
-                      value={editForm.notes || ''}
-                      onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                      rows={3}
-                      data-testid="textarea-notes"
-                    />
-                  ) : (
-                    <div className="text-sm">{selectedPO.notes || '-'}</div>
-                  )}
-                </div>
-
-                {isEditMode && (
+                {(selectedPO.unitPrice || selectedPO.totalPrice) && (
                   <div>
-                    <Label>Internal Notes (not printed)</Label>
-                    <Textarea
-                      value={editForm.internalNotes || ''}
-                      onChange={(e) => setEditForm({ ...editForm, internalNotes: e.target.value })}
-                      rows={2}
-                      data-testid="textarea-internal-notes"
-                    />
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Pricing
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedPO.unitPrice && (
+                        <div>
+                          <Label>Unit Price</Label>
+                          <div className="text-sm">{selectedPO.currency || 'ETB'} {selectedPO.unitPrice}</div>
+                        </div>
+                      )}
+                      {selectedPO.totalPrice && (
+                        <div>
+                          <Label>Total Price</Label>
+                          <div className="text-sm font-semibold">{selectedPO.currency || 'ETB'} {selectedPO.totalPrice}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="font-semibold mb-3">Dates</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Date Requested:</span>{' '}
+                      {format(new Date(selectedPO.dateRequested), 'MMM dd, yyyy')}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Date Approved:</span>{' '}
+                      {format(new Date(selectedPO.dateApproved), 'MMM dd, yyyy')}
+                    </div>
+                    {selectedPO.orderDate && (
+                      <div>
+                        <span className="text-muted-foreground">Date Ordered:</span>{' '}
+                        {format(new Date(selectedPO.orderDate), 'MMM dd, yyyy')}
+                      </div>
+                    )}
+                    {selectedPO.receivedDate && (
+                      <div>
+                        <span className="text-muted-foreground">Date Received:</span>{' '}
+                        {format(new Date(selectedPO.receivedDate), 'MMM dd, yyyy')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedPO.notes && (
+                  <div>
+                    <Label>Notes</Label>
+                    <div className="text-sm bg-muted p-3 rounded-md">{selectedPO.notes}</div>
                   </div>
                 )}
               </div>
+
+              <DialogFooter className="flex gap-2">
+                {selectedPO.status === 'pending' && (
+                  <Button
+                    onClick={() => markAsOrderedMutation.mutate(selectedPO.id)}
+                    disabled={markAsOrderedMutation.isPending}
+                    data-testid="button-mark-ordered"
+                  >
+                    <Truck className="h-4 w-4 mr-2" />
+                    {markAsOrderedMutation.isPending ? 'Processing...' : 'Mark as Ordered'}
+                  </Button>
+                )}
+                {selectedPO.status === 'ordered' && (
+                  <Button
+                    onClick={handleMarkAsReceived}
+                    disabled={markAsReceivedMutation.isPending}
+                    data-testid="button-mark-received"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {markAsReceivedMutation.isPending ? 'Processing...' : 'Mark as Received'}
+                  </Button>
+                )}
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

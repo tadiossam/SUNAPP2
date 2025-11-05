@@ -2738,8 +2738,11 @@ export class DatabaseStorage implements IStorage {
               const prefix = `PO-${currentYear}-`;
               const lockKey = currentYear;
 
+              // Acquire advisory lock first
+              await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+              
+              // Then get the next number
               const result = await tx.execute(sql`
-                SELECT pg_advisory_xact_lock(${lockKey});
                 SELECT COALESCE(
                   MAX(
                     CASE 
@@ -2763,13 +2766,13 @@ export class DatabaseStorage implements IStorage {
                 status: 'pending',
               });
 
-              // Update line status to backordered
+              // Update line status to backordered with partial fulfillment
               await tx
                 .update(itemRequisitionLines)
                 .set({
                   status: 'backordered',
                   quantityApproved: quantityNeeded - remainingQuantity,
-                  remarks: decision.remarks || `Pending purchase: ${remainingQuantity} units ordered (${purchaseRequestNumber})`,
+                  remarks: decision.remarks || `Partial fulfillment: ${quantityNeeded - remainingQuantity} issued, ${remainingQuantity} units on order (${purchaseRequestNumber})`,
                 })
                 .where(eq(itemRequisitionLines.id, decision.lineId));
             } else {
@@ -2803,8 +2806,11 @@ export class DatabaseStorage implements IStorage {
           const prefix = `PO-${currentYear}-`;
           const lockKey = currentYear;
 
+          // Acquire advisory lock first
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+          
+          // Then get the next number
           const result = await tx.execute(sql`
-            SELECT pg_advisory_xact_lock(${lockKey});
             SELECT COALESCE(
               MAX(
                 CASE 
@@ -2846,8 +2852,12 @@ export class DatabaseStorage implements IStorage {
       let finalStatus = 'pending_store';
       if (hasRejected && !hasApproved && !hasBackorders) {
         finalStatus = 'rejected';
-      } else if (hasApproved || hasBackorders) {
-        finalStatus = hasBackorders ? 'waiting_purchase' : 'approved';
+      } else if (hasApproved && !hasBackorders) {
+        // All items approved with sufficient stock
+        finalStatus = 'approved';
+      } else if (hasBackorders) {
+        // Some or all items need to be purchased
+        finalStatus = 'waiting_purchase';
       }
 
       // Update requisition status
@@ -2862,19 +2872,34 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(itemRequisitions.id, requisitionId));
 
-      // If work order is waiting for these parts and no backorders, update to in_progress
-      if (!hasBackorders && hasApproved && requisition.workOrderId) {
+      // Update work order status based on requisition outcome
+      if (requisition.workOrderId) {
         const [workOrder] = await tx
           .select()
           .from(workOrders)
           .where(eq(workOrders.id, requisition.workOrderId))
           .limit(1);
 
-        if (workOrder && workOrder.status === 'awaiting_parts') {
-          await tx
-            .update(workOrders)
-            .set({ status: 'in_progress' })
-            .where(eq(workOrders.id, requisition.workOrderId));
+        if (workOrder) {
+          let newWorkOrderStatus = workOrder.status;
+
+          if (hasBackorders && !hasApproved) {
+            // All items on backorder - waiting for purchase
+            newWorkOrderStatus = 'waiting_purchase';
+          } else if (hasBackorders && hasApproved) {
+            // Partial fulfillment - some items issued, some on backorder
+            newWorkOrderStatus = 'waiting_purchase';
+          } else if (hasApproved && !hasBackorders) {
+            // All items issued - can proceed to work
+            newWorkOrderStatus = 'in_progress';
+          }
+
+          if (newWorkOrderStatus !== workOrder.status) {
+            await tx
+              .update(workOrders)
+              .set({ status: newWorkOrderStatus })
+              .where(eq(workOrders.id, requisition.workOrderId));
+          }
         }
       }
     });

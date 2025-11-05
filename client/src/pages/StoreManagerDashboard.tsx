@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Package, CheckCircle, XCircle, Clock, ShoppingCart, AlertTriangle, FileText } from "lucide-react";
+import { Search, Package, CheckCircle, XCircle, Clock, ShoppingCart, AlertTriangle, FileText, Printer, Truck, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -62,9 +62,16 @@ type PurchaseRequest = {
   id: string;
   purchaseRequestNumber: string;
   quantityRequested: number;
+  quantityReceived: number;
   status: string;
-  vendorName?: string;
-  expectedDate?: string;
+  unitPrice: string;
+  totalPrice: string;
+  currency: string;
+  dateRequested: string;
+  dateApproved: string;
+  orderDate: string;
+  receivedDate: string;
+  notes: string;
   createdAt: string;
   lineItem?: ItemRequisitionLine;
   requisition?: ItemRequisition;
@@ -72,6 +79,18 @@ type PurchaseRequest = {
     id: string;
     partName: string;
     partNumber: string;
+  };
+  requestedBy?: {
+    id: string;
+    fullName: string;
+  };
+  foremanApprovedBy?: {
+    id: string;
+    fullName: string;
+  };
+  storeManager?: {
+    id: string;
+    fullName: string;
   };
 };
 
@@ -124,6 +143,55 @@ export default function StoreManagerDashboard() {
       toast({
         title: "Error",
         description: error.message || "Failed to process line items",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mark purchase order as ordered mutation
+  const markAsOrderedMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/purchase-requests/${id}`, {
+        status: "ordered",
+        orderDate: new Date().toISOString(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Success",
+        description: "Purchase order marked as ordered",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mark purchase order as received/completed mutation
+  const markAsReceivedMutation = useMutation({
+    mutationFn: async (data: { id: string; quantityReceived: number }) => {
+      return apiRequest("PATCH", `/api/purchase-requests/${data.id}`, {
+        status: "completed",
+        receivedDate: new Date().toISOString(),
+        quantityReceived: data.quantityReceived,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
+      toast({
+        title: "Success",
+        description: "Purchase order marked as completed and stock updated",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -227,21 +295,13 @@ export default function StoreManagerDashboard() {
   return (
     <div className="h-full overflow-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Store Manager Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Review and approve item requisitions, manage purchase orders
-          </p>
-        </div>
-        <Link href="/purchase-orders">
-          <Button variant="outline" data-testid="button-view-all-pos">
-            <FileText className="h-4 w-4 mr-2" />
-            View All Purchase Orders
-          </Button>
-        </Link>
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">
+          Store Manager Dashboard
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Review and approve item requisitions, manage purchase orders
+        </p>
       </div>
 
       {/* Search and Filters */}
@@ -338,7 +398,7 @@ export default function StoreManagerDashboard() {
 
         {/* Purchase Orders Tab */}
         {activeTab === "purchase_orders" && (
-          <TabsContent value="purchase_orders" className="mt-6 space-y-4">
+          <TabsContent value="purchase_orders" className="mt-6 space-y-2">
             {isLoadingPurchases ? (
               <div className="text-center py-8 text-muted-foreground">Loading purchase orders...</div>
             ) : purchaseRequests.length === 0 ? (
@@ -348,74 +408,82 @@ export default function StoreManagerDashboard() {
                 </CardContent>
               </Card>
             ) : (
-              purchaseRequests.map((request) => (
-                <Card key={request.id} className="hover-elevate">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <ShoppingCart className="h-4 w-4" />
-                          {request.purchaseRequestNumber}
-                        </CardTitle>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {request.requisition && (
-                            <>
-                              <span>Req: {request.requisition.requisitionNumber}</span>
-                              <span>•</span>
-                            </>
-                          )}
-                          <span>Created: {new Date(request.createdAt).toLocaleDateString()}</span>
-                        </div>
+              purchaseRequests.map((request) => {
+                const statusColors: Record<string, string> = {
+                  pending: "warning",
+                  ordered: "info",
+                  completed: "success",
+                  cancelled: "destructive",
+                };
+                const statusIcons: Record<string, any> = {
+                  pending: Clock,
+                  ordered: Package,
+                  completed: CheckCircle,
+                  cancelled: XCircle,
+                };
+                const StatusIcon = statusIcons[request.status] || Package;
+                
+                return (
+                  <Card key={request.id} className="p-4 hover-elevate" data-testid={`card-po-${request.id}`}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <StatusIcon className="h-5 w-5 text-primary flex-shrink-0" />
+                        <span className="font-semibold text-base">{request.purchaseRequestNumber}</span>
                       </div>
-                      <Badge variant={request.status === 'pending' ? 'secondary' : 'default'}>
-                        {request.status}
+                      
+                      <Badge variant={statusColors[request.status] as any} className="flex-shrink-0">
+                        {request.status.replace(/_/g, ' ')}
                       </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Part:</span>
-                          <div className="font-medium mt-1">
-                            {request.sparePart?.partName || request.lineItem?.description || 'N/A'}
-                          </div>
+
+                      <div className="flex-1 grid grid-cols-4 gap-4 min-w-0">
+                        <div className="min-w-0">
+                          <div className="text-xs text-muted-foreground">Part</div>
+                          <div className="font-medium text-sm truncate">{request.sparePart?.partName || request.lineItem?.description || '-'}</div>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Quantity:</span>
-                          <div className="font-medium mt-1">
-                            {request.quantityRequested} {request.lineItem?.unitOfMeasure || 'pcs'}
-                          </div>
+                        <div className="min-w-0">
+                          <div className="text-xs text-muted-foreground">Requested By</div>
+                          <div className="font-medium text-sm truncate">{request.requestedBy?.fullName || '-'}</div>
                         </div>
-                        {request.vendorName && (
-                          <div>
-                            <span className="text-muted-foreground">Vendor:</span>
-                            <div className="font-medium mt-1">{request.vendorName}</div>
-                          </div>
+                        <div className="min-w-0">
+                          <div className="text-xs text-muted-foreground">Quantity</div>
+                          <div className="font-medium text-sm">{request.quantityRequested} units</div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs text-muted-foreground">Date Requested</div>
+                          <div className="font-medium text-sm">{new Date(request.dateRequested).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 flex-shrink-0">
+                        {request.status === 'pending' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => markAsOrderedMutation.mutate(request.id)}
+                            disabled={markAsOrderedMutation.isPending}
+                            data-testid={`button-ordered-${request.id}`}
+                          >
+                            <Truck className="h-4 w-4 mr-1" />
+                            Ordered
+                          </Button>
                         )}
-                        {request.expectedDate && (
-                          <div>
-                            <span className="text-muted-foreground">Expected:</span>
-                            <div className="font-medium mt-1">
-                              {new Date(request.expectedDate).toLocaleDateString()}
-                            </div>
-                          </div>
+                        {request.status === 'ordered' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => markAsReceivedMutation.mutate({ id: request.id, quantityReceived: request.quantityRequested })}
+                            disabled={markAsReceivedMutation.isPending}
+                            data-testid={`button-received-${request.id}`}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Received
+                          </Button>
                         )}
                       </div>
-                      {request.status === 'pending' && (
-                        <div className="flex gap-2 pt-2">
-                          <Button variant="outline" size="sm" className="flex-1">
-                            Mark as Ordered
-                          </Button>
-                          <Button variant="outline" size="sm" className="flex-1">
-                            Update Details
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))
+                  </Card>
+                );
+              })
             )}
           </TabsContent>
         )}

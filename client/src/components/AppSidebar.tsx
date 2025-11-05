@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store, Trophy, UserCheck, ClipboardSignature } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store, Trophy, UserCheck, ClipboardSignature, Briefcase } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -29,6 +29,12 @@ export function AppSidebar() {
       url: "/",
       icon: BarChart3,
       testId: "link-dashboard",
+    },
+    {
+      title: "My Work",
+      url: "/my-work",
+      icon: Briefcase,
+      testId: "link-my-work",
     },
     {
       title: t("equipment"),

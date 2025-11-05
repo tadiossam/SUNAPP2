@@ -55,20 +55,19 @@ export default function StoreManagerDashboard() {
 
   // Fetch item requisitions
   const { data: requisitions = [], isLoading } = useQuery<ItemRequisition[]>({
-    queryKey: ["/api/item-requisitions"],
+    queryKey: ["/api/item-requisitions/store-manager"],
   });
 
   // Approve requisition mutation
   const approveMutation = useMutation({
-    mutationFn: async ({ id, lineApprovals, remarks }: { id: string; lineApprovals: any; remarks: string }) => {
-      const res = await apiRequest("PUT", `/api/item-requisitions/${id}/store-approve`, {
-        lineApprovals,
+    mutationFn: async ({ id, remarks }: { id: string; remarks?: string }) => {
+      const res = await apiRequest("POST", `/api/item-requisitions/${id}/approve-store`, {
         remarks,
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/store-manager"] });
       toast({
         title: "Success",
         description: "Item requisition approved successfully",
@@ -90,11 +89,11 @@ export default function StoreManagerDashboard() {
   // Reject requisition mutation
   const rejectMutation = useMutation({
     mutationFn: async ({ id, remarks }: { id: string; remarks: string }) => {
-      const res = await apiRequest("PUT", `/api/item-requisitions/${id}/store-reject`, { remarks });
+      const res = await apiRequest("POST", `/api/item-requisitions/${id}/reject-store`, { remarks });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/store-manager"] });
       toast({
         title: "Rejected",
         description: "Item requisition rejected",
@@ -111,9 +110,9 @@ export default function StoreManagerDashboard() {
       req.requesterName?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesTab = 
-      (activeTab === "pending" && req.status === "pending_store_approval") ||
-      (activeTab === "approved" && req.status === "store_approved") ||
-      (activeTab === "rejected" && req.status === "store_rejected") ||
+      (activeTab === "pending" && req.status === "pending_store") ||
+      (activeTab === "approved" && req.status === "approved") ||
+      (activeTab === "rejected" && req.status === "rejected") ||
       (activeTab === "all");
 
     return matchesSearch && matchesTab;
@@ -145,7 +144,6 @@ export default function StoreManagerDashboard() {
     if (!selectedRequisition) return;
     approveMutation.mutate({
       id: selectedRequisition.id,
-      lineApprovals,
       remarks: approvalRemarks,
     });
   };
@@ -160,13 +158,15 @@ export default function StoreManagerDashboard() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending_store_approval":
+      case "pending_store":
+      case "pending_foreman":
         return "secondary";
-      case "store_approved":
+      case "approved":
         return "default";
-      case "store_rejected":
+      case "rejected":
         return "destructive";
       case "backordered":
+      case "pending_purchase":
         return "secondary";
       default:
         return "default";
@@ -175,13 +175,15 @@ export default function StoreManagerDashboard() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "pending_store_approval":
+      case "pending_store":
+      case "pending_foreman":
         return Clock;
-      case "store_approved":
+      case "approved":
         return CheckCircle;
-      case "store_rejected":
+      case "rejected":
         return XCircle;
       case "backordered":
+      case "pending_purchase":
         return ShoppingCart;
       default:
         return Package;
@@ -218,7 +220,7 @@ export default function StoreManagerDashboard() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pending" data-testid="tab-pending">
-            Pending ({requisitions.filter(r => r.status === "pending_store_approval").length})
+            Pending ({requisitions.filter(r => r.status === "pending_store").length})
           </TabsTrigger>
           <TabsTrigger value="approved" data-testid="tab-approved">
             Approved
@@ -275,7 +277,7 @@ export default function StoreManagerDashboard() {
                       <div className="text-sm">
                         <span className="font-medium">Items:</span> {requisition.lines?.length || 0}
                       </div>
-                      {requisition.status === "pending_store_approval" && (
+                      {requisition.status === "pending_store" && (
                         <Button
                           onClick={() => handleOpenApproval(requisition)}
                           className="w-full"

@@ -1556,9 +1556,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           requisitionNumber: itemRequisitions.requisitionNumber,
           workOrderId: itemRequisitions.workOrderId,
           status: itemRequisitions.status,
+          foremanApprovalStatus: itemRequisitions.foremanApprovalStatus,
+          storeApprovalStatus: itemRequisitions.storeApprovalStatus,
+          foremanRemarks: itemRequisitions.foremanRemarks,
+          storeRemarks: itemRequisitions.storeRemarks,
+          createdAt: itemRequisitions.createdAt,
         })
         .from(itemRequisitions)
-        .where(eq(itemRequisitions.requesterId, req.user.id));
+        .where(eq(itemRequisitions.requesterId, req.user.id))
+        .orderBy(desc(itemRequisitions.createdAt));
 
       // Fetch work order numbers and lines for each requisition
       const requisitionsWithDetails = await Promise.all(

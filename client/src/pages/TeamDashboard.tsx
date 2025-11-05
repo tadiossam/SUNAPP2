@@ -27,6 +27,11 @@ type ItemRequisition = {
   workOrderId: string;
   workOrderNumber: string;
   status: string;
+  foremanApprovalStatus: string;
+  storeApprovalStatus: string;
+  foremanRemarks?: string | null;
+  storeRemarks?: string | null;
+  createdAt: string;
   lines?: Array<{
     description: string;
     quantityRequested: number;
@@ -286,6 +291,10 @@ export default function TeamDashboard() {
             <ClipboardList className="h-4 w-4 mr-2" />
             {language === "am" ? "ንቁ" : "Active"}
           </TabsTrigger>
+          <TabsTrigger value="item-requested" data-testid="tab-item-requested">
+            <Package className="h-4 w-4 mr-2" />
+            {language === "am" ? "የተጠየቁ እቃዎች" : "Item Requested"} ({myRequisitions.length})
+          </TabsTrigger>
           <TabsTrigger value="parts-receipt" data-testid="tab-parts-receipt">
             <PackageCheck className="h-4 w-4 mr-2" />
             {language === "am" ? "የእቃ ማረጋገጫ" : "Parts Receipt"} ({approvedRequisitions.length})
@@ -303,6 +312,96 @@ export default function TeamDashboard() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 {language === "am" ? "ምንም ንቁ የስራ ትእዛዞች የሉም" : "No active work orders"}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="item-requested" className="space-y-4">
+          {myRequisitions.length > 0 ? (
+            myRequisitions.map((requisition) => {
+              const getApprovalBadge = (status: string) => {
+                if (status === "approved") {
+                  return <Badge variant="default" data-testid={`badge-approved-${requisition.id}`}>{language === "am" ? "ፀድቋል" : "Approved"}</Badge>;
+                } else if (status === "rejected") {
+                  return <Badge variant="destructive" data-testid={`badge-rejected-${requisition.id}`}>{language === "am" ? "ተቀባይነት አላገኘም" : "Rejected"}</Badge>;
+                } else if (status === "pending" || status === "pending_foreman") {
+                  return <Badge variant="secondary" data-testid={`badge-pending-${requisition.id}`}>{language === "am" ? "በመጠባበቅ ላይ" : "Pending"}</Badge>;
+                }
+                return null;
+              };
+
+              return (
+                <Card key={requisition.id} className="hover-elevate" data-testid={`requisition-card-${requisition.id}`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{requisition.requisitionNumber}</CardTitle>
+                      <div className="flex gap-2">
+                        <div className="text-sm text-muted-foreground">
+                          {language === "am" ? "ፎርማን" : "Foreman"}:
+                        </div>
+                        {getApprovalBadge(requisition.foremanApprovalStatus)}
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {language === "am" ? "የስራ ትእዛዝ" : "Work Order"}: {requisition.workOrderNumber}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {requisition.foremanApprovalStatus === "approved" && (
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-muted-foreground">
+                            {language === "am" ? "መደብር" : "Store"}:
+                          </p>
+                          {getApprovalBadge(requisition.storeApprovalStatus)}
+                        </div>
+                      )}
+                      
+                      {requisition.lines && requisition.lines.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">
+                            {language === "am" ? "የተጠየቁ እቃዎች" : "Requested Items"}:
+                          </p>
+                          <div className="space-y-1">
+                            {requisition.lines.map((line, idx) => (
+                              <div key={idx} className="text-sm pl-4 border-l-2 border-muted">
+                                <p className="font-medium">{line.description}</p>
+                                <p className="text-muted-foreground">
+                                  {language === "am" ? "መጠን" : "Quantity"}: {line.quantityRequested} {line.unitOfMeasure}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {requisition.foremanRemarks && (
+                        <div className="pt-2 border-t">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {language === "am" ? "የፎርማን አስተያየት" : "Foreman Remarks"}:
+                          </p>
+                          <p className="text-sm">{requisition.foremanRemarks}</p>
+                        </div>
+                      )}
+
+                      {requisition.storeRemarks && (
+                        <div className="pt-2 border-t">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {language === "am" ? "የመደብር አስተያየት" : "Store Remarks"}:
+                          </p>
+                          <p className="text-sm">{requisition.storeRemarks}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                {language === "am" ? "ምንም የተጠየቁ እቃዎች የሉም" : "No item requests"}
               </CardContent>
             </Card>
           )}

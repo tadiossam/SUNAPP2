@@ -2467,16 +2467,149 @@ export class DatabaseStorage implements IStorage {
   }
 
   async approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void> {
-    await db
-      .update(itemRequisitions)
-      .set({
-        storeApprovalStatus: 'approved',
-        storeApprovedById: storeManagerId,
-        storeApprovedAt: new Date(),
-        storeRemarks: remarks,
-        status: 'approved',
-      })
-      .where(eq(itemRequisitions.id, requisitionId));
+    // Execute everything in a transaction to prevent race conditions
+    await db.transaction(async (tx) => {
+      // Get requisition details with row lock
+      const [requisition] = await tx
+        .select()
+        .from(itemRequisitions)
+        .where(eq(itemRequisitions.id, requisitionId))
+        .for('update')
+        .limit(1);
+
+      if (!requisition) {
+        throw new Error("Requisition not found");
+      }
+
+      // Get all requisition lines
+      const lines = await tx
+        .select()
+        .from(itemRequisitionLines)
+        .where(eq(itemRequisitionLines.requisitionId, requisitionId));
+
+      let hasBackorders = false;
+
+      // Process each line for stock deduction and purchase requests
+      for (const line of lines) {
+        if (line.sparePartId) {
+          const quantityNeeded = line.quantityApproved || line.quantityRequested;
+          
+          // Get available stock for this part with row locks
+          const stockLocations = await tx
+            .select()
+            .from(partsStorageLocations)
+            .where(eq(partsStorageLocations.partId, line.sparePartId))
+            .for('update')
+            .orderBy(desc(partsStorageLocations.quantity));
+
+          let remainingQuantity = quantityNeeded;
+          
+          // Deduct from available stock
+          for (const location of stockLocations) {
+            if (remainingQuantity <= 0) break;
+            
+            const deductQuantity = Math.min(location.quantity, remainingQuantity);
+            if (deductQuantity > 0) {
+              const newQuantity = location.quantity - deductQuantity;
+              
+              // Prevent negative stock
+              if (newQuantity < 0) continue;
+              
+              await tx
+                .update(partsStorageLocations)
+                .set({ quantity: newQuantity })
+                .where(eq(partsStorageLocations.id, location.id));
+              
+              remainingQuantity -= deductQuantity;
+            }
+          }
+
+          // If stock is insufficient, create purchase request
+          if (remainingQuantity > 0) {
+            hasBackorders = true;
+            
+            // Generate purchase request number atomically using PostgreSQL advisory lock
+            const currentYear = new Date().getFullYear();
+            const prefix = `PO-${currentYear}-`;
+            
+            // Use advisory lock to ensure atomic number generation even when table is empty
+            // Lock key is hash of year to ensure separate sequences per year
+            const lockKey = currentYear; // Advisory lock key
+            
+            const result = await tx.execute(sql`
+              SELECT pg_advisory_xact_lock(${lockKey});
+              SELECT COALESCE(
+                MAX(
+                  CASE 
+                    WHEN purchase_request_number ~ ${`^PO-${currentYear}-[0-9]+$`}
+                    THEN CAST(SUBSTRING(purchase_request_number FROM 'PO-${currentYear}-(\\d+)') AS INTEGER)
+                    ELSE 0
+                  END
+                ), 0) + 1 AS num
+              FROM purchase_requests
+            `);
+            
+            const nextNum = (result.rows[0] as any).num;
+            const purchaseRequestNumber = `${prefix}${String(nextNum).padStart(3, '0')}`;
+
+            // Create purchase request
+            await tx.insert(purchaseRequests).values({
+              purchaseRequestNumber,
+              requisitionLineId: line.id,
+              storeManagerId,
+              quantityRequested: remainingQuantity,
+              status: 'pending',
+            });
+
+            // Update line status to indicate backorder
+            await tx
+              .update(itemRequisitionLines)
+              .set({ 
+                status: 'backordered',
+                remarks: `Pending purchase: ${remainingQuantity} units ordered`
+              })
+              .where(eq(itemRequisitionLines.id, line.id));
+          } else {
+            // Sufficient stock - mark as fulfilled
+            await tx
+              .update(itemRequisitionLines)
+              .set({ status: 'fulfilled' })
+              .where(eq(itemRequisitionLines.id, line.id));
+          }
+        }
+      }
+
+      // Determine final requisition status
+      const finalStatus = hasBackorders ? 'waiting_purchase' : 'approved';
+
+      // Update requisition status
+      await tx
+        .update(itemRequisitions)
+        .set({
+          storeApprovalStatus: 'approved',
+          storeApprovedById: storeManagerId,
+          storeApprovedAt: new Date(),
+          storeRemarks: remarks,
+          status: finalStatus,
+        })
+        .where(eq(itemRequisitions.id, requisitionId));
+
+      // If work order is waiting for these parts and no backorders, update to in_progress
+      if (!hasBackorders && requisition.workOrderId) {
+        const [workOrder] = await tx
+          .select()
+          .from(workOrders)
+          .where(eq(workOrders.id, requisition.workOrderId))
+          .limit(1);
+
+        if (workOrder && workOrder.status === 'awaiting_parts') {
+          await tx
+            .update(workOrders)
+            .set({ status: 'in_progress' })
+            .where(eq(workOrders.id, requisition.workOrderId));
+        }
+      }
+    });
   }
 
   async rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void> {

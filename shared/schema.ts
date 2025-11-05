@@ -530,6 +530,7 @@ export const purchaseRequests = pgTable("purchase_requests", {
   purchaseRequestNumber: text("purchase_request_number").notNull().unique(), // PO-2025-001
   requisitionLineId: varchar("requisition_line_id").notNull().references(() => itemRequisitionLines.id, { onDelete: "cascade" }),
   storeManagerId: varchar("store_manager_id").notNull().references(() => employees.id), // Store manager who created request
+  quantityRequested: integer("quantity_requested").notNull(), // Quantity to be purchased
   status: text("status").notNull().default("pending"), // pending, ordered, received, canceled
   vendorId: varchar("vendor_id"), // Future: link to vendors table
   vendorName: text("vendor_name"),

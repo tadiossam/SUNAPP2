@@ -1343,6 +1343,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Verifier dashboard endpoints
+  app.get("/api/work-orders/verifier/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only verifiers can access this endpoint" });
+      }
+      
+      const pendingWorkOrders = await storage.getVerifierPendingWorkOrders();
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching verifier pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/approve-verification", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only verifiers can approve verification" });
+      }
+      
+      const { notes } = req.body;
+      await storage.approveWorkOrderVerification(req.params.id, req.user.id, notes);
+      res.json({ success: true, message: "Work order verification approved" });
+    } catch (error: any) {
+      console.error("Error approving work order verification:", error);
+      const statusCode = error.message.includes("not found") ? 404 : 
+                         error.message.includes("not pending") ? 400 : 500;
+      res.status(statusCode).json({ error: error.message || "Failed to approve verification" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/reject-verification", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only verifiers can reject verification" });
+      }
+      
+      const { rejectionNotes } = req.body;
+      
+      if (!rejectionNotes) {
+        return res.status(400).json({ error: "Rejection notes are required" });
+      }
+      
+      await storage.rejectWorkOrderVerification(req.params.id, req.user.id, rejectionNotes);
+      res.json({ success: true, message: "Work order verification rejected" });
+    } catch (error: any) {
+      console.error("Error rejecting work order verification:", error);
+      const statusCode = error.message.includes("not found") ? 404 : 
+                         error.message.includes("not pending") ? 400 : 500;
+      res.status(statusCode).json({ error: error.message || "Failed to reject verification" });
+    }
+  });
+
   // Team member dashboard endpoint - get work orders assigned to current user
   app.get("/api/work-orders/my-assignments", async (req, res) => {
     try {

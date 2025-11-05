@@ -213,6 +213,11 @@ export interface IStorage {
   getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
   getWorkOrdersByTeamMember(teamMemberId: string): Promise<WorkOrderWithDetails[]>;
   assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void>;
+  getVerifierPendingWorkOrders(): Promise<WorkOrderWithDetails[]>;
+  approveWorkOrderVerification(workOrderId: string, verifierId: string, notes?: string): Promise<void>;
+  rejectWorkOrderVerification(workOrderId: string, verifierId: string, rejectionNotes: string): Promise<void>;
+  markWorkComplete(workOrderId: string, teamMemberId: string): Promise<void>;
+  approveWorkCompletion(workOrderId: string, foremanId: string, notes?: string): Promise<void>;
   
   // Work Order Required Parts
   getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]>;
@@ -2506,6 +2511,68 @@ export class DatabaseStorage implements IStorage {
         completionApprovedAt: new Date(),
         completionApprovalNotes: notes,
         status: 'pending_verification',
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async getVerifierPendingWorkOrders(): Promise<WorkOrderWithDetails[]> {
+    const pendingOrders = await db
+      .select()
+      .from(workOrders)
+      .where(eq(workOrders.status, "pending_verification"));
+    
+    const ordersWithDetails = await Promise.all(
+      pendingOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async approveWorkOrderVerification(workOrderId: string, verifierId: string, notes?: string): Promise<void> {
+    const workOrder = await db.select().from(workOrders).where(eq(workOrders.id, workOrderId)).limit(1);
+    
+    if (workOrder.length === 0) {
+      throw new Error("Work order not found");
+    }
+
+    if (workOrder[0].status !== 'pending_verification') {
+      throw new Error("Work order is not pending verification");
+    }
+
+    await db
+      .update(workOrders)
+      .set({
+        verificationStatus: 'approved',
+        verifiedById: verifierId,
+        verifiedAt: new Date(),
+        verificationNotes: notes,
+        status: 'pending_supervisor',
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async rejectWorkOrderVerification(workOrderId: string, verifierId: string, rejectionNotes: string): Promise<void> {
+    const workOrder = await db.select().from(workOrders).where(eq(workOrders.id, workOrderId)).limit(1);
+    
+    if (workOrder.length === 0) {
+      throw new Error("Work order not found");
+    }
+
+    if (workOrder[0].status !== 'pending_verification') {
+      throw new Error("Work order is not pending verification");
+    }
+
+    await db
+      .update(workOrders)
+      .set({
+        verificationStatus: 'rejected',
+        verifiedById: verifierId,
+        verifiedAt: new Date(),
+        verificationNotes: rejectionNotes,
+        status: 'in_progress',
+        completionApprovalStatus: null,
         updatedAt: new Date(),
       })
       .where(eq(workOrders.id, workOrderId));

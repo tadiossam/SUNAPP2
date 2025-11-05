@@ -32,23 +32,60 @@ export default function VerifierDashboard() {
     queryKey: ["/api/work-orders/verifier/pending"],
   });
 
-  const verifyMutation = useMutation({
-    mutationFn: async (data: { workOrderId: string; decision: "approve" | "reject"; remarks: string }) => {
-      return await apiRequest("POST", `/api/work-orders/${data.workOrderId}/verify`, data);
+  const approveMutation = useMutation({
+    mutationFn: async (data: { workOrderId: string; notes?: string }) => {
+      return await apiRequest("POST", `/api/work-orders/${data.workOrderId}/approve-verification`, {
+        notes: data.notes,
+      });
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       toast({
-        title: variables.decision === "approve" ? "Work Order Approved" : "Work Order Rejected",
-        description:
-          variables.decision === "approve"
-            ? "Work order has been verified and approved."
-            : "Work order has been rejected and returned for revision.",
+        title: "Verification Approved",
+        description: "Work order has been verified and sent to supervisor",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders/verifier/pending"] });
       setIsVerifyDialogOpen(false);
       setSelectedWorkOrder(null);
       setVerificationRemarks("");
       setVerificationDecision(null);
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to approve verification";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (data: { workOrderId: string; rejectionNotes: string }) => {
+      return await apiRequest("POST", `/api/work-orders/${data.workOrderId}/reject-verification`, {
+        rejectionNotes: data.rejectionNotes,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Verification Rejected",
+        description: "Work order has been sent back to team for corrections",
+        variant: "destructive",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/verifier/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/my-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/active"] });
+      setIsVerifyDialogOpen(false);
+      setSelectedWorkOrder(null);
+      setVerificationRemarks("");
+      setVerificationDecision(null);
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to reject verification";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 
@@ -60,11 +97,26 @@ export default function VerifierDashboard() {
   };
 
   const confirmVerification = () => {
-    if (selectedWorkOrder && verificationDecision) {
-      verifyMutation.mutate({
+    if (!selectedWorkOrder || !verificationDecision) return;
+
+    if (verificationDecision === "reject" && !verificationRemarks.trim()) {
+      toast({
+        title: "Rejection Notes Required",
+        description: "Please provide notes explaining why this work is being rejected",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (verificationDecision === "approve") {
+      approveMutation.mutate({
         workOrderId: selectedWorkOrder.id,
-        decision: verificationDecision,
-        remarks: verificationRemarks,
+        notes: verificationRemarks.trim() || undefined,
+      });
+    } else {
+      rejectMutation.mutate({
+        workOrderId: selectedWorkOrder.id,
+        rejectionNotes: verificationRemarks.trim(),
       });
     }
   };
@@ -193,12 +245,14 @@ export default function VerifierDashboard() {
             <Button
               onClick={confirmVerification}
               disabled={
-                verifyMutation.isPending || (verificationDecision === "reject" && !verificationRemarks.trim())
+                approveMutation.isPending || rejectMutation.isPending || (verificationDecision === "reject" && !verificationRemarks.trim())
               }
               variant={verificationDecision === "reject" ? "destructive" : "default"}
               data-testid="button-confirm-verification"
             >
-              {verificationDecision === "approve" ? "Approve" : "Reject"}
+              {approveMutation.isPending || rejectMutation.isPending 
+                ? (verificationDecision === "approve" ? "Approving..." : "Rejecting...")
+                : (verificationDecision === "approve" ? "Approve" : "Reject")}
             </Button>
           </div>
         </DialogContent>

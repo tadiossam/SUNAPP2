@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, Users, CheckCircle, Clock } from "lucide-react";
+import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -21,6 +21,8 @@ type WorkOrder = {
   assignedGarages?: string[];
   assignedWorkshops?: string[];
   teamMembers?: any[];
+  inspectionId?: string | null;
+  receptionId?: string | null;
 };
 
 type Employee = {
@@ -34,6 +36,8 @@ export default function ForemanDashboard() {
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
+  const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
 
   const { data: pendingWorkOrders } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/foreman/pending"],
@@ -45,6 +49,28 @@ export default function ForemanDashboard() {
 
   const { data: teamMembers } = useQuery<Employee[]>({
     queryKey: ["/api/employees/team-members"],
+  });
+
+  // Fetch inspection details when viewing
+  const { data: inspectionDetails } = useQuery<any>({
+    queryKey: ["/api/inspections", viewingInspectionId],
+    queryFn: async () => {
+      if (!viewingInspectionId) return null;
+      const response = await apiRequest("GET", `/api/inspections/${viewingInspectionId}`);
+      return response.json();
+    },
+    enabled: !!viewingInspectionId,
+  });
+
+  // Fetch reception details when viewing
+  const { data: receptionDetails } = useQuery<any>({
+    queryKey: ["/api/equipment-receptions", viewingReceptionId],
+    queryFn: async () => {
+      if (!viewingReceptionId) return null;
+      const response = await apiRequest("GET", `/api/equipment-receptions/${viewingReceptionId}`);
+      return response.json();
+    },
+    enabled: !!viewingReceptionId,
   });
 
   const assignTeamMutation = useMutation({
@@ -109,6 +135,37 @@ export default function ForemanDashboard() {
           <Label className="text-muted-foreground text-sm">Description:</Label>
           <p className="text-sm">{workOrder.description}</p>
         </div>
+        
+        {/* View Inspection and View Maintenance Buttons */}
+        {(workOrder.inspectionId || workOrder.receptionId) && (
+          <div className="flex gap-2 pt-2 border-t">
+            {workOrder.inspectionId && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setViewingInspectionId(workOrder.inspectionId!)}
+                className="flex-1"
+                data-testid={`button-view-inspection-${workOrder.id}`}
+              >
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                View Inspection
+              </Button>
+            )}
+            {workOrder.receptionId && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setViewingReceptionId(workOrder.receptionId!)}
+                className="flex-1"
+                data-testid={`button-view-maintenance-${workOrder.id}`}
+              >
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                View Maintenance
+              </Button>
+            )}
+          </div>
+        )}
+
         {workOrder.teamMembers && workOrder.teamMembers.length > 0 ? (
           <div>
             <Label className="text-muted-foreground text-sm">Team Members:</Label>
@@ -232,6 +289,96 @@ export default function ForemanDashboard() {
               Assign Team ({selectedTeamMembers.length})
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Inspection Dialog */}
+      <Dialog open={!!viewingInspectionId} onOpenChange={() => setViewingInspectionId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Inspection Details</DialogTitle>
+            <DialogDescription>
+              {inspectionDetails?.inspectionNumber || 'Loading...'}
+            </DialogDescription>
+          </DialogHeader>
+          {inspectionDetails && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Service Type</Label>
+                  <p className="font-medium capitalize">{inspectionDetails.serviceType?.replace('_', ' ')}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <p className="font-medium capitalize">{inspectionDetails.status}</p>
+                </div>
+                {inspectionDetails.overallCondition && (
+                  <div>
+                    <Label className="text-muted-foreground">Overall Condition</Label>
+                    <p className="font-medium capitalize">{inspectionDetails.overallCondition}</p>
+                  </div>
+                )}
+                {inspectionDetails.inspector && (
+                  <div>
+                    <Label className="text-muted-foreground">Inspector</Label>
+                    <p className="font-medium">{inspectionDetails.inspector.fullName}</p>
+                  </div>
+                )}
+              </div>
+              {inspectionDetails.findings && (
+                <div>
+                  <Label className="text-muted-foreground">Findings</Label>
+                  <p className="text-sm mt-1">{inspectionDetails.findings}</p>
+                </div>
+              )}
+              {inspectionDetails.recommendations && (
+                <div>
+                  <Label className="text-muted-foreground">Recommendations</Label>
+                  <p className="text-sm mt-1">{inspectionDetails.recommendations}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Reception/Maintenance Dialog */}
+      <Dialog open={!!viewingReceptionId} onOpenChange={() => setViewingReceptionId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Maintenance Request Details</DialogTitle>
+            <DialogDescription>
+              {receptionDetails?.receptionNumber || 'Loading...'}
+            </DialogDescription>
+          </DialogHeader>
+          {receptionDetails && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Driver Name</Label>
+                  <p className="font-medium">{receptionDetails.driverName}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Phone Number</Label>
+                  <p className="font-medium">{receptionDetails.driverPhoneNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <p className="font-medium capitalize">{receptionDetails.status}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Arrival Date</Label>
+                  <p className="font-medium">{new Date(receptionDetails.arrivalDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+              {receptionDetails.reportedIssues && (
+                <div>
+                  <Label className="text-muted-foreground">Reported Issues</Label>
+                  <p className="text-sm mt-1">{receptionDetails.reportedIssues}</p>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

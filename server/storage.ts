@@ -27,6 +27,7 @@ import {
   approvals,
   itemRequisitions,
   itemRequisitionLines,
+  purchaseRequests,
   attendanceDeviceSettings,
   deviceImportLogs,
   equipmentInspections,
@@ -321,6 +322,8 @@ export interface IStorage {
   rejectItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
   approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
   rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
+  processItemRequisitionLineDecisions(requisitionId: string, storeManagerId: string, lineDecisions: Array<{lineId: string; action: 'approve' | 'reject' | 'backorder'; quantityApproved?: number; remarks?: string}>, generalRemarks?: string): Promise<void>;
+  getPurchaseRequests(): Promise<any[]>;
   confirmPartsReceipt(requisitionId: string, teamMemberId: string): Promise<void>;
   markWorkComplete(workOrderId: string, teamMemberId: string): Promise<void>;
   approveWorkCompletion(workOrderId: string, foremanId: string, notes?: string): Promise<void>;
@@ -2640,6 +2643,301 @@ export class DatabaseStorage implements IStorage {
         status: 'rejected',
       })
       .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async processItemRequisitionLineDecisions(
+    requisitionId: string,
+    storeManagerId: string,
+    lineDecisions: Array<{
+      lineId: string;
+      action: 'approve' | 'reject' | 'backorder';
+      quantityApproved?: number;
+      remarks?: string;
+    }>,
+    generalRemarks?: string
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Get requisition details with row lock
+      const [requisition] = await tx
+        .select()
+        .from(itemRequisitions)
+        .where(eq(itemRequisitions.id, requisitionId))
+        .for('update')
+        .limit(1);
+
+      if (!requisition) {
+        throw new Error("Requisition not found");
+      }
+
+      let hasBackorders = false;
+      let hasRejected = false;
+      let hasApproved = false;
+
+      // Process each line decision
+      for (const decision of lineDecisions) {
+        const [line] = await tx
+          .select()
+          .from(itemRequisitionLines)
+          .where(eq(itemRequisitionLines.id, decision.lineId))
+          .limit(1);
+
+        if (!line) continue;
+
+        if (decision.action === 'reject') {
+          // Reject the line
+          hasRejected = true;
+          await tx
+            .update(itemRequisitionLines)
+            .set({
+              status: 'rejected',
+              quantityApproved: 0,
+              remarks: decision.remarks || 'Rejected by store manager',
+            })
+            .where(eq(itemRequisitionLines.id, decision.lineId));
+        } else if (decision.action === 'approve') {
+          // Approve the line
+          hasApproved = true;
+          const quantityNeeded = decision.quantityApproved || line.quantityRequested;
+
+          if (line.sparePartId) {
+            // Get available stock for this part with row locks
+            const stockLocations = await tx
+              .select()
+              .from(partsStorageLocations)
+              .where(eq(partsStorageLocations.partId, line.sparePartId))
+              .for('update')
+              .orderBy(desc(partsStorageLocations.quantity));
+
+            let remainingQuantity = quantityNeeded;
+
+            // Deduct from available stock
+            for (const location of stockLocations) {
+              if (remainingQuantity <= 0) break;
+
+              const deductQuantity = Math.min(location.quantity, remainingQuantity);
+              if (deductQuantity > 0) {
+                const newQuantity = location.quantity - deductQuantity;
+
+                if (newQuantity < 0) continue;
+
+                await tx
+                  .update(partsStorageLocations)
+                  .set({ quantity: newQuantity })
+                  .where(eq(partsStorageLocations.id, location.id));
+
+                remainingQuantity -= deductQuantity;
+              }
+            }
+
+            // If stock is insufficient, create purchase request
+            if (remainingQuantity > 0) {
+              hasBackorders = true;
+
+              // Generate purchase request number
+              const currentYear = new Date().getFullYear();
+              const prefix = `PO-${currentYear}-`;
+              const lockKey = currentYear;
+
+              const result = await tx.execute(sql`
+                SELECT pg_advisory_xact_lock(${lockKey});
+                SELECT COALESCE(
+                  MAX(
+                    CASE 
+                      WHEN purchase_request_number ~ ${`^PO-${currentYear}-[0-9]+$`}
+                      THEN CAST(SUBSTRING(purchase_request_number FROM 'PO-${currentYear}-(\\d+)') AS INTEGER)
+                      ELSE 0
+                    END
+                  ), 0) + 1 AS num
+                FROM purchase_requests
+              `);
+
+              const nextNum = (result.rows[0] as any).num;
+              const purchaseRequestNumber = `${prefix}${String(nextNum).padStart(3, '0')}`;
+
+              // Create purchase request
+              await tx.insert(purchaseRequests).values({
+                purchaseRequestNumber,
+                requisitionLineId: line.id,
+                storeManagerId,
+                quantityRequested: remainingQuantity,
+                status: 'pending',
+              });
+
+              // Update line status to backordered
+              await tx
+                .update(itemRequisitionLines)
+                .set({
+                  status: 'backordered',
+                  quantityApproved: quantityNeeded - remainingQuantity,
+                  remarks: decision.remarks || `Pending purchase: ${remainingQuantity} units ordered (${purchaseRequestNumber})`,
+                })
+                .where(eq(itemRequisitionLines.id, decision.lineId));
+            } else {
+              // Sufficient stock - mark as fulfilled
+              await tx
+                .update(itemRequisitionLines)
+                .set({
+                  status: 'fulfilled',
+                  quantityApproved: quantityNeeded,
+                  remarks: decision.remarks,
+                })
+                .where(eq(itemRequisitionLines.id, decision.lineId));
+            }
+          } else {
+            // No spare part ID, just mark as approved
+            await tx
+              .update(itemRequisitionLines)
+              .set({
+                status: 'approved',
+                quantityApproved: quantityNeeded,
+                remarks: decision.remarks,
+              })
+              .where(eq(itemRequisitionLines.id, decision.lineId));
+          }
+        } else if (decision.action === 'backorder') {
+          // Manually backorder the line
+          hasBackorders = true;
+
+          // Generate purchase request number
+          const currentYear = new Date().getFullYear();
+          const prefix = `PO-${currentYear}-`;
+          const lockKey = currentYear;
+
+          const result = await tx.execute(sql`
+            SELECT pg_advisory_xact_lock(${lockKey});
+            SELECT COALESCE(
+              MAX(
+                CASE 
+                  WHEN purchase_request_number ~ ${`^PO-${currentYear}-[0-9]+$`}
+                  THEN CAST(SUBSTRING(purchase_request_number FROM 'PO-${currentYear}-(\\d+)') AS INTEGER)
+                  ELSE 0
+                END
+              ), 0) + 1 AS num
+            FROM purchase_requests
+          `);
+
+          const nextNum = (result.rows[0] as any).num;
+          const purchaseRequestNumber = `${prefix}${String(nextNum).padStart(3, '0')}`;
+
+          const quantityNeeded = decision.quantityApproved || line.quantityRequested;
+
+          // Create purchase request
+          await tx.insert(purchaseRequests).values({
+            purchaseRequestNumber,
+            requisitionLineId: line.id,
+            storeManagerId,
+            quantityRequested: quantityNeeded,
+            status: 'pending',
+          });
+
+          // Update line status to backordered
+          await tx
+            .update(itemRequisitionLines)
+            .set({
+              status: 'backordered',
+              quantityApproved: 0,
+              remarks: decision.remarks || `Backordered: ${quantityNeeded} units ordered (${purchaseRequestNumber})`,
+            })
+            .where(eq(itemRequisitionLines.id, decision.lineId));
+        }
+      }
+
+      // Determine final requisition status
+      let finalStatus = 'pending_store';
+      if (hasRejected && !hasApproved && !hasBackorders) {
+        finalStatus = 'rejected';
+      } else if (hasApproved || hasBackorders) {
+        finalStatus = hasBackorders ? 'waiting_purchase' : 'approved';
+      }
+
+      // Update requisition status
+      await tx
+        .update(itemRequisitions)
+        .set({
+          storeApprovalStatus: hasApproved || hasBackorders ? 'approved' : hasRejected ? 'rejected' : 'pending',
+          storeApprovedById: storeManagerId,
+          storeApprovedAt: new Date(),
+          storeRemarks: generalRemarks,
+          status: finalStatus,
+        })
+        .where(eq(itemRequisitions.id, requisitionId));
+
+      // If work order is waiting for these parts and no backorders, update to in_progress
+      if (!hasBackorders && hasApproved && requisition.workOrderId) {
+        const [workOrder] = await tx
+          .select()
+          .from(workOrders)
+          .where(eq(workOrders.id, requisition.workOrderId))
+          .limit(1);
+
+        if (workOrder && workOrder.status === 'awaiting_parts') {
+          await tx
+            .update(workOrders)
+            .set({ status: 'in_progress' })
+            .where(eq(workOrders.id, requisition.workOrderId));
+        }
+      }
+    });
+  }
+
+  async getPurchaseRequests(): Promise<any[]> {
+    const requests = await db
+      .select({
+        id: purchaseRequests.id,
+        purchaseRequestNumber: purchaseRequests.purchaseRequestNumber,
+        requisitionLineId: purchaseRequests.requisitionLineId,
+        storeManagerId: purchaseRequests.storeManagerId,
+        quantityRequested: purchaseRequests.quantityRequested,
+        status: purchaseRequests.status,
+        vendorId: purchaseRequests.vendorId,
+        vendorName: purchaseRequests.vendorName,
+        expectedDate: purchaseRequests.expectedDate,
+        actualDate: purchaseRequests.actualDate,
+        notes: purchaseRequests.notes,
+        createdAt: purchaseRequests.createdAt,
+        updatedAt: purchaseRequests.updatedAt,
+      })
+      .from(purchaseRequests)
+      .orderBy(desc(purchaseRequests.createdAt));
+
+    // Enrich with line item, requisition, and spare part details
+    const enrichedRequests = await Promise.all(
+      requests.map(async (request) => {
+        const [line] = await db
+          .select()
+          .from(itemRequisitionLines)
+          .where(eq(itemRequisitionLines.id, request.requisitionLineId))
+          .limit(1);
+
+        let requisition = null;
+        let sparePart = null;
+
+        if (line) {
+          [requisition] = await db
+            .select()
+            .from(itemRequisitions)
+            .where(eq(itemRequisitions.id, line.requisitionId))
+            .limit(1);
+
+          if (line.sparePartId) {
+            [sparePart] = await db
+              .select()
+              .from(spareParts)
+              .where(eq(spareParts.id, line.sparePartId))
+              .limit(1);
+          }
+        }
+
+        return {
+          ...request,
+          lineItem: line,
+          requisition,
+          sparePart,
+        };
+      })
+    );
+
+    return enrichedRequests;
   }
 
   async confirmPartsReceipt(requisitionId: string, teamMemberId: string): Promise<void> {

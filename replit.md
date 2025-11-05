@@ -39,7 +39,7 @@ The frontend uses React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, Wouter fo
     - **Team Performance Page** (`/team-performance`): Daily/Monthly/Yearly leaderboards with performance scores, top performers displayed without emoji (using Lucide icons only per design guidelines)
 - **Equipment Reception/Check-in**: Driver drop-off workflow with equipment selection, driver details, arrival info, issues, and auto-generated reception numbers.
 - **Equipment Maintenances Workflow**: Admin review page for driver check-ins, allowing updates and status changes.
-- **Equipment Inspection**: View of receptions, auto-generated inspection numbers, service-type checklists (Amharic), and an Inspection-to-Work-Order workflow where completed inspections trigger approval, leading to auto-created work orders.
+- **Equipment Inspection**: View of receptions, auto-generated inspection numbers, service-type checklists (Amharic). Inspections can be completed and approved independently. Work orders must be created manually from the Work Orders page by selecting approved or completed inspections.
 - **Approval System**: Multi-level workflow for job orders, completions, parts requests, and inspections, with department hierarchy and approval dashboards.
 - **Item Requisition Forms**: Matches the official Sunshine Construction PLC requisition form (translated from Amharic) with:
   - Requisition number (REQ-YYYY-XXX format)

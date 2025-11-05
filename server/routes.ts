@@ -1409,6 +1409,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Supervisor dashboard endpoints
+  app.get("/api/work-orders/supervisor/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only supervisors can access this endpoint" });
+      }
+      
+      const pendingWorkOrders = await storage.getSupervisorPendingWorkOrders();
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching supervisor pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/approve-supervisor", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only supervisors can approve" });
+      }
+      
+      const { notes } = req.body;
+      await storage.approveSupervisorSignoff(req.params.id, req.user.id, notes);
+      res.json({ success: true, message: "Work order approved and completed" });
+    } catch (error: any) {
+      console.error("Error approving work order:", error);
+      const statusCode = error.message.includes("not found") ? 404 : 
+                         error.message.includes("not pending") ? 400 : 500;
+      res.status(statusCode).json({ error: error.message || "Failed to approve work order" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/reject-supervisor", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only supervisors can reject" });
+      }
+      
+      const { rejectionNotes } = req.body;
+      
+      if (!rejectionNotes) {
+        return res.status(400).json({ error: "Rejection notes are required" });
+      }
+      
+      await storage.rejectSupervisorSignoff(req.params.id, req.user.id, rejectionNotes);
+      res.json({ success: true, message: "Work order rejected and sent back for verification" });
+    } catch (error: any) {
+      console.error("Error rejecting work order:", error);
+      const statusCode = error.message.includes("not found") ? 404 : 
+                         error.message.includes("not pending") ? 400 : 500;
+      res.status(statusCode).json({ error: error.message || "Failed to reject work order" });
+    }
+  });
+
   // Team member dashboard endpoint - get work orders assigned to current user
   app.get("/api/work-orders/my-assignments", async (req, res) => {
     try {

@@ -218,6 +218,9 @@ export interface IStorage {
   rejectWorkOrderVerification(workOrderId: string, verifierId: string, rejectionNotes: string): Promise<void>;
   markWorkComplete(workOrderId: string, teamMemberId: string): Promise<void>;
   approveWorkCompletion(workOrderId: string, foremanId: string, notes?: string): Promise<void>;
+  getSupervisorPendingWorkOrders(): Promise<WorkOrderWithDetails[]>;
+  approveSupervisorSignoff(workOrderId: string, supervisorId: string, notes?: string): Promise<void>;
+  rejectSupervisorSignoff(workOrderId: string, supervisorId: string, rejectionNotes: string): Promise<void>;
   
   // Work Order Required Parts
   getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]>;
@@ -2573,6 +2576,68 @@ export class DatabaseStorage implements IStorage {
         verificationNotes: rejectionNotes,
         status: 'in_progress',
         completionApprovalStatus: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async getSupervisorPendingWorkOrders(): Promise<WorkOrderWithDetails[]> {
+    const pendingOrders = await db
+      .select()
+      .from(workOrders)
+      .where(eq(workOrders.status, "pending_supervisor"));
+    
+    const ordersWithDetails = await Promise.all(
+      pendingOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async approveSupervisorSignoff(workOrderId: string, supervisorId: string, notes?: string): Promise<void> {
+    const workOrder = await db.select().from(workOrders).where(eq(workOrders.id, workOrderId)).limit(1);
+    
+    if (workOrder.length === 0) {
+      throw new Error("Work order not found");
+    }
+
+    if (workOrder[0].status !== 'pending_supervisor') {
+      throw new Error("Work order is not pending supervisor approval");
+    }
+
+    await db
+      .update(workOrders)
+      .set({
+        approvalStatus: 'approved',
+        approvedById: supervisorId,
+        approvedAt: new Date(),
+        approvalNotes: notes,
+        status: 'completed',
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async rejectSupervisorSignoff(workOrderId: string, supervisorId: string, rejectionNotes: string): Promise<void> {
+    const workOrder = await db.select().from(workOrders).where(eq(workOrders.id, workOrderId)).limit(1);
+    
+    if (workOrder.length === 0) {
+      throw new Error("Work order not found");
+    }
+
+    if (workOrder[0].status !== 'pending_supervisor') {
+      throw new Error("Work order is not pending supervisor approval");
+    }
+
+    await db
+      .update(workOrders)
+      .set({
+        approvalStatus: 'rejected',
+        approvedById: supervisorId,
+        approvedAt: new Date(),
+        approvalNotes: rejectionNotes,
+        status: 'pending_verification',
+        verificationStatus: null,
         updatedAt: new Date(),
       })
       .where(eq(workOrders.id, workOrderId));

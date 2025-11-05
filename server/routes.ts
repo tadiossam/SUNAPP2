@@ -1014,6 +1014,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/workshops", async (req, res) => {
+    try {
+      const workshops = await storage.getAllWorkshops();
+      res.json(workshops);
+    } catch (error) {
+      console.error("Error fetching workshops:", error);
+      res.status(500).json({ error: "Failed to fetch workshops" });
+    }
+  });
+
   app.get("/api/workshops/:workshopId/members", async (req, res) => {
     try {
       const members = await storage.getWorkshopMembers(req.params.workshopId);
@@ -1857,6 +1867,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await db.delete(workOrderWorkshops).where(eq(workOrderWorkshops.workOrderId, req.params.id));
         
         // Insert new workshop assignments
+        if (workshopIds.length > 0) {
+          const workshopAssignments = workshopIds.map((workshopId: string) => ({
+            workOrderId: req.params.id,
+            workshopId,
+          }));
+          await db.insert(workOrderWorkshops).values(workshopAssignments);
+        }
+      }
+      
+      // Update required parts if provided
+      if (requiredParts && Array.isArray(requiredParts)) {
+        const partsToInsert = requiredParts.map((part: any) => ({
+          workOrderId: req.params.id,
+          sparePartId: part.partId || part.id || null,
+          partName: part.partName,
+          partNumber: part.partNumber,
+          stockStatus: part.stockStatus || null,
+          quantity: part.quantity || 1,
+        }));
+        await storage.replaceWorkOrderRequiredParts(req.params.id, partsToInsert);
+      }
+      
+      res.json(workOrder);
+    } catch (error) {
+      console.error("Error updating work order:", error);
+      res.status(400).json({ error: "Failed to update work order" });
+    }
+  });
+
+  app.patch("/api/work-orders/:id", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Extract requiredParts, garageIds, and workshopIds from body
+      const { requiredParts, garageIds, workshopIds, ...workOrderData } = req.body;
+      
+      // Use updateWorkOrder which handles partial updates
+      const workOrder = await storage.updateWorkOrder(req.params.id, workOrderData);
+      
+      // Update garage assignments if provided
+      if (garageIds !== undefined && Array.isArray(garageIds)) {
+        await db.delete(workOrderGarages).where(eq(workOrderGarages.workOrderId, req.params.id));
+        if (garageIds.length > 0) {
+          const garageAssignments = garageIds.map((garageId: string) => ({
+            workOrderId: req.params.id,
+            garageId,
+          }));
+          await db.insert(workOrderGarages).values(garageAssignments);
+        }
+      }
+      
+      // Update workshop assignments if provided
+      if (workshopIds !== undefined && Array.isArray(workshopIds)) {
+        await db.delete(workOrderWorkshops).where(eq(workOrderWorkshops.workOrderId, req.params.id));
         if (workshopIds.length > 0) {
           const workshopAssignments = workshopIds.map((workshopId: string) => ({
             workOrderId: req.params.id,

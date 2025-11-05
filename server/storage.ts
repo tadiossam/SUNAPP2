@@ -185,6 +185,7 @@ export interface IStorage {
   deleteGarage(id: string): Promise<void>;
 
   // Repair Bays
+  getAllWorkshops(): Promise<WorkshopWithDetails[]>;
   getWorkshopsByGarage(garageId: string): Promise<WorkshopWithDetails[]>;
   createWorkshop(data: InsertWorkshop): Promise<Workshop>;
   updateWorkshop(id: string, data: Partial<InsertWorkshop>): Promise<Workshop>;
@@ -830,6 +831,41 @@ export class DatabaseStorage implements IStorage {
     return garagesWithDetails;
   }
 
+  async getAllWorkshops(): Promise<WorkshopWithDetails[]> {
+    const allWorkshops = await db.select().from(workshops).orderBy(workshops.name);
+    
+    // Fetch details for each workshop
+    const workshopsWithDetails = await Promise.all(
+      allWorkshops.map(async (workshop) => {
+        // Get garage info
+        const garage = workshop.garageId
+          ? await db.select().from(garages).where(eq(garages.id, workshop.garageId)).limit(1)
+          : [];
+        
+        // Get foreman info
+        const foreman = workshop.foremanId
+          ? await db.select().from(employees).where(eq(employees.id, workshop.foremanId)).limit(1)
+          : [];
+        
+        // Get team members
+        const teamMembers = await db
+          .select()
+          .from(workshopMembers)
+          .innerJoin(employees, eq(workshopMembers.employeeId, employees.id))
+          .where(eq(workshopMembers.workshopId, workshop.id));
+        
+        return {
+          ...workshop,
+          garage: garage[0] || null,
+          foreman: foreman[0] || null,
+          teamMembers: teamMembers.map(tm => tm.employees),
+        };
+      })
+    );
+    
+    return workshopsWithDetails;
+  }
+
   async getGarageById(id: string): Promise<GarageWithDetails | undefined> {
     const [garage] = await db.select().from(garages).where(eq(garages.id, id));
     if (!garage) return undefined;
@@ -1197,27 +1233,71 @@ export class DatabaseStorage implements IStorage {
     // Auto-generate work order number if not provided
     let workOrderNumber = data.workOrderNumber;
     
-    if (!workOrderNumber) {
-      const currentYear = new Date().getFullYear();
-      const prefix = `WO-${currentYear}-`;
-      
-      // Find the highest existing number for this year
-      const existingOrders = await this.getWorkOrdersByPrefix(prefix);
-      
-      let nextNumber = 1;
-      if (existingOrders.length > 0) {
-        const lastNumber = existingOrders[0].workOrderNumber.split('-')[2];
-        nextNumber = parseInt(lastNumber) + 1;
+    // Retry loop for handling duplicate work order numbers (up to 5 attempts)
+    const maxRetries = 5;
+    let attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        if (!workOrderNumber || attempt > 0) {
+          const currentYear = new Date().getFullYear();
+          const pattern = `WO-${currentYear}-%`;
+          
+          // Query all work orders for this year and extract numbers
+          const existingOrders = await db
+            .select()
+            .from(workOrders)
+            .where(sql`${workOrders.workOrderNumber} LIKE ${pattern}`)
+            .orderBy(desc(workOrders.createdAt));
+          
+          let nextNumber = 1;
+          if (existingOrders.length > 0) {
+            // Filter orders that match the simple format WO-YYYY-XXX (not quarter format)
+            const simpleFormatOrders = existingOrders.filter(order => 
+              /^WO-\d{4}-\d+$/.test(order.workOrderNumber)
+            );
+            
+            if (simpleFormatOrders.length > 0) {
+              // Extract all numbers and find the maximum
+              const numbers = simpleFormatOrders
+                .map(order => {
+                  const match = order.workOrderNumber.match(/WO-\d{4}-(\d+)$/);
+                  return match && match[1] ? parseInt(match[1], 10) : 0;
+                })
+                .filter(n => !isNaN(n));
+              
+              if (numbers.length > 0) {
+                nextNumber = Math.max(...numbers) + 1 + attempt; // Add attempt number to handle race conditions
+              }
+            }
+          }
+          
+          workOrderNumber = `WO-${currentYear}-${String(nextNumber).padStart(3, '0')}`;
+        }
+        
+        const [result] = await db.insert(workOrders).values({
+          ...data,
+          workOrderNumber,
+        }).returning();
+        
+        return result;
+      } catch (error: any) {
+        // Check if it's a duplicate key error
+        if (error.code === '23505' && error.constraint === 'work_orders_work_order_number_unique') {
+          attempt++;
+          if (attempt >= maxRetries) {
+            throw new Error(`Failed to generate unique work order number after ${maxRetries} attempts`);
+          }
+          // Force regeneration of work order number on next attempt
+          workOrderNumber = '';
+          continue;
+        }
+        // Re-throw other errors
+        throw error;
       }
-      
-      workOrderNumber = `${prefix}${String(nextNumber).padStart(3, '0')}`;
     }
     
-    const [result] = await db.insert(workOrders).values({
-      ...data,
-      workOrderNumber,
-    }).returning();
-    return result;
+    throw new Error('Failed to create work order after maximum retries');
   }
 
   async updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder> {

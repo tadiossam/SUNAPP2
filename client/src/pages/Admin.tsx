@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +80,20 @@ export default function AdminPage() {
   const { data: importLogs = [], isLoading: isLoadingLogs } = useQuery<ImportLog[]>({
     queryKey: ["/api/attendance-device/logs"],
   });
+
+  // Sync device settings to form when loaded
+  useEffect(() => {
+    if (deviceSettings) {
+      setDeviceForm({
+        deviceName: deviceSettings.deviceName || "",
+        deviceModel: deviceSettings.deviceModel || "",
+        serialNumber: deviceSettings.serialNumber || "",
+        ipAddress: deviceSettings.ipAddress || "",
+        port: String(deviceSettings.port || "4370"),
+        timeout: String(deviceSettings.timeout || "5000"),
+      });
+    }
+  }, [deviceSettings]);
 
   // Test connection mutation
   const testConnectionMutation = useMutation({

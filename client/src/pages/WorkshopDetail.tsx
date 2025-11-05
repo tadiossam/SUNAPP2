@@ -9,11 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Wrench, CheckCircle, Clock, Edit, UserCheck } from "lucide-react";
+import { ArrowLeft, Wrench, CheckCircle, Clock, Edit, UserCheck, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 
 export default function WorkshopDetail() {
   const [, setLocation] = useLocation();
@@ -25,6 +25,7 @@ export default function WorkshopDetail() {
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editForemanId, setEditForemanId] = useState("");
+  const [isForemanSearchOpen, setIsForemanSearchOpen] = useState(false);
 
   const { data: workshopDetails, isLoading } = useQuery<any>({
     queryKey: [`/api/workshops/${workshopId}/details`],
@@ -304,24 +305,18 @@ export default function WorkshopDetail() {
 
             <div className="space-y-2">
               <Label htmlFor="edit-foreman">Foreman</Label>
-              <div className="flex gap-2">
-                <Select
-                  value={editForemanId || "none"}
-                  onValueChange={(value) => setEditForemanId(value === "none" ? "" : value)}
-                >
-                  <SelectTrigger id="edit-foreman" data-testid="select-edit-foreman" className="flex-1">
-                    <SelectValue placeholder="Select a foreman (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No foreman</SelectItem>
-                    {employees?.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        {emp.fullName} {emp.role && `(${emp.role})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => setIsForemanSearchOpen(true)}
+                data-testid="button-select-foreman"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                {editForemanId && employees?.find((e: any) => e.id === editForemanId)
+                  ? employees.find((e: any) => e.id === editForemanId).fullName
+                  : "Select foreman (optional)"}
+              </Button>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -344,6 +339,19 @@ export default function WorkshopDetail() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Employee Search Dialog for Edit Workshop */}
+      <EmployeeSearchDialog
+        open={isForemanSearchOpen}
+        onOpenChange={setIsForemanSearchOpen}
+        mode="single"
+        title="Select Foreman"
+        onSelect={(employeeIds) => {
+          const employeeId = employeeIds[0] || "";
+          setEditForemanId(employeeId);
+        }}
+        selectedIds={editForemanId ? [editForemanId] : []}
+      />
     </div>
   );
 }

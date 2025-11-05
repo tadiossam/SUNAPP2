@@ -1519,6 +1519,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const workOrder = await storage.createWorkOrder(validatedData);
       
+      // Update reception status to "work_order_created" if work order has a receptionId
+      if (workOrder.receptionId) {
+        await storage.updateReception(workOrder.receptionId, { status: "work_order_created" });
+      }
+      
       // Save garage assignments
       if (garageIds && Array.isArray(garageIds) && garageIds.length > 0) {
         const garageAssignments = garageIds.map((garageId: string) => ({

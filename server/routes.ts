@@ -1135,14 +1135,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/biometric-imports/delete-all-employees", isCEOOrAdmin, async (req, res) => {
     try {
       // Get all employees with deviceUserId (imported from biometric device)
-      const employees = await db.select()
-        .from(schema.employees)
-        .where(sql`${schema.employees.deviceUserId} IS NOT NULL`);
+      const allEmployees = await storage.getAllEmployees();
+      const biometricEmployees = allEmployees.filter((emp: any) => emp.deviceUserId !== null && emp.deviceUserId !== undefined);
       
       let deletedCount = 0;
       const errors: string[] = [];
 
-      for (const employee of employees) {
+      for (const employee of biometricEmployees) {
         try {
           await storage.deleteEmployee(employee.id);
           deletedCount++;
@@ -1154,8 +1153,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (req.user?.role === "admin") {
         await sendCEONotification(createNotification(
-          'deleted', 'biometric_employees', 'bulk', req.user.username || 'unknown', 
-          { deletedCount, totalFound: employees.length }
+          'deleted', 'employee', 'bulk', req.user.username || 'unknown', 
+          { deletedCount, totalFound: biometricEmployees.length }
         ));
       }
 
@@ -1163,7 +1162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: `Deleted ${deletedCount} employees imported from biometric device`,
         deletedCount,
-        totalFound: employees.length,
+        totalFound: biometricEmployees.length,
         errors: errors.length > 0 ? errors : undefined
       });
     } catch (error: any) {
@@ -3339,6 +3338,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching import logs:", error);
       res.status(500).json({ error: "Failed to fetch import logs" });
+    }
+  });
+
+  // Fetch users from biometric device (preview without importing)
+  app.post("/api/biometric-imports/fetch-users", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const settings = await storage.getAttendanceDeviceSettings();
+      if (!settings) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "No active device configured" 
+        });
+      }
+
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(settings.ipAddress, settings.port, settings.timeout);
+      const deviceUsers = await deviceService.getAllUsersWithConnection();
+      
+      res.json({
+        success: true,
+        users: deviceUsers,
+        count: deviceUsers.length
+      });
+    } catch (error: any) {
+      console.error("Fetch users error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch users",
+        error: error.message
+      });
     }
   });
 

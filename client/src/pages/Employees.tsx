@@ -301,7 +301,15 @@ export default function Employees() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Users className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">{t("employees")}</h1>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">{t("employees")}</h1>
+              <p className="text-sm text-muted-foreground" data-testid="text-employee-count">
+                {employees?.length || 0} {employees?.length === 1 ? 'employee' : 'employees'} total
+                {filteredEmployees && filteredEmployees.length !== employees?.length && (
+                  <span> • {filteredEmployees.length} matching search</span>
+                )}
+              </p>
+            </div>
           </div>
           <div className="flex gap-2">
             <AlertDialog>

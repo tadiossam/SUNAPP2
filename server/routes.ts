@@ -1574,16 +1574,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch work order numbers and lines for each requisition
       const requisitionsWithDetails = await Promise.all(
-        requisitions.map(async (req) => {
+        requisitions.map(async (requisition) => {
           const workOrder = await db.select({ workOrderNumber: workOrders.workOrderNumber })
             .from(workOrders)
-            .where(eq(workOrders.id, req.workOrderId))
+            .where(eq(workOrders.id, requisition.workOrderId))
             .limit(1);
           
-          const lines = await db.select().from(itemRequisitionLines).where(eq(itemRequisitionLines.requisitionId, req.id));
+          const lines = await db.select().from(itemRequisitionLines).where(eq(itemRequisitionLines.requisitionId, requisition.id));
           
           return {
-            ...req,
+            ...requisition,
             workOrderNumber: workOrder[0]?.workOrderNumber || "",
             lines,
           };

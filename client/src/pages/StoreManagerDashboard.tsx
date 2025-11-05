@@ -100,7 +100,9 @@ export default function StoreManagerDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("pending");
   const [selectedRequisition, setSelectedRequisition] = useState<ItemRequisition | null>(null);
+  const [selectedPO, setSelectedPO] = useState<PurchaseRequest | null>(null);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+  const [isPODialogOpen, setIsPODialogOpen] = useState(false);
   const [approvalRemarks, setApprovalRemarks] = useState("");
   const [lineDecisions, setLineDecisions] = useState<Record<string, LineDecision>>({});
 
@@ -256,6 +258,67 @@ export default function StoreManagerDashboard() {
       lineDecisions: decisions,
       generalRemarks: approvalRemarks,
     });
+  };
+
+  const handlePrint = (po: PurchaseRequest) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Purchase Order ${po.purchaseRequestNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+          .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+          .po-title { font-size: 20px; font-weight: bold; margin: 20px 0; }
+          table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+          th { background: #f5f5f5; padding: 10px; text-align: left; font-size: 12px; border: 1px solid #ddd; }
+          td { padding: 10px; border: 1px solid #ddd; font-size: 13px; }
+          .signature-section { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 40px; }
+          .signature-line { border-top: 1px solid #000; padding-top: 5px; text-align: center; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="company-name">SUNSHINE CONSTRUCTION PLC</div>
+          <div class="po-title">PURCHASE ORDER</div>
+          <div style="font-size: 18px; font-weight: bold;">${po.purchaseRequestNumber}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Item Description</th>
+              <th>Part Number</th>
+              <th>Quantity</th>
+              <th>Unit Price</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>${po.lineItem?.description || po.sparePart?.partName || '-'}</td>
+              <td>${po.sparePart?.partNumber || '-'}</td>
+              <td>${po.quantityRequested}</td>
+              <td>${po.unitPrice ? `${po.currency || 'ETB'} ${po.unitPrice}` : '-'}</td>
+              <td>${po.totalPrice ? `${po.currency || 'ETB'} ${po.totalPrice}` : '-'}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="signature-section">
+          <div class="signature-line">Requested by: ${po.requestedBy?.fullName || ''}</div>
+          <div class="signature-line">Prepared by: ${po.storeManager?.fullName || ''}</div>
+          <div class="signature-line">Approved by: ${po.foremanApprovedBy?.fullName || ''}</div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 250);
   };
 
   const getStatusColor = (status: string) => {
@@ -458,7 +521,7 @@ export default function StoreManagerDashboard() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => {/* Print functionality */}}
+                          onClick={() => handlePrint(request)}
                           data-testid={`button-print-${request.id}`}
                         >
                           <Printer className="h-4 w-4" />
@@ -466,11 +529,26 @@ export default function StoreManagerDashboard() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => {/* View details functionality */}}
+                          onClick={() => {
+                            setSelectedPO(request);
+                            setIsPODialogOpen(true);
+                          }}
                           data-testid={`button-view-${request.id}`}
                         >
                           <FileText className="h-4 w-4" />
                         </Button>
+                        {request.status === 'pending' && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => markAsReceivedMutation.mutate({ id: request.id, quantityReceived: request.quantityRequested })}
+                            disabled={markAsReceivedMutation.isPending}
+                            data-testid={`button-received-${request.id}`}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Received
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </Card>
@@ -675,6 +753,138 @@ export default function StoreManagerDashboard() {
               {processLinesMutation.isPending ? "Processing..." : "Process Line Items"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Purchase Order Details Dialog */}
+      <Dialog open={isPODialogOpen} onOpenChange={setIsPODialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Purchase Order Details</span>
+              {selectedPO && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(selectedPO)}
+                  data-testid="button-print-modal"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedPO && (
+            <div className="space-y-6 pt-4">
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>PO Number</Label>
+                    <div className="text-lg font-semibold">{selectedPO.purchaseRequestNumber}</div>
+                  </div>
+                  <div>
+                    <Label>Status</Label>
+                    <Badge variant={selectedPO.status === 'completed' ? 'default' : 'secondary'} className="text-sm">
+                      {selectedPO.status.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Item Information
+                  </h3>
+                  <div className="grid gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Description:</span>{' '}
+                      {selectedPO.lineItem?.description || selectedPO.sparePart?.partName}
+                    </div>
+                    {selectedPO.sparePart?.partNumber && (
+                      <div>
+                        <span className="text-muted-foreground">Part Number:</span>{' '}
+                        {selectedPO.sparePart.partNumber}
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-muted-foreground">Quantity Requested:</span>{' '}
+                      {selectedPO.quantityRequested} {selectedPO.lineItem?.unitOfMeasure || 'units'}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Personnel
+                  </h3>
+                  <div className="grid gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Requested By:</span>{' '}
+                      {selectedPO.requestedBy?.fullName || '-'}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Approved By (Foreman):</span>{' '}
+                      {selectedPO.foremanApprovedBy?.fullName || '-'}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Prepared By (Store Manager):</span>{' '}
+                      {selectedPO.storeManager?.fullName || '-'}
+                    </div>
+                  </div>
+                </div>
+
+                {(selectedPO.unitPrice || selectedPO.totalPrice) && (
+                  <div>
+                    <h3 className="font-semibold mb-3">Pricing</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedPO.unitPrice && (
+                        <div>
+                          <Label>Unit Price</Label>
+                          <div className="text-sm">{selectedPO.currency || 'ETB'} {selectedPO.unitPrice}</div>
+                        </div>
+                      )}
+                      {selectedPO.totalPrice && (
+                        <div>
+                          <Label>Total Price</Label>
+                          <div className="text-sm font-semibold">{selectedPO.currency || 'ETB'} {selectedPO.totalPrice}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="font-semibold mb-3">Dates</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Date Requested:</span>{' '}
+                      {new Date(selectedPO.dateRequested).toLocaleDateString()}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Date Approved:</span>{' '}
+                      {new Date(selectedPO.dateApproved).toLocaleDateString()}
+                    </div>
+                    {selectedPO.receivedDate && (
+                      <div>
+                        <span className="text-muted-foreground">Date Received:</span>{' '}
+                        {new Date(selectedPO.receivedDate).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedPO.notes && (
+                  <div>
+                    <Label>Notes</Label>
+                    <div className="text-sm bg-muted p-3 rounded-md">{selectedPO.notes}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -73,15 +73,15 @@ export default function ForemanDashboard() {
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null);
   const [actionRemarks, setActionRemarks] = useState("");
 
-  const { data: pendingWorkOrders } = useQuery<WorkOrder[]>({
+  const { data: pendingWorkOrders = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/foreman/pending"],
   });
 
-  const { data: activeWorkOrders } = useQuery<WorkOrder[]>({
+  const { data: activeWorkOrders = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/foreman/active"],
   });
 
-  const { data: teamMembers } = useQuery<Employee[]>({
+  const { data: teamMembers = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees/team-members"],
   });
 

@@ -145,6 +145,41 @@ export function canApprove(req: any, res: Response, next: NextFunction) {
   res.status(403).json({ message: "Access denied. CEO, Admin, or Supervisor role required." });
 }
 
+// Helper function to check if user has a specific role (case-insensitive)
+// Admin role ALWAYS returns true (full access)
+export function hasRole(user: any, ...allowedRoles: string[]): boolean {
+  if (!user || !user.role) {
+    return false;
+  }
+  
+  const userRole = user.role.toLowerCase();
+  
+  // Admin has full access to everything
+  if (userRole === 'admin') {
+    return true;
+  }
+  
+  // Check if user has any of the allowed roles (case-insensitive)
+  return allowedRoles.some(role => userRole === role.toLowerCase());
+}
+
+// Middleware factory to check for specific roles (admin always has access)
+export function requireRole(...allowedRoles: string[]) {
+  return (req: any, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    if (hasRole(req.user, ...allowedRoles)) {
+      return next();
+    }
+    
+    res.status(403).json({ 
+      message: `Access denied. Required role(s): ${allowedRoles.join(', ')} (or admin for full access)` 
+    });
+  };
+}
+
 // Extend Express Request type to include user
 declare global {
   namespace Express {

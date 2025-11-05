@@ -46,7 +46,7 @@ import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
-import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken } from "./auth";
+import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken, hasRole } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import express from "express";
@@ -1320,8 +1320,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only verifiers can access this" });
+      // Check for verifier, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'verifier', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Verifier or CEO role required (admin has full access)" });
       }
       
       const pendingWorkOrders = await storage.getVerifierPendingWorkOrders();
@@ -1339,8 +1340,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only supervisors can access this" });
+      // Check for supervisor, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'supervisor', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Supervisor or CEO role required (admin has full access)" });
       }
       
       const pendingWorkOrders = await storage.getSupervisorPendingWorkOrders();
@@ -1430,8 +1432,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only verifiers can approve verification" });
+      // Check for verifier, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'verifier', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Verifier or CEO role required (admin has full access)" });
       }
       
       const { notes } = req.body;
@@ -1451,8 +1454,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only verifiers can reject verification" });
+      // Check for verifier, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'verifier', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Verifier or CEO role required (admin has full access)" });
       }
       
       const { rejectionNotes } = req.body;
@@ -1477,8 +1481,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only supervisors can approve" });
+      // Check for supervisor, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'supervisor', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Supervisor or CEO role required (admin has full access)" });
       }
       
       const { notes } = req.body;
@@ -1498,8 +1503,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only supervisors can reject" });
+      // Check for supervisor, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'supervisor', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Supervisor or CEO role required (admin has full access)" });
       }
       
       const { rejectionNotes } = req.body;
@@ -1617,9 +1623,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      // Only store_manager or admin role can access
-      if (req.user.role !== 'store_manager' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Access denied: Store manager or admin role required" });
+      // Only store_manager role can access (admin has automatic access via hasRole)
+      if (!hasRole(req.user, 'store_manager')) {
+        return res.status(403).json({ error: "Access denied: Store manager role required (admin has full access)" });
       }
       
       const requisitions = await storage.getItemRequisitionsByStoreManager();
@@ -1678,9 +1684,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      // Only store_manager role can approve
-      if (req.user.role !== 'store_manager') {
-        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      // Only store_manager role can approve (admin has automatic access)
+      if (!hasRole(req.user, 'store_manager')) {
+        return res.status(403).json({ error: "Access denied: Store manager role required (admin has full access)" });
       }
       
       const { remarks } = req.body;
@@ -1698,9 +1704,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      // Only store_manager role can reject
-      if (req.user.role !== 'store_manager') {
-        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      // Only store_manager role can reject (admin has automatic access)
+      if (!hasRole(req.user, 'store_manager')) {
+        return res.status(403).json({ error: "Access denied: Store manager role required (admin has full access)" });
       }
       
       const { remarks } = req.body;

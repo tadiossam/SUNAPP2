@@ -1584,6 +1584,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/work-orders/:id/mark-complete", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      await storage.markWorkComplete(req.params.id, req.user.id);
+      res.json({ success: true, message: "Work marked as complete" });
+    } catch (error) {
+      console.error("Error marking work complete:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to mark work complete";
+      
+      if (errorMessage.includes("Access denied") || errorMessage.includes("not assigned")) {
+        return res.status(403).json({ error: errorMessage });
+      }
+      if (errorMessage.includes("Only work orders") || errorMessage.includes("not found")) {
+        return res.status(400).json({ error: errorMessage });
+      }
+      
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  app.post("/api/work-orders/:id/approve-work-completion", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const { notes } = req.body;
+      await storage.approveWorkCompletion(req.params.id, req.user.id, notes);
+      res.json({ success: true, message: "Work completion approved" });
+    } catch (error) {
+      console.error("Error approving work completion:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to approve work completion";
+      
+      if (errorMessage.includes("Access denied") || errorMessage.includes("not the foreman")) {
+        return res.status(403).json({ error: errorMessage });
+      }
+      if (errorMessage.includes("not pending") || errorMessage.includes("not found")) {
+        return res.status(400).json({ error: errorMessage });
+      }
+      
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   app.post("/api/work-orders", isCEOOrAdmin, async (req, res) => {
     try {
       // Extract requiredParts, garageIds, and workshopIds from body

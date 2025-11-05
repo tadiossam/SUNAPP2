@@ -72,6 +72,30 @@ export default function TeamDashboard() {
     },
   });
 
+  const markCompleteMutation = useMutation({
+    mutationFn: async (workOrderId: string) => {
+      const res = await apiRequest("POST", `/api/work-orders/${workOrderId}/mark-complete`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/my-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/pending-completion"] });
+      toast({
+        title: language === "am" ? "ተሳክቷል" : "Success",
+        description: language === "am" ? "ስራው እንደተጠናቀቀ ምልክት ተደርጓል" : "Work marked as complete",
+      });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || (language === "am" ? "ስራውን እንደተጠናቀቀ ምልክት ማድረግ አልተቻለም" : "Failed to mark work as complete");
+      toast({
+        title: language === "am" ? "ስህተት" : "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleRequestParts = (workOrder: WorkOrder) => {
     setSelectedWorkOrder(workOrder);
     setIsRequestPartsOpen(true);
@@ -165,11 +189,25 @@ export default function TeamDashboard() {
             <Button
               onClick={() => handleRequestParts(workOrder)}
               size="sm"
+              variant="outline"
               data-testid={`button-request-parts-${workOrder.id}`}
             >
               <Package className="h-4 w-4 mr-2" />
               {language === "am" ? "እቃ ጠይቅ" : "Request Parts"}
             </Button>
+            {workOrder.status === "in_progress" && (
+              <Button
+                onClick={() => markCompleteMutation.mutate(workOrder.id)}
+                disabled={markCompleteMutation.isPending}
+                size="sm"
+                data-testid={`button-complete-work-${workOrder.id}`}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {markCompleteMutation.isPending
+                  ? (language === "am" ? "በመላክ ላይ..." : "Submitting...")
+                  : (language === "am" ? "ስራውን አጠናቅቅ" : "Complete Work")}
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>

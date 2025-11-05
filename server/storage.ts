@@ -313,6 +313,8 @@ export interface IStorage {
   approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
   rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
   confirmPartsReceipt(requisitionId: string, teamMemberId: string): Promise<void>;
+  markWorkComplete(workOrderId: string, teamMemberId: string): Promise<void>;
+  approveWorkCompletion(workOrderId: string, foremanId: string, notes?: string): Promise<void>;
 
   // Attendance Device Operations
   getAllAttendanceDevices(): Promise<any[]>;
@@ -2431,6 +2433,79 @@ export class DatabaseStorage implements IStorage {
       .update(workOrders)
       .set({
         status: 'in_progress',
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async markWorkComplete(workOrderId: string, teamMemberId: string): Promise<void> {
+    const workOrder = await db.select().from(workOrders).where(eq(workOrders.id, workOrderId)).limit(1);
+    
+    if (workOrder.length === 0) {
+      throw new Error("Work order not found");
+    }
+
+    const membership = await db
+      .select()
+      .from(workOrderMemberships)
+      .where(and(
+        eq(workOrderMemberships.workOrderId, workOrderId),
+        eq(workOrderMemberships.employeeId, teamMemberId),
+        eq(workOrderMemberships.role, "team_member")
+      ))
+      .limit(1);
+
+    if (membership.length === 0) {
+      throw new Error("Access denied: You are not assigned to this work order");
+    }
+
+    if (workOrder[0].status !== 'in_progress') {
+      throw new Error("Only work orders in progress can be marked as complete");
+    }
+
+    await db
+      .update(workOrders)
+      .set({
+        completionApprovalStatus: 'pending',
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+
+  async approveWorkCompletion(workOrderId: string, foremanId: string, notes?: string): Promise<void> {
+    const workOrder = await db.select().from(workOrders).where(eq(workOrders.id, workOrderId)).limit(1);
+    
+    if (workOrder.length === 0) {
+      throw new Error("Work order not found");
+    }
+
+    const foremanWorkshops = await db
+      .select()
+      .from(workOrderWorkshops)
+      .innerJoin(workshops, eq(workshops.id, workOrderWorkshops.workshopId))
+      .where(and(
+        eq(workOrderWorkshops.workOrderId, workOrderId),
+        eq(workshops.foremanId, foremanId)
+      ))
+      .limit(1);
+
+    if (foremanWorkshops.length === 0) {
+      throw new Error("Access denied: You are not the foreman for this work order's workshop");
+    }
+
+    if (workOrder[0].completionApprovalStatus !== 'pending') {
+      throw new Error("Work order completion is not pending approval");
+    }
+
+    await db
+      .update(workOrders)
+      .set({
+        completionApprovalStatus: 'approved',
+        completionApprovedById: foremanId,
+        completionApprovedAt: new Date(),
+        completionApprovalNotes: notes,
+        status: 'pending_verification',
         updatedAt: new Date(),
       })
       .where(eq(workOrders.id, workOrderId));

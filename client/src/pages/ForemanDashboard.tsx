@@ -80,6 +80,15 @@ export default function ForemanDashboard() {
     queryKey: ["/api/item-requisitions/foreman"],
   });
 
+  const { data: pendingCompletions = [] } = useQuery<WorkOrder[]>({
+    queryKey: ["/api/work-orders/foreman/pending-completion"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/work-orders/foreman/active");
+      const data = await response.json();
+      return data.filter((wo: WorkOrder) => wo.status === "in_progress" && (wo as any).completionApprovalStatus === "pending");
+    },
+  });
+
   // Fetch inspection details when viewing
   const { data: inspectionDetails } = useQuery<any>({
     queryKey: ["/api/inspections", viewingInspectionId],
@@ -150,6 +159,30 @@ export default function ForemanDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/foreman"] });
       setSelectedRequisition(null);
       setActionRemarks("");
+    },
+  });
+
+  const approveCompletionMutation = useMutation({
+    mutationFn: async (data: { workOrderId: string; notes?: string }) => {
+      return await apiRequest("POST", `/api/work-orders/${data.workOrderId}/approve-work-completion`, {
+        notes: data.notes,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Completion Approved",
+        description: "Work completion has been approved and sent to verifier",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/pending-completion"] });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to approve work completion";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 
@@ -270,7 +303,7 @@ export default function ForemanDashboard() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <Tabs defaultValue="pending" className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-3" data-testid="tabs-work-orders">
+          <TabsList className="grid w-full max-w-4xl grid-cols-4" data-testid="tabs-work-orders">
             <TabsTrigger value="pending" data-testid="tab-pending">
               <Clock className="h-4 w-4 mr-2" />
               Pending Assignment
@@ -278,6 +311,10 @@ export default function ForemanDashboard() {
             <TabsTrigger value="active" data-testid="tab-active">
               <CheckCircle className="h-4 w-4 mr-2" />
               Active Work
+            </TabsTrigger>
+            <TabsTrigger value="completions" data-testid="tab-completions">
+              <ThumbsUp className="h-4 w-4 mr-2" />
+              Completion Approvals ({pendingCompletions.length})
             </TabsTrigger>
             <TabsTrigger value="requisitions" data-testid="tab-requisitions">
               <Package className="h-4 w-4 mr-2" />
@@ -304,6 +341,59 @@ export default function ForemanDashboard() {
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
                   No active work orders
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="completions" className="space-y-4">
+            {pendingCompletions.length > 0 ? (
+              pendingCompletions.map((workOrder) => (
+                <Card key={workOrder.id} className="hover-elevate" data-testid={`completion-card-${workOrder.id}`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg">{workOrder.workOrderNumber}</CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Equipment: {workOrder.equipmentModel || "N/A"}
+                        </p>
+                      </div>
+                      <Badge variant="outline">Pending Approval</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {workOrder.description && (
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Description:</Label>
+                        <p>{workOrder.description}</p>
+                      </div>
+                    )}
+                    {workOrder.teamMembers && workOrder.teamMembers.length > 0 && (
+                      <div>
+                        <Label className="text-muted-foreground text-sm mb-2 block">Team Members:</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {workOrder.teamMembers.map((member: any) => (
+                            <Badge key={member.id} variant="secondary">{member.fullName}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => approveCompletionMutation.mutate({ workOrderId: workOrder.id })}
+                      disabled={approveCompletionMutation.isPending}
+                      className="w-full"
+                      data-testid={`button-approve-completion-${workOrder.id}`}
+                    >
+                      <ThumbsUp className="h-4 w-4 mr-2" />
+                      {approveCompletionMutation.isPending ? "Approving..." : "Approve Completion"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No work orders pending completion approval
                 </CardContent>
               </Card>
             )}

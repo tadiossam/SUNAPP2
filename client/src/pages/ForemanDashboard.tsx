@@ -47,11 +47,20 @@ type RequisitionLine = {
 type Requisition = {
   id: string;
   requisitionNumber: string;
-  workOrderNumber: string;
-  requesterName: string;
+  workOrderNumber?: string;
+  workOrderId: string;
   status: string;
   createdAt: string;
   lines: RequisitionLine[];
+  requester?: {
+    id: string;
+    fullName: string;
+    role: string;
+  };
+  workOrder?: {
+    id: string;
+    workOrderNumber: string;
+  };
 };
 
 export default function ForemanDashboard() {
@@ -421,7 +430,12 @@ export default function ForemanDashboard() {
                   <CardContent className="space-y-4">
                     <div>
                       <Label className="text-muted-foreground text-sm">Requested by:</Label>
-                      <p className="font-medium">{requisition.requesterName}</p>
+                      <p className="font-medium">{requisition.requester?.fullName || 'Unknown'}</p>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-muted-foreground text-sm">Work Order:</Label>
+                      <p className="font-medium">{requisition.workOrder?.workOrderNumber || 'N/A'}</p>
                     </div>
 
                     <div>

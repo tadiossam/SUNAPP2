@@ -1617,9 +1617,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      // Only store_manager role can access
-      if (req.user.role !== 'store_manager') {
-        return res.status(403).json({ error: "Access denied: Store manager role required" });
+      // Only store_manager or admin role can access
+      if (req.user.role !== 'store_manager' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Access denied: Store manager or admin role required" });
       }
       
       const requisitions = await storage.getItemRequisitionsByStoreManager();

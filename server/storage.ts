@@ -2369,19 +2369,31 @@ export class DatabaseStorage implements IStorage {
     
     const workshopIds = foremanWorkshops.map(w => w.id);
     
-    // Get requisitions from these workshops with pending status
+    // Get work orders assigned to the foreman's workshops
+    const workOrderIds = await db
+      .selectDistinct({ workOrderId: workOrderWorkshops.workOrderId })
+      .from(workOrderWorkshops)
+      .where(inArray(workOrderWorkshops.workshopId, workshopIds));
+    
+    const woIds = workOrderIds.map(wo => wo.workOrderId);
+    
+    if (woIds.length === 0) {
+      return [];
+    }
+    
+    // Get requisitions for these work orders with pending foreman approval
     const requisitions = await db
       .select()
       .from(itemRequisitions)
       .where(
         and(
-          inArray(itemRequisitions.workshopId, workshopIds),
+          inArray(itemRequisitions.workOrderId, woIds),
           eq(itemRequisitions.foremanApprovalStatus, 'pending')
         )
       )
       .orderBy(desc(itemRequisitions.createdAt));
     
-    // Get lines for each requisition
+    // Get lines and requester for each requisition
     const requisitionsWithLines = await Promise.all(
       requisitions.map(async (req) => {
         const lines = await db
@@ -2395,7 +2407,12 @@ export class DatabaseStorage implements IStorage {
           .from(employees)
           .where(eq(employees.id, req.requesterId));
         
-        return { ...req, lines, requester };
+        const [workOrder] = await db
+          .select()
+          .from(workOrders)
+          .where(eq(workOrders.id, req.workOrderId));
+        
+        return { ...req, lines, requester, workOrder };
       })
     );
     
@@ -2415,7 +2432,7 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(itemRequisitions.createdAt));
     
-    // Get lines for each requisition
+    // Get lines, requester, and work order for each requisition
     const requisitionsWithLines = await Promise.all(
       requisitions.map(async (req) => {
         const lines = await db
@@ -2429,11 +2446,11 @@ export class DatabaseStorage implements IStorage {
           .from(employees)
           .where(eq(employees.id, req.requesterId));
         
-        const [workshop] = req.workshopId
-          ? await db.select().from(workshops).where(eq(workshops.id, req.workshopId))
+        const [workOrder] = req.workOrderId
+          ? await db.select().from(workOrders).where(eq(workOrders.id, req.workOrderId))
           : [null];
         
-        return { ...req, lines, requester, workshop };
+        return { ...req, lines, requester, workOrder };
       })
     );
     

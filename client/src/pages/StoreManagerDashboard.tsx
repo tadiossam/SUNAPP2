@@ -17,16 +17,21 @@ type ItemRequisition = {
   id: string;
   requisitionNumber: string;
   workOrderId: string;
-  workOrderNumber?: string;
   requesterId: string;
-  requesterName?: string;
-  workshopId?: string;
-  workshopName?: string;
   status: string;
   foremanApprovedAt?: string;
   storeApprovedAt?: string;
   createdAt: string;
   lines?: ItemRequisitionLine[];
+  requester?: {
+    id: string;
+    fullName: string;
+    role: string;
+  };
+  workOrder?: {
+    id: string;
+    workOrderNumber: string;
+  };
 };
 
 type ItemRequisitionLine = {
@@ -106,8 +111,8 @@ export default function StoreManagerDashboard() {
 
   const filteredRequisitions = requisitions.filter((req) => {
     const matchesSearch = req.requisitionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.workOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.requesterName?.toLowerCase().includes(searchTerm.toLowerCase());
+      req.workOrder?.workOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.requester?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesTab = 
       (activeTab === "pending" && req.status === "pending_store") ||
@@ -255,15 +260,9 @@ export default function StoreManagerDashboard() {
                           {requisition.requisitionNumber}
                         </CardTitle>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>WO: {requisition.workOrderNumber || "N/A"}</span>
+                          <span>WO: {requisition.workOrder?.workOrderNumber || "N/A"}</span>
                           <span>•</span>
-                          <span>{requisition.requesterName}</span>
-                          {requisition.workshopName && (
-                            <>
-                              <span>•</span>
-                              <span>{requisition.workshopName}</span>
-                            </>
-                          )}
+                          <span>By: {requisition.requester?.fullName || "Unknown"}</span>
                         </div>
                       </div>
                       <Badge variant={getStatusColor(requisition.status)}>
@@ -310,20 +309,24 @@ export default function StoreManagerDashboard() {
               {/* Requisition Info */}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <Label>Requester</Label>
-                  <div className="mt-1">{selectedRequisition.requesterName}</div>
-                </div>
-                <div>
-                  <Label>Workshop</Label>
-                  <div className="mt-1">{selectedRequisition.workshopName || "N/A"}</div>
+                  <Label>Requested by</Label>
+                  <div className="mt-1 font-medium">{selectedRequisition.requester?.fullName || 'Unknown'}</div>
                 </div>
                 <div>
                   <Label>Work Order</Label>
-                  <div className="mt-1">{selectedRequisition.workOrderNumber || "N/A"}</div>
+                  <div className="mt-1 font-medium">{selectedRequisition.workOrder?.workOrderNumber || "N/A"}</div>
                 </div>
                 <div>
-                  <Label>Date</Label>
+                  <Label>Date Requested</Label>
                   <div className="mt-1">{new Date(selectedRequisition.createdAt).toLocaleDateString()}</div>
+                </div>
+                <div>
+                  <Label>Foreman Approved</Label>
+                  <div className="mt-1">
+                    {selectedRequisition.foremanApprovedAt 
+                      ? new Date(selectedRequisition.foremanApprovedAt).toLocaleDateString()
+                      : "Pending"}
+                  </div>
                 </div>
               </div>
 

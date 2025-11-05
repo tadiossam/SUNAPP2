@@ -211,8 +211,8 @@ export interface IStorage {
   createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;
   updateWorkOrder(id: string, data: Partial<InsertWorkOrder>): Promise<WorkOrder>;
   deleteWorkOrder(id: string): Promise<void>;
-  getForemanPendingWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
-  getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]>;
+  getForemanPendingWorkOrders(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]>;
+  getForemanActiveWorkOrders(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]>;
   getWorkOrdersByTeamMember(teamMemberId: string): Promise<WorkOrderWithDetails[]>;
   assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void>;
   getVerifierPendingWorkOrders(): Promise<WorkOrderWithDetails[]>;
@@ -316,7 +316,7 @@ export interface IStorage {
 
   // Item Requisitions
   createItemRequisition(requisitionData: any, lines: any[]): Promise<any>;
-  getItemRequisitionsByForeman(foremanId: string): Promise<any[]>;
+  getItemRequisitionsByForeman(foremanId: string, isAdmin?: boolean): Promise<any[]>;
   getItemRequisitionsByStoreManager(): Promise<any[]>;
   approveItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
   rejectItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
@@ -1312,7 +1312,27 @@ export class DatabaseStorage implements IStorage {
     await db.delete(workOrders).where(eq(workOrders.id, id));
   }
 
-  async getForemanPendingWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]> {
+  async getForemanPendingWorkOrders(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]> {
+    // If admin, return all pending work orders for all foremen
+    if (isAdmin) {
+      const pendingOrders = await db
+        .select()
+        .from(workOrders)
+        .where(
+          or(
+            eq(workOrders.status, "pending_foreman_assignment"),
+            eq(workOrders.status, "pending_team_acceptance")
+          )
+        );
+      
+      // Get full details for each order
+      const ordersWithDetails = await Promise.all(
+        pendingOrders.map(order => this.getWorkOrderById(order.id))
+      );
+      
+      return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+    }
+    
     // Get workshops where this employee is the foreman
     const foremanWorkshops = await db
       .select()
@@ -1359,7 +1379,29 @@ export class DatabaseStorage implements IStorage {
     return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
   }
 
-  async getForemanActiveWorkOrders(foremanId: string): Promise<WorkOrderWithDetails[]> {
+  async getForemanActiveWorkOrders(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]> {
+    // If admin, return all active work orders for all foremen
+    if (isAdmin) {
+      const activeOrders = await db
+        .select()
+        .from(workOrders)
+        .where(
+          or(
+            eq(workOrders.status, "active"),
+            eq(workOrders.status, "in_progress"),
+            eq(workOrders.status, "awaiting_parts"),
+            eq(workOrders.status, "waiting_purchase")
+          )
+        );
+      
+      // Get full details for each order
+      const ordersWithDetails = await Promise.all(
+        activeOrders.map(order => this.getWorkOrderById(order.id))
+      );
+      
+      return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+    }
+    
     // Get work orders where the foreman is assigned
     const foremanMemberships = await db
       .select()
@@ -2359,42 +2401,53 @@ export class DatabaseStorage implements IStorage {
     return requisition;
   }
 
-  async getItemRequisitionsByForeman(foremanId: string): Promise<any[]> {
-    // Get workshops where this employee is the foreman
-    const foremanWorkshops = await db
-      .select()
-      .from(workshops)
-      .where(eq(workshops.foremanId, foremanId));
+  async getItemRequisitionsByForeman(foremanId: string, isAdmin?: boolean): Promise<any[]> {
+    let requisitions;
     
-    if (foremanWorkshops.length === 0) {
-      return [];
-    }
-    
-    const workshopIds = foremanWorkshops.map(w => w.id);
-    
-    // Get work orders assigned to the foreman's workshops
-    const workOrderIds = await db
-      .selectDistinct({ workOrderId: workOrderWorkshops.workOrderId })
-      .from(workOrderWorkshops)
-      .where(inArray(workOrderWorkshops.workshopId, workshopIds));
-    
-    const woIds = workOrderIds.map(wo => wo.workOrderId);
-    
-    if (woIds.length === 0) {
-      return [];
-    }
-    
-    // Get requisitions for these work orders with pending foreman approval
-    const requisitions = await db
-      .select()
-      .from(itemRequisitions)
-      .where(
-        and(
-          inArray(itemRequisitions.workOrderId, woIds),
-          eq(itemRequisitions.foremanApprovalStatus, 'pending')
+    // If admin, return all requisitions with pending foreman approval
+    if (isAdmin) {
+      requisitions = await db
+        .select()
+        .from(itemRequisitions)
+        .where(eq(itemRequisitions.foremanApprovalStatus, 'pending'))
+        .orderBy(desc(itemRequisitions.createdAt));
+    } else {
+      // Get workshops where this employee is the foreman
+      const foremanWorkshops = await db
+        .select()
+        .from(workshops)
+        .where(eq(workshops.foremanId, foremanId));
+      
+      if (foremanWorkshops.length === 0) {
+        return [];
+      }
+      
+      const workshopIds = foremanWorkshops.map(w => w.id);
+      
+      // Get work orders assigned to the foreman's workshops
+      const workOrderIds = await db
+        .selectDistinct({ workOrderId: workOrderWorkshops.workOrderId })
+        .from(workOrderWorkshops)
+        .where(inArray(workOrderWorkshops.workshopId, workshopIds));
+      
+      const woIds = workOrderIds.map(wo => wo.workOrderId);
+      
+      if (woIds.length === 0) {
+        return [];
+      }
+      
+      // Get requisitions for these work orders with pending foreman approval
+      requisitions = await db
+        .select()
+        .from(itemRequisitions)
+        .where(
+          and(
+            inArray(itemRequisitions.workOrderId, woIds),
+            eq(itemRequisitions.foremanApprovalStatus, 'pending')
+          )
         )
-      )
-      .orderBy(desc(itemRequisitions.createdAt));
+        .orderBy(desc(itemRequisitions.createdAt));
+    }
     
     // Get lines and requester for each requisition
     const requisitionsWithLines = await Promise.all(

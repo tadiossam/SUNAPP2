@@ -1291,7 +1291,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id);
+      // Admin can see all foreman data
+      const isAdmin = hasRole(req.user, 'admin');
+      const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id, isAdmin);
       res.json(pendingWorkOrders);
     } catch (error) {
       console.error("Error fetching foreman pending work orders:", error);
@@ -1305,7 +1307,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id);
+      // Admin can see all foreman data
+      const isAdmin = hasRole(req.user, 'admin');
+      const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id, isAdmin);
       res.json(activeWorkOrders);
     } catch (error) {
       console.error("Error fetching foreman active work orders:", error);
@@ -1603,13 +1607,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
       
-      // Check if user has foreman role by verifying they are assigned as foreman to at least one workshop
-      const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
-      if (foremanWorkshops.length === 0) {
-        return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+      // Admin can see all foreman requisitions
+      const isAdmin = hasRole(req.user, 'admin');
+      
+      if (!isAdmin) {
+        // Check if user has foreman role by verifying they are assigned as foreman to at least one workshop
+        const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+        if (foremanWorkshops.length === 0) {
+          return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+        }
       }
       
-      const requisitions = await storage.getItemRequisitionsByForeman(req.user.id);
+      const requisitions = await storage.getItemRequisitionsByForeman(req.user.id, isAdmin);
       res.json(requisitions);
     } catch (error) {
       console.error("Error fetching foreman requisitions:", error);

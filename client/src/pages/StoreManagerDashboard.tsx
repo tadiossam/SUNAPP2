@@ -9,7 +9,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, Package, CheckCircle, XCircle, Clock, ShoppingCart } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Package, CheckCircle, XCircle, Clock, ShoppingCart, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -48,6 +49,30 @@ type ItemRequisitionLine = {
   stockStatus?: string;
 };
 
+type LineDecision = {
+  lineId: string;
+  action: 'approve' | 'reject' | 'backorder';
+  quantityApproved?: number;
+  remarks?: string;
+};
+
+type PurchaseRequest = {
+  id: string;
+  purchaseRequestNumber: string;
+  quantityRequested: number;
+  status: string;
+  vendorName?: string;
+  expectedDate?: string;
+  createdAt: string;
+  lineItem?: ItemRequisitionLine;
+  requisition?: ItemRequisition;
+  sparePart?: {
+    id: string;
+    partName: string;
+    partNumber: string;
+  };
+};
+
 export default function StoreManagerDashboard() {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -56,56 +81,49 @@ export default function StoreManagerDashboard() {
   const [selectedRequisition, setSelectedRequisition] = useState<ItemRequisition | null>(null);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [approvalRemarks, setApprovalRemarks] = useState("");
-  const [lineApprovals, setLineApprovals] = useState<Record<string, { approved: number; status: string }>>({});
+  const [lineDecisions, setLineDecisions] = useState<Record<string, LineDecision>>({});
 
   // Fetch item requisitions
   const { data: requisitions = [], isLoading } = useQuery<ItemRequisition[]>({
     queryKey: ["/api/item-requisitions/store-manager"],
   });
 
-  // Approve requisition mutation
-  const approveMutation = useMutation({
-    mutationFn: async ({ id, remarks }: { id: string; remarks?: string }) => {
-      const res = await apiRequest("POST", `/api/item-requisitions/${id}/approve-store`, {
-        remarks,
+  // Fetch purchase requests
+  const { data: purchaseRequests = [], isLoading: isLoadingPurchases } = useQuery<PurchaseRequest[]>({
+    queryKey: ["/api/purchase-requests"],
+  });
+
+  // Process line decisions mutation
+  const processLinesMutation = useMutation({
+    mutationFn: async ({ id, lineDecisions, generalRemarks }: { 
+      id: string; 
+      lineDecisions: LineDecision[]; 
+      generalRemarks?: string 
+    }) => {
+      const res = await apiRequest("POST", `/api/item-requisitions/${id}/process-lines`, {
+        lineDecisions,
+        generalRemarks,
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/store-manager"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Success",
-        description: "Item requisition approved successfully",
+        description: "Line items processed successfully",
       });
       setIsApprovalDialogOpen(false);
       setSelectedRequisition(null);
       setApprovalRemarks("");
-      setLineApprovals({});
+      setLineDecisions({});
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to approve requisition",
+        description: error.message || "Failed to process line items",
         variant: "destructive",
       });
-    },
-  });
-
-  // Reject requisition mutation
-  const rejectMutation = useMutation({
-    mutationFn: async ({ id, remarks }: { id: string; remarks: string }) => {
-      const res = await apiRequest("POST", `/api/item-requisitions/${id}/reject-store`, { remarks });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/store-manager"] });
-      toast({
-        title: "Rejected",
-        description: "Item requisition rejected",
-      });
-      setIsApprovalDialogOpen(false);
-      setSelectedRequisition(null);
-      setApprovalRemarks("");
     },
   });
 
@@ -116,8 +134,9 @@ export default function StoreManagerDashboard() {
 
     const matchesTab = 
       (activeTab === "pending" && req.status === "pending_store") ||
-      (activeTab === "approved" && req.status === "approved") ||
+      (activeTab === "approved" && (req.status === "approved" || req.status === "waiting_purchase")) ||
       (activeTab === "rejected" && req.status === "rejected") ||
+      (activeTab === "purchase_orders") ||
       (activeTab === "all");
 
     return matchesSearch && matchesTab;
@@ -127,37 +146,45 @@ export default function StoreManagerDashboard() {
     setSelectedRequisition(requisition);
     setIsApprovalDialogOpen(true);
     
-    // Initialize line approvals with default values
-    const initialApprovals: Record<string, { approved: number; status: string }> = {};
+    // Initialize line decisions with default approve action
+    const initialDecisions: Record<string, LineDecision> = {};
     requisition.lines?.forEach(line => {
-      initialApprovals[line.id] = {
-        approved: line.quantityRequested,
-        status: "approved"
+      initialDecisions[line.id] = {
+        lineId: line.id,
+        action: 'approve',
+        quantityApproved: line.quantityRequested,
+        remarks: '',
       };
     });
-    setLineApprovals(initialApprovals);
+    setLineDecisions(initialDecisions);
   };
 
-  const updateLineApproval = (lineId: string, approved: number, status: string) => {
-    setLineApprovals(prev => ({
+  const updateLineDecision = (lineId: string, updates: Partial<LineDecision>) => {
+    setLineDecisions(prev => ({
       ...prev,
-      [lineId]: { approved, status }
+      [lineId]: { ...prev[lineId], ...updates, lineId }
     }));
   };
 
-  const handleApprove = () => {
+  const handleProcessLines = () => {
     if (!selectedRequisition) return;
-    approveMutation.mutate({
-      id: selectedRequisition.id,
-      remarks: approvalRemarks,
-    });
-  };
+    
+    const decisions = Object.values(lineDecisions);
+    
+    // Validate that all lines have decisions
+    if (decisions.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please make a decision for at least one line item",
+        variant: "destructive",
+      });
+      return;
+    }
 
-  const handleReject = () => {
-    if (!selectedRequisition) return;
-    rejectMutation.mutate({
+    processLinesMutation.mutate({
       id: selectedRequisition.id,
-      remarks: approvalRemarks,
+      lineDecisions: decisions,
+      generalRemarks: approvalRemarks,
     });
   };
 
@@ -171,7 +198,7 @@ export default function StoreManagerDashboard() {
       case "rejected":
         return "destructive";
       case "backordered":
-      case "pending_purchase":
+      case "waiting_purchase":
         return "secondary";
       default:
         return "default";
@@ -188,7 +215,7 @@ export default function StoreManagerDashboard() {
       case "rejected":
         return XCircle;
       case "backordered":
-      case "pending_purchase":
+      case "waiting_purchase":
         return ShoppingCart;
       default:
         return Package;
@@ -203,7 +230,7 @@ export default function StoreManagerDashboard() {
           Store Manager Dashboard
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Review and approve item requisitions
+          Review and approve item requisitions, manage purchase orders
         </p>
       </div>
 
@@ -233,65 +260,155 @@ export default function StoreManagerDashboard() {
           <TabsTrigger value="rejected" data-testid="tab-rejected">
             Rejected
           </TabsTrigger>
+          <TabsTrigger value="purchase_orders" data-testid="tab-purchase-orders">
+            Purchase Orders ({purchaseRequests.filter(pr => pr.status === 'pending').length})
+          </TabsTrigger>
           <TabsTrigger value="all" data-testid="tab-all">
             All
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6 space-y-4">
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading requisitions...</div>
-          ) : filteredRequisitions.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-8 text-muted-foreground">
-                No requisitions found
-              </CardContent>
-            </Card>
-          ) : (
-            filteredRequisitions.map((requisition) => {
-              const StatusIcon = getStatusIcon(requisition.status);
-              return (
-                <Card key={requisition.id} className="hover-elevate">
+        {/* Requisitions Tabs */}
+        {activeTab !== "purchase_orders" && (
+          <TabsContent value={activeTab} className="mt-6 space-y-4">
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading requisitions...</div>
+            ) : filteredRequisitions.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8 text-muted-foreground">
+                  No requisitions found
+                </CardContent>
+              </Card>
+            ) : (
+              filteredRequisitions.map((requisition) => {
+                const StatusIcon = getStatusIcon(requisition.status);
+                return (
+                  <Card key={requisition.id} className="hover-elevate">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <Package className="h-4 w-4" />
+                            {requisition.requisitionNumber}
+                          </CardTitle>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>WO: {requisition.workOrder?.workOrderNumber || "N/A"}</span>
+                            <span>•</span>
+                            <span>By: {requisition.requester?.fullName || "Unknown"}</span>
+                          </div>
+                        </div>
+                        <Badge variant={getStatusColor(requisition.status)}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {requisition.status.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="text-sm">
+                          <span className="font-medium">Items:</span> {requisition.lines?.length || 0}
+                        </div>
+                        {requisition.status === "pending_store" && (
+                          <Button
+                            onClick={() => handleOpenApproval(requisition)}
+                            className="w-full"
+                            data-testid={`button-review-${requisition.id}`}
+                          >
+                            Review Requisition
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
+        )}
+
+        {/* Purchase Orders Tab */}
+        {activeTab === "purchase_orders" && (
+          <TabsContent value="purchase_orders" className="mt-6 space-y-4">
+            {isLoadingPurchases ? (
+              <div className="text-center py-8 text-muted-foreground">Loading purchase orders...</div>
+            ) : purchaseRequests.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8 text-muted-foreground">
+                  No purchase orders found
+                </CardContent>
+              </Card>
+            ) : (
+              purchaseRequests.map((request) => (
+                <Card key={request.id} className="hover-elevate">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <CardTitle className="text-base flex items-center gap-2">
-                          <Package className="h-4 w-4" />
-                          {requisition.requisitionNumber}
+                          <ShoppingCart className="h-4 w-4" />
+                          {request.purchaseRequestNumber}
                         </CardTitle>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>WO: {requisition.workOrder?.workOrderNumber || "N/A"}</span>
-                          <span>•</span>
-                          <span>By: {requisition.requester?.fullName || "Unknown"}</span>
+                          {request.requisition && (
+                            <>
+                              <span>Req: {request.requisition.requisitionNumber}</span>
+                              <span>•</span>
+                            </>
+                          )}
+                          <span>Created: {new Date(request.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
-                      <Badge variant={getStatusColor(requisition.status)}>
-                        <StatusIcon className="h-3 w-3 mr-1" />
-                        {requisition.status.replace(/_/g, " ")}
+                      <Badge variant={request.status === 'pending' ? 'secondary' : 'default'}>
+                        {request.status}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className="font-medium">Items:</span> {requisition.lines?.length || 0}
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Part:</span>
+                          <div className="font-medium mt-1">
+                            {request.sparePart?.partName || request.lineItem?.description || 'N/A'}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Quantity:</span>
+                          <div className="font-medium mt-1">
+                            {request.quantityRequested} {request.lineItem?.unitOfMeasure || 'pcs'}
+                          </div>
+                        </div>
+                        {request.vendorName && (
+                          <div>
+                            <span className="text-muted-foreground">Vendor:</span>
+                            <div className="font-medium mt-1">{request.vendorName}</div>
+                          </div>
+                        )}
+                        {request.expectedDate && (
+                          <div>
+                            <span className="text-muted-foreground">Expected:</span>
+                            <div className="font-medium mt-1">
+                              {new Date(request.expectedDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {requisition.status === "pending_store" && (
-                        <Button
-                          onClick={() => handleOpenApproval(requisition)}
-                          className="w-full"
-                          data-testid={`button-review-${requisition.id}`}
-                        >
-                          Review Requisition
-                        </Button>
+                      {request.status === 'pending' && (
+                        <div className="flex gap-2 pt-2">
+                          <Button variant="outline" size="sm" className="flex-1">
+                            Mark as Ordered
+                          </Button>
+                          <Button variant="outline" size="sm" className="flex-1">
+                            Update Details
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </CardContent>
                 </Card>
-              );
-            })
-          )}
-        </TabsContent>
+              ))
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Approval Dialog */}
@@ -300,7 +417,7 @@ export default function StoreManagerDashboard() {
           <DialogHeader>
             <DialogTitle>Review Item Requisition</DialogTitle>
             <DialogDescription>
-              {selectedRequisition?.requisitionNumber} - Approve or reject line items
+              {selectedRequisition?.requisitionNumber} - Approve, reject, or backorder individual line items
             </DialogDescription>
           </DialogHeader>
 
@@ -332,75 +449,132 @@ export default function StoreManagerDashboard() {
 
               {/* Line Items */}
               <div>
-                <Label>Line Items</Label>
+                <Label>Line Items - Individual Approval</Label>
                 <div className="mt-2 space-y-3">
-                  {selectedRequisition.lines?.map((line) => (
-                    <Card key={line.id}>
-                      <CardContent className="pt-4">
-                        <div className="grid gap-4">
-                          <div>
-                            <div className="font-medium">{line.description}</div>
-                            <div className="text-sm text-muted-foreground mt-1">
-                              Requested: {line.quantityRequested} {line.unitOfMeasure || "pcs"}
-                              {line.partName && <span> • Part: {line.partName}</span>}
-                              {line.stockStatus && (
-                                <Badge variant="secondary" className="ml-2">
-                                  {line.stockStatus}
-                                </Badge>
+                  {selectedRequisition.lines?.map((line) => {
+                    const decision = lineDecisions[line.id];
+                    return (
+                      <Card key={line.id}>
+                        <CardContent className="pt-4">
+                          <div className="grid gap-4">
+                            <div>
+                              <div className="font-medium">{line.description}</div>
+                              <div className="text-sm text-muted-foreground mt-1">
+                                Requested: {line.quantityRequested} {line.unitOfMeasure || "pcs"}
+                                {line.partName && <span> • Part: {line.partName}</span>}
+                                {line.stockStatus && (
+                                  <Badge 
+                                    variant={
+                                      line.stockStatus === 'in_stock' ? 'default' : 
+                                      line.stockStatus === 'low_stock' ? 'secondary' : 
+                                      'destructive'
+                                    } 
+                                    className="ml-2"
+                                  >
+                                    {line.stockStatus === 'in_stock' ? 'In Stock' : 
+                                     line.stockStatus === 'low_stock' ? 'Low Stock' : 
+                                     'Out of Stock'}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <Label htmlFor={`action-${line.id}`}>Action</Label>
+                                <Select
+                                  value={decision?.action || 'approve'}
+                                  onValueChange={(value: 'approve' | 'reject' | 'backorder') => 
+                                    updateLineDecision(line.id, { action: value })
+                                  }
+                                >
+                                  <SelectTrigger id={`action-${line.id}`} data-testid={`select-action-${line.id}`}>
+                                    <SelectValue placeholder="Select action" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="approve">
+                                      <div className="flex items-center gap-2">
+                                        <CheckCircle className="h-4 w-4 text-green-600" />
+                                        Approve
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="backorder">
+                                      <div className="flex items-center gap-2">
+                                        <ShoppingCart className="h-4 w-4 text-blue-600" />
+                                        Backorder (Create PO)
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="reject">
+                                      <div className="flex items-center gap-2">
+                                        <XCircle className="h-4 w-4 text-red-600" />
+                                        Reject
+                                      </div>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              {decision?.action !== 'reject' && (
+                                <div>
+                                  <Label htmlFor={`qty-${line.id}`}>
+                                    {decision?.action === 'backorder' ? 'Quantity to Order' : 'Approved Quantity'}
+                                  </Label>
+                                  <Input
+                                    id={`qty-${line.id}`}
+                                    type="number"
+                                    min="0"
+                                    max={line.quantityRequested}
+                                    value={decision?.quantityApproved || line.quantityRequested}
+                                    onChange={(e) => updateLineDecision(
+                                      line.id,
+                                      { quantityApproved: parseInt(e.target.value) || 0 }
+                                    )}
+                                    data-testid={`input-qty-${line.id}`}
+                                  />
+                                </div>
                               )}
+                              
+                              <div className={decision?.action === 'reject' ? 'col-span-2' : ''}>
+                                <Label htmlFor={`remarks-${line.id}`}>Remarks (Optional)</Label>
+                                <Input
+                                  id={`remarks-${line.id}`}
+                                  value={decision?.remarks || ''}
+                                  onChange={(e) => updateLineDecision(
+                                    line.id,
+                                    { remarks: e.target.value }
+                                  )}
+                                  placeholder="Add notes..."
+                                  data-testid={`input-remarks-${line.id}`}
+                                />
+                              </div>
                             </div>
+
+                            {decision?.action === 'backorder' && (
+                              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md">
+                                <AlertTriangle className="h-4 w-4 text-blue-600 mt-0.5" />
+                                <div className="text-sm text-blue-900 dark:text-blue-100">
+                                  <strong>Purchase Order will be created</strong> for {decision.quantityApproved || line.quantityRequested} units
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor={`qty-${line.id}`}>Approved Quantity</Label>
-                              <Input
-                                id={`qty-${line.id}`}
-                                type="number"
-                                min="0"
-                                max={line.quantityRequested}
-                                value={lineApprovals[line.id]?.approved || line.quantityRequested}
-                                onChange={(e) => updateLineApproval(
-                                  line.id,
-                                  parseInt(e.target.value) || 0,
-                                  lineApprovals[line.id]?.status || "approved"
-                                )}
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor={`status-${line.id}`}>Status</Label>
-                              <select
-                                id={`status-${line.id}`}
-                                className="w-full h-9 rounded-md border border-input bg-background px-3"
-                                value={lineApprovals[line.id]?.status || "approved"}
-                                onChange={(e) => updateLineApproval(
-                                  line.id,
-                                  lineApprovals[line.id]?.approved || line.quantityRequested,
-                                  e.target.value
-                                )}
-                              >
-                                <option value="approved">Approved</option>
-                                <option value="backordered">Backordered</option>
-                                <option value="rejected">Rejected</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Remarks */}
+              {/* General Remarks */}
               <div>
-                <Label htmlFor="remarks">Remarks</Label>
+                <Label htmlFor="remarks">General Remarks (Optional)</Label>
                 <Textarea
                   id="remarks"
                   value={approvalRemarks}
                   onChange={(e) => setApprovalRemarks(e.target.value)}
-                  placeholder="Add any notes or remarks..."
+                  placeholder="Add any general notes or remarks for this requisition..."
                   rows={3}
+                  data-testid="textarea-general-remarks"
                 />
               </div>
             </div>
@@ -410,26 +584,18 @@ export default function StoreManagerDashboard() {
             <Button
               variant="outline"
               onClick={() => setIsApprovalDialogOpen(false)}
-              disabled={approveMutation.isPending || rejectMutation.isPending}
+              disabled={processLinesMutation.isPending}
+              data-testid="button-cancel-approval"
             >
               Cancel
             </Button>
             <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={approveMutation.isPending || rejectMutation.isPending}
-              data-testid="button-reject-requisition"
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              Reject All
-            </Button>
-            <Button
-              onClick={handleApprove}
-              disabled={approveMutation.isPending || rejectMutation.isPending}
-              data-testid="button-approve-requisition"
+              onClick={handleProcessLines}
+              disabled={processLinesMutation.isPending}
+              data-testid="button-process-lines"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              Approve
+              {processLinesMutation.isPending ? "Processing..." : "Process Line Items"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1284,6 +1284,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Foreman dashboard endpoints (MUST be before :id route)
+  app.get("/api/work-orders/foreman/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id);
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  app.get("/api/work-orders/foreman/active", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id);
+      res.json(activeWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman active work orders:", error);
+      res.status(500).json({ error: "Failed to fetch active work orders" });
+    }
+  });
+
+  // Verifier dashboard endpoint (MUST be before :id route)
+  app.get("/api/work-orders/verifier/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only verifiers can access this" });
+      }
+      
+      const pendingWorkOrders = await storage.getVerifierPendingWorkOrders();
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching verifier pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  // Supervisor dashboard endpoint (MUST be before :id route)
+  app.get("/api/work-orders/supervisor/pending", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
+        return res.status(403).json({ error: "Access denied: Only supervisors can access this" });
+      }
+      
+      const pendingWorkOrders = await storage.getSupervisorPendingWorkOrders();
+      res.json(pendingWorkOrders);
+    } catch (error) {
+      console.error("Error fetching supervisor pending work orders:", error);
+      res.status(500).json({ error: "Failed to fetch pending work orders" });
+    }
+  });
+
+  // Team member dashboard endpoint (MUST be before :id route)
+  app.get("/api/work-orders/my-assignments", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const workOrders = await storage.getWorkOrdersByTeamMember(req.user.id);
+      res.json(workOrders);
+    } catch (error) {
+      console.error("Error fetching team member work orders:", error);
+      res.status(500).json({ error: "Failed to fetch assigned work orders" });
+    }
+  });
+
   app.get("/api/work-orders/:id", async (req, res) => {
     try {
       const workOrder = await storage.getWorkOrderById(req.params.id);
@@ -1322,35 +1404,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Foreman dashboard endpoints
-  app.get("/api/work-orders/foreman/pending", async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id);
-      res.json(pendingWorkOrders);
-    } catch (error) {
-      console.error("Error fetching foreman pending work orders:", error);
-      res.status(500).json({ error: "Failed to fetch pending work orders" });
-    }
-  });
-
-  app.get("/api/work-orders/foreman/active", async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id);
-      res.json(activeWorkOrders);
-    } catch (error) {
-      console.error("Error fetching foreman active work orders:", error);
-      res.status(500).json({ error: "Failed to fetch active work orders" });
-    }
-  });
-
   app.post("/api/work-orders/:id/assign-team", async (req, res) => {
     try {
       if (!req.user) {
@@ -1368,25 +1421,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error assigning team to work order:", error);
       res.status(500).json({ error: "Failed to assign team to work order" });
-    }
-  });
-
-  // Verifier dashboard endpoints
-  app.get("/api/work-orders/verifier/pending", async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      if (req.user.role !== 'verifier' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only verifiers can access this endpoint" });
-      }
-      
-      const pendingWorkOrders = await storage.getVerifierPendingWorkOrders();
-      res.json(pendingWorkOrders);
-    } catch (error) {
-      console.error("Error fetching verifier pending work orders:", error);
-      res.status(500).json({ error: "Failed to fetch pending work orders" });
     }
   });
 
@@ -1437,25 +1471,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Supervisor dashboard endpoints
-  app.get("/api/work-orders/supervisor/pending", async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      if (req.user.role !== 'supervisor' && req.user.role !== 'admin' && req.user.role !== 'ceo') {
-        return res.status(403).json({ error: "Access denied: Only supervisors can access this endpoint" });
-      }
-      
-      const pendingWorkOrders = await storage.getSupervisorPendingWorkOrders();
-      res.json(pendingWorkOrders);
-    } catch (error) {
-      console.error("Error fetching supervisor pending work orders:", error);
-      res.status(500).json({ error: "Failed to fetch pending work orders" });
-    }
-  });
-
   app.post("/api/work-orders/:id/approve-supervisor", async (req, res) => {
     try {
       if (!req.user) {
@@ -1500,21 +1515,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const statusCode = error.message.includes("not found") ? 404 : 
                          error.message.includes("not pending") ? 400 : 500;
       res.status(statusCode).json({ error: error.message || "Failed to reject work order" });
-    }
-  });
-
-  // Team member dashboard endpoint - get work orders assigned to current user
-  app.get("/api/work-orders/my-assignments", async (req, res) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      
-      const workOrders = await storage.getWorkOrdersByTeamMember(req.user.id);
-      res.json(workOrders);
-    } catch (error) {
-      console.error("Error fetching team member work orders:", error);
-      res.status(500).json({ error: "Failed to fetch assigned work orders" });
     }
   });
 

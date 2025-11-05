@@ -529,50 +529,29 @@ export const purchaseRequests = pgTable("purchase_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   purchaseRequestNumber: text("purchase_request_number").notNull().unique(), // PO-2025-001
   requisitionLineId: varchar("requisition_line_id").notNull().references(() => itemRequisitionLines.id, { onDelete: "cascade" }),
-  storeManagerId: varchar("store_manager_id").notNull().references(() => employees.id), // Store manager who created request
+  
+  // Employee references
+  requestedById: varchar("requested_by_id").notNull().references(() => employees.id), // Original requester (team member)
+  foremanApprovedById: varchar("foreman_approved_by_id").references(() => employees.id), // Foreman who approved requisition
+  storeManagerId: varchar("store_manager_id").notNull().references(() => employees.id), // Store manager who prepared purchase request
+  
   quantityRequested: integer("quantity_requested").notNull(), // Quantity to be purchased
   quantityReceived: integer("quantity_received").default(0), // Quantity actually received
-  status: text("status").notNull().default("pending"), // pending, ordered, received, partially_received, canceled
+  status: text("status").notNull().default("pending"), // pending, ordered, received, cancelled
   
-  // Vendor information
-  vendorId: varchar("vendor_id"), // Future: link to vendors table
-  vendorName: text("vendor_name"),
-  vendorContact: text("vendor_contact"),
-  vendorPhone: text("vendor_phone"),
-  vendorEmail: text("vendor_email"),
-  vendorAddress: text("vendor_address"),
+  // Dates
+  dateRequested: timestamp("date_requested").notNull(), // Date when item requester asked for the item (from requisition)
+  dateApproved: timestamp("date_approved").notNull(), // Date when store manager approved for purchase (current date)
+  orderDate: timestamp("order_date"), // When order was actually placed with vendor
+  receivedDate: timestamp("received_date"), // When items were received
   
-  // Pricing
+  // Pricing (optional - can be filled later)
   unitPrice: text("unit_price"), // Store as text to avoid precision issues
   totalPrice: text("total_price"),
   currency: text("currency").default("ETB"), // ETB or USD
   
-  // Dates
-  requestDate: timestamp("request_date").defaultNow().notNull(),
-  expectedDeliveryDate: timestamp("expected_delivery_date"),
-  orderDate: timestamp("order_date"), // When order was actually placed
-  receivedDate: timestamp("received_date"), // When items were received
-  
-  // Shipping & delivery
-  shippingMethod: text("shipping_method"),
-  deliveryAddress: text("delivery_address"),
-  trackingNumber: text("tracking_number"),
-  
-  // Payment
-  paymentTerms: text("payment_terms"),
-  paymentStatus: text("payment_status").default("unpaid"), // unpaid, partially_paid, paid
-  
-  // Approval
-  approvedById: varchar("approved_by_id").references(() => employees.id),
-  approvedAt: timestamp("approved_at"),
-  
-  // Notes and attachments
+  // Notes
   notes: text("notes"),
-  internalNotes: text("internal_notes"), // Internal notes not visible in print
-  
-  // Legacy fields for backward compatibility
-  expectedDate: timestamp("expected_date"),
-  actualDate: timestamp("actual_date"),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1092,6 +1071,14 @@ export const purchaseRequestsRelations = relations(purchaseRequests, ({ one }) =
   requisitionLine: one(itemRequisitionLines, {
     fields: [purchaseRequests.requisitionLineId],
     references: [itemRequisitionLines.id],
+  }),
+  requestedBy: one(employees, {
+    fields: [purchaseRequests.requestedById],
+    references: [employees.id],
+  }),
+  foremanApprovedBy: one(employees, {
+    fields: [purchaseRequests.foremanApprovedById],
+    references: [employees.id],
   }),
   storeManager: one(employees, {
     fields: [purchaseRequests.storeManagerId],

@@ -2790,9 +2790,13 @@ export class DatabaseStorage implements IStorage {
               await tx.insert(purchaseRequests).values({
                 purchaseRequestNumber,
                 requisitionLineId: line.id,
+                requestedById: requisition.requesterId,
+                foremanApprovedById: requisition.foremanApprovedById || null,
                 storeManagerId,
                 quantityRequested: remainingQuantity,
                 status: 'pending',
+                dateRequested: requisition.createdAt,
+                dateApproved: new Date(),
               });
 
               // Update line status to backordered with partial fulfillment
@@ -2860,9 +2864,13 @@ export class DatabaseStorage implements IStorage {
           await tx.insert(purchaseRequests).values({
             purchaseRequestNumber,
             requisitionLineId: line.id,
+            requestedById: requisition.requesterId,
+            foremanApprovedById: requisition.foremanApprovedById || null,
             storeManagerId,
             quantityRequested: quantityNeeded,
             status: 'pending',
+            dateRequested: requisition.createdAt,
+            dateApproved: new Date(),
           });
 
           // Update line status to backordered
@@ -2940,7 +2948,7 @@ export class DatabaseStorage implements IStorage {
       .from(purchaseRequests)
       .orderBy(desc(purchaseRequests.createdAt));
 
-    // Enrich with line item, requisition, and spare part details
+    // Enrich with line item, requisition, spare part, and employee details
     const enrichedRequests = await Promise.all(
       requests.map(async (request) => {
         const [line] = await db
@@ -2951,6 +2959,9 @@ export class DatabaseStorage implements IStorage {
 
         let requisition = null;
         let sparePart = null;
+        let requestedBy = null;
+        let foremanApprovedBy = null;
+        let storeManager = null;
 
         if (line) {
           [requisition] = await db
@@ -2968,11 +2979,39 @@ export class DatabaseStorage implements IStorage {
           }
         }
 
+        // Get employee details
+        if (request.requestedById) {
+          [requestedBy] = await db
+            .select()
+            .from(employees)
+            .where(eq(employees.id, request.requestedById))
+            .limit(1);
+        }
+
+        if (request.foremanApprovedById) {
+          [foremanApprovedBy] = await db
+            .select()
+            .from(employees)
+            .where(eq(employees.id, request.foremanApprovedById))
+            .limit(1);
+        }
+
+        if (request.storeManagerId) {
+          [storeManager] = await db
+            .select()
+            .from(employees)
+            .where(eq(employees.id, request.storeManagerId))
+            .limit(1);
+        }
+
         return {
           ...request,
           lineItem: line,
           requisition,
           sparePart,
+          requestedBy,
+          foremanApprovedBy,
+          storeManager,
         };
       })
     );
@@ -2991,7 +3030,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Purchase request not found");
     }
 
-    // Enrich with line item, requisition, and spare part details
+    // Enrich with line item, requisition, spare part, and employee details
     const [line] = await db
       .select()
       .from(itemRequisitionLines)
@@ -3000,6 +3039,8 @@ export class DatabaseStorage implements IStorage {
 
     let requisition = null;
     let sparePart = null;
+    let requestedBy = null;
+    let foremanApprovedBy = null;
     let storeManager = null;
 
     if (line) {
@@ -3018,17 +3059,38 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    [storeManager] = await db
-      .select()
-      .from(employees)
-      .where(eq(employees.id, request.storeManagerId))
-      .limit(1);
+    // Get employee details
+    if (request.requestedById) {
+      [requestedBy] = await db
+        .select()
+        .from(employees)
+        .where(eq(employees.id, request.requestedById))
+        .limit(1);
+    }
+
+    if (request.foremanApprovedById) {
+      [foremanApprovedBy] = await db
+        .select()
+        .from(employees)
+        .where(eq(employees.id, request.foremanApprovedById))
+        .limit(1);
+    }
+
+    if (request.storeManagerId) {
+      [storeManager] = await db
+        .select()
+        .from(employees)
+        .where(eq(employees.id, request.storeManagerId))
+        .limit(1);
+    }
 
     return {
       ...request,
       lineItem: line,
       requisition,
       sparePart,
+      requestedBy,
+      foremanApprovedBy,
       storeManager,
     };
   }

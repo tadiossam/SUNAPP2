@@ -38,6 +38,9 @@ import {
   workOrderGarages,
   workOrderWorkshops,
   workshops,
+  workOrders,
+  itemRequisitions,
+  itemRequisitionLines,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -1063,6 +1066,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all team members (must be BEFORE the parameterized route)
+  app.get("/api/employees/team-members", async (req, res) => {
+    try {
+      // Get all employees who can be team members (not CEO or admin)
+      const teamMembers = await storage.getAllEmployees();
+      const filteredMembers = teamMembers.filter(
+        emp => emp.role !== 'ceo' && emp.role !== 'admin'
+      );
+      res.json(filteredMembers);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
+      res.status(500).json({ error: "Failed to fetch team members" });
+    }
+  });
+
   app.get("/api/employees/:id", async (req, res) => {
     try {
       const employee = await storage.getEmployeeById(req.params.id);
@@ -1497,20 +1515,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching team member work orders:", error);
       res.status(500).json({ error: "Failed to fetch assigned work orders" });
-    }
-  });
-
-  app.get("/api/employees/team-members", async (req, res) => {
-    try {
-      // Get all employees who can be team members (not CEO or admin)
-      const teamMembers = await storage.getAllEmployees();
-      const filteredMembers = teamMembers.filter(
-        emp => emp.role !== 'ceo' && emp.role !== 'admin'
-      );
-      res.json(filteredMembers);
-    } catch (error) {
-      console.error("Error fetching team members:", error);
-      res.status(500).json({ error: "Failed to fetch team members" });
     }
   });
 

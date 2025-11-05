@@ -1789,7 +1789,12 @@ export class DatabaseStorage implements IStorage {
       .from(equipmentInspections)
       .leftJoin(equipmentReceptions, eq(equipmentInspections.receptionId, equipmentReceptions.id))
       .leftJoin(employees, eq(equipmentInspections.inspectorId, employees.id))
-      .where(eq(equipmentInspections.status, "completed"))
+      .where(
+        or(
+          eq(equipmentInspections.status, "completed"),
+          eq(equipmentInspections.status, "approved")
+        )
+      )
       .orderBy(desc(equipmentInspections.updatedAt));
     
     // Fetch equipment and driver details for each reception

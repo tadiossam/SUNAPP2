@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 
 type WorkOrder = {
   id: string;
@@ -245,52 +246,22 @@ export default function ForemanDashboard() {
       </div>
 
       {/* Team Assignment Dialog */}
-      <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-assign-team">
-          <DialogHeader>
-            <DialogTitle>Assign Team Members</DialogTitle>
-            <DialogDescription>Select team members to assign to this work order</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {teamMembers && teamMembers.length > 0 ? (
-              teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-3 p-3 rounded-md border cursor-pointer hover-elevate"
-                  onClick={() => toggleTeamMember(member.id)}
-                  data-testid={`team-member-option-${member.id}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedTeamMembers.includes(member.id)}
-                    onChange={() => toggleTeamMember(member.id)}
-                    className="h-4 w-4"
-                    data-testid={`checkbox-team-member-${member.id}`}
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium">{member.fullName}</p>
-                    <p className="text-sm text-muted-foreground">{member.role}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-muted-foreground py-8">No team members available</p>
-            )}
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)} data-testid="button-cancel">
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmAssignment}
-              disabled={selectedTeamMembers.length === 0 || assignTeamMutation.isPending}
-              data-testid="button-confirm-assignment"
-            >
-              Assign Team ({selectedTeamMembers.length})
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EmployeeSearchDialog
+        open={isAssignDialogOpen}
+        onOpenChange={setIsAssignDialogOpen}
+        mode="multiple"
+        selectedIds={selectedTeamMembers}
+        onConfirm={(ids) => {
+          if (selectedWorkOrder && ids.length > 0) {
+            assignTeamMutation.mutate({
+              workOrderId: selectedWorkOrder.id,
+              teamMemberIds: ids,
+            });
+          }
+        }}
+        title="Assign Team Members"
+        description="Select one or more team members to assign to this work order"
+      />
 
       {/* View Inspection Dialog */}
       <Dialog open={!!viewingInspectionId} onOpenChange={() => setViewingInspectionId(null)}>

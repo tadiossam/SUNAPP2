@@ -235,9 +235,15 @@ export default function AdminPage() {
             </p>
           </div>
           {deviceSettings && (
-            <Badge variant={deviceSettings.isActive ? "default" : "secondary"}>
-              {deviceSettings.isActive ? "Active" : "Inactive"}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="font-semibold">{deviceSettings.deviceName}</p>
+                <p className="text-sm text-muted-foreground">{deviceSettings.ipAddress}:{deviceSettings.port}</p>
+              </div>
+              <Badge variant={deviceSettings.isActive ? "default" : "secondary"}>
+                {deviceSettings.isActive ? "Active" : "Inactive"}
+              </Badge>
+            </div>
           )}
         </div>
 

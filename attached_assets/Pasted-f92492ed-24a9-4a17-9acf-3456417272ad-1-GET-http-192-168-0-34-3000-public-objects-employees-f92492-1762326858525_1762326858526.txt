@@ -1,0 +1,55 @@
+f92492ed-24a9-4a17-9acf-3456417272ad:1  GET http://192.168.0.34:3000/public-objects/employees/f92492ed-24a9-4a17-9acf-3456417272ad 404 (Not Found)
+Image
+resolveLoadingStatus @ @radix-ui_react-avatar.js?v=1f82aec0:90
+(anonymous) @ @radix-ui_react-avatar.js?v=1f82aec0:108
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=1f82aec0:16915
+commitLayoutEffectOnFiber @ chunk-RPCDYKBN.js?v=1f82aec0:17002
+commitLayoutMountEffects_complete @ chunk-RPCDYKBN.js?v=1f82aec0:17980
+commitLayoutEffects_begin @ chunk-RPCDYKBN.js?v=1f82aec0:17969
+commitLayoutEffects @ chunk-RPCDYKBN.js?v=1f82aec0:17920
+commitRootImpl @ chunk-RPCDYKBN.js?v=1f82aec0:19353
+commitRoot @ chunk-RPCDYKBN.js?v=1f82aec0:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=1f82aec0:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=1f82aec0:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=1f82aec0:18627
+9bcfc942-8458-43db-bedc-7dafb918b61f:1  GET http://192.168.0.34:3000/public-objects/employees/9bcfc942-8458-43db-bedc-7dafb918b61f 404 (Not Found)
+Image
+resolveLoadingStatus @ @radix-ui_react-avatar.js?v=1f82aec0:90
+(anonymous) @ @radix-ui_react-avatar.js?v=1f82aec0:108
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=1f82aec0:16915
+commitLayoutEffectOnFiber @ chunk-RPCDYKBN.js?v=1f82aec0:17002
+commitLayoutMountEffects_complete @ chunk-RPCDYKBN.js?v=1f82aec0:17980
+commitLayoutEffects_begin @ chunk-RPCDYKBN.js?v=1f82aec0:17969
+commitLayoutEffects @ chunk-RPCDYKBN.js?v=1f82aec0:17920
+commitRootImpl @ chunk-RPCDYKBN.js?v=1f82aec0:19353
+commitRoot @ chunk-RPCDYKBN.js?v=1f82aec0:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=1f82aec0:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=1f82aec0:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=1f82aec0:18627
+queryClient.ts:33  DELETE http://192.168.0.34:3000/api/biometric-imports/delete-all-employees 500 (Internal Server Error)
+apiRequest @ queryClient.ts:33
+mutationFn @ Employees.tsx:107
+fn @ @tanstack_react-query.js?v=1f82aec0:1189
+run @ @tanstack_react-query.js?v=1f82aec0:494
+start @ @tanstack_react-query.js?v=1f82aec0:536
+execute @ @tanstack_react-query.js?v=1f82aec0:1225
+await in execute
+mutate @ @tanstack_react-query.js?v=1f82aec0:2630
+(anonymous) @ @tanstack_react-query.js?v=1f82aec0:3295
+onClick @ Employees.tsx:329
+handleEvent @ chunk-5Q5YC75F.js?v=1f82aec0:4
+callCallback2 @ chunk-RPCDYKBN.js?v=1f82aec0:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=1f82aec0:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=1f82aec0:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=1f82aec0:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=1f82aec0:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=1f82aec0:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=1f82aec0:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=1f82aec0:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=1f82aec0:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=1f82aec0:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=1f82aec0:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=1f82aec0:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=1f82aec0:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=1f82aec0:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=1f82aec0:5449

@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye } from "lucide-react";
+import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye, Package, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
@@ -32,6 +33,27 @@ type Employee = {
   role: string;
 };
 
+type RequisitionLine = {
+  id: string;
+  lineNumber: number;
+  description: string;
+  unitOfMeasure?: string;
+  quantityRequested: number;
+  quantityApproved?: number;
+  status: string;
+  remarks?: string;
+};
+
+type Requisition = {
+  id: string;
+  requisitionNumber: string;
+  workOrderNumber: string;
+  requesterName: string;
+  status: string;
+  createdAt: string;
+  lines: RequisitionLine[];
+};
+
 export default function ForemanDashboard() {
   const { toast } = useToast();
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
@@ -39,6 +61,8 @@ export default function ForemanDashboard() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
+  const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null);
+  const [actionRemarks, setActionRemarks] = useState("");
 
   const { data: pendingWorkOrders } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/foreman/pending"],
@@ -50,6 +74,10 @@ export default function ForemanDashboard() {
 
   const { data: teamMembers } = useQuery<Employee[]>({
     queryKey: ["/api/employees/team-members"],
+  });
+
+  const { data: requisitions = [] } = useQuery<Requisition[]>({
+    queryKey: ["/api/item-requisitions/foreman"],
   });
 
   // Fetch inspection details when viewing
@@ -88,6 +116,40 @@ export default function ForemanDashboard() {
       setIsAssignDialogOpen(false);
       setSelectedWorkOrder(null);
       setSelectedTeamMembers([]);
+    },
+  });
+
+  const approveRequisitionMutation = useMutation({
+    mutationFn: async (data: { requisitionId: string; remarks?: string }) => {
+      return await apiRequest("POST", `/api/item-requisitions/${data.requisitionId}/approve-foreman`, {
+        remarks: data.remarks,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Requisition Approved",
+        description: "Parts requisition has been approved and sent to store manager.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/foreman"] });
+      setSelectedRequisition(null);
+      setActionRemarks("");
+    },
+  });
+
+  const rejectRequisitionMutation = useMutation({
+    mutationFn: async (data: { requisitionId: string; remarks?: string }) => {
+      return await apiRequest("POST", `/api/item-requisitions/${data.requisitionId}/reject-foreman`, {
+        remarks: data.remarks,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Requisition Rejected",
+        description: "Parts requisition has been rejected.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/foreman"] });
+      setSelectedRequisition(null);
+      setActionRemarks("");
     },
   });
 
@@ -208,7 +270,7 @@ export default function ForemanDashboard() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <Tabs defaultValue="pending" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2" data-testid="tabs-work-orders">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3" data-testid="tabs-work-orders">
             <TabsTrigger value="pending" data-testid="tab-pending">
               <Clock className="h-4 w-4 mr-2" />
               Pending Assignment
@@ -216,6 +278,10 @@ export default function ForemanDashboard() {
             <TabsTrigger value="active" data-testid="tab-active">
               <CheckCircle className="h-4 w-4 mr-2" />
               Active Work
+            </TabsTrigger>
+            <TabsTrigger value="requisitions" data-testid="tab-requisitions">
+              <Package className="h-4 w-4 mr-2" />
+              Parts Requisitions
             </TabsTrigger>
           </TabsList>
 
@@ -238,6 +304,92 @@ export default function ForemanDashboard() {
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
                   No active work orders
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="requisitions" className="space-y-4">
+            {requisitions.length > 0 ? (
+              requisitions.map((requisition) => (
+                <Card key={requisition.id} className="hover-elevate" data-testid={`requisition-card-${requisition.id}`}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg" data-testid={`text-requisition-number-${requisition.id}`}>
+                          {requisition.requisitionNumber}
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Work Order: {requisition.workOrderNumber}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge variant="outline">{requisition.status}</Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-muted-foreground text-sm">Requested by:</Label>
+                      <p className="font-medium">{requisition.requesterName}</p>
+                    </div>
+
+                    <div>
+                      <Label className="text-muted-foreground text-sm mb-2 block">Items:</Label>
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted">
+                            <tr>
+                              <th className="text-left p-2">#</th>
+                              <th className="text-left p-2">Description</th>
+                              <th className="text-left p-2">Unit</th>
+                              <th className="text-right p-2">Qty</th>
+                              <th className="text-left p-2">Remarks</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {requisition.lines.map((line) => (
+                              <tr key={line.id} className="border-t">
+                                <td className="p-2">{line.lineNumber}</td>
+                                <td className="p-2">{line.description}</td>
+                                <td className="p-2">{line.unitOfMeasure || '-'}</td>
+                                <td className="p-2 text-right">{line.quantityRequested}</td>
+                                <td className="p-2 text-muted-foreground">{line.remarks || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => setSelectedRequisition(requisition)}
+                        className="flex-1"
+                        data-testid={`button-approve-requisition-${requisition.id}`}
+                      >
+                        <ThumbsUp className="h-4 w-4 mr-2" />
+                        Approve
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          rejectRequisitionMutation.mutate({ requisitionId: requisition.id, remarks: "" });
+                        }}
+                        variant="destructive"
+                        className="flex-1"
+                        data-testid={`button-reject-requisition-${requisition.id}`}
+                      >
+                        <ThumbsDown className="h-4 w-4 mr-2" />
+                        Reject
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No pending parts requisitions
                 </CardContent>
               </Card>
             )}
@@ -357,6 +509,61 @@ export default function ForemanDashboard() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Requisition Dialog */}
+      <Dialog open={!!selectedRequisition} onOpenChange={() => {
+        setSelectedRequisition(null);
+        setActionRemarks("");
+      }}>
+        <DialogContent data-testid="dialog-approve-requisition">
+          <DialogHeader>
+            <DialogTitle>Approve Parts Requisition</DialogTitle>
+            <DialogDescription>
+              {selectedRequisition?.requisitionNumber} - Review and approve this parts requisition
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Remarks (Optional)</Label>
+              <Textarea
+                value={actionRemarks}
+                onChange={(e) => setActionRemarks(e.target.value)}
+                placeholder="Add any remarks or notes..."
+                rows={3}
+                data-testid="textarea-approval-remarks"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setSelectedRequisition(null);
+                  setActionRemarks("");
+                }}
+                variant="outline"
+                className="flex-1"
+                data-testid="button-cancel-approval"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedRequisition) {
+                    approveRequisitionMutation.mutate({
+                      requisitionId: selectedRequisition.id,
+                      remarks: actionRemarks || undefined,
+                    });
+                  }
+                }}
+                className="flex-1"
+                disabled={approveRequisitionMutation.isPending}
+                data-testid="button-confirm-approval"
+              >
+                {approveRequisitionMutation.isPending ? "Approving..." : "Approve"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -3269,6 +3269,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============ BIOMETRIC DEVICE ROUTES (ALIASES) ============
+  // These are aliases for backward compatibility with AdminSettings page
+
+  // Get all biometric devices
+  app.get("/api/biometric-devices", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const devices = await storage.getAllAttendanceDevices();
+      res.json(devices);
+    } catch (error) {
+      console.error("Error fetching devices:", error);
+      res.status(500).json({ error: "Failed to fetch devices" });
+    }
+  });
+
+  // Get active biometric device
+  app.get("/api/biometric-devices/active", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const settings = await storage.getAttendanceDeviceSettings();
+      res.json(settings || null);
+    } catch (error) {
+      console.error("Error fetching active device:", error);
+      res.status(500).json({ error: "Failed to fetch active device" });
+    }
+  });
+
+  // Create new biometric device
+  app.post("/api/biometric-devices", isCEOOrAdmin, async (req, res) => {
+    try {
+      const validatedData = deviceSettingsSchema.parse(req.body);
+      const device = await storage.createAttendanceDevice(validatedData);
+      res.status(201).json(device);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid device data", details: error.errors });
+      }
+      console.error("Error creating device:", error);
+      res.status(500).json({ error: "Failed to create device" });
+    }
+  });
+
+  // Set active biometric device
+  app.post("/api/biometric-devices/:id/set-active", isCEOOrAdmin, async (req, res) => {
+    try {
+      const device = await storage.setActiveDevice(req.params.id);
+      res.json(device);
+    } catch (error) {
+      console.error("Error activating device:", error);
+      res.status(500).json({ error: "Failed to activate device" });
+    }
+  });
+
+  // Delete biometric device
+  app.delete("/api/biometric-devices/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      await storage.deleteAttendanceDevice(req.params.id);
+      res.json({ message: "Device deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting device:", error);
+      res.status(500).json({ error: "Failed to delete device" });
+    }
+  });
+
+  // Get biometric import logs
+  app.get("/api/biometric-imports/logs", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const logs = await storage.getDeviceImportLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching import logs:", error);
+      res.status(500).json({ error: "Failed to fetch import logs" });
+    }
+  });
+
+  // Import all users from biometric device (alias for import-users)
+  app.post("/api/biometric-imports/import-all", isCEOOrAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getAttendanceDeviceSettings();
+      if (!settings) {
+        return res.status(400).json({ success: false, message: "No active device configured" });
+      }
+
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(settings.ipAddress, settings.port, settings.timeout);
+      const deviceUsers = await deviceService.getAllUsersWithConnection();
+
+      let imported = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const deviceUser of deviceUsers) {
+        try {
+          let existingEmployee = await storage.getEmployeeByDeviceUserId(deviceUser.userId);
+          if (!existingEmployee) {
+            existingEmployee = await storage.getEmployeeByEmployeeId(deviceUser.userId);
+          }
+          if (!existingEmployee && deviceUser.name) {
+            existingEmployee = await storage.getEmployeeByName(deviceUser.name.trim());
+          }
+          
+          if (existingEmployee) {
+            await storage.updateEmployee(existingEmployee.id, {
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || existingEmployee.fullName,
+            });
+            updated++;
+          } else {
+            await storage.createEmployee({
+              employeeId: `EMP-${deviceUser.userId}`,
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || `User ${deviceUser.userId}`,
+              role: 'technician',
+              phoneNumber: '',
+              email: '',
+              garageId: null,
+            });
+            imported++;
+          }
+        } catch (error: any) {
+          errors.push(`User ${deviceUser.userId}: ${error.message}`);
+          skipped++;
+        }
+      }
+
+      await storage.createDeviceImportLog({
+        deviceId: settings.id,
+        operationType: 'import',
+        status: errors.length > 0 ? 'partial' : 'success',
+        usersImported: imported,
+        usersUpdated: updated,
+        usersSkipped: skipped,
+        errorMessage: errors.length > 0 ? errors.join('; ') : null,
+        importData: JSON.stringify(deviceUsers),
+      });
+
+      res.json({ success: true, imported, updated, errors: errors.length > 0 ? errors : undefined });
+    } catch (error: any) {
+      console.error("Import error:", error);
+      res.status(500).json({ success: false, message: "Import failed", error: error.message });
+    }
+  });
+
+  // Sync new users from biometric device (alias for sync-users)
+  app.post("/api/biometric-imports/sync", isCEOOrAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getAttendanceDeviceSettings();
+      if (!settings) {
+        return res.status(400).json({ success: false, message: "No active device configured" });
+      }
+
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(settings.ipAddress, settings.port, settings.timeout);
+      const deviceUsers = await deviceService.getAllUsersWithConnection();
+
+      const existingEmployees = await storage.getAllEmployees();
+      const newUsers = deviceUsers.filter(du => 
+        !existingEmployees.some((e: any) => e.deviceUserId === du.userId)
+      );
+
+      let imported = 0;
+      const errors: string[] = [];
+      for (const deviceUser of newUsers) {
+        try {
+          await storage.createEmployee({
+            employeeId: `EMP-${deviceUser.userId}`,
+            deviceUserId: deviceUser.userId,
+            fullName: deviceUser.name || `User ${deviceUser.userId}`,
+            role: 'technician',
+            phoneNumber: '',
+            email: '',
+            garageId: null,
+          });
+          imported++;
+        } catch (error: any) {
+          errors.push(`User ${deviceUser.userId}: ${error.message}`);
+        }
+      }
+
+      await storage.createDeviceImportLog({
+        deviceId: settings.id,
+        operationType: 'sync',
+        status: errors.length > 0 ? 'partial' : 'success',
+        usersImported: imported,
+        usersUpdated: 0,
+        usersSkipped: deviceUsers.length - imported,
+        errorMessage: errors.length > 0 ? errors.join('; ') : null,
+        importData: JSON.stringify(newUsers),
+      });
+
+      res.json({ success: true, newUsers: imported, errors: errors.length > 0 ? errors : undefined });
+    } catch (error: any) {
+      console.error("Sync error:", error);
+      res.status(500).json({ success: false, message: "Sync failed", error: error.message });
+    }
+  });
+
   // ==================== Dynamics 365 Business Central Integration ====================
 
   // Get D365 settings

@@ -59,7 +59,16 @@ The application is a Progressive Web App (PWA) optimized for mobile. Manufacturi
   - Requesting workshop/department
   - Line items: Description, Unit of Measure, Quantity, Remarks
   - Multi-level signatures: Requester → Foreman → Store Manager
-  - Partial approval support (line-by-line status tracking)
+  - **Individual Line-Item Approval System** (Store Manager):
+    - Per-line action selection: Approve / Backorder / Reject
+    - **Automatic Partial Fulfillment**: If stock insufficient, system automatically issues available quantity and creates purchase order for remainder
+    - Example: 11 items requested, 8 in stock → Issues 8, creates PO for 3
+    - Real-time stock status indicators with color coding
+    - Line-level status tracking: pending, approved, rejected, backordered, fulfilled
+    - Automatic stock deduction upon approval
+    - Purchase order generation (PO-YYYY-NNN format) using advisory locks to prevent collisions
+    - Work order status transitions: `waiting_purchase` when items backordered, `in_progress` when all items issued
+  - **Purchase Orders Tab**: Store Manager dashboard displays all pending purchase requests with detailed tracking
 - **Employee Performance Tracking**: Gamification system with daily/monthly/yearly leaderboards:
   - Performance scores based on completed tasks and work orders
   - Employee of the Month/Year awards

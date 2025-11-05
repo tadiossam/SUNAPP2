@@ -16,13 +16,18 @@ The frontend uses React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, Wouter fo
 
 **Authentication & Access Control**: JWT-based authentication with comprehensive role-based access control (RBAC) using a single `employees` table. Available roles: ceo, admin, supervisor, mechanic, technician, electrician, painter, body_worker, wash_employee, user, verifier, store_manager. Passwords are secured using bcrypt hashing. The system implements:
 - **Case-Insensitive Role Checks**: All role comparisons use `.toLowerCase()` for consistent matching regardless of case
-- **Admin Superuser Access**: The `admin` role has unrestricted access to all endpoints and features, automatically bypassing all role-based restrictions via the `hasRole()` helper function in `server/auth.ts`
+- **Admin Superuser Access**: The `admin` role has unrestricted access to all endpoints and features, automatically bypassing all role-based restrictions via the `hasRole()` helper function in `server/auth.ts`. Admin users see unfiltered datasets across all dashboards.
 - **Helper Functions**: `hasRole(user, ...roles)` provides centralized role checking with admin bypass; `isAdmin(user)` checks for admin role specifically
 - **Endpoints Protected by Role**: 
   - Store Manager endpoints (`/api/item-requisitions/store-manager`, approval/reject actions) - accessible by store_manager or admin
   - Verifier endpoints (`/api/work-orders/verifier/pending`, approval/reject actions) - accessible by verifier, ceo, or admin
   - Supervisor endpoints (`/api/work-orders/supervisor/pending`, approval/reject actions) - accessible by supervisor, ceo, or admin
-  - Foreman endpoints (work order assignments, requisition approvals) - accessible by workshop foremen or admin
+  - Foreman endpoints (`/api/work-orders/foreman/pending`, `/api/work-orders/foreman/active`, `/api/item-requisitions/foreman`) - accessible by workshop foremen or admin (admin sees ALL data)
+  - Team Member endpoints (`/api/work-orders/my-assignments`, `/api/item-requisitions`) - accessible by all employees (admin sees ALL data, regular users see only their assignments)
+- **Admin Full Visibility**: When logged in as admin, all dashboard endpoints return complete datasets without filtering:
+  - Foreman Dashboard: Shows ALL foreman pending/active work orders and requisitions
+  - Team Member "My Work": Shows ALL work orders with team assignments and ALL requisitions
+  - Store Manager Dashboard: Shows ALL store manager requisitions and purchase orders
 - **Admin Credentials**: Username: `RPAdmin`, Password: `RPAdmin` (full system access)
 
 The application is a Progressive Web App (PWA) optimized for mobile. Manufacturing specifications include detailed dimensions, material, tolerance, weight, CAD formats (STL, STEP, GLTF, GLB), surface finish, and hardness data. Object storage for media and 3D models is handled by Replit Object Storage via Google Cloud Storage using presigned URLs. Database queries are optimized with batch fetching (`inArray()`) to prevent N+1 issues. Work Order numbers are generated using MAX suffix extraction with a flexible regex (`/WO-\d{4}-(\d+)/`) to prevent duplicates. Requisition numbers follow pattern REQ-YYYY-XXX and purchase order numbers follow PO-YYYY-XXX.

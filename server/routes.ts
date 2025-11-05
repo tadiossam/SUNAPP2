@@ -1397,6 +1397,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/item-requisitions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Get all requisitions where the requester is the current user
+      const requisitions = await db
+        .select({
+          id: itemRequisitions.id,
+          requisitionNumber: itemRequisitions.requisitionNumber,
+          workOrderId: itemRequisitions.workOrderId,
+          status: itemRequisitions.status,
+        })
+        .from(itemRequisitions)
+        .where(eq(itemRequisitions.requesterId, req.user.id));
+
+      // Fetch work order numbers and lines for each requisition
+      const requisitionsWithDetails = await Promise.all(
+        requisitions.map(async (req) => {
+          const workOrder = await db.select({ workOrderNumber: workOrders.workOrderNumber })
+            .from(workOrders)
+            .where(eq(workOrders.id, req.workOrderId))
+            .limit(1);
+          
+          const lines = await db.select().from(itemRequisitionLines).where(eq(itemRequisitionLines.requisitionId, req.id));
+          
+          return {
+            ...req,
+            workOrderNumber: workOrder[0]?.workOrderNumber || "",
+            lines,
+          };
+        })
+      );
+
+      res.json(requisitionsWithDetails);
+    } catch (error) {
+      console.error("Error fetching requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
   app.get("/api/item-requisitions/foreman", async (req, res) => {
     try {
       if (!req.user) {
@@ -1515,6 +1557,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error rejecting requisition:", error);
       res.status(500).json({ error: "Failed to reject requisition" });
+    }
+  });
+
+  app.post("/api/item-requisitions/:id/confirm-receipt", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      await storage.confirmPartsReceipt(req.params.id, req.user.id);
+      res.json({ success: true, message: "Parts receipt confirmed" });
+    } catch (error) {
+      console.error("Error confirming parts receipt:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to confirm parts receipt";
+      
+      // Return appropriate status codes based on error type
+      if (errorMessage.includes("Access denied") || errorMessage.includes("only confirm receipt for your own")) {
+        return res.status(403).json({ error: errorMessage });
+      }
+      if (errorMessage.includes("Only approved") || errorMessage.includes("not found")) {
+        return res.status(400).json({ error: errorMessage });
+      }
+      
+      res.status(500).json({ error: errorMessage });
     }
   });
 

@@ -312,6 +312,7 @@ export interface IStorage {
   rejectItemRequisitionByForeman(requisitionId: string, foremanId: string, remarks?: string): Promise<void>;
   approveItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
   rejectItemRequisitionByStoreManager(requisitionId: string, storeManagerId: string, remarks?: string): Promise<void>;
+  confirmPartsReceipt(requisitionId: string, teamMemberId: string): Promise<void>;
 
   // Attendance Device Operations
   getAllAttendanceDevices(): Promise<any[]>;
@@ -2399,6 +2400,40 @@ export class DatabaseStorage implements IStorage {
         status: 'rejected',
       })
       .where(eq(itemRequisitions.id, requisitionId));
+  }
+
+  async confirmPartsReceipt(requisitionId: string, teamMemberId: string): Promise<void> {
+    const requisition = await db.select().from(itemRequisitions).where(eq(itemRequisitions.id, requisitionId)).limit(1);
+    
+    if (requisition.length === 0) {
+      throw new Error("Requisition not found");
+    }
+
+    if (requisition[0].requesterId !== teamMemberId) {
+      throw new Error("Access denied: You can only confirm receipt for your own requisitions");
+    }
+
+    if (requisition[0].status !== 'approved') {
+      throw new Error("Only approved requisitions can be confirmed as fulfilled");
+    }
+
+    const workOrderId = requisition[0].workOrderId;
+
+    await db
+      .update(itemRequisitions)
+      .set({
+        status: 'fulfilled',
+        updatedAt: new Date(),
+      })
+      .where(eq(itemRequisitions.id, requisitionId));
+
+    await db
+      .update(workOrders)
+      .set({
+        status: 'in_progress',
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
   }
 
   // Attendance Device Operations

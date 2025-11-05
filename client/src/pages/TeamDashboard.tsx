@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, Package, CheckCircle } from "lucide-react";
+import { ClipboardList, Package, CheckCircle, PackageCheck } from "lucide-react";
 import { RequestPartsDialog } from "@/components/RequestPartsDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 type WorkOrder = {
   id: string;
@@ -19,13 +21,55 @@ type WorkOrder = {
   garageNames?: string[];
 };
 
+type ItemRequisition = {
+  id: string;
+  requisitionNumber: string;
+  workOrderId: string;
+  workOrderNumber: string;
+  status: string;
+  lines?: Array<{
+    description: string;
+    quantityRequested: number;
+    quantityApproved: number | null;
+    unitOfMeasure: string;
+  }>;
+};
+
 export default function TeamDashboard() {
   const { language } = useLanguage();
+  const { toast } = useToast();
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [isRequestPartsOpen, setIsRequestPartsOpen] = useState(false);
 
   const { data: myWorkOrders = [], isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/my-assignments"],
+  });
+
+  const { data: myRequisitions = [] } = useQuery<ItemRequisition[]>({
+    queryKey: ["/api/item-requisitions"],
+  });
+
+  const confirmReceiptMutation = useMutation({
+    mutationFn: async (requisitionId: string) => {
+      const res = await apiRequest("POST", `/api/item-requisitions/${requisitionId}/confirm-receipt`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/my-assignments"] });
+      toast({
+        title: language === "am" ? "ተሳክቷል" : "Success",
+        description: language === "am" ? "የእቃዎች መቀበል ተረጋግጧል" : "Parts receipt confirmed",
+      });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || (language === "am" ? "የእቃዎች መቀበልን ማረጋገጥ አልተቻለም" : "Failed to confirm parts receipt");
+      toast({
+        title: language === "am" ? "ስህተት" : "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
   });
 
   const handleRequestParts = (workOrder: WorkOrder) => {
@@ -46,6 +90,10 @@ export default function TeamDashboard() {
       wo.status === "pending_verification" ||
       wo.status === "pending_supervisor" ||
       wo.status === "completed"
+  );
+
+  const approvedRequisitions = myRequisitions.filter(
+    (req) => req.status === "approved"
   );
 
   const getStatusBadge = (status: string) => {
@@ -200,6 +248,10 @@ export default function TeamDashboard() {
             <ClipboardList className="h-4 w-4 mr-2" />
             {language === "am" ? "ንቁ" : "Active"}
           </TabsTrigger>
+          <TabsTrigger value="parts-receipt" data-testid="tab-parts-receipt">
+            <PackageCheck className="h-4 w-4 mr-2" />
+            {language === "am" ? "የእቃ ማረጋገጫ" : "Parts Receipt"} ({approvedRequisitions.length})
+          </TabsTrigger>
           <TabsTrigger value="completed" data-testid="tab-completed">
             <CheckCircle className="h-4 w-4 mr-2" />
             {language === "am" ? "የተጠናቀቁ" : "Completed"}
@@ -213,6 +265,62 @@ export default function TeamDashboard() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 {language === "am" ? "ምንም ንቁ የስራ ትእዛዞች የሉም" : "No active work orders"}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="parts-receipt" className="space-y-4">
+          {approvedRequisitions.length > 0 ? (
+            approvedRequisitions.map((requisition) => (
+              <Card key={requisition.id} className="hover-elevate" data-testid={`requisition-card-${requisition.id}`}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{requisition.requisitionNumber}</CardTitle>
+                    <Badge variant="default">{language === "am" ? "ፀድቋል" : "Approved"}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "am" ? "የስራ ትእዛዝ" : "Work Order"}: {requisition.workOrderNumber}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {requisition.lines && requisition.lines.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          {language === "am" ? "የተፀደቁ እቃዎች" : "Approved Parts"}:
+                        </p>
+                        <div className="space-y-1">
+                          {requisition.lines.map((line, idx) => (
+                            <div key={idx} className="text-sm pl-4 border-l-2 border-muted">
+                              <p className="font-medium">{line.description}</p>
+                              <p className="text-muted-foreground">
+                                {language === "am" ? "መጠን" : "Quantity"}: {line.quantityApproved || line.quantityRequested} {line.unitOfMeasure}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => confirmReceiptMutation.mutate(requisition.id)}
+                      disabled={confirmReceiptMutation.isPending}
+                      className="w-full"
+                      data-testid={`button-confirm-receipt-${requisition.id}`}
+                    >
+                      <PackageCheck className="h-4 w-4 mr-2" />
+                      {confirmReceiptMutation.isPending
+                        ? (language === "am" ? "በማረጋገጥ ላይ..." : "Confirming...")
+                        : (language === "am" ? "መቀበልን አረጋግጥ" : "Confirm Receipt")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                {language === "am" ? "ምንም የሚጠበቁ የእቃ ማረጋገጫዎች የሉም" : "No pending parts receipts"}
               </CardContent>
             </Card>
           )}

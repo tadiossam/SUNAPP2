@@ -1718,6 +1718,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/item-requisitions/:id/process-lines", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can process line items (admin has automatic access)
+      if (!hasRole(req.user, 'store_manager')) {
+        return res.status(403).json({ error: "Access denied: Store manager role required (admin has full access)" });
+      }
+      
+      const { lineDecisions, generalRemarks } = req.body;
+      
+      if (!Array.isArray(lineDecisions) || lineDecisions.length === 0) {
+        return res.status(400).json({ error: "Invalid line decisions" });
+      }
+      
+      await storage.processItemRequisitionLineDecisions(
+        req.params.id,
+        req.user.id,
+        lineDecisions,
+        generalRemarks
+      );
+      
+      res.json({ success: true, message: "Line items processed successfully" });
+    } catch (error) {
+      console.error("Error processing line items:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to process line items";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  app.get("/api/purchase-requests", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can view purchase requests (admin has automatic access)
+      if (!hasRole(req.user, 'store_manager')) {
+        return res.status(403).json({ error: "Access denied: Store manager role required (admin has full access)" });
+      }
+      
+      const purchaseRequests = await storage.getPurchaseRequests();
+      res.json(purchaseRequests);
+    } catch (error) {
+      console.error("Error fetching purchase requests:", error);
+      res.status(500).json({ error: "Failed to fetch purchase requests" });
+    }
+  });
+
   app.post("/api/item-requisitions/:id/confirm-receipt", async (req, res) => {
     try {
       if (!req.user) {

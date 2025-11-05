@@ -2369,7 +2369,7 @@ export class DatabaseStorage implements IStorage {
     
     const workshopIds = foremanWorkshops.map(w => w.id);
     
-    // Get requisitions from these workshops with pending_foreman status
+    // Get requisitions from these workshops with pending status
     const requisitions = await db
       .select()
       .from(itemRequisitions)

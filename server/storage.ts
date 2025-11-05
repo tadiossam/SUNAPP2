@@ -2444,6 +2444,36 @@ export class DatabaseStorage implements IStorage {
           .where(eq(itemRequisitionLines.requisitionId, req.id))
           .orderBy(itemRequisitionLines.lineNumber);
         
+        // Calculate available stock for each line
+        const linesWithStock = await Promise.all(
+          lines.map(async (line) => {
+            if (line.sparePartId) {
+              // Get total available stock for this part
+              const stockLocations = await db
+                .select()
+                .from(partsStorageLocations)
+                .where(eq(partsStorageLocations.partId, line.sparePartId));
+              
+              const totalStock = stockLocations.reduce((sum, loc) => sum + loc.quantity, 0);
+              
+              // Determine stock status
+              let stockStatus = 'out_of_stock';
+              if (totalStock >= line.quantityRequested) {
+                stockStatus = 'in_stock';
+              } else if (totalStock > 0) {
+                stockStatus = 'low_stock';
+              }
+              
+              return { 
+                ...line, 
+                availableStock: totalStock,
+                stockStatus
+              };
+            }
+            return { ...line, availableStock: 0, stockStatus: 'unknown' };
+          })
+        );
+        
         const [requester] = await db
           .select()
           .from(employees)
@@ -2453,7 +2483,7 @@ export class DatabaseStorage implements IStorage {
           ? await db.select().from(workOrders).where(eq(workOrders.id, req.workOrderId))
           : [null];
         
-        return { ...req, lines, requester, workOrder };
+        return { ...req, lines: linesWithStock, requester, workOrder };
       })
     );
     
@@ -2556,8 +2586,11 @@ export class DatabaseStorage implements IStorage {
             // Lock key is hash of year to ensure separate sequences per year
             const lockKey = currentYear; // Advisory lock key
             
+            // Acquire advisory lock first
+            await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+            
+            // Then get the next number
             const result = await tx.execute(sql`
-              SELECT pg_advisory_xact_lock(${lockKey});
               SELECT COALESCE(
                 MAX(
                   CASE 

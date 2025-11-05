@@ -47,6 +47,7 @@ type ItemRequisitionLine = {
   sparePartId?: string;
   partName?: string;
   stockStatus?: string;
+  availableStock?: number;
 };
 
 type LineDecision = {
@@ -458,7 +459,14 @@ export default function StoreManagerDashboard() {
                         <CardContent className="pt-4">
                           <div className="grid gap-4">
                             <div>
-                              <div className="font-medium">{line.description}</div>
+                              <div className="font-medium flex items-center gap-2">
+                                {line.description}
+                                {line.availableStock !== undefined && (
+                                  <span className="text-sm text-red-600 dark:text-red-400 font-semibold">
+                                    (Stock: {line.availableStock})
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-sm text-muted-foreground mt-1">
                                 Requested: {line.quantityRequested} {line.unitOfMeasure || "pcs"}
                                 {line.partName && <span> • Part: {line.partName}</span>}

@@ -32,6 +32,7 @@ import AdminPage from "@/pages/Admin";
 import AdminSettingsPage from "@/pages/AdminSettings";
 import ItemsPage from "@/pages/Items";
 import StoreManagerDashboard from "@/pages/StoreManagerDashboard";
+import PurchaseOrders from "@/pages/PurchaseOrders";
 import TeamPerformance from "@/pages/TeamPerformance";
 import ForemanDashboard from "@/pages/ForemanDashboard";
 import VerifierDashboard from "@/pages/VerifierDashboard";
@@ -67,6 +68,7 @@ function Router() {
       <Route path="/parts-locations" component={PartsLocationsPage} />
       <Route path="/items" component={ItemsPage} />
       <Route path="/store-manager" component={StoreManagerDashboard} />
+      <Route path="/purchase-orders" component={PurchaseOrders} />
       <Route path="/foreman" component={ForemanDashboard} />
       <Route path="/verifier" component={VerifierDashboard} />
       <Route path="/my-work" component={TeamDashboard} />

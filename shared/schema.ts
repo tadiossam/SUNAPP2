@@ -531,12 +531,49 @@ export const purchaseRequests = pgTable("purchase_requests", {
   requisitionLineId: varchar("requisition_line_id").notNull().references(() => itemRequisitionLines.id, { onDelete: "cascade" }),
   storeManagerId: varchar("store_manager_id").notNull().references(() => employees.id), // Store manager who created request
   quantityRequested: integer("quantity_requested").notNull(), // Quantity to be purchased
-  status: text("status").notNull().default("pending"), // pending, ordered, received, canceled
+  quantityReceived: integer("quantity_received").default(0), // Quantity actually received
+  status: text("status").notNull().default("pending"), // pending, ordered, received, partially_received, canceled
+  
+  // Vendor information
   vendorId: varchar("vendor_id"), // Future: link to vendors table
   vendorName: text("vendor_name"),
+  vendorContact: text("vendor_contact"),
+  vendorPhone: text("vendor_phone"),
+  vendorEmail: text("vendor_email"),
+  vendorAddress: text("vendor_address"),
+  
+  // Pricing
+  unitPrice: text("unit_price"), // Store as text to avoid precision issues
+  totalPrice: text("total_price"),
+  currency: text("currency").default("ETB"), // ETB or USD
+  
+  // Dates
+  requestDate: timestamp("request_date").defaultNow().notNull(),
+  expectedDeliveryDate: timestamp("expected_delivery_date"),
+  orderDate: timestamp("order_date"), // When order was actually placed
+  receivedDate: timestamp("received_date"), // When items were received
+  
+  // Shipping & delivery
+  shippingMethod: text("shipping_method"),
+  deliveryAddress: text("delivery_address"),
+  trackingNumber: text("tracking_number"),
+  
+  // Payment
+  paymentTerms: text("payment_terms"),
+  paymentStatus: text("payment_status").default("unpaid"), // unpaid, partially_paid, paid
+  
+  // Approval
+  approvedById: varchar("approved_by_id").references(() => employees.id),
+  approvedAt: timestamp("approved_at"),
+  
+  // Notes and attachments
+  notes: text("notes"),
+  internalNotes: text("internal_notes"), // Internal notes not visible in print
+  
+  // Legacy fields for backward compatibility
   expectedDate: timestamp("expected_date"),
   actualDate: timestamp("actual_date"),
-  notes: text("notes"),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

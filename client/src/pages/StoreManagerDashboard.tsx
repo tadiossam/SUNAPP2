@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Package, CheckCircle, XCircle, Clock, ShoppingCart, AlertTriangle } from "lucide-react";
+import { Search, Package, CheckCircle, XCircle, Clock, ShoppingCart, AlertTriangle, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -226,13 +227,21 @@ export default function StoreManagerDashboard() {
   return (
     <div className="h-full overflow-auto p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">
-          Store Manager Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review and approve item requisitions, manage purchase orders
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            Store Manager Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review and approve item requisitions, manage purchase orders
+          </p>
+        </div>
+        <Link href="/purchase-orders">
+          <Button variant="outline" data-testid="button-view-all-pos">
+            <FileText className="h-4 w-4 mr-2" />
+            View All Purchase Orders
+          </Button>
+        </Link>
       </div>
 
       {/* Search and Filters */}

@@ -1769,6 +1769,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/purchase-requests/:id", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can view purchase requests (admin has automatic access)
+      if (!hasRole(req.user, 'store_manager')) {
+        return res.status(403).json({ error: "Access denied: Store manager role required (admin has full access)" });
+      }
+      
+      const purchaseRequest = await storage.getPurchaseRequestById(req.params.id);
+      res.json(purchaseRequest);
+    } catch (error) {
+      console.error("Error fetching purchase request:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch purchase request";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  app.patch("/api/purchase-requests/:id", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Only store_manager role can update purchase requests (admin has automatic access)
+      if (!hasRole(req.user, 'store_manager')) {
+        return res.status(403).json({ error: "Access denied: Store manager role required (admin has full access)" });
+      }
+      
+      await storage.updatePurchaseRequest(req.params.id, req.body);
+      res.json({ success: true, message: "Purchase request updated successfully" });
+    } catch (error) {
+      console.error("Error updating purchase request:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update purchase request";
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+
   app.post("/api/item-requisitions/:id/confirm-receipt", async (req, res) => {
     try {
       if (!req.user) {

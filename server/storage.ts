@@ -2585,17 +2585,17 @@ export class DatabaseStorage implements IStorage {
             // Acquire advisory lock first
             await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
             
-            // Then get the next number
+            // Then get the next number using a simpler approach
+            const pattern = `PO-${currentYear}-%`;
             const result = await tx.execute(sql`
               SELECT COALESCE(
                 MAX(
-                  CASE 
-                    WHEN purchase_request_number ~ ${`^PO-${currentYear}-[0-9]+$`}
-                    THEN CAST(SUBSTRING(purchase_request_number FROM 'PO-${currentYear}-(\\d+)') AS INTEGER)
-                    ELSE 0
-                  END
+                  CAST(
+                    SUBSTRING(purchase_request_number FROM LENGTH(${prefix}) + 1) AS INTEGER
+                  )
                 ), 0) + 1 AS num
               FROM purchase_requests
+              WHERE purchase_request_number LIKE ${pattern}
             `);
             
             const nextNum = (result.rows[0] as any).num;
@@ -2770,17 +2770,17 @@ export class DatabaseStorage implements IStorage {
               // Acquire advisory lock first
               await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
               
-              // Then get the next number
+              // Then get the next number using a simpler approach
+              const pattern = `PO-${currentYear}-%`;
               const result = await tx.execute(sql`
                 SELECT COALESCE(
                   MAX(
-                    CASE 
-                      WHEN purchase_request_number ~ ${`^PO-${currentYear}-[0-9]+$`}
-                      THEN CAST(SUBSTRING(purchase_request_number FROM 'PO-${currentYear}-(\\d+)') AS INTEGER)
-                      ELSE 0
-                    END
+                    CAST(
+                      SUBSTRING(purchase_request_number FROM LENGTH(${prefix}) + 1) AS INTEGER
+                    )
                   ), 0) + 1 AS num
                 FROM purchase_requests
+                WHERE purchase_request_number LIKE ${pattern}
               `);
 
               const nextNum = (result.rows[0] as any).num;
@@ -2838,17 +2838,17 @@ export class DatabaseStorage implements IStorage {
           // Acquire advisory lock first
           await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
           
-          // Then get the next number
+          // Then get the next number using a simpler approach
+          const pattern = `PO-${currentYear}-%`;
           const result = await tx.execute(sql`
             SELECT COALESCE(
               MAX(
-                CASE 
-                  WHEN purchase_request_number ~ ${`^PO-${currentYear}-[0-9]+$`}
-                  THEN CAST(SUBSTRING(purchase_request_number FROM 'PO-${currentYear}-(\\d+)') AS INTEGER)
-                  ELSE 0
-                END
+                CAST(
+                  SUBSTRING(purchase_request_number FROM LENGTH(${prefix}) + 1) AS INTEGER
+                )
               ), 0) + 1 AS num
             FROM purchase_requests
+            WHERE purchase_request_number LIKE ${pattern}
           `);
 
           const nextNum = (result.rows[0] as any).num;
@@ -2936,21 +2936,7 @@ export class DatabaseStorage implements IStorage {
 
   async getPurchaseRequests(): Promise<any[]> {
     const requests = await db
-      .select({
-        id: purchaseRequests.id,
-        purchaseRequestNumber: purchaseRequests.purchaseRequestNumber,
-        requisitionLineId: purchaseRequests.requisitionLineId,
-        storeManagerId: purchaseRequests.storeManagerId,
-        quantityRequested: purchaseRequests.quantityRequested,
-        status: purchaseRequests.status,
-        vendorId: purchaseRequests.vendorId,
-        vendorName: purchaseRequests.vendorName,
-        expectedDate: purchaseRequests.expectedDate,
-        actualDate: purchaseRequests.actualDate,
-        notes: purchaseRequests.notes,
-        createdAt: purchaseRequests.createdAt,
-        updatedAt: purchaseRequests.updatedAt,
-      })
+      .select()
       .from(purchaseRequests)
       .orderBy(desc(purchaseRequests.createdAt));
 
@@ -2992,6 +2978,69 @@ export class DatabaseStorage implements IStorage {
     );
 
     return enrichedRequests;
+  }
+
+  async getPurchaseRequestById(id: string): Promise<any> {
+    const [request] = await db
+      .select()
+      .from(purchaseRequests)
+      .where(eq(purchaseRequests.id, id))
+      .limit(1);
+
+    if (!request) {
+      throw new Error("Purchase request not found");
+    }
+
+    // Enrich with line item, requisition, and spare part details
+    const [line] = await db
+      .select()
+      .from(itemRequisitionLines)
+      .where(eq(itemRequisitionLines.id, request.requisitionLineId))
+      .limit(1);
+
+    let requisition = null;
+    let sparePart = null;
+    let storeManager = null;
+
+    if (line) {
+      [requisition] = await db
+        .select()
+        .from(itemRequisitions)
+        .where(eq(itemRequisitions.id, line.requisitionId))
+        .limit(1);
+
+      if (line.sparePartId) {
+        [sparePart] = await db
+          .select()
+          .from(spareParts)
+          .where(eq(spareParts.id, line.sparePartId))
+          .limit(1);
+      }
+    }
+
+    [storeManager] = await db
+      .select()
+      .from(employees)
+      .where(eq(employees.id, request.storeManagerId))
+      .limit(1);
+
+    return {
+      ...request,
+      lineItem: line,
+      requisition,
+      sparePart,
+      storeManager,
+    };
+  }
+
+  async updatePurchaseRequest(id: string, data: Partial<typeof purchaseRequests.$inferInsert>): Promise<void> {
+    await db
+      .update(purchaseRequests)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(purchaseRequests.id, id));
   }
 
   async confirmPartsReceipt(requisitionId: string, teamMemberId: string): Promise<void> {

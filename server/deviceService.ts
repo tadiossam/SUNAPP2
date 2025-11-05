@@ -82,14 +82,39 @@ export class AttendanceDeviceService {
       const result = await this.zkInstance.getUsers();
       
       if (result && result.data) {
-        return result.data.map((user: any) => ({
-          uid: user.uid || user.userId,
-          userId: String(user.userId || user.uid),
-          name: user.name || '',
-          password: user.password || '',
-          cardno: user.cardno || '',
-          role: user.role || 0
-        }));
+        console.log('📋 Sample raw user data from device:', JSON.stringify(result.data[0], null, 2));
+        
+        return result.data.map((user: any) => {
+          // The ZKTeco device may have separate firstName and surname fields,
+          // or just a single name field. We'll construct the full name.
+          let fullName = '';
+          
+          if (user.name) {
+            fullName = user.name;
+          }
+          
+          // Some devices store first and last names separately
+          if (user.firstName || user.surname) {
+            const parts = [];
+            if (user.firstName) parts.push(user.firstName);
+            if (user.surname) parts.push(user.surname);
+            fullName = parts.join(' ');
+          }
+          
+          // Fall back to just name if nothing else
+          if (!fullName && user.name) {
+            fullName = user.name;
+          }
+          
+          return {
+            uid: user.uid || user.userId,
+            userId: String(user.userId || user.uid),
+            name: fullName || '',
+            password: user.password || '',
+            cardno: user.cardno || '',
+            role: user.role || 0
+          };
+        });
       }
 
       return [];

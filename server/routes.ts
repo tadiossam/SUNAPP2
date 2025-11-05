@@ -3371,6 +3371,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import selected users from biometric device (uses saved device settings)
+  app.post("/api/biometric-imports/import-selected", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { userIds } = req.body;
+      
+      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "At least one user must be selected"
+        });
+      }
+
+      const settings = await storage.getAttendanceDeviceSettings();
+      if (!settings) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Device settings not configured" 
+        });
+      }
+
+      const { createDeviceService } = await import('./deviceService');
+      const deviceService = createDeviceService(settings.ipAddress, settings.port, settings.timeout);
+      
+      const allDeviceUsers = await deviceService.getAllUsersWithConnection();
+      
+      // Filter to only selected users
+      const selectedUsers = allDeviceUsers.filter(user => 
+        userIds.includes(user.userId)
+      );
+      
+      let imported = 0;
+      let updated = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      for (const deviceUser of selectedUsers) {
+        try {
+          // Try multiple matching strategies to find existing employee
+          let existingEmployee = await storage.getEmployeeByDeviceUserId(deviceUser.userId);
+          
+          // If not found by deviceUserId, try matching by employeeId (if deviceUserId is badge number)
+          if (!existingEmployee) {
+            existingEmployee = await storage.getEmployeeByEmployeeId(deviceUser.userId);
+          }
+          
+          // If still not found, try matching by normalized name
+          if (!existingEmployee && deviceUser.name) {
+            existingEmployee = await storage.getEmployeeByName(deviceUser.name.trim());
+          }
+          
+          if (existingEmployee) {
+            // Update existing employee with device ID
+            await storage.updateEmployee(existingEmployee.id, {
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || existingEmployee.fullName,
+            });
+            updated++;
+          } else {
+            // Only create new employee if no match found
+            await storage.createEmployee({
+              employeeId: `EMP-${deviceUser.userId}`,
+              deviceUserId: deviceUser.userId,
+              fullName: deviceUser.name || `User ${deviceUser.userId}`,
+              role: 'technician',
+              phoneNumber: '',
+              email: '',
+              garageId: null,
+            });
+            imported++;
+          }
+        } catch (error: any) {
+          console.error(`Error importing user ${deviceUser.userId}:`, error);
+          errors.push(`User ${deviceUser.userId}: ${error.message}`);
+          skipped++;
+        }
+      }
+
+      // Log the import operation
+      await storage.createDeviceImportLog({
+        deviceId: settings.id,
+        operationType: 'selected_import',
+        status: errors.length > 0 ? 'partial' : 'success',
+        usersImported: imported,
+        usersUpdated: updated,
+        usersSkipped: skipped,
+        errorMessage: errors.length > 0 ? errors.join('; ') : null,
+        importData: JSON.stringify(selectedUsers),
+      });
+
+      await storage.updateAttendanceDeviceSettings(settings.id, {
+        lastImportAt: new Date(),
+      });
+
+      res.json({
+        success: true,
+        imported,
+        updated,
+        skipped,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } catch (error: any) {
+      console.error("Selected user import error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Import failed",
+        error: error.message
+      });
+    }
+  });
+
   // Import all users from biometric device (alias for import-users)
   app.post("/api/biometric-imports/import-all", isCEOOrAdmin, async (req, res) => {
     try {

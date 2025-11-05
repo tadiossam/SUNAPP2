@@ -455,30 +455,22 @@ export default function StoreManagerDashboard() {
                       </div>
 
                       <div className="flex gap-2 flex-shrink-0">
-                        {request.status === 'pending' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => markAsOrderedMutation.mutate(request.id)}
-                            disabled={markAsOrderedMutation.isPending}
-                            data-testid={`button-ordered-${request.id}`}
-                          >
-                            <Truck className="h-4 w-4 mr-1" />
-                            Ordered
-                          </Button>
-                        )}
-                        {request.status === 'ordered' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => markAsReceivedMutation.mutate({ id: request.id, quantityReceived: request.quantityRequested })}
-                            disabled={markAsReceivedMutation.isPending}
-                            data-testid={`button-received-${request.id}`}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Received
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {/* Print functionality */}}
+                          data-testid={`button-print-${request.id}`}
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {/* View details functionality */}}
+                          data-testid={`button-view-${request.id}`}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </Card>

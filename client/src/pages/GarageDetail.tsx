@@ -35,10 +35,7 @@ import {
   Activity,
   Wrench,
   Users,
-  Edit,
-  Trash2,
   Plus,
-  Eye,
 } from "lucide-react";
 import type { Garage, WorkOrder, Workshop, Employee } from "@shared/schema";
 import { insertWorkshopSchema } from "@shared/schema";
@@ -58,11 +55,7 @@ export default function GarageDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const [editingWorkshop, setEditingWorkshop] = useState<any | null>(null);
-  const [isEditWorkshopDialogOpen, setIsEditWorkshopDialogOpen] = useState(false);
   const [isAddWorkshopDialogOpen, setIsAddWorkshopDialogOpen] = useState(false);
-  const [selectedWorkshopForDetails, setSelectedWorkshopForDetails] = useState<Workshop | null>(null);
-  const [isWorkshopDetailsDialogOpen, setIsWorkshopDetailsDialogOpen] = useState(false);
 
   // Employee search dialog states
   const [isForemanSearchOpen, setIsForemanSearchOpen] = useState(false);
@@ -70,24 +63,12 @@ export default function GarageDetail() {
   const [selectedForemanId, setSelectedForemanId] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
-  // Edit workshop employee search states
-  const [isEditForemanSearchOpen, setIsEditForemanSearchOpen] = useState(false);
-  const [isEditMembersSearchOpen, setIsEditMembersSearchOpen] = useState(false);
-  const [editSelectedForemanId, setEditSelectedForemanId] = useState<string>("");
-  const [editSelectedMemberIds, setEditSelectedMemberIds] = useState<string[]>([]);
-
   const { data: garage, isLoading } = useQuery<GarageWithDetails>({
     queryKey: [`/api/garages/${id}`],
   });
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
-  });
-
-  // Fetch work orders for selected workshop
-  const { data: workshopWorkOrders = [] } = useQuery<WorkOrder[]>({
-    queryKey: [`/api/work-orders`, { workshopId: selectedWorkshopForDetails?.id }],
-    enabled: !!selectedWorkshopForDetails?.id,
   });
 
   const workshopForm = useForm({
@@ -109,24 +90,6 @@ export default function GarageDetail() {
     },
   });
 
-  const editWorkshopForm = useForm({
-    resolver: zodResolver(insertWorkshopSchema.extend({
-      memberIds: z.array(z.string()).min(1, "At least one team member is required"),
-    })),
-    defaultValues: {
-      name: "",
-      foremanId: "",
-      description: "",
-      garageId: id,
-      memberIds: [] as string[],
-      monthlyTarget: undefined,
-      q1Target: undefined,
-      q2Target: undefined,
-      q3Target: undefined,
-      q4Target: undefined,
-      annualTarget: undefined,
-    },
-  });
 
   const createWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -152,50 +115,6 @@ export default function GarageDetail() {
     },
   });
 
-  const updateWorkshopMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return await apiRequest("PUT", `/api/workshops/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
-      setIsEditWorkshopDialogOpen(false);
-      setEditingWorkshop(null);
-      editWorkshopForm.reset();
-      setEditSelectedForemanId("");
-      setEditSelectedMemberIds([]);
-      toast({
-        title: "Workshop updated",
-        description: "Workshop has been successfully updated.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update workshop",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteWorkshopMutation = useMutation({
-    mutationFn: async (workshopId: string) => {
-      return await apiRequest("DELETE", `/api/workshops/${workshopId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
-      toast({
-        title: "Workshop deleted",
-        description: "Workshop has been successfully removed.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete workshop",
-        variant: "destructive",
-      });
-    },
-  });
 
   const onWorkshopSubmit = (data: any) => {
     createWorkshopMutation.mutate({
@@ -204,51 +123,7 @@ export default function GarageDetail() {
     });
   };
 
-  const onEditWorkshopSubmit = (data: any) => {
-    if (editingWorkshop) {
-      updateWorkshopMutation.mutate({
-        id: editingWorkshop.id,
-        data: {
-          ...data,
-        },
-      });
-    }
-  };
-
-  const handleEditWorkshop = (workshop: any) => {
-    setEditingWorkshop(workshop);
-    const memberIds = workshop.membersList?.map((m: Employee) => m.id) || [];
-    setEditSelectedForemanId(workshop.foremanId || "");
-    setEditSelectedMemberIds(memberIds);
-    editWorkshopForm.reset({
-      name: workshop.name,
-      foremanId: workshop.foremanId,
-      description: workshop.description || "",
-      garageId: workshop.garageId,
-      memberIds: memberIds,
-      monthlyTarget: workshop.monthlyTarget ?? undefined,
-      q1Target: workshop.q1Target ?? undefined,
-      q2Target: workshop.q2Target ?? undefined,
-      q3Target: workshop.q3Target ?? undefined,
-      q4Target: workshop.q4Target ?? undefined,
-      annualTarget: workshop.annualTarget ?? undefined,
-    });
-    setIsEditWorkshopDialogOpen(true);
-  };
-
-  const handleDeleteWorkshop = (workshopId: string, workshopName: string) => {
-    if (confirm(`Are you sure you want to delete "${workshopName}"? This action cannot be undone.`)) {
-      deleteWorkshopMutation.mutate(workshopId);
-    }
-  };
-
-  const handleViewWorkshopDetails = (workshop: Workshop) => {
-    setSelectedWorkshopForDetails(workshop);
-    setIsWorkshopDetailsDialogOpen(true);
-  };
-
   const selectedForeman = employees.find((e) => e.id === selectedForemanId);
-  const editSelectedForeman = employees.find((e) => e.id === editSelectedForemanId);
 
   if (isLoading) {
     return (
@@ -361,65 +236,36 @@ export default function GarageDetail() {
         <CardContent>
           {garage.workshops && garage.workshops.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {garage.workshops.map((workshop) => (
-                <Card key={workshop.id} className="p-4 hover-elevate" data-testid={`workshop-card-${workshop.id}`}>
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-lg">{workshop.name}</h4>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleEditWorkshop(workshop)}
-                          data-testid={`button-edit-workshop-${workshop.id}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDeleteWorkshop(workshop.id, workshop.name)}
-                          data-testid={`button-delete-workshop-${workshop.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+              {garage.workshops.map((workshop: any) => (
+                <Card
+                  key={workshop.id}
+                  className="hover-elevate cursor-pointer"
+                  onClick={() => setLocation(`/workshops/${workshop.id}`)}
+                  data-testid={`card-workshop-${workshop.id}`}
+                >
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Wrench className="h-5 w-5 text-primary" />
+                      <span className="text-lg">{workshop.name}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {workshop.foremanId && employees?.find((e) => e.id === workshop.foremanId) && (
+                      <div className="text-sm text-muted-foreground">
+                        <span className="font-medium">Foreman:</span>{" "}
+                        {employees.find((e) => e.id === workshop.foremanId)?.fullName}
                       </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {workshop.foreman && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Foreman:</span>
-                          <span className="font-medium">{workshop.foreman.fullName}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 text-sm">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Members:</span>
-                        <Badge variant="secondary">{workshop.membersList?.length || 0}</Badge>
-                      </div>
-                    </div>
-
-                    {workshop.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {workshop.description}
-                      </p>
                     )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2"
-                      onClick={() => handleViewWorkshopDetails(workshop)}
-                      data-testid={`button-view-workshop-details-${workshop.id}`}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </div>
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-medium">Team Members:</span>{" "}
+                      {workshop.membersList?.length || 0}
+                    </div>
+                    {workshop.description && (
+                      <div className="text-sm text-muted-foreground mt-2">
+                        {workshop.description}
+                      </div>
+                    )}
+                  </CardContent>
                 </Card>
               ))}
             </div>
@@ -719,296 +565,30 @@ export default function GarageDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Workshop Dialog */}
-      <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit Workshop</DialogTitle>
-          </DialogHeader>
-          <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col overflow-hidden">
-              <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 140px)' }}>
-              <FormField
-                control={editWorkshopForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Workshop Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        data-testid="input-edit-workshop-name"
-                        placeholder="e.g., Engine Workshop, Hydraulics Shop"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={editWorkshopForm.control}
-                name="foremanId"
-                render={() => (
-                  <FormItem>
-                    <FormLabel>Foreman (Boss) *</FormLabel>
-                    <FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => setIsEditForemanSearchOpen(true)}
-                        data-testid="button-edit-select-foreman"
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        {editSelectedForeman ? editSelectedForeman.fullName : "Select foreman"}
-                      </Button>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={editWorkshopForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Workshop description"
-                        data-testid="input-edit-workshop-description"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div>
-                <FormLabel>Workshop Members *</FormLabel>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start mt-2"
-                  onClick={() => setIsEditMembersSearchOpen(true)}
-                  data-testid="button-edit-select-members"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  {editSelectedMemberIds.length > 0
-                    ? `${editSelectedMemberIds.length} member(s) selected`
-                    : "Select team members"}
-                </Button>
-              </div>
-
-              {/* Planning Targets */}
-              <div className="space-y-3">
-                <FormLabel className="text-base">Planning Targets (Optional)</FormLabel>
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="monthlyTarget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Monthly</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-monthly-target"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="annualTarget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Annual</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-annual-target"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q1Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q1 (Jan-Mar)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q1-target"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q2Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q2 (Apr-Jun)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q2-target"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q3Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q3 (Jul-Sep)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q3-target"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q4Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q4 (Oct-Dec)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q4-target"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-              </div>
-
-              <div className="flex gap-2 pt-4 mt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditWorkshopDialogOpen(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1"
-                  data-testid="button-submit-edit-workshop"
-                  disabled={updateWorkshopMutation.isPending}
-                >
-                  Update Workshop
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
       {/* Employee Search Dialogs for Add Workshop */}
       <EmployeeSearchDialog
         open={isForemanSearchOpen}
-        onClose={() => setIsForemanSearchOpen(false)}
-        onSelect={(employeeId) => {
+        onOpenChange={setIsForemanSearchOpen}
+        mode="single"
+        title="Select Foreman"
+        onSelect={(employeeIds) => {
+          const employeeId = employeeIds[0] || "";
           setSelectedForemanId(employeeId);
           workshopForm.setValue("foremanId", employeeId);
-          setIsForemanSearchOpen(false);
         }}
-        selectedId={selectedForemanId}
-        title="Select Foreman"
+        selectedIds={selectedForemanId ? [selectedForemanId] : []}
       />
 
       <EmployeeSearchDialog
         open={isMembersSearchOpen}
-        onClose={() => setIsMembersSearchOpen(false)}
+        onOpenChange={setIsMembersSearchOpen}
+        mode="multiple"
+        title="Select Workshop Members"
         onSelect={(employeeIds) => {
           setSelectedMemberIds(employeeIds);
           workshopForm.setValue("memberIds", employeeIds);
-          setIsMembersSearchOpen(false);
         }}
         selectedIds={selectedMemberIds}
-        multiSelect
-        title="Select Workshop Members"
-      />
-
-      {/* Employee Search Dialogs for Edit Workshop */}
-      <EmployeeSearchDialog
-        open={isEditForemanSearchOpen}
-        onClose={() => setIsEditForemanSearchOpen(false)}
-        onSelect={(employeeId) => {
-          setEditSelectedForemanId(employeeId);
-          editWorkshopForm.setValue("foremanId", employeeId);
-          setIsEditForemanSearchOpen(false);
-        }}
-        selectedId={editSelectedForemanId}
-        title="Select Foreman"
-      />
-
-      <EmployeeSearchDialog
-        open={isEditMembersSearchOpen}
-        onClose={() => setIsEditMembersSearchOpen(false)}
-        onSelect={(employeeIds) => {
-          setEditSelectedMemberIds(employeeIds);
-          editWorkshopForm.setValue("memberIds", employeeIds);
-          setIsEditMembersSearchOpen(false);
-        }}
-        selectedIds={editSelectedMemberIds}
-        multiSelect
-        title="Select Workshop Members"
       />
     </div>
     </div>

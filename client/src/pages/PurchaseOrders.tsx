@@ -415,7 +415,7 @@ export default function PurchaseOrders() {
         </Select>
       </div>
 
-      <div className="grid gap-4">
+      <div className="space-y-2">
         {filteredOrders.length === 0 ? (
           <Card className="p-12">
             <div className="text-center text-muted-foreground">
@@ -427,45 +427,37 @@ export default function PurchaseOrders() {
           filteredOrders.map((po) => {
             const StatusIcon = statusIcons[po.status] || Package;
             return (
-              <Card key={po.id} className="p-6 hover-elevate" data-testid={`card-po-${po.id}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <StatusIcon className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold">{po.purchaseRequestNumber}</h3>
-                      <Badge variant={statusColors[po.status] as any}>
-                        {po.status.replace(/_/g, ' ')}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Part</div>
-                        <div className="font-medium">{po.sparePart?.partName || po.lineItem?.description || '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Requested By</div>
-                        <div className="font-medium">{po.requestedBy?.fullName || '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Quantity</div>
-                        <div className="font-medium">{po.quantityRequested} units</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Date Requested</div>
-                        <div className="font-medium">{format(new Date(po.dateRequested), 'MMM dd, yyyy')}</div>
-                      </div>
-                    </div>
+              <Card key={po.id} className="p-4 hover-elevate" data-testid={`card-po-${po.id}`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <StatusIcon className="h-5 w-5 text-primary flex-shrink-0" />
+                    <span className="font-semibold text-base">{po.purchaseRequestNumber}</span>
+                  </div>
+                  
+                  <Badge variant={statusColors[po.status] as any} className="flex-shrink-0">
+                    {po.status.replace(/_/g, ' ')}
+                  </Badge>
 
-                    {po.totalPrice && (
-                      <div className="flex items-center gap-2 text-lg font-semibold">
-                        <DollarSign className="h-5 w-5" />
-                        {po.currency || 'ETB'} {po.totalPrice}
-                      </div>
-                    )}
+                  <div className="flex-1 grid grid-cols-4 gap-4 min-w-0">
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Part</div>
+                      <div className="font-medium text-sm truncate">{po.sparePart?.partName || po.lineItem?.description || '-'}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Requested By</div>
+                      <div className="font-medium text-sm truncate">{po.requestedBy?.fullName || '-'}</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Quantity</div>
+                      <div className="font-medium text-sm">{po.quantityRequested} units</div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">Date Requested</div>
+                      <div className="font-medium text-sm">{format(new Date(po.dateRequested), 'MMM dd, yyyy')}</div>
+                    </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-shrink-0">
                     <Button
                       variant="outline"
                       size="icon"

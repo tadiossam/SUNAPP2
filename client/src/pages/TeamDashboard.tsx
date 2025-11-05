@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -43,6 +44,7 @@ type ItemRequisition = {
 export default function TeamDashboard() {
   const { language } = useLanguage();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
   const [isRequestPartsOpen, setIsRequestPartsOpen] = useState(false);
 
@@ -257,7 +259,11 @@ export default function TeamDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover-elevate active-elevate-2" 
+          onClick={() => setLocation('/purchase-orders')}
+          data-testid="card-awaiting-parts"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               {language === "am" ? "እቃ በመጠባበቅ" : "Awaiting Parts"}
@@ -268,6 +274,9 @@ export default function TeamDashboard() {
             <div className="text-2xl font-bold">
               {myWorkOrders.filter((wo) => wo.status === "awaiting_parts" || wo.status === "waiting_purchase").length}
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {language === "am" ? "ይመልከቱ" : "View purchase orders"}
+            </p>
           </CardContent>
         </Card>
 

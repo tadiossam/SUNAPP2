@@ -4,6 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
@@ -87,6 +98,27 @@ export default function Employees() {
       toast({
         title: "Employee Deleted",
         description: "Employee has been successfully deleted.",
+      });
+    },
+  });
+
+  const deleteAllBiometricEmployeesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/biometric-imports/delete-all-employees", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      toast({
+        title: "Employees Deleted",
+        description: `Deleted ${data.deletedCount} employees imported from biometric device`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete biometric employees",
+        variant: "destructive",
       });
     },
   });
@@ -271,17 +303,50 @@ export default function Employees() {
             <Users className="h-8 w-8 text-primary" />
             <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-page-title">{t("employees")}</h1>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-employee">
-                <Plus className="h-4 w-4 mr-2" />
-                {t("addEmployee")}
-              </Button>
-            </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t("addEmployee")}</DialogTitle>
-            </DialogHeader>
+          <div className="flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={deleteAllBiometricEmployeesMutation.isPending}
+                  data-testid="button-delete-all-biometric-employees"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {deleteAllBiometricEmployeesMutation.isPending ? "Deleting..." : "Delete All Employees"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete All Biometric Employees?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all employees that were imported from the biometric device. 
+                    This action cannot be undone. Manually created employees will not be affected.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid="button-cancel-delete-all">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteAllBiometricEmployeesMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    data-testid="button-confirm-delete-all"
+                  >
+                    Delete All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-add-employee">
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t("addEmployee")}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("addEmployee")}</DialogTitle>
+                </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
@@ -421,19 +486,20 @@ export default function Employees() {
                     </FormItem>
                   )}
                 />
-                <DialogFooter>
-                  <Button
-                    type="submit"
-                    data-testid="button-submit-employee"
-                    disabled={createMutation.isPending}
-                  >
-                    {createMutation.isPending ? t("loading") : t("save")}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      data-testid="button-submit-employee"
+                      disabled={createMutation.isPending}
+                    >
+                      {createMutation.isPending ? t("loading") : t("save")}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+          </div>
         </div>
 
         {/* Search and View Toggle */}

@@ -986,27 +986,6 @@ export default function AdminSettings() {
     },
   });
 
-  const deleteAllBiometricEmployeesMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("DELETE", "/api/biometric-imports/delete-all-employees", {});
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      toast({
-        title: "Employees Deleted",
-        description: `Deleted ${data.deletedCount} employees imported from biometric device`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Delete Failed",
-        description: error.message || "Failed to delete biometric employees",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Animate progress bar during import
   useEffect(() => {
     if (importSelectedUsersMutation.isPending) {
@@ -1365,38 +1344,6 @@ export default function AdminSettings() {
                       <RefreshCw className={`h-4 w-4 mr-2 ${syncUsersMutation.isPending ? "animate-spin" : ""}`} />
                       {syncUsersMutation.isPending ? "Syncing..." : "Sync New Users"}
                     </Button>
-                    
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          disabled={deleteAllBiometricEmployeesMutation.isPending}
-                          data-testid="button-delete-all-biometric-employees"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          {deleteAllBiometricEmployeesMutation.isPending ? "Deleting..." : "Delete All Employees"}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete All Biometric Employees?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete all employees that were imported from the biometric device. 
-                            This action cannot be undone. Manually created employees will not be affected.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel data-testid="button-cancel-delete-all">Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteAllBiometricEmployeesMutation.mutate()}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            data-testid="button-confirm-delete-all"
-                          >
-                            Delete All
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
                   </div>
 
                   <Alert>
@@ -1404,8 +1351,7 @@ export default function AdminSettings() {
                     <AlertDescription className="text-sm">
                       <strong>Fetch & Preview:</strong> Fetch users from device and select which ones to import.<br />
                       <strong>Import All:</strong> Import all users from device without preview.<br />
-                      <strong>Sync New Users:</strong> Import only new users added since last sync.<br />
-                      <strong>Delete All Employees:</strong> Permanently delete all employees imported from biometric device.
+                      <strong>Sync New Users:</strong> Import only new users added since last sync.
                     </AlertDescription>
                   </Alert>
                 </CardContent>

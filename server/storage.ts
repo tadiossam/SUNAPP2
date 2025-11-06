@@ -2912,6 +2912,18 @@ export class DatabaseStorage implements IStorage {
                 .set({ stockQuantity: newQuantity })
                 .where(eq(spareParts.id, line.sparePartId));
 
+              // Create parts receipt record to track issued parts
+              if (requisition.workOrderId && deductQuantity > 0) {
+                await tx.insert(partsReceipts).values({
+                  workOrderId: requisition.workOrderId,
+                  requisitionLineId: line.id,
+                  sparePartId: line.sparePartId,
+                  quantityIssued: deductQuantity,
+                  issuedById: storeManagerId,
+                  issuedAt: new Date(),
+                });
+              }
+
               remainingQuantity -= deductQuantity;
             }
 

@@ -33,6 +33,7 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Approval System**: Multi-level workflow for job orders, completions, parts requests, and inspections.
 - **Item Requisition Forms**: Matches official forms with line-item descriptions, quantities, and multi-level signatures. Features a **Per-Line Foreman Approval System** with organized sub-tabs (Pending Review, Approved, Rejected) and individual line-item controls. Also includes an **Individual Line-Item Approval System** for Store Managers with partial fulfillment, automatic stock deduction, and purchase order generation.
 - **Employee Performance Tracking**: Gamification system with daily/monthly/yearly leaderboards, calculating performance scores based on completed work orders and average completion time, excluding paused time.
+- **Maintenance History**: Comprehensive equipment maintenance tracking page with searchable equipment selection (Combobox), six statistics cards (total maintenance, most frequent work type, average frequency, total parts used, total cost, unique employees), clickable maintenance cards showing work order details, assigned employees, completion dates, and duration. Automatically populated from completed work orders with parts usage data via `/api/parts-receipts` endpoint.
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
 - **Attendance Device Integration**: Integration with ZKTeco iFace990 Plus for employee management.
 

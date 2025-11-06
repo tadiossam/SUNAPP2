@@ -15,6 +15,8 @@ import {
   workOrderGarages,
   workOrderWorkshops,
   workOrderMemberships,
+  workOrderStatusHistory,
+  workOrderTimeTracking,
   workOrderRequiredParts,
   partsStorageLocations,
   equipmentLocations,
@@ -1527,11 +1529,23 @@ export class DatabaseStorage implements IStorage {
       await db.insert(workOrderMemberships).values(teamMemberValues);
     }
     
-    // Update work order status to active
+    // Update work order status to active and set startedAt timestamp
+    const now = new Date();
     await db
       .update(workOrders)
-      .set({ status: "active" })
+      .set({ 
+        status: "active",
+        startedAt: now
+      })
       .where(eq(workOrders.id, workOrderId));
+    
+    // Create timer start event in time tracking
+    await db.insert(workOrderTimeTracking).values({
+      workOrderId,
+      event: "start",
+      reason: "team_assigned",
+      triggeredById: foremanId,
+    });
   }
 
   async getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]> {

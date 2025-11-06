@@ -4,10 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Wrench, Clock, FileText, TrendingUp, ArrowUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { 
+  Calendar, Wrench, Clock, FileText, TrendingUp, ArrowUpDown, 
+  Package, DollarSign, Users, Check, ChevronsUpDown 
+} from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import type { Equipment } from "@shared/schema";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 type WorkOrderWithDetails = {
   id: string;
@@ -24,10 +31,24 @@ type WorkOrderWithDetails = {
   assignedToList?: Array<{ fullName: string }>;
 };
 
+type PartsReceipt = {
+  id: string;
+  workOrderId: string;
+  sparePartId: string;
+  quantityIssued: number;
+  issuedAt: string;
+  sparePart?: {
+    partName: string;
+    partNumber: string;
+    unitCost: string;
+  };
+};
+
 export default function MaintenancePage() {
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("recent");
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderWithDetails | null>(null);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const { data: equipment, isLoading: equipmentLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -35,6 +56,10 @@ export default function MaintenancePage() {
 
   const { data: allWorkOrders, isLoading: workOrdersLoading } = useQuery<WorkOrderWithDetails[]>({
     queryKey: ["/api/work-orders"],
+  });
+
+  const { data: partsReceipts, isLoading: partsLoading } = useQuery<PartsReceipt[]>({
+    queryKey: ["/api/parts-receipts"],
   });
 
   const selectedEquipment = equipment?.find((e) => e.id === selectedEquipmentId);
@@ -47,7 +72,24 @@ export default function MaintenancePage() {
     );
   }, [selectedEquipmentId, allWorkOrders]);
 
-  // Calculate maintenance statistics
+  // Calculate equipment maintenance rankings
+  const equipmentRankings = useMemo(() => {
+    if (!allWorkOrders || !equipment) return [];
+    
+    const rankings = equipment.map((eq) => {
+      const eqWorkOrders = allWorkOrders.filter(
+        (wo) => wo.equipmentId === eq.id && wo.status === "completed"
+      );
+      return {
+        ...eq,
+        maintenanceCount: eqWorkOrders.length,
+      };
+    });
+    
+    return rankings.sort((a, b) => b.maintenanceCount - a.maintenanceCount);
+  }, [allWorkOrders, equipment]);
+
+  // Calculate maintenance statistics with parts and costs
   const maintenanceStats = useMemo(() => {
     if (!completedWorkOrders.length) return null;
 
@@ -55,6 +97,17 @@ export default function MaintenancePage() {
     completedWorkOrders.forEach((wo) => {
       workTypeCount[wo.workType] = (workTypeCount[wo.workType] || 0) + 1;
     });
+
+    // Calculate parts used for this equipment
+    const workOrderIds = completedWorkOrders.map(wo => wo.id);
+    const equipmentParts = partsReceipts?.filter(pr => workOrderIds.includes(pr.workOrderId)) || [];
+    const totalPartsUsed = equipmentParts.reduce((sum, pr) => sum + pr.quantityIssued, 0);
+    
+    // Calculate total cost
+    const totalCost = equipmentParts.reduce((sum, pr) => {
+      const unitCost = pr.sparePart?.unitCost ? parseFloat(pr.sparePart.unitCost) : 0;
+      return sum + (unitCost * pr.quantityIssued);
+    }, 0);
 
     const mostFrequentType = Object.entries(workTypeCount).sort((a, b) => b[1] - a[1])[0];
     const avgDaysBetween = completedWorkOrders.length > 1
@@ -64,14 +117,23 @@ export default function MaintenancePage() {
         ) / (completedWorkOrders.length - 1)
       : 0;
 
+    // Get unique employees who worked on this equipment
+    const uniqueEmployees = new Set<string>();
+    completedWorkOrders.forEach(wo => {
+      wo.assignedToList?.forEach(emp => uniqueEmployees.add(emp.fullName));
+    });
+
     return {
       totalMaintenance: completedWorkOrders.length,
       mostFrequentType: mostFrequentType?.[0] || "N/A",
       frequencyCount: mostFrequentType?.[1] || 0,
       avgDaysBetween: Math.round(avgDaysBetween),
+      totalPartsUsed,
+      totalCost,
+      uniqueEmployeesCount: uniqueEmployees.size,
       workTypeBreakdown: workTypeCount,
     };
-  }, [completedWorkOrders]);
+  }, [completedWorkOrders, partsReceipts]);
 
   // Sort work orders based on selected option
   const sortedWorkOrders = useMemo(() => {
@@ -123,25 +185,66 @@ export default function MaintenancePage() {
           <Card>
             <CardHeader>
               <CardTitle>Select Equipment</CardTitle>
-              <CardDescription>Choose equipment to view maintenance history</CardDescription>
+              <CardDescription>Search and choose equipment to view maintenance history</CardDescription>
             </CardHeader>
             <CardContent>
-              <Select value={selectedEquipmentId} onValueChange={setSelectedEquipmentId}>
-                <SelectTrigger className="w-full" data-testid="select-equipment">
-                  <SelectValue placeholder="Select equipment..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {equipmentLoading ? (
-                    <div className="p-2">Loading equipment...</div>
-                  ) : (
-                    equipment?.map((eq) => (
-                      <SelectItem key={eq.id} value={eq.id} data-testid={`option-equipment-${eq.id}`}>
-                        {eq.equipmentType} - {eq.make} {eq.model} ({eq.plateNo})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboboxOpen}
+                    className="w-full justify-between"
+                    data-testid="button-select-equipment"
+                  >
+                    {selectedEquipmentId
+                      ? equipment?.find((eq) => eq.id === selectedEquipmentId)
+                          ? `${equipment.find((eq) => eq.id === selectedEquipmentId)?.equipmentType} - ${equipment.find((eq) => eq.id === selectedEquipmentId)?.plateNo}`
+                          : "Select equipment..."
+                      : "Select equipment..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search equipment..." data-testid="input-search-equipment" />
+                    <CommandEmpty>No equipment found.</CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-auto">
+                      {equipmentRankings.map((eq) => (
+                        <CommandItem
+                          key={eq.id}
+                          value={`${eq.equipmentType} ${eq.make} ${eq.model} ${eq.plateNo}`}
+                          onSelect={() => {
+                            setSelectedEquipmentId(eq.id);
+                            setComboboxOpen(false);
+                          }}
+                          data-testid={`option-equipment-${eq.id}`}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedEquipmentId === eq.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium">
+                              {eq.equipmentType} - {eq.plateNo}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {eq.make} {eq.model}
+                            </div>
+                          </div>
+                          {eq.maintenanceCount > 0 && (
+                            <Badge variant="secondary" className="ml-2">
+                              {eq.maintenanceCount} maintenance
+                            </Badge>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </CardContent>
           </Card>
 
@@ -175,7 +278,7 @@ export default function MaintenancePage() {
 
               {/* Maintenance Statistics */}
               {maintenanceStats && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Total Maintenance</CardTitle>
@@ -199,6 +302,48 @@ export default function MaintenancePage() {
                       <p className="text-xs text-muted-foreground mt-1">
                         {maintenanceStats.frequencyCount} times
                       </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                        <Package className="h-4 w-4" />
+                        Parts Used
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-parts-used">
+                        {maintenanceStats.totalPartsUsed}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Total parts issued</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                        <DollarSign className="h-4 w-4" />
+                        Total Cost
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-total-cost">
+                        ${maintenanceStats.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Parts & maintenance</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        Employees
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold" data-testid="text-employees-count">
+                        {maintenanceStats.uniqueEmployeesCount}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Team members assigned</p>
                     </CardContent>
                   </Card>
                   <Card>

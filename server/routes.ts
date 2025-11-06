@@ -1802,6 +1802,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all parts receipts with spare part details
+  app.get("/api/parts-receipts", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      const receipts = await db.select({
+        receipt: partsReceipts,
+        sparePart: spareParts,
+      })
+        .from(partsReceipts)
+        .leftJoin(spareParts, eq(partsReceipts.sparePartId, spareParts.id));
+      
+      res.json(receipts.map((r: any) => ({
+        ...r.receipt,
+        sparePart: r.sparePart,
+      })));
+    } catch (error) {
+      console.error("Error fetching parts receipts:", error);
+      res.status(500).json({ error: "Failed to fetch parts receipts" });
+    }
+  });
+
   // NEW: Foreman approve individual requisition line item
   app.post("/api/item-requisition-lines/:lineId/foreman-approve", async (req, res) => {
     try {

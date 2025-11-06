@@ -528,6 +528,14 @@ export const itemRequisitionLines = pgTable("item_requisition_lines", {
   quantityApproved: integer("quantity_approved"), // Quantity approved by foreman/store
   status: text("status").notNull().default("pending"), // pending, approved, rejected, backordered, fulfilled
   remarks: text("remarks"), // Additional notes (አስተያየት)
+  
+  // Foreman approval fields - per-line approval/rejection
+  foremanReviewerId: varchar("foreman_reviewer_id").references(() => employees.id), // Foreman who reviewed this line
+  foremanDecisionAt: timestamp("foreman_decision_at"), // When foreman made decision
+  foremanDecisionRemarks: text("foreman_decision_remarks"), // Foreman's notes on decision
+  foremanApprovedQty: integer("foreman_approved_qty"), // Quantity approved by foreman (can differ from requested)
+  foremanStatus: text("foreman_status").default("pending"), // pending, approved, rejected
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // Ensure unique line numbers within each requisition
@@ -565,6 +573,19 @@ export const purchaseRequests = pgTable("purchase_requests", {
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Parts Receipts - Track actual parts issued to work orders for display on dashboards
+export const partsReceipts = pgTable("parts_receipts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  requisitionLineId: varchar("requisition_line_id").notNull().references(() => itemRequisitionLines.id, { onDelete: "cascade" }),
+  sparePartId: varchar("spare_part_id").references(() => spareParts.id, { onDelete: "set null" }),
+  quantityIssued: integer("quantity_issued").notNull(), // Actual quantity issued from stock
+  issuedAt: timestamp("issued_at").defaultNow().notNull(), // When parts were issued
+  issuedById: varchar("issued_by_id").notNull().references(() => employees.id), // Store manager who issued parts
+  notes: text("notes"), // Additional notes about issuance
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Employee Performance Snapshots - Daily/monthly/yearly performance metrics
@@ -1074,7 +1095,12 @@ export const itemRequisitionLinesRelations = relations(itemRequisitionLines, ({ 
     fields: [itemRequisitionLines.sparePartId],
     references: [spareParts.id],
   }),
+  foremanReviewer: one(employees, {
+    fields: [itemRequisitionLines.foremanReviewerId],
+    references: [employees.id],
+  }),
   purchaseRequests: many(purchaseRequests),
+  partsReceipts: many(partsReceipts),
 }));
 
 export const purchaseRequestsRelations = relations(purchaseRequests, ({ one }) => ({
@@ -1092,6 +1118,25 @@ export const purchaseRequestsRelations = relations(purchaseRequests, ({ one }) =
   }),
   storeManager: one(employees, {
     fields: [purchaseRequests.storeManagerId],
+    references: [employees.id],
+  }),
+}));
+
+export const partsReceiptsRelations = relations(partsReceipts, ({ one }) => ({
+  workOrder: one(workOrders, {
+    fields: [partsReceipts.workOrderId],
+    references: [workOrders.id],
+  }),
+  requisitionLine: one(itemRequisitionLines, {
+    fields: [partsReceipts.requisitionLineId],
+    references: [itemRequisitionLines.id],
+  }),
+  sparePart: one(spareParts, {
+    fields: [partsReceipts.sparePartId],
+    references: [spareParts.id],
+  }),
+  issuedBy: one(employees, {
+    fields: [partsReceipts.issuedById],
     references: [employees.id],
   }),
 }));

@@ -49,6 +49,8 @@ export default function MaintenancePage() {
   const [sortBy, setSortBy] = useState<string>("recent");
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderWithDetails | null>(null);
   const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [showEmployeesList, setShowEmployeesList] = useState(false);
+  const [showPartsList, setShowPartsList] = useState(false);
 
   const { data: equipment, isLoading: equipmentLoading } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
@@ -133,6 +135,73 @@ export default function MaintenancePage() {
       uniqueEmployeesCount: uniqueEmployees.size,
       workTypeBreakdown: workTypeCount,
     };
+  }, [completedWorkOrders, partsReceipts]);
+
+  // Get employees list ordered by most recent work (for dialog)
+  const employeesList = useMemo(() => {
+    if (!completedWorkOrders.length) return [];
+    
+    const employeeWorkMap = new Map<string, { name: string; lastWorkDate: string; workCount: number }>();
+    
+    completedWorkOrders.forEach(wo => {
+      wo.assignedToList?.forEach(emp => {
+        const existing = employeeWorkMap.get(emp.fullName);
+        if (existing) {
+          existing.workCount++;
+          if (new Date(wo.completedAt) > new Date(existing.lastWorkDate)) {
+            existing.lastWorkDate = wo.completedAt;
+          }
+        } else {
+          employeeWorkMap.set(emp.fullName, {
+            name: emp.fullName,
+            lastWorkDate: wo.completedAt,
+            workCount: 1,
+          });
+        }
+      });
+    });
+    
+    return Array.from(employeeWorkMap.values()).sort((a, b) => 
+      new Date(b.lastWorkDate).getTime() - new Date(a.lastWorkDate).getTime()
+    );
+  }, [completedWorkOrders]);
+
+  // Get parts list aggregated across all work orders (for dialog)
+  const partsListAggregated = useMemo(() => {
+    if (!completedWorkOrders.length || !partsReceipts) return [];
+    
+    const workOrderIds = completedWorkOrders.map(wo => wo.id);
+    const equipmentParts = partsReceipts.filter(pr => workOrderIds.includes(pr.workOrderId));
+    
+    // Aggregate parts by part ID
+    const partsMap = new Map<string, { 
+      partName: string; 
+      partNumber: string; 
+      totalQuantity: number; 
+      unitCost: number; 
+      totalCost: number;
+    }>();
+    
+    equipmentParts.forEach(pr => {
+      const partId = pr.sparePartId;
+      const unitCost = pr.sparePart?.unitCost ? parseFloat(pr.sparePart.unitCost) : 0;
+      
+      const existing = partsMap.get(partId);
+      if (existing) {
+        existing.totalQuantity += pr.quantityIssued;
+        existing.totalCost += unitCost * pr.quantityIssued;
+      } else {
+        partsMap.set(partId, {
+          partName: pr.sparePart?.partName || "Unknown Part",
+          partNumber: pr.sparePart?.partNumber || "N/A",
+          totalQuantity: pr.quantityIssued,
+          unitCost,
+          totalCost: unitCost * pr.quantityIssued,
+        });
+      }
+    });
+    
+    return Array.from(partsMap.values()).sort((a, b) => b.totalCost - a.totalCost);
   }, [completedWorkOrders, partsReceipts]);
 
   // Sort work orders based on selected option
@@ -304,7 +373,11 @@ export default function MaintenancePage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card 
+                    className="cursor-pointer hover-elevate active-elevate-2 transition-all"
+                    onClick={() => setShowPartsList(true)}
+                    data-testid="card-parts-used"
+                  >
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                         <Package className="h-4 w-4" />
@@ -315,7 +388,7 @@ export default function MaintenancePage() {
                       <div className="text-2xl font-bold" data-testid="text-parts-used">
                         {maintenanceStats.totalPartsUsed}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Total parts issued</p>
+                      <p className="text-xs text-muted-foreground mt-1">Click to view details</p>
                     </CardContent>
                   </Card>
                   <Card>
@@ -332,7 +405,11 @@ export default function MaintenancePage() {
                       <p className="text-xs text-muted-foreground mt-1">Parts & maintenance</p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card 
+                    className="cursor-pointer hover-elevate active-elevate-2 transition-all"
+                    onClick={() => setShowEmployeesList(true)}
+                    data-testid="card-employees"
+                  >
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                         <Users className="h-4 w-4" />
@@ -343,7 +420,7 @@ export default function MaintenancePage() {
                       <div className="text-2xl font-bold" data-testid="text-employees-count">
                         {maintenanceStats.uniqueEmployeesCount}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Team members assigned</p>
+                      <p className="text-xs text-muted-foreground mt-1">Click to view details</p>
                     </CardContent>
                   </Card>
                   <Card>
@@ -569,6 +646,114 @@ export default function MaintenancePage() {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Employees List Dialog */}
+      <Dialog open={showEmployeesList} onOpenChange={setShowEmployeesList}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Employees Who Worked on This Equipment</DialogTitle>
+            <DialogDescription>
+              {selectedEquipment && `${selectedEquipment.make} ${selectedEquipment.model} - ${selectedEquipment.plateNo}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {employeesList.length > 0 ? (
+              <div className="space-y-3">
+                {employeesList.map((employee, idx) => (
+                  <Card key={idx} data-testid={`employee-card-${idx}`}>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Users className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{employee.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Last worked: {format(new Date(employee.lastWorkDate), "PPP")}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">
+                          {employee.workCount} {employee.workCount === 1 ? 'work' : 'works'}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="pt-6 text-center text-muted-foreground">
+                  No employee data available
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Parts List Dialog */}
+      <Dialog open={showPartsList} onOpenChange={setShowPartsList}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Parts Used on This Equipment</DialogTitle>
+            <DialogDescription>
+              {selectedEquipment && `${selectedEquipment.make} ${selectedEquipment.model} - ${selectedEquipment.plateNo}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {partsListAggregated.length > 0 ? (
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="space-y-3">
+                    {partsListAggregated.map((part, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-start justify-between border-b pb-3 last:border-b-0 last:pb-0"
+                        data-testid={`aggregated-part-${idx}`}
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{part.partName}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            Part No: {part.partNumber}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Package className="h-3 w-3" />
+                              Total Qty: {part.totalQuantity}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              Unit: ETB {part.unitCost.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-sm">ETB {part.totalCost.toFixed(2)}</div>
+                          <div className="text-xs text-muted-foreground">Total Cost</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                    <div className="text-sm font-medium">Grand Total Parts Cost</div>
+                    <div className="text-lg font-bold text-primary">
+                      ETB {partsListAggregated.reduce((sum, p) => sum + p.totalCost, 0).toFixed(2)}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="pt-6 text-center text-muted-foreground">
+                  No parts have been used for this equipment
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

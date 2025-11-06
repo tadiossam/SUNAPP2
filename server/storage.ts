@@ -2689,6 +2689,7 @@ export class DatabaseStorage implements IStorage {
             if (requisition.workOrderId && deductQuantity > 0) {
               await tx.insert(partsReceipts).values({
                 workOrderId: requisition.workOrderId,
+                requisitionLineId: line.id,
                 sparePartId: line.sparePartId,
                 quantityIssued: deductQuantity,
                 issuedById: storeManagerId,

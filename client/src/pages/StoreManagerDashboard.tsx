@@ -215,6 +215,8 @@ export default function StoreManagerDashboard() {
   });
 
   const handleOpenApproval = (requisition: ItemRequisition) => {
+    console.log('Opening approval dialog for requisition:', requisition);
+    console.log('Number of lines:', requisition.lines?.length || 0);
     setSelectedRequisition(requisition);
     setIsApprovalDialogOpen(true);
     
@@ -599,7 +601,16 @@ export default function StoreManagerDashboard() {
               <div>
                 <Label>Line Items - Individual Approval</Label>
                 <div className="mt-2 space-y-3">
-                  {selectedRequisition.lines?.map((line) => {
+                  {(!selectedRequisition.lines || selectedRequisition.lines.length === 0) ? (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        <AlertTriangle className="h-12 w-12 mx-auto mb-2 text-yellow-600" />
+                        <p className="font-medium">No foreman-approved line items found</p>
+                        <p className="text-sm mt-1">This requisition has no lines approved by the foreman yet.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    selectedRequisition.lines.map((line) => {
                     const decision = lineDecisions[line.id];
                     return (
                       <Card key={line.id}>
@@ -716,7 +727,8 @@ export default function StoreManagerDashboard() {
                         </CardContent>
                       </Card>
                     );
-                  })}
+                  })
+                  )}
                 </div>
               </div>
 

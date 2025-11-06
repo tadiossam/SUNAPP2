@@ -1818,7 +1818,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(receipts.map((r: any) => ({
         ...r.receipt,
-        sparePart: r.sparePart,
+        sparePart: r.sparePart ? {
+          ...r.sparePart,
+          unitCost: r.sparePart.price, // Map price to unitCost for frontend
+        } : null,
       })));
     } catch (error) {
       console.error("Error fetching parts receipts:", error);

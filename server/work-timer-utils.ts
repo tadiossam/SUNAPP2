@@ -54,8 +54,14 @@ export function calculateWorkOrderElapsedTime(
                        currentStatus === "awaiting_parts" || 
                        currentStatus === "waiting_purchase";
   
-  if (isPausedNow && pauseStartMs !== null && !completedAt) {
-    totalPausedMs += Date.now() - pauseStartMs;
+  if (pauseStartMs !== null) {
+    if (completedAt) {
+      // Work order completed while paused - subtract pause interval up to completion
+      totalPausedMs += end - pauseStartMs;
+    } else {
+      // Work order still running while paused - subtract pause interval up to now
+      totalPausedMs += Date.now() - pauseStartMs;
+    }
   }
   
   const activeMs = Math.max(0, totalElapsedMs - totalPausedMs);

@@ -94,7 +94,10 @@ export default function TeamDashboard() {
     queryFn: async () => {
       if (!viewingReceptionId) return null;
       const response = await apiRequest("GET", `/api/equipment-receptions/${viewingReceptionId}`);
-      return response.json();
+      const data = await response.json();
+      console.log('🔍 Reception Details:', data);
+      console.log('🔍 adminIssuesReported:', data?.adminIssuesReported);
+      return data;
     },
     enabled: !!viewingReceptionId,
   });

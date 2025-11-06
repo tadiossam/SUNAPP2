@@ -2539,11 +2539,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getItemRequisitionsByStoreManager(): Promise<any[]> {
-    // Get all requisitions (not just foreman-approved, since we filter by line status)
+    // Get requisitions that have been approved by foreman and are pending store review
     const requisitions = await db
       .select()
       .from(itemRequisitions)
-      .where(eq(itemRequisitions.storeApprovalStatus, 'pending'))
+      .where(eq(itemRequisitions.status, 'pending_store'))
       .orderBy(desc(itemRequisitions.createdAt));
     
     // Get lines, requester, and work order for each requisition

@@ -125,6 +125,14 @@ export default function AdminSettings() {
   // D365 Companies state (populated after fetching companies)
   const [d365Companies, setD365Companies] = useState<any[]>([]);
 
+  // D365 Data Table Modal state (Syncto365 functionality)
+  const [isDataTableOpen, setIsDataTableOpen] = useState(false);
+  const [fetchedRecords, setFetchedRecords] = useState<any[]>([]);
+  const [currentDataType, setCurrentDataType] = useState<'items' | 'FixedAssets' | ''>('');
+  const [currentSkip, setCurrentSkip] = useState(0);
+  const [selectedRecordNos, setSelectedRecordNos] = useState<string[]>([]);
+  const [currentFilterValue, setCurrentFilterValue] = useState('');
+
   // Parse D365 URL
   const parseD365Url = (fullUrl: string) => {
     try {

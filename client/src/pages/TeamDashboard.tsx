@@ -285,6 +285,11 @@ export default function TeamDashboard() {
               onClick={() => handleRequestParts(workOrder)}
               size="sm"
               variant="outline"
+              disabled={
+                workOrder.status === "completed" ||
+                workOrder.status === "pending_verification" ||
+                workOrder.status === "pending_supervisor"
+              }
               data-testid={`button-request-parts-${workOrder.id}`}
             >
               <Package className="h-4 w-4 mr-2" />

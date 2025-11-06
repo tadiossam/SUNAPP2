@@ -1617,7 +1617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch work order numbers and lines for each requisition
       const requisitionsWithDetails = await Promise.all(
-        requisitions.map(async (requisition) => {
+        requisitions.map(async (requisition: any) => {
           const workOrder = await db.select({ workOrderNumber: workOrders.workOrderNumber })
             .from(workOrders)
             .where(eq(workOrders.id, requisition.workOrderId))
@@ -1740,7 +1740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fetch lines and receipts for each requisition
       const requisitionsWithDetails = await Promise.all(
-        requisitions.map(async (requisition) => {
+        requisitions.map(async (requisition: any) => {
           const lines = await db.select({
             line: itemRequisitionLines,
             sparePart: spareParts,
@@ -1753,7 +1753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Fetch parts receipts for each line
           const linesWithReceipts = await Promise.all(
-            lines.map(async (lineItem) => {
+            lines.map(async (lineItem: any) => {
               const receipts = await db.select({
                 receipt: partsReceipts,
                 issuedBy: employees,
@@ -1766,7 +1766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 ...lineItem.line,
                 sparePart: lineItem.sparePart,
                 foremanReviewer: lineItem.foremanReviewer,
-                receipts: receipts.map(r => ({ ...r.receipt, issuedBy: r.issuedBy })),
+                receipts: receipts.map((r: any) => ({ ...r.receipt, issuedBy: r.issuedBy })),
               };
             })
           );

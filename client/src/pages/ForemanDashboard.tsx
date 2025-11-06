@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye, Package, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye, Package, ThumbsUp, ThumbsDown, XCircle, Check, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
@@ -79,6 +80,10 @@ export default function ForemanDashboard() {
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null);
   const [actionRemarks, setActionRemarks] = useState("");
+  
+  // Per-line approval state
+  const [lineRemarks, setLineRemarks] = useState<{ [lineId: string]: string }>({});
+  const [lineApprovedQty, setLineApprovedQty] = useState<{ [lineId: string]: number }>({});
 
   const { data: pendingWorkOrders = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/foreman/pending"],
@@ -211,6 +216,67 @@ export default function ForemanDashboard() {
       });
     },
   });
+
+  // Per-line approval mutations
+  const approveLineMutation = useMutation({
+    mutationFn: async (data: { lineId: string; approvedQty: number; remarks?: string }) => {
+      return await apiRequest("POST", `/api/item-requisition-lines/${data.lineId}/foreman-approve`, {
+        approvedQty: data.approvedQty,
+        remarks: data.remarks,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Line Item Approved",
+        description: "Requisition line item has been approved.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/foreman"] });
+    },
+  });
+
+  const rejectLineMutation = useMutation({
+    mutationFn: async (data: { lineId: string; remarks: string }) => {
+      return await apiRequest("POST", `/api/item-requisition-lines/${data.lineId}/foreman-reject`, {
+        remarks: data.remarks,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Line Item Rejected",
+        description: "Requisition line item has been rejected.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/foreman"] });
+    },
+  });
+
+  const handleApproveLine = (line: RequisitionLine) => {
+    const approvedQty = lineApprovedQty[line.id] || line.quantityRequested;
+    const remarks = lineRemarks[line.id] || "";
+    
+    approveLineMutation.mutate({
+      lineId: line.id,
+      approvedQty,
+      remarks,
+    });
+  };
+
+  const handleRejectLine = (line: RequisitionLine) => {
+    const remarks = lineRemarks[line.id];
+    
+    if (!remarks) {
+      toast({
+        title: "Remarks Required",
+        description: "Please provide remarks for rejection",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    rejectLineMutation.mutate({
+      lineId: line.id,
+      remarks,
+    });
+  };
 
   const handleAssignTeam = (workOrder: WorkOrder) => {
     setSelectedWorkOrder(workOrder);
@@ -450,6 +516,9 @@ export default function ForemanDashboard() {
                         <p className="text-sm text-muted-foreground mt-1">
                           Work Order: {requisition.workOrderNumber}
                         </p>
+                        <p className="text-sm text-muted-foreground">
+                          Requested by: {requisition.requester?.fullName || 'Unknown'}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <Badge variant="outline">{requisition.status}</Badge>
@@ -458,63 +527,89 @@ export default function ForemanDashboard() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
-                      <Label className="text-muted-foreground text-sm">Requested by:</Label>
-                      <p className="font-medium">{requisition.requester?.fullName || 'Unknown'}</p>
-                    </div>
-                    
-                    <div>
-                      <Label className="text-muted-foreground text-sm">Work Order:</Label>
-                      <p className="font-medium">{requisition.workOrder?.workOrderNumber || 'N/A'}</p>
-                    </div>
-
-                    <div>
-                      <Label className="text-muted-foreground text-sm mb-2 block">Items:</Label>
-                      <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="text-left p-2">#</th>
-                              <th className="text-left p-2">Description</th>
-                              <th className="text-left p-2">Unit</th>
-                              <th className="text-right p-2">Qty</th>
-                              <th className="text-left p-2">Remarks</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {requisition.lines.map((line) => (
-                              <tr key={line.id} className="border-t">
-                                <td className="p-2">{line.lineNumber}</td>
-                                <td className="p-2">{line.description}</td>
-                                <td className="p-2">{line.unitOfMeasure || '-'}</td>
-                                <td className="p-2 text-right">{line.quantityRequested}</td>
-                                <td className="p-2 text-muted-foreground">{line.remarks || '-'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <Label className="text-sm font-semibold mb-3 block">Review Each Line Item:</Label>
+                      <div className="space-y-3">
+                        {requisition.lines.map((line) => (
+                          <Card key={line.id} className="border-2" data-testid={`line-card-${line.id}`}>
+                            <CardContent className="p-4 space-y-3">
+                              <div className="grid grid-cols-12 gap-4 items-start">
+                                <div className="col-span-1">
+                                  <Badge variant="secondary">{line.lineNumber}</Badge>
+                                </div>
+                                <div className="col-span-11 space-y-2">
+                                  <div>
+                                    <p className="font-medium">{line.description}</p>
+                                    <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                                      <span>Unit: {line.unitOfMeasure || 'N/A'}</span>
+                                      <span>Qty Requested: <strong>{line.quantityRequested}</strong></span>
+                                      {line.remarks && <span>Notes: {line.remarks}</span>}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label className="text-xs">Approved Quantity</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max={line.quantityRequested}
+                                        defaultValue={line.quantityRequested}
+                                        onChange={(e) => {
+                                          setLineApprovedQty(prev => ({
+                                            ...prev,
+                                            [line.id]: parseInt(e.target.value) || 0
+                                          }));
+                                        }}
+                                        className="mt-1"
+                                        data-testid={`input-approved-qty-${line.id}`}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">Remarks (Optional for Approve, Required for Reject)</Label>
+                                      <Input
+                                        type="text"
+                                        placeholder="Add remarks..."
+                                        onChange={(e) => {
+                                          setLineRemarks(prev => ({
+                                            ...prev,
+                                            [line.id]: e.target.value
+                                          }));
+                                        }}
+                                        className="mt-1"
+                                        data-testid={`input-remarks-${line.id}`}
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleApproveLine(line)}
+                                      disabled={approveLineMutation.isPending}
+                                      className="flex-1"
+                                      data-testid={`button-approve-line-${line.id}`}
+                                    >
+                                      <Check className="h-3.5 w-3.5 mr-1.5" />
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleRejectLine(line)}
+                                      disabled={rejectLineMutation.isPending}
+                                      className="flex-1"
+                                      data-testid={`button-reject-line-${line.id}`}
+                                    >
+                                      <X className="h-3.5 w-3.5 mr-1.5" />
+                                      Reject
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => setSelectedRequisition(requisition)}
-                        className="flex-1"
-                        data-testid={`button-approve-requisition-${requisition.id}`}
-                      >
-                        <ThumbsUp className="h-4 w-4 mr-2" />
-                        Approve
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          rejectRequisitionMutation.mutate({ requisitionId: requisition.id, remarks: "" });
-                        }}
-                        variant="destructive"
-                        className="flex-1"
-                        data-testid={`button-reject-requisition-${requisition.id}`}
-                      >
-                        <ThumbsDown className="h-4 w-4 mr-2" />
-                        Reject
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>

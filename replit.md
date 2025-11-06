@@ -72,6 +72,15 @@ The application is a Progressive Web App (PWA) optimized for mobile. Manufacturi
   - Requesting workshop/department
   - Line items: Description, Unit of Measure, Quantity, Remarks
   - Multi-level signatures: Requester → Foreman → Store Manager
+  - **Per-Line Foreman Approval System**:
+    - Foreman reviews each requisition line item individually on Parts Requisitions tab
+    - Per-line controls: Approved quantity input (with adjustment capability), Remarks field, Approve/Reject buttons
+    - Foreman can adjust approved quantity down from requested amount
+    - Remarks optional for approval, required for rejection
+    - Database tracking: `foremanReviewerId`, `foremanDecisionAt`, `foremanDecisionRemarks`, `foremanApprovedQty`, `foremanStatus` (pending/approved/rejected)
+    - API endpoints: GET `/api/work-orders/:id/requisitions`, POST `/api/item-requisition-lines/:lineId/foreman-approve`, POST `/api/item-requisition-lines/:lineId/foreman-reject`
+    - Store manager filtering: Only foreman-approved lines (`foremanStatus = 'approved'`) visible to store managers
+    - Parts receipts tracking: `parts_receipts` table links work orders, requisition lines, and issued spare parts
   - **Individual Line-Item Approval System** (Store Manager):
     - Per-line action selection: Approve / Backorder / Reject
     - **Automatic Partial Fulfillment**: If stock insufficient, system automatically issues available quantity and creates purchase order for remainder

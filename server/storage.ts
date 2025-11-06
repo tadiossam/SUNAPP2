@@ -2546,8 +2546,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(itemRequisitions.storeApprovalStatus, 'pending'))
       .orderBy(desc(itemRequisitions.createdAt));
     
-    console.log('[Store Manager] Found requisitions:', requisitions.length);
-    
     // Get lines, requester, and work order for each requisition
     const requisitionsWithLines = await Promise.all(
       requisitions.map(async (req) => {
@@ -2563,47 +2561,35 @@ export class DatabaseStorage implements IStorage {
           )
           .orderBy(itemRequisitionLines.lineNumber);
         
-        console.log(`[Store Manager] Requisition ${req.requisitionNumber}: Found ${lines.length} approved lines`);
-        
         // Calculate available stock for each line
         const linesWithStock = await Promise.all(
           lines.map(async (line) => {
-            try {
-              if (line.sparePartId) {
-                // Get the spare part to check its stock quantity
-                const [part] = await db
-                  .select()
-                  .from(spareParts)
-                  .where(eq(spareParts.id, line.sparePartId));
-                
-                const totalStock = part?.stockQuantity || 0;
-                
-                // Determine stock status
-                let stockStatus = 'out_of_stock';
-                if (totalStock >= line.quantityRequested) {
-                  stockStatus = 'in_stock';
-                } else if (totalStock > 0) {
-                  stockStatus = 'low_stock';
-                }
-                
-                const lineWithStock = { 
-                  ...line, 
-                  availableStock: totalStock,
-                  stockStatus
-                };
-                console.log(`[Store Manager] Line ${line.lineNumber}: ${line.description}, stock: ${totalStock}`);
-                return lineWithStock;
+            if (line.sparePartId) {
+              // Get the spare part to check its stock quantity
+              const [part] = await db
+                .select()
+                .from(spareParts)
+                .where(eq(spareParts.id, line.sparePartId));
+              
+              const totalStock = part?.stockQuantity || 0;
+              
+              // Determine stock status
+              let stockStatus = 'out_of_stock';
+              if (totalStock >= line.quantityRequested) {
+                stockStatus = 'in_stock';
+              } else if (totalStock > 0) {
+                stockStatus = 'low_stock';
               }
-              console.log(`[Store Manager] Line ${line.lineNumber}: No spare part ID`);
-              return { ...line, availableStock: 0, stockStatus: 'unknown' };
-            } catch (error) {
-              console.error(`[Store Manager] Error processing line ${line.lineNumber}:`, error);
-              return { ...line, availableStock: 0, stockStatus: 'error' };
+              
+              return { 
+                ...line, 
+                availableStock: totalStock,
+                stockStatus
+              };
             }
+            return { ...line, availableStock: 0, stockStatus: 'unknown' };
           })
         );
-        
-        console.log(`[Store Manager] Requisition ${req.requisitionNumber}: Processed ${linesWithStock.length} lines with stock info`);
         
         const [requester] = await db
           .select()

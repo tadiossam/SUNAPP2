@@ -107,7 +107,7 @@ export default function StoreManagerDashboard() {
   const [lineDecisions, setLineDecisions] = useState<Record<string, LineDecision>>({});
 
   // Fetch item requisitions
-  const { data: requisitions = [], isLoading } = useQuery<ItemRequisition[]>({
+  const { data: requisitions = [], isLoading, refetch: refetchRequisitions } = useQuery<ItemRequisition[]>({
     queryKey: ["/api/item-requisitions/store-manager"],
   });
 
@@ -214,15 +214,29 @@ export default function StoreManagerDashboard() {
     return matchesSearch && matchesTab;
   });
 
-  const handleOpenApproval = (requisition: ItemRequisition) => {
-    console.log('Opening approval dialog for requisition:', requisition);
-    console.log('Number of lines:', requisition.lines?.length || 0);
-    setSelectedRequisition(requisition);
+  const handleOpenApproval = async (requisition: ItemRequisition) => {
+    // Fetch fresh data before opening dialog
+    const freshRequisitions = await queryClient.fetchQuery<ItemRequisition[]>({
+      queryKey: ["/api/item-requisitions/store-manager"],
+    });
+    
+    // Find the fresh version of this requisition
+    const freshRequisition = freshRequisitions.find(r => r.id === requisition.id);
+    if (!freshRequisition) {
+      toast({
+        title: "Error",
+        description: "Failed to load requisition details",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedRequisition(freshRequisition);
     setIsApprovalDialogOpen(true);
     
     // Initialize line decisions with default approve action
     const initialDecisions: Record<string, LineDecision> = {};
-    requisition.lines?.forEach(line => {
+    freshRequisition.lines?.forEach(line => {
       initialDecisions[line.id] = {
         lineId: line.id,
         action: 'approve',

@@ -3,6 +3,11 @@
 ## Overview
 A comprehensive web application for industrial equipment maintenance, focusing on efficient management of heavy equipment inventory and spare parts. It features a detailed parts catalog with 3D models, streamlines searching and visualization, and integrates robust garage, equipment reception, and multi-level approval workflows to enhance maintenance operations and tracking. The project aims to significantly improve efficiency in heavy equipment maintenance.
 
+## Recent Changes (November 2025)
+- **Fixed Maintenance History employee data display**: Updated `getAllWorkOrders` to query `work_order_memberships` table instead of non-existent `assignedToIds` array field. Employees now properly display in the "Employees Who Worked on This Equipment" dialog.
+- **Retroactive parts_receipts creation**: Identified and fixed missing `parts_receipts` records for completed work orders. Affected work orders: WO-2025-004, WO-2025-006 (CA 600D), WO-2025-009, WO-2025-010, WO-2025-013. The Maintenance History page now correctly displays parts used and total costs for all equipment.
+- **Data integrity audit**: Ran comprehensive audit of all completed work orders to ensure fulfilled requisition lines have corresponding `parts_receipts` records. All historical data has been corrected.
+
 ## User Preferences
 I prefer iterative development with clear communication at each stage. Please ask for confirmation before implementing significant architectural changes or adding new external dependencies. I also prefer detailed explanations for complex technical decisions. Ensure all solutions are mobile-compatible, especially for iOS Safari.
 

@@ -5695,6 +5695,81 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // Import selected D365 items into spare parts catalog
+  app.post("/api/dynamics365/import-items-to-spare-parts", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { selectedItems } = req.body;
+
+      if (!selectedItems || !Array.isArray(selectedItems) || selectedItems.length === 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'No items selected for import',
+        });
+      }
+
+      const importedParts = [];
+      const errors = [];
+
+      for (const item of selectedItems) {
+        try {
+          // Check if part already exists by part number
+          const existing = await db.select()
+            .from(spareParts)
+            .where(eq(spareParts.partNumber, item.No))
+            .limit(1);
+
+          if (existing.length > 0) {
+            errors.push({
+              partNumber: item.No,
+              message: 'Part already exists in catalog',
+            });
+            continue;
+          }
+
+          // Map D365 item fields to spare parts schema
+          const newPart = await db.insert(spareParts).values({
+            partNumber: item.No,
+            partName: item.Description || item.No,
+            description: item.Description || '',
+            category: 'General', // Default category, can be updated later
+            price: item.Unit_Cost ? String(item.Unit_Cost) : '0',
+            stockQuantity: parseInt(item.InventoryField) || 0,
+            stockStatus: (parseInt(item.InventoryField) || 0) > 0 ? 'in_stock' : 'out_of_stock',
+            specifications: JSON.stringify({
+              unitOfMeasure: item.Purch_Unit_of_Measure || '',
+              lastModified: item.Last_Date_Modified || '',
+              importedFromD365: true,
+              importDate: new Date().toISOString(),
+            }),
+            manufacturingSpecs: null, // To be filled in later by user
+            tutorialVideoUrl: null, // To be uploaded later by user
+          }).returning();
+
+          importedParts.push(newPart[0]);
+        } catch (error: any) {
+          errors.push({
+            partNumber: item.No,
+            message: error.message || 'Failed to import item',
+          });
+        }
+      }
+
+      res.json({
+        status: 'ok',
+        imported: importedParts.length,
+        failed: errors.length,
+        parts: importedParts,
+        errors,
+      });
+    } catch (error: any) {
+      console.error('Import items to spare parts error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message || 'Failed to import items',
+      });
+    }
+  });
+
   // ==================== D365 Settings Routes ====================
   
   // Get D365 settings

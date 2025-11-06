@@ -43,6 +43,7 @@ type WorkOrder = {
   requiredParts?: WorkOrderRequiredPart[];
   inspectionId?: string | null;
   receptionId?: string | null;
+  createdById?: string | null;
   createdAt: string;
 };
 
@@ -72,6 +73,12 @@ export default function WorkOrdersPage() {
   // Inspection and Maintenance detail dialogs
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
+
+  // Get current user
+  const { data: authData } = useQuery({
+    queryKey: ["/api/auth/me"],
+  });
+  const currentUser = (authData as any)?.user;
 
   const { data: workOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders"],
@@ -207,6 +214,26 @@ export default function WorkOrdersPage() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete work order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const markAsCompletedMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("POST", `/api/work-orders/${id}/mark-completed`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      toast({
+        title: "Success",
+        description: "Work order marked as completed",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to mark work order as completed",
         variant: "destructive",
       });
     },
@@ -521,6 +548,23 @@ export default function WorkOrdersPage() {
                         View Maintenance
                       </Button>
                     )}
+                  </div>
+                )}
+
+                {/* Mark as Completed Button - Show only for verified work orders created by current user */}
+                {wo.status === 'verified' && currentUser && wo.createdById === currentUser.id && (
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button 
+                      size="sm" 
+                      variant="default"
+                      onClick={() => markAsCompletedMutation.mutate(wo.id)}
+                      className="w-full"
+                      disabled={markAsCompletedMutation.isPending}
+                      data-testid={`button-mark-completed-${wo.id}`}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1.5" />
+                      {markAsCompletedMutation.isPending ? "Processing..." : "Mark as Completed"}
+                    </Button>
                   </div>
                 )}
 

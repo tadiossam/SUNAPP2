@@ -3426,7 +3426,33 @@ export class DatabaseStorage implements IStorage {
         verifiedById: verifierId,
         verifiedAt: new Date(),
         verificationNotes: notes,
-        status: 'pending_supervisor',
+        status: 'verified',
+        updatedAt: new Date(),
+      })
+      .where(eq(workOrders.id, workOrderId));
+  }
+  
+  async markWorkOrderAsCompleted(workOrderId: string, completedById: string): Promise<void> {
+    const workOrder = await db.select().from(workOrders).where(eq(workOrders.id, workOrderId)).limit(1);
+    
+    if (workOrder.length === 0) {
+      throw new Error("Work order not found");
+    }
+
+    if (workOrder[0].status !== 'verified') {
+      throw new Error("Work order must be verified before completion");
+    }
+
+    // Check if the user is the creator of the work order
+    if (workOrder[0].createdById !== completedById) {
+      throw new Error("Only the work order creator can mark it as completed");
+    }
+
+    await db
+      .update(workOrders)
+      .set({
+        status: 'completed',
+        completedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(workOrders.id, workOrderId));

@@ -1559,6 +1559,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/work-orders/:id/mark-completed", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      await storage.markWorkOrderAsCompleted(req.params.id, req.user.id);
+      res.json({ success: true, message: "Work order marked as completed" });
+    } catch (error: any) {
+      console.error("Error marking work order as completed:", error);
+      const statusCode = error.message.includes("not found") ? 404 : 
+                         error.message.includes("must be verified") ? 400 :
+                         error.message.includes("Only the work order creator") ? 403 : 500;
+      res.status(statusCode).json({ error: error.message || "Failed to mark work order as completed" });
+    }
+  });
+
   // Item Requisition endpoints
   app.post("/api/item-requisitions", async (req, res) => {
     try {

@@ -691,7 +691,11 @@ export default function WorkOrdersPage() {
               {/* Equipment Selection */}
               <div className="space-y-2">
                 <Label htmlFor="equipment">Equipment *</Label>
-                <Select value={equipmentId} onValueChange={setEquipmentId}>
+                <Select 
+                  value={equipmentId} 
+                  onValueChange={setEquipmentId}
+                  disabled={!!selectedInspectionId && !editingWorkOrder}
+                >
                   <SelectTrigger data-testid="select-equipment">
                     <SelectValue placeholder="Select equipment" />
                   </SelectTrigger>
@@ -703,6 +707,9 @@ export default function WorkOrdersPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedInspectionId && !editingWorkOrder && (
+                  <p className="text-xs text-muted-foreground">Equipment automatically selected from inspection</p>
+                )}
               </div>
 
               {/* Work Type */}

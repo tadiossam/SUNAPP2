@@ -610,7 +610,7 @@ export default function AdminSettings() {
       });
       return response.json();
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, variables) => {
       if (data.status === 'ok') {
         // Handle companies data specifically
         if (data.mode === 'companies' && data.companies) {
@@ -622,11 +622,19 @@ export default function AdminSettings() {
           console.log('D365 Companies:', data.companies);
         } else if (data.mode === 'data' && data.records) {
           const recordCount = data.count || 0;
+          // Store records and open modal (Syncto365 functionality)
+          setFetchedRecords(data.records);
+          setCurrentDataType(variables.type as 'items' | 'FixedAssets');
+          setCurrentSkip(variables.skip || 0);
+          setCurrentFilterValue(variables.filterValue || '');
+          setSelectedRecordNos([]);
+          setIsDataTableOpen(true);
+          
           toast({
             title: "Data Fetched Successfully",
-            description: `Retrieved ${recordCount} ${data.type} records from D365`,
+            description: `Retrieved ${recordCount} ${variables.type} records from D365`,
           });
-          console.log(`PowerShell D365 ${data.type}:`, data.records);
+          console.log(`PowerShell D365 ${variables.type}:`, data.records);
         } else {
           toast({
             title: "Data Fetched",
@@ -807,6 +815,43 @@ export default function AdminSettings() {
       });
     },
   });
+
+  // D365 Data Table Handlers (from Syncto365)
+  const handleNextPage = () => {
+    if (!currentDataType) return;
+    fetchPowerShellDataMutation.mutate({
+      type: currentDataType,
+      filterValue: currentFilterValue,
+      skip: currentSkip + 20,
+      top: 20,
+    });
+  };
+
+  const handlePreviousPage = () => {
+    if (!currentDataType || currentSkip < 20) return;
+    fetchPowerShellDataMutation.mutate({
+      type: currentDataType,
+      filterValue: currentFilterValue,
+      skip: currentSkip - 20,
+      top: 20,
+    });
+  };
+
+  const handleSelectAllRecords = (checked: boolean) => {
+    if (checked) {
+      setSelectedRecordNos(fetchedRecords.map((r) => r.No));
+    } else {
+      setSelectedRecordNos([]);
+    }
+  };
+
+  const handleSelectOneRecord = (recordNo: string) => {
+    if (selectedRecordNos.includes(recordNo)) {
+      setSelectedRecordNos(selectedRecordNos.filter((n) => n !== recordNo));
+    } else {
+      setSelectedRecordNos([...selectedRecordNos, recordNo]);
+    }
+  };
 
   // Biometric Device Mutations
   const testConnectionMutation = useMutation({
@@ -2124,6 +2169,120 @@ export default function AdminSettings() {
         }}
         isImporting={importEquipmentMutation.isPending}
       />
+
+      {/* D365 Data Table Dialog (Syncto365 functionality) */}
+      <Dialog open={isDataTableOpen} onOpenChange={setIsDataTableOpen}>
+        <DialogContent className="max-w-6xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {currentDataType === 'items' ? 'Items' : 'Fixed Assets'} (Page {Math.floor(currentSkip / 20) + 1})
+            </DialogTitle>
+            <DialogDescription>
+              Review and select records to import from Dynamics 365 Business Central
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedRecordNos.length === fetchedRecords.length && fetchedRecords.length > 0}
+                      onCheckedChange={handleSelectAllRecords}
+                      data-testid="checkbox-select-all"
+                    />
+                  </TableHead>
+                  {currentDataType === 'items' ? (
+                    <>
+                      <TableHead>No</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Inventory</TableHead>
+                      <TableHead>Unit of Measure</TableHead>
+                      <TableHead>Unit Cost</TableHead>
+                      <TableHead>Last Modified</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead>No</TableHead>
+                      <TableHead>Description</TableHead>
+                    </>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fetchedRecords.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={currentDataType === 'items' ? 7 : 3} className="text-center py-8 text-muted-foreground">
+                      No records found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  fetchedRecords.map((record, idx) => (
+                    <TableRow key={idx} data-testid={`row-record-${record.No}`}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRecordNos.includes(record.No)}
+                          onCheckedChange={() => handleSelectOneRecord(record.No)}
+                          data-testid={`checkbox-record-${record.No}`}
+                        />
+                      </TableCell>
+                      {currentDataType === 'items' ? (
+                        <>
+                          <TableCell className="font-medium">{record.No}</TableCell>
+                          <TableCell>{record.Description}</TableCell>
+                          <TableCell>{record.InventoryField || 'N/A'}</TableCell>
+                          <TableCell>{record.Purch_Unit_of_Measure || 'N/A'}</TableCell>
+                          <TableCell>{record.Unit_Cost || 'N/A'}</TableCell>
+                          <TableCell>{record.Last_Date_Modified || 'N/A'}</TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="font-medium">{record.No}</TableCell>
+                          <TableCell>{record.Description}</TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="flex justify-between items-center gap-2 pt-4 border-t">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handlePreviousPage}
+                disabled={currentSkip === 0 || fetchPowerShellDataMutation.isPending}
+                data-testid="button-previous-page"
+              >
+                Previous
+              </Button>
+              <Button
+                onClick={handleNextPage}
+                disabled={fetchPowerShellDataMutation.isPending}
+                data-testid="button-next-page"
+              >
+                Next
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary" className="text-sm">
+                {selectedRecordNos.length} selected
+              </Badge>
+              <Button
+                className="bg-amber-500 hover:bg-amber-600"
+                disabled={selectedRecordNos.length === 0}
+                data-testid="button-insert-selected"
+              >
+                Insert Selected
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

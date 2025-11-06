@@ -456,6 +456,16 @@ export const workOrderStatusHistory = pgTable("work_order_status_history", {
   changedAt: timestamp("changed_at").defaultNow().notNull(),
 });
 
+// Work Order Time Tracking - Track pause/resume events for work timers
+export const workOrderTimeTracking = pgTable("work_order_time_tracking", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  event: text("event").notNull(), // "pause", "resume", "start", "complete"
+  reason: text("reason"), // Reason for pause: "awaiting_parts", "waiting_purchase", etc.
+  triggeredById: varchar("triggered_by_id").references(() => employees.id),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
 // Approval Stages - Define multi-level approval workflow stages
 export const approvalStages = pgTable("approval_stages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1177,6 +1187,11 @@ export const insertWorkOrderStatusHistorySchema = createInsertSchema(workOrderSt
   changedAt: true,
 });
 
+export const insertWorkOrderTimeTrackingSchema = createInsertSchema(workOrderTimeTracking).omit({
+  id: true,
+  timestamp: true,
+});
+
 export const insertApprovalStageSchema = createInsertSchema(approvalStages).omit({
   id: true,
   createdAt: true,
@@ -1250,6 +1265,8 @@ export type WorkOrderMembership = typeof workOrderMemberships.$inferSelect;
 export type InsertWorkOrderMembership = z.infer<typeof insertWorkOrderMembershipSchema>;
 export type WorkOrderStatusHistory = typeof workOrderStatusHistory.$inferSelect;
 export type InsertWorkOrderStatusHistory = z.infer<typeof insertWorkOrderStatusHistorySchema>;
+export type WorkOrderTimeTracking = typeof workOrderTimeTracking.$inferSelect;
+export type InsertWorkOrderTimeTracking = z.infer<typeof insertWorkOrderTimeTrackingSchema>;
 export type ApprovalStage = typeof approvalStages.$inferSelect;
 export type InsertApprovalStage = z.infer<typeof insertApprovalStageSchema>;
 export type WorkOrderApproval = typeof workOrderApprovals.$inferSelect;

@@ -49,6 +49,7 @@ import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
+import { spawn } from "child_process";
 import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken, hasRole } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -5566,11 +5567,9 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           platform: process.platform
         });
       }
-
-      const { spawn } = require('child_process');
       
-      // Use absolute path to PowerShell script to avoid "file does not exist" errors
-      const scriptPath = join(__dirname, 'bc_fetch.ps1');
+      // Use absolute path to PowerShell script in Syncto365 folder
+      const scriptPath = join(process.cwd(), 'Syncto365', 'bc_fetch.ps1');
       
       const ps = spawn('powershell.exe', [
         '-ExecutionPolicy',

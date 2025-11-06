@@ -6088,7 +6088,189 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // Employee Performance Endpoints
+  app.get("/api/performance/daily", isAuthenticated, async (req, res) => {
+    try {
+      const { calculateWorkOrderElapsedTime } = await import("./work-timer-utils");
+      const { workOrders, workOrderMemberships, workOrderTimeTracking, employees } = await import("@shared/schema");
+      const { eq, and, gte, lte, inArray } = await import("drizzle-orm");
+      
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+      
+      const performance = await calculateEmployeePerformance(startOfDay, endOfDay);
+      res.json(performance);
+    } catch (error: any) {
+      console.error("Error calculating daily performance:", error);
+      res.status(500).json({ error: "Failed to calculate daily performance" });
+    }
+  });
+
+  app.get("/api/performance/monthly", isAuthenticated, async (req, res) => {
+    try {
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+      
+      const performance = await calculateEmployeePerformance(startOfMonth, endOfMonth);
+      res.json(performance);
+    } catch (error: any) {
+      console.error("Error calculating monthly performance:", error);
+      res.status(500).json({ error: "Failed to calculate monthly performance" });
+    }
+  });
+
+  app.get("/api/performance/yearly", isAuthenticated, async (req, res) => {
+    try {
+      const today = new Date();
+      const startOfYear = new Date(today.getFullYear(), 0, 1, 0, 0, 0);
+      const endOfYear = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
+      
+      const performance = await calculateEmployeePerformance(startOfYear, endOfYear);
+      res.json(performance);
+    } catch (error: any) {
+      console.error("Error calculating yearly performance:", error);
+      res.status(500).json({ error: "Failed to calculate yearly performance" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
+}
+
+// Helper function to calculate employee performance
+async function calculateEmployeePerformance(startDate: Date, endDate: Date) {
+  const { calculateWorkOrderElapsedTime } = await import("./work-timer-utils");
+  const { workOrders, workOrderMemberships, workOrderTimeTracking, employees } = await import("@shared/schema");
+  const { eq, and, gte, lte, inArray, or } = await import("drizzle-orm");
+  const { db } = await import("./db");
+  
+  // Get all completed work orders in the time period
+  const completedWorkOrders = await db
+    .select()
+    .from(workOrders)
+    .where(
+      and(
+        eq(workOrders.status, "completed"),
+        gte(workOrders.completedAt, startDate),
+        lte(workOrders.completedAt, endDate)
+      )
+    );
+  
+  if (completedWorkOrders.length === 0) {
+    return [];
+  }
+  
+  const workOrderIds = completedWorkOrders.map((wo: any) => wo.id);
+  
+  // Get all team member assignments for these work orders
+  const memberships = await db
+    .select()
+    .from(workOrderMemberships)
+    .where(
+      and(
+        inArray(workOrderMemberships.workOrderId, workOrderIds),
+        eq(workOrderMemberships.role, "team_member"),
+        eq(workOrderMemberships.isActive, true)
+      )
+    );
+  
+  if (memberships.length === 0) {
+    return [];
+  }
+  
+  // Get all time tracking records for these work orders
+  const timeRecords = await db
+    .select()
+    .from(workOrderTimeTracking)
+    .where(inArray(workOrderTimeTracking.workOrderId, workOrderIds));
+  
+  // Group time records by work order
+  const timeRecordsByWorkOrder = timeRecords.reduce((acc: any, record: any) => {
+    if (!acc[record.workOrderId]) {
+      acc[record.workOrderId] = [];
+    }
+    acc[record.workOrderId].push(record);
+    return acc;
+  }, {});
+  
+  // Calculate performance for each employee
+  const employeeStats: Record<string, {
+    workOrdersCompleted: number;
+    totalElapsedHours: number;
+    employeeId: string;
+  }> = {};
+  
+  memberships.forEach((membership: any) => {
+    if (!employeeStats[membership.employeeId]) {
+      employeeStats[membership.employeeId] = {
+        workOrdersCompleted: 0,
+        totalElapsedHours: 0,
+        employeeId: membership.employeeId,
+      };
+    }
+    
+    const workOrder = completedWorkOrders.find((wo: any) => wo.id === membership.workOrderId);
+    if (!workOrder) return;
+    
+    employeeStats[membership.employeeId].workOrdersCompleted += 1;
+    
+    // Calculate elapsed time for this work order
+    const timeTrackingData = timeRecordsByWorkOrder[membership.workOrderId] || [];
+    const timerResult = calculateWorkOrderElapsedTime(
+      workOrder.startedAt,
+      workOrder.completedAt,
+      workOrder.status,
+      timeTrackingData
+    );
+    
+    employeeStats[membership.employeeId].totalElapsedHours += timerResult.elapsedHours;
+  });
+  
+  // Get employee details
+  const employeeIds = Object.keys(employeeStats);
+  const employeeDetails = await db
+    .select()
+    .from(employees)
+    .where(inArray(employees.id, employeeIds));
+  
+  // Calculate performance scores and create result array
+  const performance = employeeDetails.map((employee: any) => {
+    const stats = employeeStats[employee.id];
+    const avgCompletionTime = stats.workOrdersCompleted > 0
+      ? stats.totalElapsedHours / stats.workOrdersCompleted
+      : 0;
+    
+    // Performance score formula:
+    // Higher score for more completed work orders
+    // Higher score for faster completion times
+    // Formula: (workOrders * 100) / (avgTime + 1)
+    // The +1 prevents division by zero and gives weight to completion
+    const performanceScore = Math.round(
+      (stats.workOrdersCompleted * 100) / (avgCompletionTime + 1)
+    );
+    
+    return {
+      employeeId: employee.id,
+      fullName: employee.fullName,
+      role: employee.role,
+      tasksCompleted: 0, // Not tracked currently
+      workOrdersCompleted: stats.workOrdersCompleted,
+      totalLaborHours: parseFloat(stats.totalElapsedHours.toFixed(2)),
+      avgCompletionTime: parseFloat(avgCompletionTime.toFixed(2)),
+      requisitionsProcessed: 0, // Not tracked currently
+      performanceScore: performanceScore,
+      rank: 0, // Will be set below
+    };
+  });
+  
+  // Sort by performance score (descending) and assign ranks
+  performance.sort((a: any, b: any) => b.performanceScore - a.performanceScore);
+  performance.forEach((emp: any, index: number) => {
+    emp.rank = index + 1;
+  });
+  
+  return performance;
 }

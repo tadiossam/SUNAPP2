@@ -24,6 +24,13 @@ type WorkOrder = {
   garageNames?: string[];
   inspectionId?: string | null;
   receptionId?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  elapsedTime?: string;
+  elapsedMs?: number;
+  elapsedHours?: number;
+  isTimerPaused?: boolean;
+  pausedReason?: string;
 };
 
 type ItemRequisition = {
@@ -203,6 +210,22 @@ export default function TeamDashboard() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
+          {workOrder.elapsedTime && (
+            <div>
+              <p className="text-sm text-muted-foreground">
+                {language === "am" ? "የስራ ጊዜ" : "Work Time"}
+              </p>
+              <p className="font-bold text-red-600 dark:text-red-400" data-testid={`text-elapsed-time-${workOrder.id}`}>
+                {workOrder.elapsedTime}
+                {workOrder.isTimerPaused && (
+                  <span className="text-xs ml-2 text-muted-foreground">
+                    ({language === "am" ? "ቆሟል" : "Paused"})
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+          
           <div>
             <p className="text-sm text-muted-foreground">
               {language === "am" ? "መሳሪያ" : "Equipment"}

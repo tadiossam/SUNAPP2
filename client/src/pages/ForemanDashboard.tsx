@@ -25,6 +25,13 @@ type WorkOrder = {
   teamMembers?: any[];
   inspectionId?: string | null;
   receptionId?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  elapsedTime?: string;
+  elapsedMs?: number;
+  elapsedHours?: number;
+  isTimerPaused?: boolean;
+  pausedReason?: string;
 };
 
 type Employee = {
@@ -242,6 +249,18 @@ export default function ForemanDashboard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {workOrder.elapsedTime && (
+          <div>
+            <Label className="text-muted-foreground text-sm">Work Time:</Label>
+            <p className="font-bold text-red-600 dark:text-red-400" data-testid={`text-elapsed-time-${workOrder.id}`}>
+              {workOrder.elapsedTime}
+              {workOrder.isTimerPaused && (
+                <span className="text-xs ml-2 text-muted-foreground">(Paused)</span>
+              )}
+            </p>
+          </div>
+        )}
+        
         <div>
           <Label className="text-muted-foreground text-sm">Equipment:</Label>
           <p className="font-medium">{workOrder.equipmentModel}</p>

@@ -50,6 +50,14 @@ The application is a Progressive Web App (PWA) optimized for mobile. Manufacturi
   - **Work Order Status Flow**: draft → pending_foreman_assignment → pending_team_acceptance → active → awaiting_parts → waiting_purchase → in_progress → pending_verification → pending_supervisor → completed
   - **Participant Tracking**: Comprehensive tracking of all foremen, team members, verifiers, and store managers involved in each work order
   - **Status History**: Complete audit trail of all status changes with timestamps and responsible employees
+  - **Work Timer Tracking System**: Automatic work duration tracking with intelligent pause/resume:
+    - **Timer Start**: Automatically starts when foreman assigns team members (status → "active")
+    - **Automatic Pause**: Timer pauses when work order enters "awaiting_parts" or "waiting_purchase" status
+    - **Automatic Resume**: Timer resumes when store manager approves parts and changes status to "in_progress"
+    - **Elapsed Time Calculation**: Total work time = (completed or current time) - start time - sum of paused durations
+    - **Database Tracking**: `work_order_time_tracking` table logs all timer events (start, pause, resume, complete) with timestamps and triggering employees
+    - **UI Display**: Elapsed time shown in **bold red** on TeamDashboard and ForemanDashboard work order cards with "(Paused)" indicator when timer is stopped
+    - **Accurate Labor Hours**: Excludes time spent waiting for parts to provide true active work duration for performance metrics
   - **Role-Specific Dashboards**: 
     - **Store Manager Dashboard** (`/store-manager`): Pending parts requisitions with approve/reject actions, recent activity feed, quick stats
     - **Foreman Dashboard** (`/foreman`): Work orders pending team assignment, team member selection, assignment tracking

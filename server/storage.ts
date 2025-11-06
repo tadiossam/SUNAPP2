@@ -29,6 +29,7 @@ import {
   approvals,
   itemRequisitions,
   itemRequisitionLines,
+  partsReceipts,
   purchaseRequests,
   attendanceDeviceSettings,
   deviceImportLogs,
@@ -2683,6 +2684,17 @@ export class DatabaseStorage implements IStorage {
               .update(spareParts)
               .set({ stockQuantity: newQuantity })
               .where(eq(spareParts.id, line.sparePartId));
+            
+            // Create parts receipt record to track issued parts
+            if (requisition.workOrderId && deductQuantity > 0) {
+              await tx.insert(partsReceipts).values({
+                workOrderId: requisition.workOrderId,
+                sparePartId: line.sparePartId,
+                quantityIssued: deductQuantity,
+                issuedById: storeManagerId,
+                issuedAt: new Date(),
+              });
+            }
             
             remainingQuantity -= deductQuantity;
           }

@@ -11,6 +11,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { nanoid } from "nanoid";
 
 type RequestPartsDialogProps = {
   open: boolean;
@@ -41,7 +42,7 @@ export function RequestPartsDialog({
   const { toast } = useToast();
   const [lines, setLines] = useState<LineItem[]>([
     {
-      id: crypto.randomUUID(),
+      id: nanoid(),
       lineNumber: 1,
       description: "",
       unitOfMeasure: "pcs",
@@ -85,7 +86,7 @@ export function RequestPartsDialog({
   const resetForm = () => {
     setLines([
       {
-        id: crypto.randomUUID(),
+        id: nanoid(),
         lineNumber: 1,
         description: "",
         unitOfMeasure: "pcs",
@@ -100,7 +101,7 @@ export function RequestPartsDialog({
     setLines([
       ...lines,
       {
-        id: crypto.randomUUID(),
+        id: nanoid(),
         lineNumber: newLineNumber,
         description: "",
         unitOfMeasure: "pcs",

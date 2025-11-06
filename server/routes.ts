@@ -534,6 +534,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/parts/:id", isCEOOrAdmin, async (req, res) => {
+    try {
+      const partId = req.params.id;
+      const part = await storage.getPartById(partId);
+      
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+      
+      await storage.deletePart(partId);
+      
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted', 'spare_part', partId, req.user.username || 'unknown', { partNumber: part.partNumber, partName: part.partName }
+        ));
+      }
+      
+      res.json({ success: true, message: "Part deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting part:", error);
+      res.status(500).json({ error: "Failed to delete part" });
+    }
+  });
+
   // Upload 3D model file to object storage
   app.post("/api/parts/:id/upload-model", isCEOOrAdmin, upload3DModel.single('modelFile'), async (req, res) => {
     try {

@@ -1802,6 +1802,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { approvedQty, remarks } = req.body;
       
+      // Get the line to find its requisition
+      const [line] = await db.select().from(itemRequisitionLines).where(eq(itemRequisitionLines.id, req.params.lineId));
+      if (!line) {
+        return res.status(404).json({ error: "Line item not found" });
+      }
+      
       // Update the line item with foreman approval
       await db.update(itemRequisitionLines)
         .set({
@@ -1812,6 +1818,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           foremanStatus: 'approved',
         })
         .where(eq(itemRequisitionLines.id, req.params.lineId));
+      
+      // Check if all lines in the requisition have been processed
+      const allLines = await db.select().from(itemRequisitionLines).where(eq(itemRequisitionLines.requisitionId, line.requisitionId));
+      const allProcessed = allLines.every(l => l.foremanStatus === 'approved' || l.foremanStatus === 'rejected' || l.id === req.params.lineId);
+      const hasApprovedLines = allLines.some(l => l.foremanStatus === 'approved' || l.id === req.params.lineId);
+      
+      // If all lines processed and at least one approved, update requisition status to pending_store
+      if (allProcessed && hasApprovedLines) {
+        await db.update(itemRequisitions)
+          .set({
+            status: 'pending_store',
+            foremanApprovalStatus: 'approved',
+            foremanApprovedById: req.user.id,
+            foremanApprovedAt: new Date(),
+          })
+          .where(eq(itemRequisitions.id, line.requisitionId));
+      }
       
       res.json({ success: true, message: "Line item approved by foreman" });
     } catch (error) {
@@ -1841,6 +1864,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Rejection remarks are required" });
       }
       
+      // Get the line to find its requisition
+      const [line] = await db.select().from(itemRequisitionLines).where(eq(itemRequisitionLines.id, req.params.lineId));
+      if (!line) {
+        return res.status(404).json({ error: "Line item not found" });
+      }
+      
       // Update the line item with foreman rejection
       await db.update(itemRequisitionLines)
         .set({
@@ -1850,6 +1879,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           foremanStatus: 'rejected',
         })
         .where(eq(itemRequisitionLines.id, req.params.lineId));
+      
+      // Check if all lines in the requisition have been processed
+      const allLines = await db.select().from(itemRequisitionLines).where(eq(itemRequisitionLines.requisitionId, line.requisitionId));
+      const allProcessed = allLines.every(l => l.foremanStatus === 'approved' || l.foremanStatus === 'rejected' || l.id === req.params.lineId);
+      const hasApprovedLines = allLines.some(l => l.foremanStatus === 'approved');
+      
+      // If all lines processed and at least one approved, update requisition status to pending_store
+      if (allProcessed && hasApprovedLines) {
+        await db.update(itemRequisitions)
+          .set({
+            status: 'pending_store',
+            foremanApprovalStatus: 'approved',
+            foremanApprovedById: req.user.id,
+            foremanApprovedAt: new Date(),
+          })
+          .where(eq(itemRequisitions.id, line.requisitionId));
+      } else if (allProcessed && !hasApprovedLines) {
+        // If all lines rejected, mark requisition as rejected
+        await db.update(itemRequisitions)
+          .set({
+            status: 'rejected',
+            foremanApprovalStatus: 'rejected',
+            foremanApprovedById: req.user.id,
+            foremanApprovedAt: new Date(),
+          })
+          .where(eq(itemRequisitions.id, line.requisitionId));
+      }
       
       res.json({ success: true, message: "Line item rejected by foreman" });
     } catch (error) {

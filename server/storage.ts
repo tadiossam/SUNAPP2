@@ -2537,25 +2537,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getItemRequisitionsByStoreManager(): Promise<any[]> {
-    // Get requisitions with pending_store status (already approved by foreman)
+    // Get all requisitions (not just foreman-approved, since we filter by line status)
     const requisitions = await db
       .select()
       .from(itemRequisitions)
-      .where(
-        and(
-          eq(itemRequisitions.foremanApprovalStatus, 'approved'),
-          eq(itemRequisitions.storeApprovalStatus, 'pending')
-        )
-      )
+      .where(eq(itemRequisitions.storeApprovalStatus, 'pending'))
       .orderBy(desc(itemRequisitions.createdAt));
     
     // Get lines, requester, and work order for each requisition
     const requisitionsWithLines = await Promise.all(
       requisitions.map(async (req) => {
+        // Only get lines that have been approved by foreman
         const lines = await db
           .select()
           .from(itemRequisitionLines)
-          .where(eq(itemRequisitionLines.requisitionId, req.id))
+          .where(
+            and(
+              eq(itemRequisitionLines.requisitionId, req.id),
+              eq(itemRequisitionLines.foremanStatus, 'approved')
+            )
+          )
           .orderBy(itemRequisitionLines.lineNumber);
         
         // Calculate available stock for each line

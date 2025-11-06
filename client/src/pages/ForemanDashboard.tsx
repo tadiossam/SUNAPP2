@@ -132,10 +132,7 @@ export default function ForemanDashboard() {
     queryFn: async () => {
       if (!viewingReceptionId) return null;
       const response = await apiRequest("GET", `/api/equipment-receptions/${viewingReceptionId}`);
-      const data = await response.json();
-      console.log('🔍 Foreman Reception Details:', data);
-      console.log('🔍 Foreman adminIssuesReported:', data?.adminIssuesReported);
-      return data;
+      return response.json();
     },
     enabled: !!viewingReceptionId,
   });

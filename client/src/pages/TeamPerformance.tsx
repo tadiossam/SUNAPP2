@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Medal, Award, TrendingUp, Clock, Wrench } from "lucide-react";
+import { Trophy, Medal, Award, TrendingUp, Clock, Wrench, Timer } from "lucide-react";
 
 type PerformanceMetric = {
   employeeId: string;
@@ -11,6 +11,7 @@ type PerformanceMetric = {
   tasksCompleted: number;
   workOrdersCompleted: number;
   totalLaborHours: number;
+  avgCompletionTime: number;
   requisitionsProcessed: number;
   performanceScore: number;
   rank: number;
@@ -20,6 +21,12 @@ type PerformanceMetric = {
 };
 
 export default function TeamPerformancePage() {
+  const { data: authData } = useQuery({
+    queryKey: ["/api/auth/me"],
+  });
+  
+  const user = (authData as any)?.user;
+
   const { data: dailyLeaders, isLoading: loadingDaily } = useQuery<PerformanceMetric[]>({
     queryKey: ["/api/performance/daily"],
   });
@@ -77,58 +84,70 @@ export default function TeamPerformancePage() {
 
     return (
       <div className="space-y-4">
-        {data.map((employee) => (
-          <Card
-            key={employee.employeeId}
-            className={employee.rank <= 3 ? "border-2 border-primary" : ""}
-            data-testid={`performance-card-${employee.employeeId}`}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-muted">
-                    {getRankIcon(employee.rank)}
+        {data.map((employee) => {
+          const isCurrentUser = user?.id === employee.employeeId;
+          
+          return (
+            <Card
+              key={employee.employeeId}
+              className={`${employee.rank <= 3 ? "border-2 border-primary" : ""} ${isCurrentUser ? "bg-primary/5 border-primary" : ""}`}
+              data-testid={`performance-card-${employee.employeeId}`}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-muted">
+                      {getRankIcon(employee.rank)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold text-lg" data-testid={`text-employee-name-${employee.employeeId}`}>
+                          {employee.fullName}
+                        </h3>
+                        {isCurrentUser && <Badge className="bg-green-500">You</Badge>}
+                        {getRankBadge(employee.rank)}
+                        <Badge variant="secondary">{employee.role}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Work Orders</p>
+                          <p className="font-medium" data-testid={`text-work-orders-${employee.employeeId}`}>
+                            {employee.workOrdersCompleted}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Avg. Time</p>
+                          <p className="font-medium flex items-center gap-1">
+                            <Timer className="h-3 w-3" />
+                            {employee.avgCompletionTime?.toFixed(1) || "0.0"}h
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Tasks</p>
+                          <p className="font-medium">{employee.tasksCompleted}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Labor Hours</p>
+                          <p className="font-medium">{employee.totalLaborHours?.toFixed(1) || "0.0"}h</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Requisitions</p>
+                          <p className="font-medium">{employee.requisitionsProcessed}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-lg" data-testid={`text-employee-name-${employee.employeeId}`}>
-                        {employee.fullName}
-                      </h3>
-                      {getRankBadge(employee.rank)}
-                      <Badge variant="secondary">{employee.role}</Badge>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Work Orders</p>
-                        <p className="font-medium" data-testid={`text-work-orders-${employee.employeeId}`}>
-                          {employee.workOrdersCompleted}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Tasks</p>
-                        <p className="font-medium">{employee.tasksCompleted}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Labor Hours</p>
-                        <p className="font-medium">{employee.totalLaborHours?.toFixed(1) || "0.0"}h</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Requisitions</p>
-                        <p className="font-medium">{employee.requisitionsProcessed}</p>
-                      </div>
-                    </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground text-sm">Performance Score</p>
+                    <p className="text-3xl font-bold text-primary" data-testid={`text-score-${employee.employeeId}`}>
+                      {employee.performanceScore}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-muted-foreground text-sm">Performance Score</p>
-                  <p className="text-3xl font-bold text-primary" data-testid={`text-score-${employee.employeeId}`}>
-                    {employee.performanceScore}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     );
   };

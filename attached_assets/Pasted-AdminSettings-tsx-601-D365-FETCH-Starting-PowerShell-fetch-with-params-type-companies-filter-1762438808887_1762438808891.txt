@@ -1,0 +1,109 @@
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'companies', filterValue: undefined, skip: 0, top: 100, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'error', mode: undefined, type: undefined, recordCount: 0, totalCount: undefined, …}
+AdminSettings.tsx:676 [D365 FETCH] Fetch failed: {message: 'The remote server returned an error: (401) Unauthorized.', status: 'error'}
+overrideMethod @ hook.js:608
+onSuccess @ AdminSettings.tsx:676
+execute @ @tanstack_react-query.js?v=951b6f4b:1233
+await in execute
+mutate @ @tanstack_react-query.js?v=951b6f4b:2630
+(anonymous) @ @tanstack_react-query.js?v=951b6f4b:3295
+onClick @ AdminSettings.tsx:1677
+callCallback2 @ chunk-RPCDYKBN.js?v=951b6f4b:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=951b6f4b:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=951b6f4b:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=951b6f4b:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=951b6f4b:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=951b6f4b:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=951b6f4b:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=951b6f4b:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=951b6f4b:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=951b6f4b:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=951b6f4b:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=951b6f4b:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=951b6f4b:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=951b6f4b:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=951b6f4b:5449
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'companies', filterValue: undefined, skip: 0, top: 100, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'companies', type: undefined, recordCount: 0, totalCount: undefined, …}
+AdminSettings.tsx:636 [D365 COMPANIES] Loaded companies: 2
+AdminSettings.tsx:641 D365 Companies: (2) [{…}, {…}]
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 0, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 0, filterValue: 'HV-', firstRecordNo: 'HV-AD-0000', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:906 [D365 SELECTION] Individual record toggled: {recordNo: 'HV-CT-0007', action: 'select', currentSelectionCount: 0, timestamp: '2025-11-06T14:18:50.229Z'}
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'FixedAssets', currentSkip: 0, newSkip: 20, filterValue: 'HV-', timestamp: '2025-11-06T14:19:00.099Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 20, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 20, filterValue: 'HV-', firstRecordNo: 'HV-DT-0004', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'FixedAssets', currentSkip: 20, newSkip: 40, filterValue: 'HV-', timestamp: '2025-11-06T14:19:03.525Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 40, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 40, filterValue: 'HV-', firstRecordNo: 'HV-DT-0024', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'FixedAssets', currentSkip: 40, newSkip: 60, filterValue: 'HV-', timestamp: '2025-11-06T14:19:04.915Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 60, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 60, filterValue: 'HV-', firstRecordNo: 'HV-DT-0044', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'FixedAssets', currentSkip: 60, newSkip: 80, filterValue: 'HV-', timestamp: '2025-11-06T14:19:06.115Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 80, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 80, filterValue: 'HV-', firstRecordNo: 'HV-DT-0064', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'FixedAssets', currentSkip: 80, newSkip: 100, filterValue: 'HV-', timestamp: '2025-11-06T14:19:07.059Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 100, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 100, filterValue: 'HV-', firstRecordNo: 'HV-DT-0084', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'FixedAssets', currentSkip: 100, newSkip: 120, filterValue: 'HV-', timestamp: '2025-11-06T14:19:08.803Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 120, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 120, filterValue: 'HV-', firstRecordNo: 'HV-DT-0104', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'FixedAssets', currentSkip: 120, newSkip: 140, filterValue: 'HV-', timestamp: '2025-11-06T14:19:11.693Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'FixedAssets', filterValue: 'HV-', skip: 140, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:2241 [D365 MODAL] Dialog state changing: {previousState: true, newState: false, currentRecordCount: 20, selectedCount: 0, timestamp: '2025-11-06T14:19:13.044Z'}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'FixedAssets', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'FixedAssets', recordsReceived: 20, skip: 140, filterValue: 'HV-', firstRecordNo: 'HV-MT-0003', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 FixedAssets: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:2241 [D365 MODAL] Dialog state changing: {previousState: true, newState: false, currentRecordCount: 20, selectedCount: 0, timestamp: '2025-11-06T14:19:14.475Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'items', filterValue: 'SP-', skip: 0, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'items', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'items', recordsReceived: 20, skip: 0, filterValue: 'SP-', firstRecordNo: 'SP-ADIEL-00000-00001', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 items: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'items', currentSkip: 0, newSkip: 20, filterValue: 'SP-', timestamp: '2025-11-06T14:19:32.035Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'items', filterValue: 'SP-', skip: 20, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'items', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'items', recordsReceived: 20, skip: 20, filterValue: 'SP-', firstRecordNo: 'SP-ADIFL-00000-00019', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 items: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'items', currentSkip: 20, newSkip: 40, filterValue: 'SP-', timestamp: '2025-11-06T14:19:33.747Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'items', filterValue: 'SP-', skip: 40, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'items', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'items', recordsReceived: 20, skip: 40, filterValue: 'SP-', firstRecordNo: 'SP-ADIFL-00000-00039', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 items: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'items', currentSkip: 40, newSkip: 60, filterValue: 'SP-', timestamp: '2025-11-06T14:19:35.251Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'items', filterValue: 'SP-', skip: 60, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'items', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'items', recordsReceived: 20, skip: 60, filterValue: 'SP-', firstRecordNo: 'SP-ADIFL-00000-00059', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 items: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:855 [D365 PAGINATION] Next page clicked: {currentType: 'items', currentSkip: 60, newSkip: 80, filterValue: 'SP-', timestamp: '2025-11-06T14:19:36.667Z'}
+AdminSettings.tsx:601 [D365 FETCH] Starting PowerShell fetch with params: {type: 'items', filterValue: 'SP-', skip: 80, top: 20, company: 'Sunshine Construction PLC(Test', …}
+AdminSettings.tsx:623 [D365 FETCH] Success response: {status: 'ok', mode: 'data', type: 'items', recordCount: 20, totalCount: 20, …}
+AdminSettings.tsx:644 [D365 MODAL] Opening data table modal with: {dataType: 'items', recordsReceived: 20, skip: 80, filterValue: 'SP-', firstRecordNo: 'SP-ADIFL-00000-00079', …}
+AdminSettings.tsx:661 [D365 MODAL] Modal state updated, should be opening now
+AdminSettings.tsx:667 PowerShell D365 items: (20) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+AdminSettings.tsx:2241 [D365 MODAL] Dialog state changing: {previousState: true, newState: false, currentRecordCount: 20, selectedCount: 0, timestamp: '2025-11-06T14:19:38.555Z'}

@@ -1328,7 +1328,7 @@ export class DatabaseStorage implements IStorage {
         .from(workOrders)
         .where(
           or(
-            eq(workOrders.status, "draft"),
+            eq(workOrders.status, "pending_allocation"),
             eq(workOrders.status, "pending_foreman_assignment"),
             eq(workOrders.status, "pending_team_acceptance")
           )
@@ -1366,7 +1366,7 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
     
-    // Get work orders with status draft, pending_foreman_assignment or pending_team_acceptance
+    // Get work orders with status pending_allocation, pending_foreman_assignment or pending_team_acceptance
     const pendingOrders = await db
       .select()
       .from(workOrders)
@@ -1374,7 +1374,7 @@ export class DatabaseStorage implements IStorage {
         and(
           inArray(workOrders.id, workOrderIds),
           or(
-            eq(workOrders.status, "draft"),
+            eq(workOrders.status, "pending_allocation"),
             eq(workOrders.status, "pending_foreman_assignment"),
             eq(workOrders.status, "pending_team_acceptance")
           )

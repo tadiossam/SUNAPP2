@@ -373,7 +373,7 @@ export const workOrders = pgTable("work_orders", {
   priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
   workType: text("work_type").notNull(), // "repair", "maintenance", "inspection", "wash"
   description: text("description").notNull(),
-  status: text("status").notNull().default("draft"), // draft, pending_foreman_assignment, pending_team_acceptance, active, awaiting_parts, waiting_purchase, in_progress, pending_verification, pending_supervisor, completed, rejected, cancelled
+  status: text("status").notNull().default("pending_allocation"), // pending_allocation, pending_foreman_assignment, pending_team_acceptance, active, awaiting_parts, waiting_purchase, in_progress, pending_verification, pending_supervisor, completed, rejected, cancelled
   actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
   actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // Actual total cost (auto-calculated from breakdown)
   // Cost breakdown for dashboard analytics

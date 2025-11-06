@@ -373,9 +373,24 @@ export default function WorkOrdersPage() {
       case "completed": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
       case "in_progress": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
       case "pending": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+      case "pending_allocation": return "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200";
       case "assigned": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
       case "cancelled": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "pending_allocation": return "Pending Allocation";
+      case "pending_foreman_assignment": return "Pending Foreman";
+      case "pending_team_acceptance": return "Pending Team";
+      case "in_progress": return "In Progress";
+      case "awaiting_parts": return "Awaiting Parts";
+      case "waiting_purchase": return "Waiting Purchase";
+      case "pending_verification": return "Pending Verification";
+      case "pending_supervisor": return "Pending Supervisor";
+      default: return status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ");
     }
   };
 
@@ -477,7 +492,7 @@ export default function WorkOrdersPage() {
                       {wo.priority}
                     </Badge>
                     <Badge className={getStatusColor(wo.status)} data-testid={`badge-status-${wo.id}`}>
-                      {wo.status.replace("_", " ")}
+                      {getStatusLabel(wo.status)}
                     </Badge>
                   </div>
                 </div>

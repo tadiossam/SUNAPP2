@@ -215,36 +215,44 @@ export default function StoreManagerDashboard() {
   });
 
   const handleOpenApproval = async (requisition: ItemRequisition) => {
-    // Fetch fresh data before opening dialog
-    const freshRequisitions = await queryClient.fetchQuery<ItemRequisition[]>({
-      queryKey: ["/api/item-requisitions/store-manager"],
-    });
-    
-    // Find the fresh version of this requisition
-    const freshRequisition = freshRequisitions.find(r => r.id === requisition.id);
-    if (!freshRequisition) {
+    try {
+      // Fetch fresh data before opening dialog
+      const freshRequisitions = await queryClient.fetchQuery<ItemRequisition[]>({
+        queryKey: ["/api/item-requisitions/store-manager"],
+      });
+      
+      // Find the fresh version of this requisition
+      const freshRequisition = freshRequisitions.find(r => r.id === requisition.id);
+      if (!freshRequisition) {
+        toast({
+          title: "Error",
+          description: "Failed to load requisition details",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setSelectedRequisition(freshRequisition);
+      setIsApprovalDialogOpen(true);
+      
+      // Initialize line decisions with default approve action
+      const initialDecisions: Record<string, LineDecision> = {};
+      freshRequisition.lines?.forEach(line => {
+        initialDecisions[line.id] = {
+          lineId: line.id,
+          action: 'approve',
+          quantityApproved: line.quantityRequested,
+          remarks: '',
+        };
+      });
+      setLineDecisions(initialDecisions);
+    } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to load requisition details",
+        description: error instanceof Error ? error.message : "Failed to load requisition details",
         variant: "destructive",
       });
-      return;
     }
-    
-    setSelectedRequisition(freshRequisition);
-    setIsApprovalDialogOpen(true);
-    
-    // Initialize line decisions with default approve action
-    const initialDecisions: Record<string, LineDecision> = {};
-    freshRequisition.lines?.forEach(line => {
-      initialDecisions[line.id] = {
-        lineId: line.id,
-        action: 'approve',
-        quantityApproved: line.quantityRequested,
-        remarks: '',
-      };
-    });
-    setLineDecisions(initialDecisions);
   };
 
   const updateLineDecision = (lineId: string, updates: Partial<LineDecision>) => {

@@ -1151,25 +1151,29 @@ export class DatabaseStorage implements IStorage {
     const equipmentIds = Array.from(new Set(orders.map((o: any) => o.equipmentId).filter(Boolean))) as string[];
     const garageIds = Array.from(new Set(orders.map((o: any) => o.garageId).filter(Boolean))) as string[];
     const workshopIds = Array.from(new Set(orders.map((o: any) => o.workshopId).filter(Boolean))) as string[];
-    const employeeIds = Array.from(new Set(orders.flatMap((o: any) => o.assignedToIds || []))) as string[];
     const userIds = Array.from(new Set(orders.map((o: any) => o.createdById).filter(Boolean))) as string[];
     const workOrderIds = orders.map((o: any) => o.id);
 
     // Batch fetch all related data in parallel instead of N queries per order
-    const [equipmentList, garageList, workshopList, employeeList, userList, requiredPartsList] = await Promise.all([
+    const [equipmentList, garageList, workshopList, userList, requiredPartsList, memberships] = await Promise.all([
       equipmentIds.length > 0 ? db.select().from(equipment).where(inArray(equipment.id, equipmentIds)) : Promise.resolve([]),
       garageIds.length > 0 ? db.select().from(garages).where(inArray(garages.id, garageIds)) : Promise.resolve([]),
       workshopIds.length > 0 ? db.select().from(workshops).where(inArray(workshops.id, workshopIds)) : Promise.resolve([]),
-      employeeIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, employeeIds)) : Promise.resolve([]),
       userIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, userIds)) : Promise.resolve([]),
       db.select().from(workOrderRequiredParts).where(inArray(workOrderRequiredParts.workOrderId, workOrderIds)),
+      db.select({
+        membership: workOrderMemberships,
+        employee: employees,
+      })
+        .from(workOrderMemberships)
+        .leftJoin(employees, eq(workOrderMemberships.employeeId, employees.id))
+        .where(inArray(workOrderMemberships.workOrderId, workOrderIds)),
     ]);
 
     // Create lookup maps for O(1) access
     const equipmentMap = new Map(equipmentList.map((e: any) => [e.id, e]));
     const garageMap = new Map(garageList.map((g: any) => [g.id, g]));
     const workshopMap = new Map(workshopList.map((w: any) => [w.id, w]));
-    const employeeMap = new Map(employeeList.map((e: any) => [e.id, e]));
     const userMap = new Map(userList.map((u: any) => [u.id, u]));
     
     // Group required parts by work order ID
@@ -1181,13 +1185,28 @@ export class DatabaseStorage implements IStorage {
       requiredPartsMap.get(part.workOrderId)!.push(part);
     }
 
+    // Group employees by work order ID (from memberships)
+    const employeesMap = new Map<string, any[]>();
+    for (const m of memberships) {
+      if (m.employee) {
+        if (!employeesMap.has(m.membership.workOrderId)) {
+          employeesMap.set(m.membership.workOrderId, []);
+        }
+        // Only add unique employees (avoid duplicates if they have multiple roles)
+        const existingEmployee = employeesMap.get(m.membership.workOrderId)!.find(e => e.id === m.employee!.id);
+        if (!existingEmployee) {
+          employeesMap.get(m.membership.workOrderId)!.push(m.employee);
+        }
+      }
+    }
+
     // Map related data back to work orders
     return orders.map((order: any) => ({
       ...order,
       equipment: equipmentMap.get(order.equipmentId),
       garage: order.garageId ? garageMap.get(order.garageId) : undefined,
       workshop: order.workshopId ? workshopMap.get(order.workshopId) : undefined,
-      assignedToList: (order.assignedToIds || []).map((id: any) => employeeMap.get(id)).filter(Boolean) as Employee[],
+      assignedToList: employeesMap.get(order.id) || [],
       createdBy: order.createdById ? userMap.get(order.createdById) : undefined,
       requiredParts: requiredPartsMap.get(order.id) || [],
     }));

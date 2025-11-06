@@ -459,46 +459,116 @@ export default function MaintenancePage() {
             <DialogTitle>{selectedWorkOrder?.workOrderNumber}</DialogTitle>
             <DialogDescription>Completed maintenance work order details</DialogDescription>
           </DialogHeader>
-          {selectedWorkOrder && (
-            <div className="space-y-4">
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-1">Work Type</div>
-                <Badge className={getWorkTypeColor(selectedWorkOrder.workType)}>
-                  {selectedWorkOrder.workType}
-                </Badge>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-1">Description</div>
-                <p className="text-sm">{selectedWorkOrder.description}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+          {selectedWorkOrder && (() => {
+            const workOrderParts = partsReceipts?.filter(pr => pr.workOrderId === selectedWorkOrder.id) || [];
+            const totalPartsCost = workOrderParts.reduce((sum, pr) => {
+              const unitCost = pr.sparePart?.unitCost ? parseFloat(pr.sparePart.unitCost) : 0;
+              return sum + (unitCost * pr.quantityIssued);
+            }, 0);
+
+            return (
+              <div className="space-y-4">
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-1">Started</div>
-                  <p className="text-sm">
-                    {selectedWorkOrder.startedAt 
-                      ? format(new Date(selectedWorkOrder.startedAt), "PPP")
-                      : "N/A"}
-                  </p>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Work Type</div>
+                  <Badge className={getWorkTypeColor(selectedWorkOrder.workType)}>
+                    {selectedWorkOrder.workType}
+                  </Badge>
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-1">Completed</div>
-                  <p className="text-sm">
-                    {format(new Date(selectedWorkOrder.completedAt), "PPP")}
-                  </p>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Description</div>
+                  <p className="text-sm">{selectedWorkOrder.description}</p>
                 </div>
-              </div>
-              {selectedWorkOrder.assignedToList && selectedWorkOrder.assignedToList.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-2">Team Members</div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedWorkOrder.assignedToList.map((member, idx) => (
-                      <Badge key={idx} variant="outline">{member.fullName}</Badge>
-                    ))}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-1">Started</div>
+                    <p className="text-sm">
+                      {selectedWorkOrder.startedAt 
+                        ? format(new Date(selectedWorkOrder.startedAt), "PPP")
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-1">Completed</div>
+                    <p className="text-sm">
+                      {format(new Date(selectedWorkOrder.completedAt), "PPP")}
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+                {selectedWorkOrder.assignedToList && selectedWorkOrder.assignedToList.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Team Members</div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedWorkOrder.assignedToList.map((member, idx) => (
+                        <Badge key={idx} variant="outline" data-testid={`badge-employee-${idx}`}>
+                          <Users className="h-3 w-3 mr-1" />
+                          {member.fullName}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Parts Used Section */}
+                {workOrderParts.length > 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Parts Used</div>
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="space-y-3">
+                          {workOrderParts.map((part, idx) => {
+                            const unitCost = part.sparePart?.unitCost ? parseFloat(part.sparePart.unitCost) : 0;
+                            const totalCost = unitCost * part.quantityIssued;
+                            
+                            return (
+                              <div key={idx} className="flex items-start justify-between border-b pb-3 last:border-b-0 last:pb-0" data-testid={`part-item-${idx}`}>
+                                <div className="flex-1">
+                                  <div className="font-medium text-sm">{part.sparePart?.partName || "Unknown Part"}</div>
+                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                    Part No: {part.sparePart?.partNumber || "N/A"}
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Package className="h-3 w-3" />
+                                      Qty: {part.quantityIssued}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <DollarSign className="h-3 w-3" />
+                                      Unit: ETB {unitCost.toFixed(2)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-semibold text-sm">ETB {totalCost.toFixed(2)}</div>
+                                  <div className="text-xs text-muted-foreground">Total</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                          <div className="text-sm font-medium">Total Parts Cost</div>
+                          <div className="text-lg font-bold text-primary" data-testid="text-dialog-total-cost">
+                            ETB {totalPartsCost.toFixed(2)}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+                
+                {workOrderParts.length === 0 && (
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Parts Used</div>
+                    <Card>
+                      <CardContent className="pt-4 text-center text-sm text-muted-foreground">
+                        No parts were issued for this maintenance
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

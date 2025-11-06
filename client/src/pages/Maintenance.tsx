@@ -251,74 +251,81 @@ export default function MaintenancePage() {
 
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Select Equipment</CardTitle>
-              <CardDescription>Search and choose equipment to view maintenance history</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={comboboxOpen}
-                    className="w-full justify-between"
-                    data-testid="button-select-equipment"
-                  >
-                    {selectedEquipmentId
-                      ? equipment?.find((eq) => eq.id === selectedEquipmentId)
-                          ? `${equipment.find((eq) => eq.id === selectedEquipmentId)?.equipmentType} - ${equipment.find((eq) => eq.id === selectedEquipmentId)?.plateNo}`
-                          : "Select equipment..."
-                      : "Select equipment..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search equipment..." data-testid="input-search-equipment" />
-                    <CommandEmpty>No equipment found.</CommandEmpty>
-                    <CommandGroup className="max-h-64 overflow-auto">
-                      {equipmentRankings.map((eq) => (
-                        <CommandItem
-                          key={eq.id}
-                          value={`${eq.equipmentType} ${eq.make} ${eq.model} ${eq.plateNo}`}
-                          onSelect={() => {
-                            setSelectedEquipmentId(eq.id);
-                            setComboboxOpen(false);
-                          }}
-                          data-testid={`option-equipment-${eq.id}`}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              selectedEquipmentId === eq.id ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          <div className="flex-1">
-                            <div className="font-medium">
-                              {eq.equipmentType} - {eq.plateNo}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {eq.make} {eq.model}
-                            </div>
-                          </div>
-                          {eq.maintenanceCount > 0 && (
-                            <Badge variant="secondary" className="ml-2">
-                              {eq.maintenanceCount} maintenance
-                            </Badge>
-                          )}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </CardContent>
-          </Card>
-
-          {selectedEquipmentId && selectedEquipment && (
+          {!selectedEquipmentId ? (
             <>
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold mb-2">Equipment Ranked by Maintenance</h2>
+                <p className="text-sm text-muted-foreground">
+                  Click on any equipment card to view detailed maintenance history
+                </p>
+              </div>
+              
+              {equipmentLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[...Array(6)].map((_, i) => (
+                    <Card key={i}>
+                      <CardHeader>
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-4 w-1/2 mt-2" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-8 w-20" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {equipmentRankings.map((eq) => (
+                    <Card
+                      key={eq.id}
+                      className="cursor-pointer hover-elevate active-elevate-2 transition-all"
+                      onClick={() => setSelectedEquipmentId(eq.id)}
+                      data-testid={`card-equipment-${eq.id}`}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base truncate">
+                              {eq.equipmentType}
+                            </CardTitle>
+                            <CardDescription className="text-xs mt-1">
+                              {eq.plateNo}
+                            </CardDescription>
+                          </div>
+                          <Badge variant="secondary" className="shrink-0">
+                            {eq.maintenanceCount}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-sm text-muted-foreground">
+                          {eq.make} {eq.model}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {eq.maintenanceCount === 0 && "No maintenance records"}
+                          {eq.maintenanceCount === 1 && "1 maintenance"}
+                          {eq.maintenanceCount > 1 && `${eq.maintenanceCount} maintenances`}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedEquipmentId("")}
+                  data-testid="button-back-to-list"
+                >
+                  ← Back to Equipment List
+                </Button>
+              </div>
+              {selectedEquipment && (
               <Card>
                 <CardHeader>
                   <CardTitle>Equipment Details</CardTitle>
@@ -515,6 +522,7 @@ export default function MaintenancePage() {
                     </Card>
                   ))}
                 </div>
+              )}
               )}
             </>
           )}

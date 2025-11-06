@@ -598,6 +598,15 @@ export default function AdminSettings() {
 
   const fetchPowerShellDataMutation = useMutation({
     mutationFn: async (params: { type: string; filterValue?: string; skip?: number; top?: number }) => {
+      console.log('[D365 FETCH] Starting PowerShell fetch with params:', {
+        type: params.type,
+        filterValue: params.filterValue,
+        skip: params.skip || 0,
+        top: params.top || 20,
+        company: d365Form.bcCompany,
+        timestamp: new Date().toISOString()
+      });
+      
       const response = await apiRequest("POST", "/api/dynamics365/ps-fetch-data", {
         baseUrl: d365Form.bcUrl,
         username: d365Form.bcUsername,
@@ -611,10 +620,20 @@ export default function AdminSettings() {
       return response.json();
     },
     onSuccess: (data: any, variables) => {
+      console.log('[D365 FETCH] Success response:', {
+        status: data.status,
+        mode: data.mode,
+        type: data.type,
+        recordCount: data.records?.length || 0,
+        totalCount: data.count,
+        timestamp: new Date().toISOString()
+      });
+      
       if (data.status === 'ok') {
         // Handle companies data specifically
         if (data.mode === 'companies' && data.companies) {
           setD365Companies(data.companies);
+          console.log('[D365 COMPANIES] Loaded companies:', data.companies.length);
           toast({
             title: "Companies Loaded",
             description: `Retrieved ${data.companies.length} companies from D365`,
@@ -622,6 +641,15 @@ export default function AdminSettings() {
           console.log('D365 Companies:', data.companies);
         } else if (data.mode === 'data' && data.records) {
           const recordCount = data.count || 0;
+          console.log('[D365 MODAL] Opening data table modal with:', {
+            dataType: variables.type,
+            recordsReceived: data.records.length,
+            skip: variables.skip || 0,
+            filterValue: variables.filterValue || '',
+            firstRecordNo: data.records[0]?.No,
+            timestamp: new Date().toISOString()
+          });
+          
           // Store records and open modal (Syncto365 functionality)
           setFetchedRecords(data.records);
           setCurrentDataType(variables.type as 'items' | 'FixedAssets');
@@ -630,18 +658,22 @@ export default function AdminSettings() {
           setSelectedRecordNos([]);
           setIsDataTableOpen(true);
           
+          console.log('[D365 MODAL] Modal state updated, should be opening now');
+          
           toast({
             title: "Data Fetched Successfully",
             description: `Retrieved ${recordCount} ${variables.type} records from D365`,
           });
           console.log(`PowerShell D365 ${variables.type}:`, data.records);
         } else {
+          console.log('[D365 FETCH] Unexpected response format:', data);
           toast({
             title: "Data Fetched",
             description: data.message || "Data retrieved successfully",
           });
         }
       } else {
+        console.error('[D365 FETCH] Fetch failed:', data);
         toast({
           title: "Fetch Failed",
           description: data.message || "Could not fetch data",
@@ -650,6 +682,7 @@ export default function AdminSettings() {
       }
     },
     onError: (error: any) => {
+      console.error('[D365 FETCH] Error:', error);
       toast({
         title: "PowerShell Fetch Error",
         description: error.message || "Failed to fetch data using PowerShell",
@@ -819,6 +852,14 @@ export default function AdminSettings() {
   // D365 Data Table Handlers (from Syncto365)
   const handleNextPage = () => {
     if (!currentDataType) return;
+    console.log('[D365 PAGINATION] Next page clicked:', {
+      currentType: currentDataType,
+      currentSkip: currentSkip,
+      newSkip: currentSkip + 20,
+      filterValue: currentFilterValue,
+      timestamp: new Date().toISOString()
+    });
+    
     fetchPowerShellDataMutation.mutate({
       type: currentDataType,
       filterValue: currentFilterValue,
@@ -829,6 +870,14 @@ export default function AdminSettings() {
 
   const handlePreviousPage = () => {
     if (!currentDataType || currentSkip < 20) return;
+    console.log('[D365 PAGINATION] Previous page clicked:', {
+      currentType: currentDataType,
+      currentSkip: currentSkip,
+      newSkip: currentSkip - 20,
+      filterValue: currentFilterValue,
+      timestamp: new Date().toISOString()
+    });
+    
     fetchPowerShellDataMutation.mutate({
       type: currentDataType,
       filterValue: currentFilterValue,
@@ -838,6 +887,13 @@ export default function AdminSettings() {
   };
 
   const handleSelectAllRecords = (checked: boolean) => {
+    console.log('[D365 SELECTION] Select all toggled:', {
+      checked,
+      recordCount: fetchedRecords.length,
+      recordNos: fetchedRecords.map((r) => r.No),
+      timestamp: new Date().toISOString()
+    });
+    
     if (checked) {
       setSelectedRecordNos(fetchedRecords.map((r) => r.No));
     } else {
@@ -846,7 +902,15 @@ export default function AdminSettings() {
   };
 
   const handleSelectOneRecord = (recordNo: string) => {
-    if (selectedRecordNos.includes(recordNo)) {
+    const isCurrentlySelected = selectedRecordNos.includes(recordNo);
+    console.log('[D365 SELECTION] Individual record toggled:', {
+      recordNo,
+      action: isCurrentlySelected ? 'deselect' : 'select',
+      currentSelectionCount: selectedRecordNos.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (isCurrentlySelected) {
       setSelectedRecordNos(selectedRecordNos.filter((n) => n !== recordNo));
     } else {
       setSelectedRecordNos([...selectedRecordNos, recordNo]);
@@ -2171,7 +2235,19 @@ export default function AdminSettings() {
       />
 
       {/* D365 Data Table Dialog (Syncto365 functionality) */}
-      <Dialog open={isDataTableOpen} onOpenChange={setIsDataTableOpen}>
+      <Dialog 
+        open={isDataTableOpen} 
+        onOpenChange={(open) => {
+          console.log('[D365 MODAL] Dialog state changing:', {
+            previousState: isDataTableOpen,
+            newState: open,
+            currentRecordCount: fetchedRecords.length,
+            selectedCount: selectedRecordNos.length,
+            timestamp: new Date().toISOString()
+          });
+          setIsDataTableOpen(open);
+        }}
+      >
         <DialogContent className="max-w-6xl h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>

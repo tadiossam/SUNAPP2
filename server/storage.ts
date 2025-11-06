@@ -230,6 +230,12 @@ export interface IStorage {
   getWorkOrderRequiredParts(workOrderId: string): Promise<WorkOrderRequiredPart[]>;
   replaceWorkOrderRequiredParts(workOrderId: string, parts: InsertWorkOrderRequiredPart[]): Promise<void>;
 
+  // Work Order Time Tracking
+  getWorkOrderTimeTracking(workOrderId: string): Promise<WorkOrderTimeTracking[]>;
+  createTimeTrackingEvent(workOrderId: string, event: string, reason?: string, triggeredById?: string): Promise<void>;
+  pauseWorkOrderTimer(workOrderId: string, reason: string, triggeredById?: string): Promise<void>;
+  resumeWorkOrderTimer(workOrderId: string, triggeredById?: string): Promise<void>;
+
   // Standard Operating Procedures
   getAllSOPs(filters?: { category?: string; targetRole?: string; language?: string }): Promise<StandardOperatingProcedure[]>;
   getSOPById(id: string): Promise<StandardOperatingProcedure | undefined>;
@@ -1566,6 +1572,32 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Work Order Time Tracking
+  async getWorkOrderTimeTracking(workOrderId: string): Promise<WorkOrderTimeTracking[]> {
+    return await db
+      .select()
+      .from(workOrderTimeTracking)
+      .where(eq(workOrderTimeTracking.workOrderId, workOrderId))
+      .orderBy(workOrderTimeTracking.timestamp);
+  }
+
+  async createTimeTrackingEvent(workOrderId: string, event: string, reason?: string, triggeredById?: string): Promise<void> {
+    await db.insert(workOrderTimeTracking).values({
+      workOrderId,
+      event,
+      reason,
+      triggeredById,
+    });
+  }
+
+  async pauseWorkOrderTimer(workOrderId: string, reason: string, triggeredById?: string): Promise<void> {
+    await this.createTimeTrackingEvent(workOrderId, "pause", reason, triggeredById);
+  }
+
+  async resumeWorkOrderTimer(workOrderId: string, triggeredById?: string): Promise<void> {
+    await this.createTimeTrackingEvent(workOrderId, "resume", undefined, triggeredById);
+  }
+
   // Standard Operating Procedures
   async getAllSOPs(filters?: { category?: string; targetRole?: string; language?: string }): Promise<StandardOperatingProcedure[]> {
     const conditions = [eq(standardOperatingProcedures.isActive, true)];
@@ -2738,6 +2770,14 @@ export class DatabaseStorage implements IStorage {
             .update(workOrders)
             .set({ status: 'in_progress' })
             .where(eq(workOrders.id, requisition.workOrderId));
+          
+          // Resume timer when items are issued
+          await tx.insert(workOrderTimeTracking).values({
+            workOrderId: requisition.workOrderId,
+            event: "resume",
+            reason: "parts_issued",
+            triggeredById: storeManagerId,
+          });
         }
       }
     });
@@ -3018,6 +3058,24 @@ export class DatabaseStorage implements IStorage {
               .update(workOrders)
               .set({ status: newWorkOrderStatus })
               .where(eq(workOrders.id, requisition.workOrderId));
+            
+            // Pause timer when waiting for purchase, resume when items issued
+            if (newWorkOrderStatus === 'waiting_purchase') {
+              await tx.insert(workOrderTimeTracking).values({
+                workOrderId: requisition.workOrderId,
+                event: "pause",
+                reason: "waiting_purchase",
+                triggeredById: storeManagerId,
+              });
+            } else if (newWorkOrderStatus === 'in_progress' && 
+                      (workOrder.status === 'awaiting_parts' || workOrder.status === 'waiting_purchase')) {
+              await tx.insert(workOrderTimeTracking).values({
+                workOrderId: requisition.workOrderId,
+                event: "resume",
+                reason: "parts_issued",
+                triggeredById: storeManagerId,
+              });
+            }
           }
         }
       }

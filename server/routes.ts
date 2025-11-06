@@ -51,6 +51,7 @@ import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import express from "express";
 import bcrypt from "bcrypt";
+import { calculateWorkOrderElapsedTime } from "./work-timer-utils";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -88,6 +89,28 @@ const upload3DModel = multer({
     }
   }
 });
+
+// Helper function to enrich work orders with time tracking data
+async function enrichWorkOrdersWithTimeTracking(workOrders: any[]) {
+  return await Promise.all(workOrders.map(async (wo) => {
+    const timeTracking = await storage.getWorkOrderTimeTracking(wo.id);
+    const timerData = calculateWorkOrderElapsedTime(
+      wo.startedAt,
+      wo.completedAt,
+      timeTracking,
+      wo.status
+    );
+    return {
+      ...wo,
+      timeTracking,
+      elapsedTime: timerData.displayText,
+      elapsedMs: timerData.elapsedMs,
+      elapsedHours: timerData.elapsedHours,
+      isTimerPaused: timerData.isPaused,
+      pausedReason: timerData.pausedReason,
+    };
+  }));
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve stock images as static files
@@ -1294,7 +1317,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Admin can see all foreman data
       const isAdmin = hasRole(req.user, 'admin');
       const pendingWorkOrders = await storage.getForemanPendingWorkOrders(req.user.id, isAdmin);
-      res.json(pendingWorkOrders);
+      const enrichedWorkOrders = await enrichWorkOrdersWithTimeTracking(pendingWorkOrders);
+      res.json(enrichedWorkOrders);
     } catch (error) {
       console.error("Error fetching foreman pending work orders:", error);
       res.status(500).json({ error: "Failed to fetch pending work orders" });
@@ -1310,7 +1334,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Admin can see all foreman data
       const isAdmin = hasRole(req.user, 'admin');
       const activeWorkOrders = await storage.getForemanActiveWorkOrders(req.user.id, isAdmin);
-      res.json(activeWorkOrders);
+      const enrichedWorkOrders = await enrichWorkOrdersWithTimeTracking(activeWorkOrders);
+      res.json(enrichedWorkOrders);
     } catch (error) {
       console.error("Error fetching foreman active work orders:", error);
       res.status(500).json({ error: "Failed to fetch active work orders" });
@@ -1367,7 +1392,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Admin can see all team member work orders
       const isAdmin = hasRole(req.user, 'admin');
       const workOrders = await storage.getWorkOrdersByTeamMember(req.user.id, isAdmin);
-      res.json(workOrders);
+      const enrichedWorkOrders = await enrichWorkOrdersWithTimeTracking(workOrders);
+      res.json(enrichedWorkOrders);
     } catch (error) {
       console.error("Error fetching team member work orders:", error);
       res.status(500).json({ error: "Failed to fetch assigned work orders" });

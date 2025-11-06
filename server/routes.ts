@@ -5557,6 +5557,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 
   // ==================== PowerShell-based D365 Sync ====================
   // Helper function to run PowerShell script (Windows only)
+  // This uses the exact same logic as Syncto365/server.js
   const runPowerShellScript = (args: string[]): Promise<any> => {
     return new Promise((resolve, reject) => {
       // Check if running on Windows
@@ -5568,7 +5569,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         });
       }
       
-      // Use absolute path to PowerShell script in Syncto365 folder
+      // Use path to PowerShell script in Syncto365 folder (same as Syncto365/server.js)
       const scriptPath = join(process.cwd(), 'Syncto365', 'bc_fetch.ps1');
       
       const ps = spawn('powershell.exe', [
@@ -5582,11 +5583,11 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       let output = '';
       let error = '';
 
-      ps.stdout.on('data', (data: Buffer) => {
+      ps.stdout.on('data', (data: any) => {
         output += data.toString();
       });
 
-      ps.stderr.on('data', (data: Buffer) => {
+      ps.stderr.on('data', (data: any) => {
         error += data.toString();
       });
 
@@ -5594,7 +5595,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         if (code !== 0 || error) {
           return reject({ 
             code, 
-            message: error || 'PowerShell execution failed',
+            message: error || 'PowerShell failed',
             output 
           });
         }
@@ -5604,7 +5605,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           resolve(result);
         } catch (e) {
           reject({ 
-            message: 'Invalid JSON output from PowerShell script', 
+            message: 'Invalid JSON output', 
             output 
           });
         }

@@ -83,11 +83,24 @@ The application is a Progressive Web App (PWA) optimized for mobile. Manufacturi
     - Work order status transitions: `waiting_purchase` when items backordered, `in_progress` when all items issued
   - **Purchase Orders Tab**: Store Manager dashboard displays all pending purchase requests with detailed tracking
 - **Employee Performance Tracking**: Gamification system with daily/monthly/yearly leaderboards:
-  - Performance scores based on completed tasks and work orders
+  - **Performance Score Calculation**: Formula = (workOrdersCompleted × 100) / (avgCompletionTime + 1)
+    - Rewards both speed and quantity: higher scores for more completed work orders and faster completion times
+    - Average completion time calculated from work_order_time_tracking table for accurate active work duration
+    - Automatic exclusion of paused time (waiting for parts) to measure true performance
+  - **API Endpoints**: `/api/performance/daily`, `/api/performance/monthly`, `/api/performance/yearly`
+  - **Team Performance Page** (`/team-performance`): 
+    - Three tabs for different time periods (Daily/Monthly/Yearly)
+    - Ranked leaderboards with performance cards showing:
+      - Rank badge with icons (Trophy/Medal/Award/TrendingUp)
+      - Employee name and role
+      - Work orders completed count
+      - Average completion time (formatted as hours/minutes)
+      - Performance score
+    - Current logged-in user highlighted with green "You" badge and distinct styling
+    - Empty state display when no performance data available
   - Employee of the Month/Year awards
-  - Individual performance dashboards showing daily progress
   - Login page displays top performers with achievement details
-  - Metrics tracked: tasks completed, labor hours, quality scores, requisitions processed
+  - Metrics tracked: work orders completed, average completion time, total labor hours, requisitions processed
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
 - **Attendance Device Integration**: Integration with ZKTeco iFace990 Plus via LAN-based TCP/IP for employee user management, including configuration, import, sync, and mapping.
 

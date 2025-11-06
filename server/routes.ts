@@ -41,6 +41,9 @@ import {
   workOrders,
   itemRequisitions,
   itemRequisitionLines,
+  spareParts,
+  employees,
+  partsReceipts,
 } from "@shared/schema";
 import multer from "multer";
 import { writeFile, mkdir } from "fs/promises";
@@ -1720,6 +1723,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error rejecting requisition:", error);
       res.status(500).json({ error: "Failed to reject requisition" });
+    }
+  });
+
+  // NEW: Get requisitions for a specific work order with parts receipts data
+  app.get("/api/work-orders/:id/requisitions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Fetch all requisitions for this work order
+      const requisitions = await db.select()
+        .from(itemRequisitions)
+        .where(eq(itemRequisitions.workOrderId, req.params.id));
+      
+      // Fetch lines and receipts for each requisition
+      const requisitionsWithDetails = await Promise.all(
+        requisitions.map(async (requisition) => {
+          const lines = await db.select({
+            line: itemRequisitionLines,
+            sparePart: spareParts,
+            foremanReviewer: employees,
+          })
+            .from(itemRequisitionLines)
+            .leftJoin(spareParts, eq(itemRequisitionLines.sparePartId, spareParts.id))
+            .leftJoin(employees, eq(itemRequisitionLines.foremanReviewerId, employees.id))
+            .where(eq(itemRequisitionLines.requisitionId, requisition.id));
+          
+          // Fetch parts receipts for each line
+          const linesWithReceipts = await Promise.all(
+            lines.map(async (lineItem) => {
+              const receipts = await db.select({
+                receipt: partsReceipts,
+                issuedBy: employees,
+              })
+                .from(partsReceipts)
+                .leftJoin(employees, eq(partsReceipts.issuedById, employees.id))
+                .where(eq(partsReceipts.requisitionLineId, lineItem.line.id));
+              
+              return {
+                ...lineItem.line,
+                sparePart: lineItem.sparePart,
+                foremanReviewer: lineItem.foremanReviewer,
+                receipts: receipts.map(r => ({ ...r.receipt, issuedBy: r.issuedBy })),
+              };
+            })
+          );
+          
+          return {
+            ...requisition,
+            lines: linesWithReceipts,
+          };
+        })
+      );
+      
+      res.json(requisitionsWithDetails);
+    } catch (error) {
+      console.error("Error fetching work order requisitions:", error);
+      res.status(500).json({ error: "Failed to fetch requisitions" });
+    }
+  });
+
+  // NEW: Foreman approve individual requisition line item
+  app.post("/api/item-requisition-lines/:lineId/foreman-approve", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman (admin has automatic access)
+      if (!hasRole(req.user, 'admin')) {
+        const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+        if (foremanWorkshops.length === 0) {
+          return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+        }
+      }
+      
+      const { approvedQty, remarks } = req.body;
+      
+      // Update the line item with foreman approval
+      await db.update(itemRequisitionLines)
+        .set({
+          foremanReviewerId: req.user.id,
+          foremanDecisionAt: new Date(),
+          foremanDecisionRemarks: remarks || null,
+          foremanApprovedQty: approvedQty,
+          foremanStatus: 'approved',
+        })
+        .where(eq(itemRequisitionLines.id, req.params.lineId));
+      
+      res.json({ success: true, message: "Line item approved by foreman" });
+    } catch (error) {
+      console.error("Error approving line item:", error);
+      res.status(500).json({ error: "Failed to approve line item" });
+    }
+  });
+
+  // NEW: Foreman reject individual requisition line item
+  app.post("/api/item-requisition-lines/:lineId/foreman-reject", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check if user is a foreman (admin has automatic access)
+      if (!hasRole(req.user, 'admin')) {
+        const foremanWorkshops = await db.select().from(workshops).where(eq(workshops.foremanId, req.user.id));
+        if (foremanWorkshops.length === 0) {
+          return res.status(403).json({ error: "Access denied: Not authorized as foreman" });
+        }
+      }
+      
+      const { remarks } = req.body;
+      
+      if (!remarks) {
+        return res.status(400).json({ error: "Rejection remarks are required" });
+      }
+      
+      // Update the line item with foreman rejection
+      await db.update(itemRequisitionLines)
+        .set({
+          foremanReviewerId: req.user.id,
+          foremanDecisionAt: new Date(),
+          foremanDecisionRemarks: remarks,
+          foremanStatus: 'rejected',
+        })
+        .where(eq(itemRequisitionLines.id, req.params.lineId));
+      
+      res.json({ success: true, message: "Line item rejected by foreman" });
+    } catch (error) {
+      console.error("Error rejecting line item:", error);
+      res.status(500).json({ error: "Failed to reject line item" });
     }
   });
 

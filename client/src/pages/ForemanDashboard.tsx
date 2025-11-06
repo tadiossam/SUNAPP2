@@ -50,6 +50,11 @@ type RequisitionLine = {
   quantityApproved?: number;
   status: string;
   remarks?: string;
+  foremanStatus?: string;
+  foremanApprovedQty?: number;
+  foremanDecisionRemarks?: string;
+  foremanDecisionAt?: string;
+  foremanReviewerId?: string;
 };
 
 type Requisition = {
@@ -504,8 +509,25 @@ export default function ForemanDashboard() {
           </TabsContent>
 
           <TabsContent value="requisitions" className="space-y-4">
+            <Tabs defaultValue="pending" className="space-y-4">
+              <TabsList className="grid w-full max-w-2xl grid-cols-3">
+                <TabsTrigger value="pending" data-testid="tab-pending-requisitions">
+                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                  Pending Review
+                </TabsTrigger>
+                <TabsTrigger value="approved" data-testid="tab-approved-requisitions">
+                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                  Approved Items
+                </TabsTrigger>
+                <TabsTrigger value="rejected" data-testid="tab-rejected-requisitions">
+                  <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                  Rejected Items
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="pending" className="space-y-4">
             {requisitions.length > 0 ? (
-              requisitions.map((requisition) => (
+              requisitions.filter(req => req.lines.some((line: any) => !line.foremanStatus || line.foremanStatus === 'pending')).map((requisition) => (
                 <Card key={requisition.id} className="hover-elevate" data-testid={`requisition-card-${requisition.id}`}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -529,7 +551,7 @@ export default function ForemanDashboard() {
                     <div>
                       <Label className="text-sm font-semibold mb-3 block">Review Each Line Item:</Label>
                       <div className="space-y-3">
-                        {requisition.lines.map((line) => (
+                        {requisition.lines.filter((line: any) => !line.foremanStatus || line.foremanStatus === 'pending').map((line) => (
                           <Card key={line.id} className="border-2" data-testid={`line-card-${line.id}`}>
                             <CardContent className="p-4 space-y-3">
                               <div className="grid grid-cols-12 gap-4 items-start">
@@ -617,10 +639,133 @@ export default function ForemanDashboard() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No pending parts requisitions
+                  No pending line items to review
                 </CardContent>
               </Card>
             )}
+            </TabsContent>
+
+            {/* Approved Lines Tab */}
+            <TabsContent value="approved" className="space-y-4">
+                {requisitions.length > 0 && requisitions.some(req => req.lines.some((line: any) => line.foremanStatus === 'approved')) ? (
+                  requisitions.filter(req => req.lines.some((line: any) => line.foremanStatus === 'approved')).map((requisition) => (
+                    <Card key={requisition.id} className="hover-elevate" data-testid={`approved-requisition-card-${requisition.id}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-lg">
+                              {requisition.requisitionNumber}
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Work Order: {requisition.workOrderNumber}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Requested by: {requisition.requester?.fullName || 'Unknown'}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            Approved
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {requisition.lines.filter((line: any) => line.foremanStatus === 'approved').map((line: any) => (
+                            <div key={line.id} className="flex items-center justify-between p-3 bg-muted rounded-lg" data-testid={`approved-line-${line.id}`}>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-xs">{line.lineNumber}</Badge>
+                                  <p className="font-medium">{line.description}</p>
+                                </div>
+                                <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                                  <span>Qty Requested: {line.quantityRequested}</span>
+                                  <span>Qty Approved: <strong className="text-green-600 dark:text-green-400">{line.foremanApprovedQty}</strong></span>
+                                  {line.foremanDecisionRemarks && <span>Remarks: {line.foremanDecisionRemarks}</span>}
+                                </div>
+                                {line.foremanDecisionAt && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Approved on {new Date(line.foremanDecisionAt).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      No approved items
+                    </CardContent>
+                  </Card>
+                )}
+            </TabsContent>
+
+            {/* Rejected Lines Tab */}
+            <TabsContent value="rejected" className="space-y-4">
+                {requisitions.length > 0 && requisitions.some(req => req.lines.some((line: any) => line.foremanStatus === 'rejected')) ? (
+                  requisitions.filter(req => req.lines.some((line: any) => line.foremanStatus === 'rejected')).map((requisition) => (
+                    <Card key={requisition.id} className="hover-elevate" data-testid={`rejected-requisition-card-${requisition.id}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-lg">
+                              {requisition.requisitionNumber}
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Work Order: {requisition.workOrderNumber}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Requested by: {requisition.requester?.fullName || 'Unknown'}
+                            </p>
+                          </div>
+                          <Badge variant="destructive">
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            Rejected
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {requisition.lines.filter((line: any) => line.foremanStatus === 'rejected').map((line: any) => (
+                            <div key={line.id} className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg border border-destructive/20" data-testid={`rejected-line-${line.id}`}>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-xs">{line.lineNumber}</Badge>
+                                  <p className="font-medium">{line.description}</p>
+                                </div>
+                                <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                                  <span>Qty Requested: {line.quantityRequested}</span>
+                                  {line.foremanDecisionRemarks && (
+                                    <span className="text-destructive font-medium">
+                                      Rejection Reason: {line.foremanDecisionRemarks}
+                                    </span>
+                                  )}
+                                </div>
+                                {line.foremanDecisionAt && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Rejected on {new Date(line.foremanDecisionAt).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      No rejected items
+                    </CardContent>
+                  </Card>
+                )}
+            </TabsContent>
+          </Tabs>
           </TabsContent>
         </Tabs>
       </div>

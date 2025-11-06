@@ -465,13 +465,62 @@ export default function TeamDashboard() {
                           <p className="text-sm font-medium">
                             {language === "am" ? "የተጠየቁ እቃዎች" : "Requested Items"}:
                           </p>
-                          <div className="space-y-1">
-                            {requisition.lines.map((line, idx) => (
-                              <div key={idx} className="text-sm pl-4 border-l-2 border-muted">
-                                <p className="font-medium">{line.description}</p>
-                                <p className="text-muted-foreground">
-                                  {language === "am" ? "መጠን" : "Quantity"}: {line.quantityRequested} {line.unitOfMeasure}
-                                </p>
+                          <div className="space-y-2">
+                            {requisition.lines.map((line: any, idx: number) => (
+                              <div 
+                                key={idx} 
+                                className={`text-sm p-2 rounded-md border-l-2 ${
+                                  line.foremanStatus === 'approved' 
+                                    ? 'border-green-500 bg-green-50 dark:bg-green-950/30' 
+                                    : line.foremanStatus === 'rejected'
+                                    ? 'border-red-500 bg-red-50 dark:bg-red-950/30'
+                                    : 'border-muted'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <p className="font-medium">{line.description}</p>
+                                    <p className="text-muted-foreground text-xs mt-0.5">
+                                      {language === "am" ? "የተጠየቀ መጠን" : "Requested"}: {line.quantityRequested} {line.unitOfMeasure}
+                                    </p>
+                                    
+                                    {line.foremanStatus === 'approved' && line.foremanApprovedQty && (
+                                      <p className="text-green-600 dark:text-green-400 text-xs font-medium mt-0.5">
+                                        {language === "am" ? "የተፀደቀ መጠን" : "Approved"}: {line.foremanApprovedQty} {line.unitOfMeasure}
+                                      </p>
+                                    )}
+                                    
+                                    {line.foremanStatus === 'rejected' && line.foremanDecisionRemarks && (
+                                      <p className="text-red-600 dark:text-red-400 text-xs mt-1">
+                                        <strong>{language === "am" ? "የውድቅ ምክንያት" : "Rejection Reason"}:</strong> {line.foremanDecisionRemarks}
+                                      </p>
+                                    )}
+                                    
+                                    {line.foremanDecisionRemarks && line.foremanStatus === 'approved' && (
+                                      <p className="text-muted-foreground text-xs mt-1">
+                                        <strong>{language === "am" ? "የፎርማን አስተያየት" : "Foreman Note"}:</strong> {line.foremanDecisionRemarks}
+                                      </p>
+                                    )}
+                                  </div>
+                                  
+                                  {line.foremanStatus === 'approved' && (
+                                    <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-xs ml-2">
+                                      {language === "am" ? "ፀድቋል" : "Approved"}
+                                    </Badge>
+                                  )}
+                                  
+                                  {line.foremanStatus === 'rejected' && (
+                                    <Badge variant="destructive" className="text-xs ml-2">
+                                      {language === "am" ? "ተቀባይነት አላገኘም" : "Rejected"}
+                                    </Badge>
+                                  )}
+                                  
+                                  {(!line.foremanStatus || line.foremanStatus === 'pending') && (
+                                    <Badge variant="secondary" className="text-xs ml-2">
+                                      {language === "am" ? "በመጠባበቅ ላይ" : "Pending"}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>

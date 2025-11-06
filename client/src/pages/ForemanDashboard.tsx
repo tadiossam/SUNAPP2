@@ -109,6 +109,16 @@ export default function ForemanDashboard() {
     enabled: !!viewingInspectionId,
   });
 
+  const { data: checklistItems = [] } = useQuery<any[]>({
+    queryKey: ["/api/inspections", viewingInspectionId, "checklist"],
+    queryFn: async () => {
+      if (!viewingInspectionId) return [];
+      const response = await apiRequest("GET", `/api/inspections/${viewingInspectionId}/checklist`);
+      return response.json();
+    },
+    enabled: !!viewingInspectionId,
+  });
+
   // Fetch reception details when viewing
   const { data: receptionDetails } = useQuery<any>({
     queryKey: ["/api/equipment-receptions", viewingReceptionId],
@@ -527,90 +537,212 @@ export default function ForemanDashboard() {
       />
 
       {/* View Inspection Dialog */}
-      <Dialog open={!!viewingInspectionId} onOpenChange={() => setViewingInspectionId(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={!!viewingInspectionId} onOpenChange={(open) => !open && setViewingInspectionId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-inspection-details">
           <DialogHeader>
-            <DialogTitle>Inspection Details</DialogTitle>
+            <DialogTitle>Equipment Inspection Report</DialogTitle>
             <DialogDescription>
-              {inspectionDetails?.inspectionNumber || 'Loading...'}
+              Comprehensive inspection and reception details
             </DialogDescription>
           </DialogHeader>
-          {inspectionDetails && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Service Type</Label>
-                  <p className="font-medium capitalize">{inspectionDetails.serviceType?.replace('_', ' ')}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <p className="font-medium capitalize">{inspectionDetails.status}</p>
-                </div>
-                {inspectionDetails.overallCondition && (
+          {inspectionDetails ? (
+            <div className="space-y-6">
+              {/* Equipment Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Equipment Details</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-6">
                   <div>
-                    <Label className="text-muted-foreground">Overall Condition</Label>
-                    <p className="font-medium capitalize">{inspectionDetails.overallCondition}</p>
+                    <Label className="text-muted-foreground text-sm">Inspection Number:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.inspectionNumber || "N/A"}</p>
                   </div>
-                )}
-                {inspectionDetails.inspector && (
                   <div>
-                    <Label className="text-muted-foreground">Inspector</Label>
-                    <p className="font-medium">{inspectionDetails.inspector.fullName}</p>
+                    <Label className="text-muted-foreground text-sm">Equipment:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.reception?.equipment?.model || inspectionDetails.reception?.equipment?.plantNumber || "N/A"}</p>
                   </div>
-                )}
-              </div>
-              {inspectionDetails.findings && (
-                <div>
-                  <Label className="text-muted-foreground">Findings</Label>
-                  <p className="text-sm mt-1">{inspectionDetails.findings}</p>
-                </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Plant Number:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.reception?.plantNumber || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Service Type:</Label>
+                    <div className="mt-1">
+                      <Badge variant="secondary">{inspectionDetails.serviceType || "N/A"}</Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Inspector:</Label>
+                    <p className="font-medium mt-1">{inspectionDetails.inspector?.fullName || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Completed Date:</Label>
+                    <p className="font-medium mt-1">
+                      {inspectionDetails.inspectionDate 
+                        ? new Date(inspectionDetails.inspectionDate).toLocaleDateString('en-US', { 
+                            month: '2-digit', 
+                            day: '2-digit', 
+                            year: 'numeric' 
+                          })
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Status:</Label>
+                    <div className="mt-1">
+                      <Badge>{inspectionDetails.status}</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Inspection Checklist Summary */}
+              {checklistItems.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Inspection Checklist (የማረጋገጫ ዝርዝር)</CardTitle>
+                    <p className="text-sm text-muted-foreground">Items with selected status</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-md overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ተ.ቁ</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">የመሳሪያዉ ዝርዝር</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ያለበት ሁኔታ</th>
+                            <th className="px-4 py-2 text-left text-sm font-medium">ተጨማሪ አስተያየት</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {checklistItems
+                            .filter((item: any) => {
+                              return item.hasItem || item.doesNotHave || item.isWorking || 
+                                     item.notWorking || item.isBroken || item.isCracked;
+                            })
+                            .map((item: any, index: number) => {
+                              let selectedStatus = "";
+                              if (item.hasItem) selectedStatus = "አለዉ";
+                              else if (item.doesNotHave) selectedStatus = "የለዉም";
+                              else if (item.isWorking) selectedStatus = "የሚሰራ";
+                              else if (item.notWorking) selectedStatus = "የማይሰራ";
+                              else if (item.isBroken) selectedStatus = "የተሰበረ";
+                              else if (item.isCracked) selectedStatus = "የተሰነጠቀ";
+
+                              return (
+                                <tr key={item.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                                  <td className="px-4 py-2 text-sm">{item.itemNumber}</td>
+                                  <td className="px-4 py-2 text-sm font-medium">{item.itemDescription}</td>
+                                  <td className="px-4 py-2 text-sm">{selectedStatus}</td>
+                                  <td className="px-4 py-2 text-sm text-muted-foreground">{item.comments || "-"}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                      {checklistItems.filter((item: any) => 
+                        item.hasItem || item.doesNotHave || item.isWorking || 
+                        item.notWorking || item.isBroken || item.isCracked
+                      ).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No checklist items selected
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
-              {inspectionDetails.recommendations && (
-                <div>
-                  <Label className="text-muted-foreground">Recommendations</Label>
-                  <p className="text-sm mt-1">{inspectionDetails.recommendations}</p>
-                </div>
-              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Loading inspection details...</div>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* View Reception/Maintenance Dialog */}
-      <Dialog open={!!viewingReceptionId} onOpenChange={() => setViewingReceptionId(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      {/* Maintenance/Reception Details Dialog */}
+      <Dialog open={!!viewingReceptionId} onOpenChange={(open) => !open && setViewingReceptionId(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-reception-details">
           <DialogHeader>
-            <DialogTitle>Maintenance Request Details</DialogTitle>
+            <DialogTitle>Maintenance Check-in Details</DialogTitle>
             <DialogDescription>
-              {receptionDetails?.receptionNumber || 'Loading...'}
+              View equipment reception and maintenance information
             </DialogDescription>
           </DialogHeader>
-          {receptionDetails && (
+          {receptionDetails ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Driver Name</Label>
-                  <p className="font-medium">{receptionDetails.driverName}</p>
+                  <Label className="text-muted-foreground">Reception Number</Label>
+                  <p className="font-medium">{receptionDetails.receptionNumber}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Phone Number</Label>
-                  <p className="font-medium">{receptionDetails.driverPhoneNumber}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <p className="font-medium capitalize">{receptionDetails.status}</p>
+                  <Label className="text-muted-foreground">Plant Number</Label>
+                  <p className="font-medium">{receptionDetails.plantNumber}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Arrival Date</Label>
                   <p className="font-medium">{new Date(receptionDetails.arrivalDate).toLocaleDateString()}</p>
                 </div>
-              </div>
-              {receptionDetails.reportedIssues && (
                 <div>
-                  <Label className="text-muted-foreground">Reported Issues</Label>
-                  <p className="text-sm mt-1">{receptionDetails.reportedIssues}</p>
+                  <Label className="text-muted-foreground">Kilometrage</Label>
+                  <p className="font-medium">{receptionDetails.kilometreRiding || 'N/A'} km</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Fuel Level</Label>
+                  <Badge>{receptionDetails.fuelLevel || 'N/A'}</Badge>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <Badge>{receptionDetails.status}</Badge>
+                </div>
+              </div>
+              
+              {/* Driver Information */}
+              {receptionDetails.driver && (
+                <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <Label className="text-muted-foreground font-semibold">Driver Information</Label>
+                  <div className="mt-2 space-y-1">
+                    <p className="font-medium">{receptionDetails.driver.fullName}</p>
+                    {receptionDetails.driver.email && (
+                      <p className="text-sm text-muted-foreground">{receptionDetails.driver.email}</p>
+                    )}
+                    {receptionDetails.driver.phoneNumber && (
+                      <p className="text-sm text-muted-foreground">{receptionDetails.driver.phoneNumber}</p>
+                    )}
+                  </div>
                 </div>
               )}
+              
+              {receptionDetails.reasonOfMaintenance && (
+                <div>
+                  <Label className="text-muted-foreground">Reason for Maintenance</Label>
+                  <p className="mt-1 p-3 bg-muted rounded-md text-sm">{receptionDetails.reasonOfMaintenance}</p>
+                </div>
+              )}
+              
+              {receptionDetails.issuesReported && (
+                <div>
+                  <Label className="text-muted-foreground">Driver Reported Issues</Label>
+                  <p className="mt-1 p-3 bg-amber-50 dark:bg-amber-950 rounded-md text-sm border border-amber-200 dark:border-amber-800">
+                    {receptionDetails.issuesReported}
+                  </p>
+                </div>
+              )}
+
+              {receptionDetails.adminIssuesReported && (
+                <div>
+                  <Label className="text-muted-foreground">Issues Reported by Administration Officer</Label>
+                  <p className="mt-1 p-3 bg-blue-50 dark:bg-blue-950 rounded-md text-sm border border-blue-200 dark:border-blue-800">
+                    {receptionDetails.adminIssuesReported}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Loading maintenance details...</div>
             </div>
           )}
         </DialogContent>

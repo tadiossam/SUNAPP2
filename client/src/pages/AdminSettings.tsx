@@ -895,6 +895,55 @@ export default function AdminSettings() {
     },
   });
 
+  // Import selected D365 Fixed Assets to equipment
+  const importEquipmentFromD365Mutation = useMutation({
+    mutationFn: async (selectedEquipment: any[]) => {
+      const response = await apiRequest("POST", "/api/dynamics365/import-equipment", {
+        equipment: selectedEquipment,
+        defaultCategoryId: null,
+        prefix: d365Form.equipmentPrefix,
+      });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      console.log('[D365 EQUIPMENT IMPORT] Import complete:', {
+        savedCount: data.savedCount,
+        updatedCount: data.updatedCount,
+        timestamp: new Date().toISOString()
+      });
+      
+      if (data.success) {
+        toast({
+          title: "Import Successful",
+          description: `Imported ${data.savedCount} new equipment, updated ${data.updatedCount} equipment`,
+        });
+        
+        // Close the modal and clear selection
+        setIsDataTableOpen(false);
+        setFetchedRecords([]);
+        setSelectedRecordNos([]);
+        
+        // Invalidate equipment cache
+        queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/sync-logs"] });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: data.message || "Failed to import equipment",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      console.error('[D365 EQUIPMENT IMPORT] Error:', error);
+      toast({
+        title: "Import Error",
+        description: error.message || "Failed to import equipment",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleInsertSelected = () => {
     console.log('[D365 IMPORT] Starting import:', {
       selectedCount: selectedRecordNos.length,
@@ -903,28 +952,31 @@ export default function AdminSettings() {
     });
     
     // Filter selected records from fetched records
-    const selectedItems = fetchedRecords.filter((r) => selectedRecordNos.includes(r.No));
+    const selectedRecords = fetchedRecords.filter((r) => selectedRecordNos.includes(r.No));
     
-    if (selectedItems.length === 0) {
+    if (selectedRecords.length === 0) {
       toast({
-        title: "No Items Selected",
-        description: "Please select at least one item to import",
+        title: "No Records Selected",
+        description: "Please select at least one record to import",
         variant: "destructive",
       });
       return;
     }
     
-    // Only allow importing items (not fixed assets)
-    if (currentDataType !== 'items') {
+    // Handle different data types
+    if (currentDataType === 'items') {
+      // Import items to spare parts catalog
+      importItemsToSparePartsMutation.mutate(selectedRecords);
+    } else if (currentDataType === 'FixedAssets') {
+      // Import fixed assets to equipment inventory
+      importEquipmentFromD365Mutation.mutate(selectedRecords);
+    } else {
       toast({
-        title: "Cannot Import Fixed Assets",
-        description: "Only items can be imported to spare parts catalog",
+        title: "Invalid Data Type",
+        description: "Cannot determine import destination",
         variant: "destructive",
       });
-      return;
     }
-    
-    importItemsToSparePartsMutation.mutate(selectedItems);
   };
 
   // D365 Data Table Handlers (from Syncto365)
@@ -2428,12 +2480,12 @@ export default function AdminSettings() {
               </Badge>
               <Button
                 className="bg-amber-500 hover:bg-amber-600"
-                disabled={selectedRecordNos.length === 0 || importItemsToSparePartsMutation.isPending || currentDataType !== 'items'}
+                disabled={selectedRecordNos.length === 0 || importItemsToSparePartsMutation.isPending || importEquipmentFromD365Mutation.isPending}
                 onClick={handleInsertSelected}
                 data-testid="button-insert-selected"
-                title={currentDataType !== 'items' ? 'Fixed Assets must be imported via Equipment page' : ''}
+                title={currentDataType === 'items' ? 'Import to Spare Parts Catalog' : currentDataType === 'FixedAssets' ? 'Import to Equipment Inventory' : ''}
               >
-                {importItemsToSparePartsMutation.isPending ? "Importing..." : currentDataType !== 'items' ? "Insert Selected (Items Only)" : "Insert Selected"}
+                {importItemsToSparePartsMutation.isPending || importEquipmentFromD365Mutation.isPending ? "Importing..." : "Insert Selected"}
               </Button>
             </div>
           </div>

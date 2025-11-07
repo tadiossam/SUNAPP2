@@ -6337,7 +6337,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       const file = req.file;
       const fileExtension = file.originalname.substring(file.originalname.lastIndexOf('.'));
       const fileName = `logo-${nanoid()}${fileExtension}`;
-      const uploadDir = join(process.cwd(), 'client', 'public', 'uploads');
+      const uploadDir = join(process.cwd(), 'public', 'uploads');
       
       // Ensure upload directory exists
       await mkdir(uploadDir, { recursive: true });

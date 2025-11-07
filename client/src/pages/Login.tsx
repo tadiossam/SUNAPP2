@@ -71,9 +71,20 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <Shield className="h-12 w-12 text-primary" />
-            </div>
+            {(appCustomizations as any)?.logoUrl ? (
+              <div className="h-20 w-20 flex items-center justify-center">
+                <img 
+                  src={(appCustomizations as any).logoUrl} 
+                  alt="Company Logo" 
+                  className="max-h-full max-w-full object-contain"
+                  data-testid="img-company-logo"
+                />
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-primary/10">
+                <Shield className="h-12 w-12 text-primary" />
+              </div>
+            )}
           </div>
           <CardTitle className="text-2xl font-bold">
             {(appCustomizations as any)?.appName || "Gelan Terminal Maintenance"}

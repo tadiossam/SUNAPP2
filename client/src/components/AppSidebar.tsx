@@ -159,9 +159,20 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-6">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
-            <Wrench className="h-5 w-5 text-primary-foreground" />
-          </div>
+          {(appCustomizations as any)?.logoUrl ? (
+            <div className="flex h-9 w-9 items-center justify-center">
+              <img 
+                src={(appCustomizations as any).logoUrl} 
+                alt="Company Logo" 
+                className="max-h-full max-w-full object-contain"
+                data-testid="img-sidebar-logo"
+              />
+            </div>
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
+              <Wrench className="h-5 w-5 text-primary-foreground" />
+            </div>
+          )}
           <div className="flex flex-col">
             <span className="text-base font-semibold">
               {(appCustomizations as any)?.appName || t("appName")}

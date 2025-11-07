@@ -1619,6 +1619,18 @@ export const systemSettings = pgTable("system_settings", {
   updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (CEO/Admin)
 });
 
+// Employee Page Permissions - Control which pages employees can access
+export const employeePagePermissions = pgTable("employee_page_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id, { onDelete: "cascade" }),
+  pagePath: text("page_path").notNull(), // Route path: "/spare-parts", "/equipment", "/work-orders", etc.
+  isAllowed: boolean("is_allowed").notNull().default(true), // true = allowed, false = denied
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Unique constraint: one permission record per employee per page
+  uniqueEmployeePage: uniqueIndex("unique_employee_page").on(table.employeeId, table.pagePath),
+}));
+
 // Insert schema for system settings
 export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omit({
   id: true,
@@ -1628,6 +1640,16 @@ export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omi
 // Select types for system settings
 export type SystemSettings = typeof systemSettings.$inferSelect;
 export type InsertSystemSettings = z.infer<typeof insertSystemSettingsSchema>;
+
+// Insert schema for employee page permissions
+export const insertEmployeePagePermissionSchema = createInsertSchema(employeePagePermissions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Select types for employee page permissions
+export type EmployeePagePermission = typeof employeePagePermissions.$inferSelect;
+export type InsertEmployeePagePermission = z.infer<typeof insertEmployeePagePermissionSchema>;
 
 // App Customizations table - for branding and theming
 export const appCustomizations = pgTable("app_customizations", {

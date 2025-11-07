@@ -134,6 +134,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve stock images as static files
   app.use('/stock_images', express.static(join(process.cwd(), 'attached_assets', 'stock_images')));
 
+  // Serve uploaded media files (photos and videos) from public/uploads
+  app.use('/uploads', express.static(join(process.cwd(), 'public', 'uploads')));
+
   // Authentication endpoints
   app.post("/api/auth/login", async (req, res) => {
     try {

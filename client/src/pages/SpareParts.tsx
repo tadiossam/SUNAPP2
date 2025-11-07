@@ -560,13 +560,13 @@ export default function SparePartsPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-none border-b bg-card p-6">
-        <div className="flex flex-col gap-4">
+    <div className="flex flex-col min-h-full">
+      <div className="border-b bg-card p-3 md:p-6">
+        <div className="flex flex-col gap-3 md:gap-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Spare Parts Catalog</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-2xl md:text-3xl font-bold">Spare Parts Catalog</h1>
+              <p className="text-muted-foreground text-sm mt-1">
                 Browse and search for compatible parts
               </p>
             </div>
@@ -579,7 +579,7 @@ export default function SparePartsPage() {
           </div>
 
           {/* Inventory Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Card 
               className="cursor-pointer hover-elevate active-elevate-2" 
               onClick={handleViewAllItems}
@@ -696,7 +696,7 @@ export default function SparePartsPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 p-3 md:p-6">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(6)].map((_, i) => (

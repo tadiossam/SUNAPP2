@@ -6229,6 +6229,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           table_name,
           column_name,
           data_type,
+          udt_name,
           is_nullable,
           column_default,
           character_maximum_length
@@ -6285,8 +6286,23 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         sqlContent += `CREATE TABLE IF NOT EXISTS ${tableName} (\n`;
         
         const columnDefs = columns.map((col: any) => {
-          let def = `  ${col.column_name} ${col.data_type}`;
-          if (col.character_maximum_length) {
+          let dataType = col.data_type;
+          
+          // Handle array types properly
+          if (col.data_type === 'ARRAY') {
+            // Extract the element type from udt_name (e.g., _text -> text[])
+            const elementType = col.udt_name.startsWith('_') 
+              ? col.udt_name.substring(1) 
+              : col.udt_name;
+            dataType = `${elementType}[]`;
+          } else if (col.data_type === 'USER-DEFINED') {
+            // Use the actual type name for custom types
+            dataType = col.udt_name;
+          }
+          
+          let def = `  ${col.column_name} ${dataType}`;
+          
+          if (col.character_maximum_length && !dataType.includes('[]')) {
             def += `(${col.character_maximum_length})`;
           }
           if (col.is_nullable === 'NO') {

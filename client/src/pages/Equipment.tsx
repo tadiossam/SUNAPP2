@@ -76,11 +76,6 @@ export default function EquipmentPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // D365 import state
-  const [isD365DialogOpen, setIsD365DialogOpen] = useState(false);
-  const [d365Equipment, setD365Equipment] = useState<any[]>([]);
-  const [selectedD365Items, setSelectedD365Items] = useState<string[]>([]);
-  const [d365CurrentPage, setD365CurrentPage] = useState(0);
-  const d365ItemsPerPage = 20;
   
   // Form state for equipment
   const [formData, setFormData] = useState<InsertEquipment>({
@@ -254,77 +249,6 @@ export default function EquipmentPage() {
     },
   });
 
-  // D365 mutations
-  const fetchD365EquipmentMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("GET", "/api/dynamics365/equipment-ntlm?limit=100");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.success && data.data?.value) {
-        setD365Equipment(data.data.value);
-        setSelectedD365Items([]);
-        setD365CurrentPage(0);
-        setIsD365DialogOpen(true);
-        toast({
-          title: "Equipment Fetched",
-          description: `Retrieved ${data.data.value.length} fixed assets from D365`,
-        });
-      } else {
-        toast({
-          title: "Failed",
-          description: data.error || "Could not fetch equipment",
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to fetch equipment from D365",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const importD365EquipmentMutation = useMutation({
-    mutationFn: async (selectedItems: any[]) => {
-      const response = await apiRequest("POST", "/api/dynamics365/import-equipment", {
-        equipment: selectedItems,
-        defaultCategoryId: null,
-        prefix: null,
-      });
-      return response.json();
-    },
-    onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
-      await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"], type: 'active' });
-      
-      const message = [
-        `Imported ${data.savedCount} new equipment`,
-        data.updatedCount > 0 ? `updated ${data.updatedCount}` : null,
-        data.categoriesCreated > 0 ? `created ${data.categoriesCreated} categories` : null,
-      ].filter(Boolean).join(", ");
-      
-      toast({
-        title: "Import Successful",
-        description: message,
-      });
-      
-      setIsD365DialogOpen(false);
-      setD365Equipment([]);
-      setSelectedD365Items([]);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Import Failed",
-        description: error.message || "Failed to import equipment from D365",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Handler functions
   const resetForm = () => {
@@ -440,31 +364,6 @@ export default function EquipmentPage() {
   };
 
   // D365 handlers
-  const handleSelectAllD365 = (checked: boolean) => {
-    if (checked) {
-      const currentPageItems = d365Equipment
-        .slice(d365CurrentPage * d365ItemsPerPage, (d365CurrentPage + 1) * d365ItemsPerPage)
-        .map((item) => item.No || item.Asset_No);
-      setSelectedD365Items(currentPageItems);
-    } else {
-      setSelectedD365Items([]);
-    }
-  };
-
-  const handleSelectOneD365 = (itemNo: string) => {
-    if (selectedD365Items.includes(itemNo)) {
-      setSelectedD365Items(selectedD365Items.filter((id) => id !== itemNo));
-    } else {
-      setSelectedD365Items([...selectedD365Items, itemNo]);
-    }
-  };
-
-  const handleImportD365Selected = () => {
-    const selectedItems = d365Equipment.filter((item) =>
-      selectedD365Items.includes(item.No || item.Asset_No)
-    );
-    importD365EquipmentMutation.mutate(selectedItems);
-  };
 
   // Excel template download
   const downloadTemplate = () => {
@@ -642,25 +541,6 @@ export default function EquipmentPage() {
             <Button variant="outline" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
               <Upload className="h-4 w-4 mr-2" />
               Import from Excel
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => fetchD365EquipmentMutation.mutate()}
-              disabled={fetchD365EquipmentMutation.isPending}
-              data-testid="button-import-d365"
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              {fetchD365EquipmentMutation.isPending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Fetching...
-                </>
-              ) : (
-                <>
-                  <Database className="h-4 w-4 mr-2" />
-                  Import from D365
-                </>
-              )}
             </Button>
             <input
               ref={fileInputRef}
@@ -1060,127 +940,6 @@ export default function EquipmentPage() {
         </DialogContent>
       </Dialog>
 
-      {/* D365 Import Dialog */}
-      <Dialog open={isD365DialogOpen} onOpenChange={setIsD365DialogOpen}>
-        <DialogContent className="max-w-6xl h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>
-              D365 Fixed Assets (Page {d365CurrentPage + 1})
-            </DialogTitle>
-            <DialogDescription>
-              Select fixed assets to import. Items ending with "0000" will create categories, and items ending with "0001+" will become equipment under those categories.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-auto border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={
-                        selectedD365Items.length ===
-                        d365Equipment.slice(
-                          d365CurrentPage * d365ItemsPerPage,
-                          (d365CurrentPage + 1) * d365ItemsPerPage
-                        ).length &&
-                        d365Equipment.length > 0
-                      }
-                      onCheckedChange={handleSelectAllD365}
-                      data-testid="checkbox-select-all-d365"
-                    />
-                  </TableHead>
-                  <TableHead>Asset No</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Category</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {d365Equipment.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                      No fixed assets found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  d365Equipment
-                    .slice(
-                      d365CurrentPage * d365ItemsPerPage,
-                      (d365CurrentPage + 1) * d365ItemsPerPage
-                    )
-                    .map((item, idx) => {
-                      const assetNo = item.No || item.Asset_No;
-                      const isCategory = assetNo?.endsWith('0000');
-                      return (
-                        <TableRow key={idx} data-testid={`row-d365-${assetNo}`}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedD365Items.includes(assetNo)}
-                              onCheckedChange={() => handleSelectOneD365(assetNo)}
-                              data-testid={`checkbox-d365-${assetNo}`}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{assetNo}</TableCell>
-                          <TableCell>{item.Description}</TableCell>
-                          <TableCell>
-                            {isCategory ? (
-                              <Badge className="bg-purple-600">Category</Badge>
-                            ) : (
-                              <Badge variant="outline">Equipment</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {isCategory
-                              ? assetNo.replace(/-?0000$/, '')
-                              : assetNo.match(/^(.+?)-?(\d{4})$/)?.[1] || 'N/A'}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          <div className="flex justify-between items-center gap-2 pt-4 border-t">
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setD365CurrentPage((prev) => Math.max(0, prev - 1))}
-                disabled={d365CurrentPage === 0 || fetchD365EquipmentMutation.isPending}
-                data-testid="button-d365-previous"
-              >
-                Previous
-              </Button>
-              <Button
-                onClick={() => setD365CurrentPage((prev) => prev + 1)}
-                disabled={
-                  (d365CurrentPage + 1) * d365ItemsPerPage >= d365Equipment.length ||
-                  fetchD365EquipmentMutation.isPending
-                }
-                data-testid="button-d365-next"
-              >
-                Next
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="text-sm">
-                {selectedD365Items.length} selected
-              </Badge>
-              <Button
-                className="bg-amber-500 hover:bg-amber-600"
-                disabled={selectedD365Items.length === 0 || importD365EquipmentMutation.isPending}
-                onClick={handleImportD365Selected}
-                data-testid="button-d365-import-selected"
-              >
-                {importD365EquipmentMutation.isPending ? "Importing..." : "Import Selected"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

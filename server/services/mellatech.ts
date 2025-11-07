@@ -164,36 +164,78 @@ class MellaTechService {
           return { success: true, uat: this.uat };
         }
         
-        // Check if we have valid session cookies - MellaTech might not redirect anymore
-        // If we got cookies and status 200, try to access tracking page directly
+        // Check if we have valid session cookies - MellaTech uses JavaScript redirect
+        // If we got cookies and status 200, try to access cpanel.php and tracking.php directly
         if (this.sessionCookies && cookies && cookies.length > 0) {
-          console.log('   Attempting to access tracking page directly with session cookies...');
+          console.log('   Attempting to access cpanel.php and tracking.php with session cookies...');
           
           try {
-            const trackingResponse = await this.axiosInstance.get('/et/tracking.php', {
+            // Try cpanel.php first (MellaTech's actual landing page after login)
+            const cpanelResponse = await this.axiosInstance.get('/et/cpanel.php', {
               headers: {
                 'Cookie': this.sessionCookies,
                 'Referer': `${this.config.baseUrl}/et/index.php`,
               },
+              maxRedirects: 5,
+              validateStatus: (status) => status < 400,
             });
             
-            if (trackingResponse.status === 200 && 
-                !trackingResponse.request?.res?.responseUrl?.includes('index.php')) {
-              console.log('✅ MellaTech login successful - tracking page accessible');
+            // Check if we were NOT redirected back to login
+            const cpanelUrl = cpanelResponse.request?.res?.responseUrl || cpanelResponse.request?.path || '';
+            if (cpanelResponse.status === 200 && !cpanelUrl.includes('index.php')) {
+              console.log('✅ MellaTech login successful - cpanel.php accessible');
               this.isAuthenticated = true;
               
-              // Extract UAT from tracking page
-              const trackingHtml = trackingResponse.data;
-              const uatMatch = trackingHtml.match(/"uat"\s*:\s*"(\d+)"/);
-              if (uatMatch && uatMatch[1]) {
-                this.uat = uatMatch[1];
-                console.log('   Extracted UAT token:', this.uat);
+              // Now try to get UAT from tracking page
+              try {
+                const trackingResponse = await this.axiosInstance.get('/et/tracking.php', {
+                  headers: {
+                    'Cookie': this.sessionCookies,
+                    'Referer': `${this.config.baseUrl}/et/cpanel.php`,
+                  },
+                });
+                
+                const trackingHtml = trackingResponse.data;
+                const uatMatch = trackingHtml.match(/"uat"\s*:\s*"(\d+)"/);
+                if (uatMatch && uatMatch[1]) {
+                  this.uat = uatMatch[1];
+                  console.log('   Extracted UAT token:', this.uat);
+                }
+              } catch (uatError) {
+                console.log('   Could not extract UAT, but login successful');
               }
               
               return { success: true, uat: this.uat };
             }
-          } catch (trackingError) {
-            console.log('   Could not access tracking page - likely invalid credentials');
+          } catch (cpanelError) {
+            console.log('   Could not access cpanel.php - trying tracking.php...');
+            
+            // Fallback: try tracking.php directly
+            try {
+              const trackingResponse = await this.axiosInstance.get('/et/tracking.php', {
+                headers: {
+                  'Cookie': this.sessionCookies,
+                  'Referer': `${this.config.baseUrl}/et/index.php`,
+                },
+              });
+              
+              const trackingUrl = trackingResponse.request?.res?.responseUrl || trackingResponse.request?.path || '';
+              if (trackingResponse.status === 200 && !trackingUrl.includes('index.php')) {
+                console.log('✅ MellaTech login successful - tracking.php accessible');
+                this.isAuthenticated = true;
+                
+                const trackingHtml = trackingResponse.data;
+                const uatMatch = trackingHtml.match(/"uat"\s*:\s*"(\d+)"/);
+                if (uatMatch && uatMatch[1]) {
+                  this.uat = uatMatch[1];
+                  console.log('   Extracted UAT token:', this.uat);
+                }
+                
+                return { success: true, uat: this.uat };
+              }
+            } catch (trackingError) {
+              console.log('   Could not access tracking page - likely invalid credentials');
+            }
           }
         }
         

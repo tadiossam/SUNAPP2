@@ -49,15 +49,17 @@ export function parseEquipmentDescription(description: string): ParsedEquipmentD
   }
 
   // Find Plate Number (P/N)
-  const pnMatch = trimmedDesc.match(/P\/N\s+([\w-]+)/i);
+  const pnMatch = trimmedDesc.match(/P\/N\s+([\w-\/]+)/i);
   if (pnMatch) {
     plateNumber = pnMatch[1].trim();
     // Equipment name is everything before "P/N"
     const pnIndex = trimmedDesc.indexOf(pnMatch[0]);
     equipmentName = trimmedDesc.substring(0, pnIndex).trim() || "Unknown";
   } else {
-    // Fallback: look for pattern like "3-35809ET" (digits-dash-alphanumeric)
-    const fallbackPattern = /\b(\d+-[A-Z0-9]+)\b/i;
+    // Fallback: look for plate number patterns
+    // Patterns: alphanumeric-dash-alphanumeric (AA-12345, SSC-001, 3-35809ET, CAT-1234)
+    // or standalone alphanumeric codes (CAT1234, SSC001)
+    const fallbackPattern = /\b([A-Z0-9]+-[A-Z0-9]+)\b/i;
     const fallbackMatch = trimmedDesc.match(fallbackPattern);
     
     if (fallbackMatch) {

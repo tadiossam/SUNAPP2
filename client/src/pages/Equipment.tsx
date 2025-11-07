@@ -363,8 +363,6 @@ export default function EquipmentPage() {
     createCategoryMutation.mutate(categoryFormData);
   };
 
-  // D365 handlers
-
   // Excel template download
   const downloadTemplate = () => {
     const template = [

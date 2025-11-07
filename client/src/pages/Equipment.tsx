@@ -65,8 +65,8 @@ export default function EquipmentPage() {
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [deleteAllUnitsConfirm, setDeleteAllUnitsConfirm] = useState(false);
-  const [deleteAllCategoriesConfirm, setDeleteAllCategoriesConfirm] = useState(false);
+  const [deleteCategoryConfirm, setDeleteCategoryConfirm] = useState<string | null>(null);
+  const [deleteUnitsInCategoryConfirm, setDeleteUnitsInCategoryConfirm] = useState<string | null>(null);
   
   // Driver selection state
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
@@ -206,9 +206,9 @@ export default function EquipmentPage() {
     },
   });
 
-  const deleteAllEquipmentMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", "/api/equipment/delete-all", null);
+  const deleteUnitsInCategoryMutation = useMutation({
+    mutationFn: async (equipmentType: string) => {
+      return await apiRequest("POST", "/api/equipment/delete-by-type", { equipmentType });
     },
     onSuccess: async (data: any) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
@@ -217,36 +217,41 @@ export default function EquipmentPage() {
         title: "Success",
         description: `Deleted ${data.deletedCount} equipment units successfully`,
       });
-      setDeleteAllUnitsConfirm(false);
+      setDeleteUnitsInCategoryConfirm(null);
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete all equipment",
+        description: error.message || "Failed to delete equipment units",
         variant: "destructive",
       });
     },
   });
 
-  const deleteAllCategoriesMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("DELETE", "/api/equipment-categories", null);
+  const deleteCategoryByNameMutation = useMutation({
+    mutationFn: async (categoryName: string) => {
+      // First find the category by name
+      const category = categories?.find(cat => cat.name.toUpperCase() === categoryName.toUpperCase());
+      if (!category) {
+        throw new Error("Category not found");
+      }
+      return await apiRequest("DELETE", `/api/equipment-categories/${category.id}`, null);
     },
-    onSuccess: async (data: any) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
       await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"], type: 'active' });
       await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
       toast({
         title: "Success",
-        description: `Deleted ${data.deletedCount} equipment categories successfully`,
+        description: "Equipment category deleted successfully",
       });
-      setDeleteAllCategoriesConfirm(false);
+      setDeleteCategoryConfirm(null);
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to delete all categories",
+        description: error.message || "Failed to delete category",
         variant: "destructive",
       });
     },
@@ -595,32 +600,6 @@ export default function EquipmentPage() {
               onChange={handleFileImport}
               className="hidden"
             />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="destructive" data-testid="button-bulk-delete-menu">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Bulk Delete
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  onClick={() => setDeleteAllCategoriesConfirm(true)} 
-                  data-testid="menu-delete-all-categories"
-                  className="text-destructive focus:text-destructive"
-                >
-                  <FolderX className="h-4 w-4 mr-2" />
-                  Delete All Categories
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setDeleteAllUnitsConfirm(true)} 
-                  data-testid="menu-delete-all-units"
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Database className="h-4 w-4 mr-2" />
-                  Delete All Units
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -653,14 +632,14 @@ export default function EquipmentPage() {
               return (
                 <Card 
                   key={groupKey} 
-                  className="overflow-hidden hover-elevate cursor-pointer" 
+                  className="overflow-hidden hover-elevate" 
                   data-testid={`card-equipment-group-${groupKey}`}
-                  onClick={() => setLocation(`/equipment/category/${encodeURIComponent(groupKey)}`)}
                 >
                   <div 
-                    className="relative h-48 bg-cover bg-center"
+                    className="relative h-48 bg-cover bg-center cursor-pointer"
                     style={{ backgroundImage: `url(${backgroundImage})` }}
                     data-testid={`header-equipment-type-${groupKey}`}
+                    onClick={() => setLocation(`/equipment/category/${encodeURIComponent(groupKey)}`)}
                   >
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20" />
                     <div className="absolute inset-0 p-6 flex flex-col justify-end">
@@ -680,6 +659,38 @@ export default function EquipmentPage() {
                       </div>
                     </div>
                   </div>
+                  <CardContent className="p-4">
+                    <div className="flex gap-2">
+                      {matchingCategory && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="flex-1 text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteCategoryConfirm(groupKey);
+                          }}
+                          data-testid={`button-delete-category-${groupKey}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Category
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="flex-1 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteUnitsInCategoryConfirm(groupKey);
+                        }}
+                        data-testid={`button-delete-all-units-${groupKey}`}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete All Units
+                      </Button>
+                    </div>
+                  </CardContent>
                 </Card>
               );
             })}
@@ -898,45 +909,45 @@ export default function EquipmentPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete All Units Confirmation Dialog */}
-      <AlertDialog open={deleteAllUnitsConfirm} onOpenChange={setDeleteAllUnitsConfirm}>
+      {/* Delete Category Confirmation Dialog */}
+      <AlertDialog open={!!deleteCategoryConfirm} onOpenChange={() => setDeleteCategoryConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Equipment Units</AlertDialogTitle>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete ALL equipment units? This will permanently delete all equipment from the database. This action cannot be undone.
+              Are you sure you want to delete the "{deleteCategoryConfirm}" category? This will only delete the category record, not the equipment units. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-all-units">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-category">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteAllEquipmentMutation.mutate()}
+              onClick={() => deleteCategoryConfirm && deleteCategoryByNameMutation.mutate(deleteCategoryConfirm)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-all-units"
+              data-testid="button-confirm-delete-category"
             >
-              Delete All Units
+              Delete Category
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete All Categories Confirmation Dialog */}
-      <AlertDialog open={deleteAllCategoriesConfirm} onOpenChange={setDeleteAllCategoriesConfirm}>
+      {/* Delete Units in Category Confirmation Dialog */}
+      <AlertDialog open={!!deleteUnitsInCategoryConfirm} onOpenChange={() => setDeleteUnitsInCategoryConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Equipment Categories</AlertDialogTitle>
+            <AlertDialogTitle>Delete All Units in Category</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete ALL equipment categories? This will permanently delete all categories from the database. This action cannot be undone.
+              Are you sure you want to delete ALL equipment units in the "{deleteUnitsInCategoryConfirm}" category? This will permanently delete all equipment of this type from the database. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-all-categories">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-units-in-category">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteAllCategoriesMutation.mutate()}
+              onClick={() => deleteUnitsInCategoryConfirm && deleteUnitsInCategoryMutation.mutate(deleteUnitsInCategoryConfirm)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-all-categories"
+              data-testid="button-confirm-delete-units-in-category"
             >
-              Delete All Categories
+              Delete All Units
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

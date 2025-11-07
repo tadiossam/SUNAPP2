@@ -123,6 +123,7 @@ export interface IStorage {
   updateEquipment(id: string, data: InsertEquipment): Promise<Equipment | undefined>;
   deleteEquipment(id: string): Promise<boolean>;
   deleteAllEquipment(): Promise<number>;
+  deleteEquipmentByType(equipmentType: string): Promise<number>;
   searchEquipment(params: {
     searchTerm?: string;
     equipmentType?: string;
@@ -436,6 +437,11 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllEquipment(): Promise<number> {
     const result = await db.delete(equipment).returning();
+    return result.length;
+  }
+
+  async deleteEquipmentByType(equipmentType: string): Promise<number> {
+    const result = await db.delete(equipment).where(eq(equipment.equipmentType, equipmentType)).returning();
     return result.length;
   }
 

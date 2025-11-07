@@ -488,6 +488,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Protected: Only CEO/Admin can delete equipment by type
+  app.post("/api/equipment/delete-by-type", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { equipmentType } = req.body;
+      
+      if (!equipmentType) {
+        return res.status(400).json({ error: "Equipment type is required" });
+      }
+      
+      const deletedCount = await storage.deleteEquipmentByType(equipmentType);
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted',
+          'equipment_category',
+          equipmentType,
+          req.user.username || 'unknown',
+          { equipmentType, deletedCount }
+        ));
+      }
+      
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      console.error("Error deleting equipment by type:", error);
+      res.status(500).json({ error: "Failed to delete equipment by type" });
+    }
+  });
+
   // Protected: Only CEO/Admin can import equipment from Excel
   app.post("/api/equipment/import", isCEOOrAdmin, async (req, res) => {
     try {

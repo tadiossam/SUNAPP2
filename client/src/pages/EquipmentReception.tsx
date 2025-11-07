@@ -90,44 +90,56 @@ export default function EquipmentReception() {
   });
 
   // Handle equipment selection
-  const handleEquipmentSelect = (equip: Equipment) => {
+  const handleEquipmentSelect = async (equip: Equipment) => {
     setSelectedEquipment(equip);
+    
+    let updatedFormData = {
+      ...driverFormData,
+      equipmentId: equip.id,
+      plantNumber: equip.plantNumber || "",
+      projectArea: equip.projectArea || "",
+    };
     
     // Auto-fetch assigned driver if equipment has one
     if (equip.assignedDriverId && employees) {
       const assignedDriver = employees.find(emp => emp.id === equip.assignedDriverId);
       if (assignedDriver) {
         setSelectedDriver(assignedDriver);
-        setDriverFormData({
-          ...driverFormData,
-          equipmentId: equip.id,
-          plantNumber: equip.plantNumber || "",
-          projectArea: equip.projectArea || "",
-          driverId: assignedDriver.id,
-        });
+        updatedFormData.driverId = assignedDriver.id;
       } else {
-        // Equipment has assignedDriverId but driver not found - explicitly clear driverId
         setSelectedDriver(null);
-        setDriverFormData({
-          ...driverFormData,
-          equipmentId: equip.id,
-          plantNumber: equip.plantNumber || "",
-          projectArea: equip.projectArea || "",
-          driverId: "", // Explicitly clear to prevent stale data
-        });
+        updatedFormData.driverId = "";
       }
     } else {
-      // No assigned driver - explicitly clear driverId
       setSelectedDriver(null);
-      setDriverFormData({
-        ...driverFormData,
-        equipmentId: equip.id,
-        plantNumber: equip.plantNumber || "",
-        projectArea: equip.projectArea || "",
-        driverId: "", // Explicitly clear to prevent stale data
-      });
+      updatedFormData.driverId = "";
+    }
+
+    // Fetch fleet data by plate number if available
+    if (equip.plateNo) {
+      try {
+        const response = await fetch(`/api/mellatech/vehicles/by-plate/${encodeURIComponent(equip.plateNo)}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          },
+        });
+        
+        if (response.ok) {
+          const vehicleData = await response.json();
+          if (vehicleData.found && vehicleData.distance) {
+            updatedFormData.kilometreRiding = vehicleData.distance.toString();
+            toast({
+              title: "Fleet Data Found",
+              description: `Auto-filled kilometer reading: ${vehicleData.distance} km from GPS tracking`,
+            });
+          }
+        }
+      } catch (error) {
+        console.log("Fleet data not available for this plate number");
+      }
     }
     
+    setDriverFormData(updatedFormData);
     setEquipmentDialogOpen(false);
     setEquipmentSearchTerm("");
   };

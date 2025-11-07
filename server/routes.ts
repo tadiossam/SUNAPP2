@@ -6349,6 +6349,73 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // Employee Page Permissions API Routes
+  
+  // Get all page permissions for all employees (Admin UI)
+  app.get("/api/employee-page-permissions", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const permissions = await storage.getAllPagePermissions();
+      res.json(permissions);
+    } catch (error: any) {
+      console.error("Error fetching all page permissions:", error);
+      res.status(500).json({ error: "Failed to fetch page permissions" });
+    }
+  });
+
+  // Get page permissions for a specific employee
+  app.get("/api/employee-page-permissions/:employeeId", isAuthenticated, async (req, res) => {
+    try {
+      const { employeeId } = req.params;
+      
+      // Users can only fetch their own permissions unless they're CEO/Admin
+      const userRole = req.user?.role?.toLowerCase();
+      if (req.user?.id !== employeeId && userRole !== "ceo" && userRole !== "admin") {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const permissions = await storage.getEmployeePagePermissions(employeeId);
+      res.json(permissions);
+    } catch (error: any) {
+      console.error("Error fetching employee page permissions:", error);
+      res.status(500).json({ error: "Failed to fetch employee page permissions" });
+    }
+  });
+
+  // Set/update page permission for an employee
+  app.post("/api/employee-page-permissions", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { insertEmployeePagePermissionSchema } = await import("@shared/schema");
+      const permissionData = insertEmployeePagePermissionSchema.parse(req.body);
+      
+      const permission = await storage.setEmployeePagePermission(permissionData);
+      res.json(permission);
+    } catch (error: any) {
+      console.error("Error setting page permission:", error);
+      res.status(500).json({ error: "Failed to set page permission" });
+    }
+  });
+
+  // Remove page permission for an employee
+  app.delete("/api/employee-page-permissions", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { employeeId, pagePath } = req.body;
+      
+      if (!employeeId || !pagePath) {
+        return res.status(400).json({ error: "employeeId and pagePath are required" });
+      }
+      
+      const success = await storage.removeEmployeePagePermission(employeeId, pagePath);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ error: "Permission not found" });
+      }
+    } catch (error: any) {
+      console.error("Error removing page permission:", error);
+      res.status(500).json({ error: "Failed to remove page permission" });
+    }
+  });
+
   // Update system settings
   app.patch("/api/system-settings", isCEOOrAdmin, async (req, res) => {
     try {

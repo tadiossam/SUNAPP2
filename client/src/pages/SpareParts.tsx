@@ -522,6 +522,11 @@ export default function SparePartsPage() {
     }
   };
 
+  // Calculate inventory statistics
+  const totalItems = parts?.length || 0;
+  const lowStockItems = parts?.filter(p => p.stockStatus === "low_stock").length || 0;
+  const outOfStockItems = parts?.filter(p => p.stockStatus === "out_of_stock").length || 0;
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none border-b bg-card p-6">
@@ -539,6 +544,42 @@ export default function SparePartsPage() {
                 Create Part
               </Button>
             )}
+          </div>
+
+          {/* Inventory Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card data-testid="card-total-items">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-total-items">{totalItems}</div>
+                <p className="text-xs text-muted-foreground">Total items in inventory</p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-low-stock">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Low On Stock</CardTitle>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-low-stock">{lowStockItems}</div>
+                <p className="text-xs text-muted-foreground">Items with low inventory</p>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-out-of-stock">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold" data-testid="text-out-of-stock">{outOfStockItems}</div>
+                <p className="text-xs text-muted-foreground">Items with zero inventory</p>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="flex flex-col md:flex-row gap-4">
@@ -837,7 +878,8 @@ export default function SparePartsPage() {
               </div>
 
 
-              {selectedPart.model3dPath && (
+              {/* Hidden: 3D Model Available section */}
+              {false && selectedPart.model3dPath && (
                 <>
                   <Separator />
                   <div>
@@ -995,8 +1037,8 @@ export default function SparePartsPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Location Instructions */}
-                    {selectedPart.locationInstructions ? (
+                    {/* Hidden: Part Location section */}
+                    {false && selectedPart.locationInstructions && (
                       <div className="bg-muted/50 p-4 rounded-lg">
                         <div className="flex items-start gap-3">
                           <MapPin className="h-5 w-5 text-primary mt-0.5" />
@@ -1008,8 +1050,6 @@ export default function SparePartsPage() {
                           </div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground italic">No location instructions added yet.</div>
                     )}
 
                     {/* Tutorial Video */}

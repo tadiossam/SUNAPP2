@@ -137,9 +137,9 @@ class MellaTechService {
         const responseText = typeof response.data === 'string' ? response.data : '';
         console.log('   Response length:', responseText.length);
         
-        // Check if successfully redirected to tracking page
-        if (redirectUrl.includes('tracking.php')) {
-          console.log('✅ MellaTech login successful - redirected to tracking page');
+        // Check if successfully redirected to tracking page OR cpanel.php (MellaTech's actual redirect)
+        if (redirectUrl.includes('tracking.php') || redirectUrl.includes('cpanel.php')) {
+          console.log('✅ MellaTech login successful - redirected to', redirectUrl.includes('cpanel.php') ? 'cpanel' : 'tracking page');
           this.isAuthenticated = true;
           
           await this.fetchUat();

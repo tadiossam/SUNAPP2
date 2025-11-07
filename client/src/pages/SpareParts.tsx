@@ -643,8 +643,8 @@ export default function SparePartsPage() {
             </div>
           )}
 
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-3">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by part number, name, or description..."
@@ -655,9 +655,9 @@ export default function SparePartsPage() {
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[180px]" data-testid="select-category">
+                <SelectTrigger data-testid="select-category">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -671,8 +671,8 @@ export default function SparePartsPage() {
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[140px]" data-testid="select-status">
-                  <SelectValue placeholder="Stock Status" />
+                <SelectTrigger data-testid="select-status">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -683,7 +683,7 @@ export default function SparePartsPage() {
               </Select>
 
               <Select value={currency} onValueChange={(value: "USD" | "ETB") => setCurrency(value)}>
-                <SelectTrigger className="w-[120px]" data-testid="select-currency">
+                <SelectTrigger data-testid="select-currency">
                   <SelectValue placeholder="Currency" />
                 </SelectTrigger>
                 <SelectContent>

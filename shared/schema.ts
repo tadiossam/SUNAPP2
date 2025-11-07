@@ -1671,3 +1671,145 @@ export const insertAppCustomizationsSchema = createInsertSchema(appCustomization
 // Select types for app customizations
 export type AppCustomizations = typeof appCustomizations.$inferSelect;
 export type InsertAppCustomizations = z.infer<typeof insertAppCustomizationsSchema>;
+
+// MellaTech Fleet Tracking - Vehicles synced from MellaTech
+export const mellaTechVehicles = pgTable("mellatech_vehicles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mellaTechId: text("mellatech_id").notNull().unique(), // MellaTech's vehicle ID
+  name: text("name").notNull(), // Vehicle name/identifier
+  plateNumber: text("plate_number"), // License plate
+  equipmentId: varchar("equipment_id").references(() => equipment.id, { onDelete: "set null" }), // Link to our equipment table
+  vehicleType: text("vehicle_type"), // Truck, Loader, etc.
+  imei: text("imei"), // Device IMEI
+  speed: decimal("speed", { precision: 6, scale: 2 }), // Current speed
+  latitude: decimal("latitude", { precision: 10, scale: 7 }), // Current GPS latitude
+  longitude: decimal("longitude", { precision: 10, scale: 7 }), // Current GPS longitude
+  altitude: decimal("altitude", { precision: 8, scale: 2 }), // Current altitude
+  angle: decimal("angle", { precision: 5, scale: 2 }), // Current heading/direction
+  batteryLevel: decimal("battery_level", { precision: 5, scale: 2 }), // Battery percentage
+  engineHours: decimal("engine_hours", { precision: 10, scale: 2 }), // Total engine hours
+  distance: decimal("distance", { precision: 12, scale: 2 }), // Total distance traveled
+  status: text("status"), // Stopped, Moving, Idle, etc.
+  lastUpdate: timestamp("last_update"), // Last GPS update from MellaTech
+  syncedAt: timestamp("synced_at").defaultNow().notNull(), // When we last synced this data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// MellaTech Trip History - Historical trips/routes
+export const mellaTechTrips = pgTable("mellatech_trips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vehicleId: varchar("vehicle_id").notNull().references(() => mellaTechVehicles.id, { onDelete: "cascade" }),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  startLatitude: decimal("start_latitude", { precision: 10, scale: 7 }),
+  startLongitude: decimal("start_longitude", { precision: 10, scale: 7 }),
+  endLatitude: decimal("end_latitude", { precision: 10, scale: 7 }),
+  endLongitude: decimal("end_longitude", { precision: 10, scale: 7 }),
+  distance: decimal("distance", { precision: 12, scale: 2 }), // Trip distance
+  duration: integer("duration"), // Trip duration in seconds
+  maxSpeed: decimal("max_speed", { precision: 6, scale: 2 }),
+  averageSpeed: decimal("average_speed", { precision: 6, scale: 2 }),
+  idleTime: integer("idle_time"), // Idle time in seconds
+  fuelConsumed: decimal("fuel_consumed", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// MellaTech Location History - GPS breadcrumbs
+export const mellaTechLocationHistory = pgTable("mellatech_location_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vehicleId: varchar("vehicle_id").notNull().references(() => mellaTechVehicles.id, { onDelete: "cascade" }),
+  tripId: varchar("trip_id").references(() => mellaTechTrips.id, { onDelete: "set null" }),
+  latitude: decimal("latitude", { precision: 10, scale: 7 }).notNull(),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }).notNull(),
+  altitude: decimal("altitude", { precision: 8, scale: 2 }),
+  speed: decimal("speed", { precision: 6, scale: 2 }),
+  angle: decimal("angle", { precision: 5, scale: 2 }),
+  timestamp: timestamp("timestamp").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// MellaTech Alerts/Geofence - Alerts and notifications
+export const mellaTechAlerts = pgTable("mellatech_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vehicleId: varchar("vehicle_id").notNull().references(() => mellaTechVehicles.id, { onDelete: "cascade" }),
+  alertType: text("alert_type").notNull(), // speeding, geofence, idle, etc.
+  message: text("message").notNull(),
+  severity: text("severity").notNull().default("info"), // info, warning, critical
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  isRead: boolean("is_read").default(false).notNull(),
+  occurredAt: timestamp("occurred_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Relations for MellaTech tables
+export const mellaTechVehiclesRelations = relations(mellaTechVehicles, ({ one, many }) => ({
+  equipment: one(equipment, {
+    fields: [mellaTechVehicles.equipmentId],
+    references: [equipment.id],
+  }),
+  trips: many(mellaTechTrips),
+  locationHistory: many(mellaTechLocationHistory),
+  alerts: many(mellaTechAlerts),
+}));
+
+export const mellaTechTripsRelations = relations(mellaTechTrips, ({ one, many }) => ({
+  vehicle: one(mellaTechVehicles, {
+    fields: [mellaTechTrips.vehicleId],
+    references: [mellaTechVehicles.id],
+  }),
+  locations: many(mellaTechLocationHistory),
+}));
+
+export const mellaTechLocationHistoryRelations = relations(mellaTechLocationHistory, ({ one }) => ({
+  vehicle: one(mellaTechVehicles, {
+    fields: [mellaTechLocationHistory.vehicleId],
+    references: [mellaTechVehicles.id],
+  }),
+  trip: one(mellaTechTrips, {
+    fields: [mellaTechLocationHistory.tripId],
+    references: [mellaTechTrips.id],
+  }),
+}));
+
+export const mellaTechAlertsRelations = relations(mellaTechAlerts, ({ one }) => ({
+  vehicle: one(mellaTechVehicles, {
+    fields: [mellaTechAlerts.vehicleId],
+    references: [mellaTechVehicles.id],
+  }),
+}));
+
+// Insert schemas for MellaTech tables
+export const insertMellaTechVehicleSchema = createInsertSchema(mellaTechVehicles).omit({
+  id: true,
+  syncedAt: true,
+  createdAt: true,
+});
+
+export const insertMellaTechTripSchema = createInsertSchema(mellaTechTrips).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMellaTechLocationHistorySchema = createInsertSchema(mellaTechLocationHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMellaTechAlertSchema = createInsertSchema(mellaTechAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Select types for MellaTech tables
+export type MellaTechVehicle = typeof mellaTechVehicles.$inferSelect;
+export type InsertMellaTechVehicle = z.infer<typeof insertMellaTechVehicleSchema>;
+
+export type MellaTechTrip = typeof mellaTechTrips.$inferSelect;
+export type InsertMellaTechTrip = z.infer<typeof insertMellaTechTripSchema>;
+
+export type MellaTechLocationHistory = typeof mellaTechLocationHistory.$inferSelect;
+export type InsertMellaTechLocationHistory = z.infer<typeof insertMellaTechLocationHistorySchema>;
+
+export type MellaTechAlert = typeof mellaTechAlerts.$inferSelect;
+export type InsertMellaTechAlert = z.infer<typeof insertMellaTechAlertSchema>;

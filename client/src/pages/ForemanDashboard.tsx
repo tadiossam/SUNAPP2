@@ -417,24 +417,26 @@ export default function ForemanDashboard() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <Tabs defaultValue="pending" className="space-y-6">
-          <TabsList className="grid w-full max-w-4xl grid-cols-4" data-testid="tabs-work-orders">
-            <TabsTrigger value="pending" data-testid="tab-pending">
-              <Clock className="h-4 w-4 mr-2" />
-              Pending Assignment
-            </TabsTrigger>
-            <TabsTrigger value="active" data-testid="tab-active">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Active Work
-            </TabsTrigger>
-            <TabsTrigger value="completions" data-testid="tab-completions">
-              <ThumbsUp className="h-4 w-4 mr-2" />
-              Completion Approvals ({pendingCompletions.length})
-            </TabsTrigger>
-            <TabsTrigger value="requisitions" data-testid="tab-requisitions">
-              <Package className="h-4 w-4 mr-2" />
-              Parts Requisitions
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:max-w-4xl lg:grid-cols-4" data-testid="tabs-work-orders">
+              <TabsTrigger value="pending" data-testid="tab-pending">
+                <Clock className="h-4 w-4 mr-2" />
+                Pending Assignment
+              </TabsTrigger>
+              <TabsTrigger value="active" data-testid="tab-active">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Active Work
+              </TabsTrigger>
+              <TabsTrigger value="completions" data-testid="tab-completions">
+                <ThumbsUp className="h-4 w-4 mr-2" />
+                Completion Approvals ({pendingCompletions.length})
+              </TabsTrigger>
+              <TabsTrigger value="requisitions" data-testid="tab-requisitions">
+                <Package className="h-4 w-4 mr-2" />
+                Parts Requisitions
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="pending" className="space-y-4">
             {pendingWorkOrders && pendingWorkOrders.length > 0 ? (
@@ -462,16 +464,18 @@ export default function ForemanDashboard() {
 
           <TabsContent value="completions" className="space-y-4">
             <Tabs defaultValue="pending" className="space-y-4">
-              <TabsList className="grid w-full max-w-2xl grid-cols-2">
-                <TabsTrigger value="pending" data-testid="tab-pending-completions">
-                  <Clock className="h-3.5 w-3.5 mr-1.5" />
-                  Pending ({pendingCompletions.length})
-                </TabsTrigger>
-                <TabsTrigger value="approved" data-testid="tab-approved-completions">
-                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                  Approved ({approvedCompletions.length})
-                </TabsTrigger>
-              </TabsList>
+              <div className="w-full overflow-x-auto">
+                <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:max-w-2xl lg:grid-cols-2">
+                  <TabsTrigger value="pending" data-testid="tab-pending-completions">
+                    <Clock className="h-3.5 w-3.5 mr-1.5" />
+                    Pending ({pendingCompletions.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="approved" data-testid="tab-approved-completions">
+                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                    Approved ({approvedCompletions.length})
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="pending" className="space-y-4">
                 {pendingCompletions.length > 0 ? (
@@ -574,20 +578,22 @@ export default function ForemanDashboard() {
 
           <TabsContent value="requisitions" className="space-y-4">
             <Tabs defaultValue="pending" className="space-y-4">
-              <TabsList className="grid w-full max-w-2xl grid-cols-3">
-                <TabsTrigger value="pending" data-testid="tab-pending-requisitions">
-                  <Clock className="h-3.5 w-3.5 mr-1.5" />
-                  Pending Review
-                </TabsTrigger>
-                <TabsTrigger value="approved" data-testid="tab-approved-requisitions">
-                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                  Approved Items
-                </TabsTrigger>
-                <TabsTrigger value="rejected" data-testid="tab-rejected-requisitions">
-                  <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                  Rejected Items
-                </TabsTrigger>
-              </TabsList>
+              <div className="w-full overflow-x-auto">
+                <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:max-w-2xl lg:grid-cols-3">
+                  <TabsTrigger value="pending" data-testid="tab-pending-requisitions">
+                    <Clock className="h-3.5 w-3.5 mr-1.5" />
+                    Pending Review
+                  </TabsTrigger>
+                  <TabsTrigger value="approved" data-testid="tab-approved-requisitions">
+                    <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                    Approved Items
+                  </TabsTrigger>
+                  <TabsTrigger value="rejected" data-testid="tab-rejected-requisitions">
+                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                    Rejected Items
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="pending" className="space-y-4">
             {requisitions.length > 0 ? (

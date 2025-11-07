@@ -407,23 +407,25 @@ export default function StoreManagerDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="pending" data-testid="tab-pending">
-            Pending ({requisitions.filter(r => r.status === "pending_store").length})
-          </TabsTrigger>
-          <TabsTrigger value="approved" data-testid="tab-approved">
-            Approved
-          </TabsTrigger>
-          <TabsTrigger value="rejected" data-testid="tab-rejected">
-            Rejected
-          </TabsTrigger>
-          <TabsTrigger value="purchase_orders" data-testid="tab-purchase-orders">
-            Purchase Orders ({purchaseRequests.filter(pr => pr.status === 'pending').length})
-          </TabsTrigger>
-          <TabsTrigger value="all" data-testid="tab-all">
-            All
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-5">
+            <TabsTrigger value="pending" data-testid="tab-pending">
+              Pending ({requisitions.filter(r => r.status === "pending_store").length})
+            </TabsTrigger>
+            <TabsTrigger value="approved" data-testid="tab-approved">
+              Approved
+            </TabsTrigger>
+            <TabsTrigger value="rejected" data-testid="tab-rejected">
+              Rejected
+            </TabsTrigger>
+            <TabsTrigger value="purchase_orders" data-testid="tab-purchase-orders">
+              Purchase Orders ({purchaseRequests.filter(pr => pr.status === 'pending').length})
+            </TabsTrigger>
+            <TabsTrigger value="all" data-testid="tab-all">
+              All
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Requisitions Tabs */}
         {activeTab !== "purchase_orders" && (

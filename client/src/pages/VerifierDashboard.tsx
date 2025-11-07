@@ -211,17 +211,19 @@ export default function VerifierDashboard() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <Tabs defaultValue="pending" className="space-y-6">
-          <TabsList data-testid="tabs-verifier">
-            <TabsTrigger value="pending" data-testid="tab-pending">
-              Pending Verification ({pendingVerification?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="verified" data-testid="tab-verified">
-              Verified ({verifiedWorkOrders?.length || 0})
-            </TabsTrigger>
-            <TabsTrigger value="rejected" data-testid="tab-rejected">
-              Rejected ({rejectedWorkOrders?.length || 0})
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-3" data-testid="tabs-verifier">
+              <TabsTrigger value="pending" data-testid="tab-pending">
+                Pending Verification ({pendingVerification?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="verified" data-testid="tab-verified">
+                Verified ({verifiedWorkOrders?.length || 0})
+              </TabsTrigger>
+              <TabsTrigger value="rejected" data-testid="tab-rejected">
+                Rejected ({rejectedWorkOrders?.length || 0})
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="pending">
             <div className="space-y-4">

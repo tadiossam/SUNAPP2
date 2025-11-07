@@ -15,6 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +59,8 @@ import {
   Terminal,
   Info,
   Shield,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -281,6 +296,7 @@ export default function AdminSettings() {
   // State for User Control tab
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [employeePermissions, setEmployeePermissions] = useState<{[key: string]: boolean}>({});
+  const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
 
   // Fetch permissions for selected employee
   const { data: permissions = [] } = useQuery<any[]>({
@@ -2379,24 +2395,53 @@ export default function AdminSettings() {
                   <div className="mt-6 space-y-4">
                     <div>
                       <Label>Select Employee</Label>
-                      <Select 
-                        value={selectedEmployeeId} 
-                        onValueChange={(value) => {
-                          setSelectedEmployeeId(value);
-                          setEmployeePermissions({});
-                        }}
-                      >
-                        <SelectTrigger data-testid="select-employee">
-                          <SelectValue placeholder="Choose an employee" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {employees?.map((emp: any) => (
-                            <SelectItem key={emp.id} value={emp.id}>
-                              {emp.fullName} - {emp.role}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Popover open={employeeComboboxOpen} onOpenChange={setEmployeeComboboxOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={employeeComboboxOpen}
+                            className="w-full justify-between"
+                            data-testid="select-employee"
+                          >
+                            {selectedEmployeeId
+                              ? employees.find((emp: any) => emp.id === selectedEmployeeId)?.fullName + 
+                                " - " + 
+                                employees.find((emp: any) => emp.id === selectedEmployeeId)?.role
+                              : "Search and select employee..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search employee by name or role..." />
+                            <CommandList>
+                              <CommandEmpty>No employee found.</CommandEmpty>
+                              <CommandGroup>
+                                {employees?.map((emp: any) => (
+                                  <CommandItem
+                                    key={emp.id}
+                                    value={`${emp.fullName} ${emp.role}`}
+                                    onSelect={() => {
+                                      setSelectedEmployeeId(emp.id);
+                                      setEmployeePermissions({});
+                                      setEmployeeComboboxOpen(false);
+                                    }}
+                                    data-testid={`employee-option-${emp.id}`}
+                                  >
+                                    <Check
+                                      className={`mr-2 h-4 w-4 ${
+                                        selectedEmployeeId === emp.id ? "opacity-100" : "opacity-0"
+                                      }`}
+                                    />
+                                    {emp.fullName} - {emp.role}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     
                     {selectedEmployeeId && (

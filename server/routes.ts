@@ -319,6 +319,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Protected: Only CEO/Admin can delete all categories
+  app.delete("/api/equipment-categories", isCEOOrAdmin, async (req, res) => {
+    try {
+      const deletedCount = await storage.deleteAllEquipmentCategories();
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted',
+          'equipment_categories_bulk',
+          'all',
+          req.user.username || 'unknown',
+          { deletedCount }
+        ));
+      }
+      
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      console.error("Error deleting all equipment categories:", error);
+      res.status(500).json({ error: "Failed to delete all equipment categories" });
+    }
+  });
+
   // Equipment endpoints with server-side search
   app.get("/api/equipment", async (req, res) => {
     try {
@@ -439,6 +462,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting equipment:", error);
       res.status(500).json({ error: "Failed to delete equipment" });
+    }
+  });
+
+  // Protected: Only CEO/Admin can delete all equipment
+  app.post("/api/equipment/delete-all", isCEOOrAdmin, async (req, res) => {
+    try {
+      const deletedCount = await storage.deleteAllEquipment();
+      
+      // Send email notification if user is admin
+      if (req.user?.role === "admin") {
+        await sendCEONotification(createNotification(
+          'deleted',
+          'equipment_bulk',
+          'all',
+          req.user.username || 'unknown',
+          { deletedCount }
+        ));
+      }
+      
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      console.error("Error deleting all equipment:", error);
+      res.status(500).json({ error: "Failed to delete all equipment" });
     }
   });
 

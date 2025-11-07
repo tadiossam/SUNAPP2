@@ -65,6 +65,8 @@ export default function EquipmentPage() {
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteAllUnitsConfirm, setDeleteAllUnitsConfirm] = useState(false);
+  const [deleteAllCategoriesConfirm, setDeleteAllCategoriesConfirm] = useState(false);
   
   // Driver selection state
   const [driverDialogOpen, setDriverDialogOpen] = useState(false);
@@ -199,6 +201,52 @@ export default function EquipmentPage() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete equipment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAllEquipmentMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/equipment/delete-all", null);
+    },
+    onSuccess: async (data: any) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
+      toast({
+        title: "Success",
+        description: `Deleted ${data.deletedCount} equipment units successfully`,
+      });
+      setDeleteAllUnitsConfirm(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete all equipment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAllCategoriesMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", "/api/equipment-categories", null);
+    },
+    onSuccess: async (data: any) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment-categories"], type: 'active' });
+      await queryClient.refetchQueries({ queryKey: ["/api/equipment"], type: 'active' });
+      toast({
+        title: "Success",
+        description: `Deleted ${data.deletedCount} equipment categories successfully`,
+      });
+      setDeleteAllCategoriesConfirm(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete all categories",
         variant: "destructive",
       });
     },
@@ -547,6 +595,22 @@ export default function EquipmentPage() {
               onChange={handleFileImport}
               className="hidden"
             />
+            <Button 
+              variant="destructive" 
+              onClick={() => setDeleteAllCategoriesConfirm(true)} 
+              data-testid="button-delete-all-categories"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete All Categories
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => setDeleteAllUnitsConfirm(true)} 
+              data-testid="button-delete-all-units"
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Delete All Units
+            </Button>
           </div>
         </div>
       </div>
@@ -819,6 +883,50 @@ export default function EquipmentPage() {
               data-testid="button-confirm-delete"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Units Confirmation Dialog */}
+      <AlertDialog open={deleteAllUnitsConfirm} onOpenChange={setDeleteAllUnitsConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Equipment Units</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete ALL equipment units? This will permanently delete all equipment from the database. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-all-units">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteAllEquipmentMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-all-units"
+            >
+              Delete All Units
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Categories Confirmation Dialog */}
+      <AlertDialog open={deleteAllCategoriesConfirm} onOpenChange={setDeleteAllCategoriesConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Equipment Categories</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete ALL equipment categories? This will permanently delete all categories from the database. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-all-categories">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteAllCategoriesMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-all-categories"
+            >
+              Delete All Categories
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

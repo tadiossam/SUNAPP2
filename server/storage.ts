@@ -114,6 +114,7 @@ export interface IStorage {
   createEquipmentCategory(data: InsertEquipmentCategory): Promise<EquipmentCategory>;
   updateEquipmentCategory(id: string, data: Partial<InsertEquipmentCategory>): Promise<EquipmentCategory | undefined>;
   deleteEquipmentCategory(id: string): Promise<boolean>;
+  deleteAllEquipmentCategories(): Promise<number>;
 
   // Equipment operations
   getAllEquipment(): Promise<Equipment[]>;
@@ -121,6 +122,7 @@ export interface IStorage {
   createEquipment(data: InsertEquipment): Promise<Equipment>;
   updateEquipment(id: string, data: InsertEquipment): Promise<Equipment | undefined>;
   deleteEquipment(id: string): Promise<boolean>;
+  deleteAllEquipment(): Promise<number>;
   searchEquipment(params: {
     searchTerm?: string;
     equipmentType?: string;
@@ -402,6 +404,11 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  async deleteAllEquipmentCategories(): Promise<number> {
+    const result = await db.delete(equipmentCategories).returning();
+    return result.length;
+  }
+
   // Equipment operations
   async getAllEquipment(): Promise<Equipment[]> {
     return await db.select().from(equipment);
@@ -425,6 +432,11 @@ export class DatabaseStorage implements IStorage {
   async deleteEquipment(id: string): Promise<boolean> {
     const result = await db.delete(equipment).where(eq(equipment.id, id)).returning();
     return result.length > 0;
+  }
+
+  async deleteAllEquipment(): Promise<number> {
+    const result = await db.delete(equipment).returning();
+    return result.length;
   }
 
   async searchEquipment(params: {

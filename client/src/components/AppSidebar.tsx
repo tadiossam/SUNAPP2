@@ -175,6 +175,12 @@ export function AppSidebar() {
       testId: "link-team-performance",
     },
     {
+      title: "Fleet Tracking",
+      url: "/fleet-tracking",
+      icon: Navigation,
+      testId: "link-fleet-tracking",
+    },
+    {
       title: t("adminSettings"),
       url: "/admin-settings",
       icon: Settings,

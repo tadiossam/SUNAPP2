@@ -23,6 +23,33 @@ export function AppSidebar() {
     queryKey: ["/api/app-customizations"],
   });
 
+  // Fetch user auth data including permissions
+  const { data: authData } = useQuery({
+    queryKey: ["/api/auth/me"],
+  });
+
+  const user = (authData as any)?.user;
+  const permissions = (authData as any)?.permissions || [];
+  
+  // Helper function to check if user has access to a page
+  const hasPageAccess = (pagePath: string): boolean => {
+    // CEO and Admin users always have access to all pages
+    if (user?.role?.toLowerCase() === 'ceo' || user?.role?.toLowerCase() === 'admin') {
+      return true;
+    }
+    
+    // Check if there's an explicit permission for this page
+    const permission = permissions.find((p: any) => p.pagePath === pagePath);
+    
+    // If no permission record exists, default to allowing access (backward compatibility)
+    if (!permission) {
+      return true;
+    }
+    
+    // Otherwise, use the isAllowed value
+    return permission.isAllowed;
+  };
+
   const mainMenuItems = [
     {
       title: t("dashboard"),
@@ -186,7 +213,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>{t("navigation")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.map((item) => (
+              {mainMenuItems.filter(item => hasPageAccess(item.url)).map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={item.testId}>
@@ -204,7 +231,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>{t("garageManagement")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {garageMenuItems.map((item) => (
+              {garageMenuItems.filter(item => hasPageAccess(item.url)).map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={location === item.url}>
                     <Link href={item.url} data-testid={item.testId}>

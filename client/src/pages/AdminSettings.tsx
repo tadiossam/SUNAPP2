@@ -273,6 +273,66 @@ export default function AdminSettings() {
     queryKey: ["/api/app-customizations"],
   });
 
+  // Fetch employees for User Control tab
+  const { data: employees = [] } = useQuery<any[]>({
+    queryKey: ["/api/employees"],
+  });
+
+  // State for User Control tab
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [employeePermissions, setEmployeePermissions] = useState<{[key: string]: boolean}>({});
+
+  // Fetch permissions for selected employee
+  const { data: permissions = [] } = useQuery<any[]>({
+    queryKey: ["/api/employee-page-permissions", selectedEmployeeId],
+    enabled: !!selectedEmployeeId,
+  });
+
+  // Update local state when permissions are loaded
+  useEffect(() => {
+    if (permissions && permissions.length > 0) {
+      const permMap: {[key: string]: boolean} = {};
+      permissions.forEach((perm: any) => {
+        permMap[perm.pagePath] = perm.isAllowed;
+      });
+      setEmployeePermissions(permMap);
+    } else if (selectedEmployeeId) {
+      // If no permissions exist, default all to true (allowed)
+      setEmployeePermissions({});
+    }
+  }, [permissions, selectedEmployeeId]);
+
+  // Mutation to save permissions
+  const savePermissionsMutation = useMutation({
+    mutationFn: async () => {
+      const permissionsToSave = Object.entries(employeePermissions).map(([pagePath, isAllowed]) => ({
+        employeeId: selectedEmployeeId,
+        pagePath,
+        isAllowed,
+      }));
+
+      const res = await apiRequest("POST", "/api/employee-page-permissions/bulk", {
+        permissions: permissionsToSave,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Employee page permissions updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/employee-page-permissions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update permissions",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Update local state when settings are loaded
   useEffect(() => {
     if (deploySettings) {
@@ -2319,7 +2379,13 @@ export default function AdminSettings() {
                   <div className="mt-6 space-y-4">
                     <div>
                       <Label>Select Employee</Label>
-                      <Select>
+                      <Select 
+                        value={selectedEmployeeId} 
+                        onValueChange={(value) => {
+                          setSelectedEmployeeId(value);
+                          setEmployeePermissions({});
+                        }}
+                      >
                         <SelectTrigger data-testid="select-employee">
                           <SelectValue placeholder="Choose an employee" />
                         </SelectTrigger>
@@ -2333,38 +2399,65 @@ export default function AdminSettings() {
                       </Select>
                     </div>
                     
-                    <div className="border rounded-lg p-4">
-                      <h3 className="font-semibold mb-3">Available Pages</h3>
-                      <div className="grid grid-cols-2 gap-3">
-                        {[
-                          { path: "/dashboard", name: "Dashboard" },
-                          { path: "/equipment", name: "Equipment" },
-                          { path: "/spare-parts", name: "Spare Parts" },
-                          { path: "/work-orders", name: "Work Orders" },
-                          { path: "/garages", name: "Garages" },
-                          { path: "/employees", name: "Employees" },
-                          { path: "/equipment-reception", name: "Equipment Reception" },
-                          { path: "/equipment-inspection", name: "Equipment Inspection" },
-                          { path: "/approvals", name: "Approvals" },
-                          { path: "/item-requisitions", name: "Item Requisitions" },
-                          { path: "/performance", name: "Performance" },
-                          { path: "/maintenance-history", name: "Maintenance History" },
-                          { path: "/admin-settings", name: "Admin Settings" },
-                        ].map((page) => (
-                          <div key={page.path} className="flex items-center space-x-2">
-                            <Checkbox id={page.path} data-testid={`checkbox-${page.path}`} />
-                            <Label htmlFor={page.path} className="cursor-pointer">
-                              {page.name}
-                            </Label>
+                    {selectedEmployeeId && (
+                      <>
+                        <div className="border rounded-lg p-4">
+                          <h3 className="font-semibold mb-3">Available Pages</h3>
+                          <div className="grid grid-cols-2 gap-3">
+                            {[
+                              { path: "/", name: "Dashboard" },
+                              { path: "/my-work", name: "My Work" },
+                              { path: "/equipment", name: "Equipment" },
+                              { path: "/parts", name: "Spare Parts" },
+                              { path: "/maintenance", name: "Maintenance History" },
+                              { path: "/models", name: "3D Models" },
+                              { path: "/upload", name: "Upload Model" },
+                              { path: "/items", name: "Items" },
+                              { path: "/garages", name: "Garages" },
+                              { path: "/equipment-reception", name: "Equipment Reception" },
+                              { path: "/equipment-maintenances", name: "Equipment Maintenances" },
+                              { path: "/inspection", name: "Inspection" },
+                              { path: "/employees", name: "Employees" },
+                              { path: "/approvals", name: "Approvals" },
+                              { path: "/work-orders", name: "Work Orders" },
+                              { path: "/parts-locations", name: "Parts Locations" },
+                              { path: "/store-manager", name: "Store Manager" },
+                              { path: "/foreman", name: "Foreman Dashboard" },
+                              { path: "/verifier", name: "Verifier Dashboard" },
+                              { path: "/team-performance", name: "Team Performance" },
+                              { path: "/admin-settings", name: "Admin Settings" },
+                            ].map((page) => (
+                              <div key={page.path} className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id={page.path} 
+                                  checked={employeePermissions[page.path] !== false}
+                                  onCheckedChange={(checked) => {
+                                    setEmployeePermissions(prev => ({
+                                      ...prev,
+                                      [page.path]: checked === true,
+                                    }));
+                                  }}
+                                  data-testid={`checkbox-${page.path}`} 
+                                />
+                                <Label htmlFor={page.path} className="cursor-pointer">
+                                  {page.name}
+                                </Label>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <Button className="w-full" data-testid="button-save-permissions">
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Permissions
-                    </Button>
+                        </div>
+                        
+                        <Button 
+                          className="w-full" 
+                          onClick={() => savePermissionsMutation.mutate()}
+                          disabled={savePermissionsMutation.isPending}
+                          data-testid="button-save-permissions"
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {savePermissionsMutation.isPending ? "Saving..." : "Save Permissions"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>

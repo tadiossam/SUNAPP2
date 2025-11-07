@@ -6430,6 +6430,33 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // Bulk update page permissions for an employee
+  app.post("/api/employee-page-permissions/bulk", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { permissions } = req.body;
+      
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ error: "permissions must be an array" });
+      }
+      
+      // Set each permission
+      const results = [];
+      for (const perm of permissions) {
+        const permission = await storage.setEmployeePagePermission({
+          employeeId: perm.employeeId,
+          pagePath: perm.pagePath,
+          isAllowed: perm.isAllowed,
+        });
+        results.push(permission);
+      }
+      
+      res.json({ success: true, count: results.length });
+    } catch (error: any) {
+      console.error("Error bulk updating page permissions:", error);
+      res.status(500).json({ error: "Failed to bulk update page permissions" });
+    }
+  });
+
   // Update system settings
   app.patch("/api/system-settings", isCEOOrAdmin, async (req, res) => {
     try {

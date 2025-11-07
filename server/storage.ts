@@ -467,9 +467,7 @@ export class DatabaseStorage implements IStorage {
     const items = await db
       .select()
       .from(equipment)
-      .where(whereClause)
-      .limit(params.limit || 10000)  // Increased limit to handle large fleets
-      .offset(params.offset || 0);
+      .where(whereClause);
 
     return {
       items,
@@ -627,9 +625,7 @@ export class DatabaseStorage implements IStorage {
     const items = await db
       .select()
       .from(spareParts)
-      .where(whereClause)
-      .limit(params.limit || 100)
-      .offset(params.offset || 0);
+      .where(whereClause);
 
     const enrichedItems = await Promise.all(items.map((p) => this.enrichPartWithCompatibility(p)));
 

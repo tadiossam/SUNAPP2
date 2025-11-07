@@ -483,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const searchTerm = req.query.search as string | undefined;
       const category = req.query.category as string | undefined;
       const stockStatus = req.query.stockStatus as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
 
       const result = await storage.searchParts({
@@ -5547,8 +5547,8 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         domain: d365Settings.bcDomain || undefined,
       };
 
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
-      const result = await fetchD365Customers(config, limit);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const result = await fetchD365Customers(config, limit || 10000);
 
       if (result.success) {
         res.json({
@@ -5585,8 +5585,8 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         domain: d365Settings.bcDomain || undefined,
       };
 
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 1000;
-      const result = await fetchD365Items(config, d365Settings.itemPrefix || undefined, limit);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const result = await fetchD365Items(config, d365Settings.itemPrefix || undefined, limit || 10000);
 
       if (result.success) {
         res.json({
@@ -5624,8 +5624,8 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         domain: d365Settings.bcDomain || undefined,
       };
 
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 1000;
-      const result = await fetchD365Equipment(config, d365Settings.equipmentPrefix || undefined, limit);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const result = await fetchD365Equipment(config, d365Settings.equipmentPrefix || undefined, limit || 10000);
 
       if (result.success) {
         res.json({
@@ -5652,8 +5652,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     try {
       const logs = await db.select()
         .from(d365SyncLogs)
-        .orderBy(sql`${d365SyncLogs.createdAt} DESC`)
-        .limit(50); // Last 50 sync operations
+        .orderBy(sql`${d365SyncLogs.createdAt} DESC`);
       
       res.json(logs);
     } catch (error: any) {

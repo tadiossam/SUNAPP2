@@ -54,6 +54,9 @@ export default function SparePartsPage() {
     installTimeEstimates: { beginner: 0, average: 0, expert: 0 },
   });
   
+  // State for focused status view (all, low_stock, out_of_stock)
+  const [focusedStatus, setFocusedStatus] = useState<string | null>(null);
+  
   // CRUD states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -527,6 +530,35 @@ export default function SparePartsPage() {
   const lowStockItems = parts?.filter(p => p.stockStatus === "low_stock").length || 0;
   const outOfStockItems = parts?.filter(p => p.stockStatus === "out_of_stock").length || 0;
 
+  // Handlers for clicking statistics cards
+  const handleViewAllItems = () => {
+    setFocusedStatus("all");
+    setFilterStatus("all");
+    setSearchTerm("");
+    setFilterCategory("all");
+  };
+
+  const handleViewLowStock = () => {
+    setFocusedStatus("low_stock");
+    setFilterStatus("low_stock");
+    setSearchTerm("");
+    setFilterCategory("all");
+  };
+
+  const handleViewOutOfStock = () => {
+    setFocusedStatus("out_of_stock");
+    setFilterStatus("out_of_stock");
+    setSearchTerm("");
+    setFilterCategory("all");
+  };
+
+  const handleBackToCatalog = () => {
+    setFocusedStatus(null);
+    setFilterStatus("all");
+    setSearchTerm("");
+    setFilterCategory("all");
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-none border-b bg-card p-6">
@@ -548,7 +580,11 @@ export default function SparePartsPage() {
 
           {/* Inventory Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card data-testid="card-total-items">
+            <Card 
+              className="cursor-pointer hover-elevate active-elevate-2" 
+              onClick={handleViewAllItems}
+              data-testid="card-total-items"
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Items</CardTitle>
                 <Package className="h-4 w-4 text-muted-foreground" />
@@ -559,7 +595,11 @@ export default function SparePartsPage() {
               </CardContent>
             </Card>
 
-            <Card data-testid="card-low-stock">
+            <Card 
+              className="cursor-pointer hover-elevate active-elevate-2" 
+              onClick={handleViewLowStock}
+              data-testid="card-low-stock"
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Low On Stock</CardTitle>
                 <AlertCircle className="h-4 w-4 text-muted-foreground" />
@@ -570,7 +610,11 @@ export default function SparePartsPage() {
               </CardContent>
             </Card>
 
-            <Card data-testid="card-out-of-stock">
+            <Card 
+              className="cursor-pointer hover-elevate active-elevate-2" 
+              onClick={handleViewOutOfStock}
+              data-testid="card-out-of-stock"
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
                 <AlertCircle className="h-4 w-4 text-muted-foreground" />
@@ -581,6 +625,23 @@ export default function SparePartsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Back Navigation when Focused Status is Active */}
+          {focusedStatus && (
+            <div className="flex items-center gap-3 mb-2">
+              <Button 
+                variant="outline" 
+                onClick={handleBackToCatalog}
+                data-testid="button-back-to-catalog"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Back to Full Catalog
+              </Button>
+              <div className="text-sm text-muted-foreground">
+                Viewing: {focusedStatus === "all" ? "All Items" : focusedStatus === "low_stock" ? "Low Stock Items" : "Out of Stock Items"}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -898,8 +959,8 @@ export default function SparePartsPage() {
               <Separator />
               <ManufacturingSpecs part={selectedPart} />
 
-              {/* 3D Dimension Viewer */}
-              {selectedPart.manufacturingSpecs && (
+              {/* Hidden: 3D Dimension Viewer */}
+              {false && selectedPart.manufacturingSpecs && (
                 <>
                   <Separator />
                   <div>

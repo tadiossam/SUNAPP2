@@ -1,0 +1,280 @@
+import axios, { AxiosInstance } from 'axios';
+
+interface MellaTechConfig {
+  baseUrl: string;
+  username: string;
+  password: string;
+}
+
+interface MellaTechVehicleData {
+  id: string;
+  name: string;
+  plateNumber?: string;
+  speed?: number;
+  latitude?: number;
+  longitude?: number;
+  altitude?: number;
+  angle?: number;
+  battery?: number;
+  distance?: number;
+  status?: string;
+  lastUpdate?: Date;
+  engineHours?: number;
+}
+
+interface MellaTechLoginResponse {
+  success: boolean;
+  uat?: string;
+  error?: string;
+}
+
+interface MellaTechObjectsResponse {
+  [key: string]: {
+    w?: boolean;
+    e?: boolean;
+    s?: boolean;
+    evtac?: boolean;
+    evtoloc?: boolean;
+    a?: string;
+    l?: number[];
+    d?: {
+      battery?: number;
+      distance?: number;
+      event_s?: number;
+      host?: number;
+    }[];
+  };
+}
+
+class MellaTechService {
+  private config: MellaTechConfig;
+  private axiosInstance: AxiosInstance;
+  private sessionCookies: string = '';
+  private uat: string = '';
+  private isAuthenticated: boolean = false;
+
+  constructor(config: MellaTechConfig) {
+    this.config = config;
+    
+    this.axiosInstance = axios.create({
+      baseURL: config.baseUrl,
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Connection': 'keep-alive',
+      },
+      maxRedirects: 5,
+      withCredentials: true,
+    });
+
+    this.axiosInstance.interceptors.response.use(
+      (response) => {
+        const setCookieHeaders = response.headers['set-cookie'];
+        if (setCookieHeaders) {
+          this.sessionCookies = setCookieHeaders.join('; ');
+        }
+        return response;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  async login(): Promise<MellaTechLoginResponse> {
+    try {
+      console.log('🔐 Attempting MellaTech login...');
+
+      const loginData = new URLSearchParams();
+      loginData.append('login', this.config.username);
+      loginData.append('password', this.config.password);
+
+      const response = await this.axiosInstance.post('/et/index.php', loginData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Origin': this.config.baseUrl,
+          'Referer': `${this.config.baseUrl}/et/index.php`,
+        },
+      });
+
+      const cookies = response.headers['set-cookie'];
+      if (cookies) {
+        this.sessionCookies = cookies.join('; ');
+      }
+
+      if (response.status === 200) {
+        const redirectUrl = response.request?.res?.responseUrl || '';
+        if (redirectUrl.includes('tracking.php')) {
+          console.log('✅ MellaTech login successful');
+          this.isAuthenticated = true;
+          
+          await this.fetchUat();
+          
+          return { success: true, uat: this.uat };
+        }
+      }
+
+      console.log('❌ MellaTech login failed - no redirect to tracking page');
+      return { success: false, error: 'Login failed - invalid credentials or redirect' };
+
+    } catch (error: any) {
+      console.error('❌ MellaTech login error:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  private async fetchUat(): Promise<void> {
+    try {
+      const response = await this.axiosInstance.get('/et/tracking.php', {
+        headers: {
+          'Cookie': this.sessionCookies,
+          'Referer': `${this.config.baseUrl}/et/index.php`,
+        },
+      });
+
+      const htmlContent = response.data;
+      const uatMatch = htmlContent.match(/"uat"\s*:\s*"(\d+)"/);
+      
+      if (uatMatch && uatMatch[1]) {
+        this.uat = uatMatch[1];
+        console.log('✅ Extracted UAT token:', this.uat);
+      } else {
+        console.warn('⚠️ Could not extract UAT from tracking page');
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching UAT:', error.message);
+    }
+  }
+
+  async getVehicles(): Promise<MellaTechVehicleData[]> {
+    if (!this.isAuthenticated) {
+      const loginResult = await this.login();
+      if (!loginResult.success) {
+        throw new Error('Authentication failed');
+      }
+    }
+
+    try {
+      console.log('🚗 Fetching vehicles from MellaTech...');
+
+      const payload = {
+        uat: this.uat,
+        ser: []
+      };
+
+      const response = await this.axiosInstance.post<MellaTechObjectsResponse>(
+        '/et/func/fn_objects.php',
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': this.sessionCookies,
+            'Origin': this.config.baseUrl,
+            'Referer': `${this.config.baseUrl}/et/tracking.php`,
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        }
+      );
+
+      console.log('✅ Received vehicle data from MellaTech');
+
+      const vehicles: MellaTechVehicleData[] = [];
+
+      for (const [vehicleId, vehicleData] of Object.entries(response.data)) {
+        if (vehicleId === 'uat' || vehicleId === 'ser') continue;
+
+        const gpsData = vehicleData.l || [];
+        const detailsArray = vehicleData.d || [];
+        const details = detailsArray.length > 0 ? detailsArray[0] : {};
+
+        const vehicle: MellaTechVehicleData = {
+          id: vehicleId,
+          name: vehicleData.a || `Vehicle ${vehicleId}`,
+          latitude: gpsData[2] || undefined,
+          longitude: gpsData[3] || undefined,
+          altitude: gpsData[4] || undefined,
+          battery: details.battery || undefined,
+          distance: details.distance || undefined,
+          status: this.getVehicleStatus(vehicleData),
+          lastUpdate: gpsData[0] ? new Date(gpsData[0] * 1000) : undefined,
+        };
+
+        vehicles.push(vehicle);
+      }
+
+      console.log(`✅ Processed ${vehicles.length} vehicles`);
+      return vehicles;
+
+    } catch (error: any) {
+      console.error('❌ Error fetching vehicles:', error.message);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        this.isAuthenticated = false;
+        console.log('🔄 Session expired, re-authenticating...');
+        const loginResult = await this.login();
+        if (loginResult.success) {
+          return this.getVehicles();
+        }
+      }
+      
+      throw error;
+    }
+  }
+
+  private getVehicleStatus(vehicleData: any): string {
+    if (vehicleData.s === false) return 'Stopped';
+    if (vehicleData.w === true) return 'Moving';
+    if (vehicleData.e === false) return 'Idle';
+    return 'Unknown';
+  }
+
+  async testConnection(): Promise<{ success: boolean; message: string }> {
+    try {
+      const loginResult = await this.login();
+      if (!loginResult.success) {
+        return { success: false, message: loginResult.error || 'Login failed' };
+      }
+
+      const vehicles = await this.getVehicles();
+      return {
+        success: true,
+        message: `Successfully connected. Found ${vehicles.length} vehicles.`
+      };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  isConnected(): boolean {
+    return this.isAuthenticated;
+  }
+
+  async refreshSession(): Promise<boolean> {
+    const result = await this.login();
+    return result.success;
+  }
+}
+
+let mellaTechServiceInstance: MellaTechService | null = null;
+
+export function getMellaTechService(): MellaTechService {
+  if (!mellaTechServiceInstance) {
+    const config: MellaTechConfig = {
+      baseUrl: 'https://mellatech.et',
+      username: process.env.MELLATECH_USERNAME || '',
+      password: process.env.MELLATECH_PASSWORD || '',
+    };
+
+    if (!config.username || !config.password) {
+      throw new Error('MellaTech credentials not configured. Please set MELLATECH_USERNAME and MELLATECH_PASSWORD environment variables.');
+    }
+
+    mellaTechServiceInstance = new MellaTechService(config);
+  }
+
+  return mellaTechServiceInstance;
+}
+
+export { MellaTechService, MellaTechVehicleData };

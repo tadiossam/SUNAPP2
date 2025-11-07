@@ -38,6 +38,7 @@ import {
   items,
   dynamics365Settings,
   systemSettings,
+  employeePagePermissions,
   type EquipmentCategory,
   type InsertEquipmentCategory,
   type Equipment,
@@ -102,6 +103,8 @@ import {
   type InsertDynamics365Settings,
   type SystemSettings,
   type InsertSystemSettings,
+  type EmployeePagePermission,
+  type InsertEmployeePagePermission,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
@@ -364,6 +367,12 @@ export interface IStorage {
   // System Settings Operations
   getSystemSettings(): Promise<SystemSettings | undefined>;
   saveSystemSettings(data: InsertSystemSettings, updatedById: string): Promise<SystemSettings>;
+  
+  // Employee Page Permissions Operations
+  getEmployeePagePermissions(employeeId: string): Promise<EmployeePagePermission[]>;
+  getAllPagePermissions(): Promise<EmployeePagePermission[]>;
+  setEmployeePagePermission(data: InsertEmployeePagePermission): Promise<EmployeePagePermission>;
+  removeEmployeePagePermission(employeeId: string, pagePath: string): Promise<boolean>;
   
   // Items (D365) Operations
   getAllItems(): Promise<Item[]>;
@@ -3809,6 +3818,63 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return result;
     }
+  }
+
+  // Employee Page Permissions Operations
+  async getEmployeePagePermissions(employeeId: string): Promise<EmployeePagePermission[]> {
+    return db
+      .select()
+      .from(employeePagePermissions)
+      .where(eq(employeePagePermissions.employeeId, employeeId));
+  }
+
+  async getAllPagePermissions(): Promise<EmployeePagePermission[]> {
+    return db
+      .select()
+      .from(employeePagePermissions);
+  }
+
+  async setEmployeePagePermission(data: InsertEmployeePagePermission): Promise<EmployeePagePermission> {
+    // Check if permission already exists for this employee + page
+    const existing = await db
+      .select()
+      .from(employeePagePermissions)
+      .where(
+        and(
+          eq(employeePagePermissions.employeeId, data.employeeId),
+          eq(employeePagePermissions.pagePath, data.pagePath)
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      // Update existing permission
+      const [result] = await db
+        .update(employeePagePermissions)
+        .set({ isAllowed: data.isAllowed })
+        .where(eq(employeePagePermissions.id, existing[0].id))
+        .returning();
+      return result;
+    } else {
+      // Insert new permission
+      const [result] = await db
+        .insert(employeePagePermissions)
+        .values(data)
+        .returning();
+      return result;
+    }
+  }
+
+  async removeEmployeePagePermission(employeeId: string, pagePath: string): Promise<boolean> {
+    const result = await db
+      .delete(employeePagePermissions)
+      .where(
+        and(
+          eq(employeePagePermissions.employeeId, employeeId),
+          eq(employeePagePermissions.pagePath, pagePath)
+        )
+      );
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   // Items (D365) Operations

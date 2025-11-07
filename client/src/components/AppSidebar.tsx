@@ -29,7 +29,7 @@ export function AppSidebar() {
   });
 
   const user = (authData as any)?.user;
-  const permissions = (authData as any)?.permissions || [];
+  const permissions = (authData as any)?.user?.pagePermissions || [];
   
   // Helper function to check if user has access to a page
   const hasPageAccess = (pagePath: string): boolean => {

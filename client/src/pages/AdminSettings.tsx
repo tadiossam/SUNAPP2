@@ -1333,7 +1333,7 @@ export default function AdminSettings() {
   // MellaTech Fleet Tracking Mutations
   const testMellaTechConnectionMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("GET", "/api/mellatech/test", {});
+      const res = await apiRequest("GET", "/api/mellatech/test");
       return res.json();
     },
     onSuccess: (data) => {

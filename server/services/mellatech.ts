@@ -87,10 +87,33 @@ class MellaTechService {
     try {
       console.log('🔐 Attempting MellaTech login...');
       console.log('   Username:', this.config.username);
+      
+      // First, fetch the login page to check for CSRF tokens or field names
+      console.log('   Fetching login page to check form structure...');
+      const loginPageResponse = await this.axiosInstance.get('/et/index.php');
+      const loginPageHtml = loginPageResponse.data;
+      
+      // Check for CSRF token in the form
+      const csrfMatch = loginPageHtml.match(/name=["\']csrf["\'].*?value=["\'](.*?)["\']/i);
+      const csrfToken = csrfMatch ? csrfMatch[1] : null;
+      
+      // Check actual form field names
+      const usernameFieldMatch = loginPageHtml.match(/<input[^>]*name=["\'](login|username|user)["\'][^>]*>/i);
+      const passwordFieldMatch = loginPageHtml.match(/<input[^>]*type=["\'](password)["\'][^>]*name=["\'](.*?)["\']/i);
+      
+      console.log('   Form analysis:');
+      console.log('   - CSRF token:', csrfToken ? 'Found' : 'Not found');
+      console.log('   - Username field:', usernameFieldMatch ? usernameFieldMatch[1] : 'login (default)');
+      console.log('   - Password field:', passwordFieldMatch ? passwordFieldMatch[2] : 'password (default)');
 
       const loginData = new URLSearchParams();
       loginData.append('login', this.config.username);
       loginData.append('password', this.config.password);
+      
+      if (csrfToken) {
+        loginData.append('csrf', csrfToken);
+        console.log('   Added CSRF token to request');
+      }
 
       const response = await this.axiosInstance.post('/et/index.php', loginData, {
         headers: {

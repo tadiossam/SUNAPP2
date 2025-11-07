@@ -31,6 +31,7 @@ import {
   items,
   insertItemSchema,
   equipment,
+  equipmentCategories,
   d365SyncLogs,
   insertD365SyncLogSchema,
   d365ItemsPreview,
@@ -5209,7 +5210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Import selected equipment from D365 preview
+  // Import selected equipment from D365 preview with pattern-based categorization
   app.post("/api/dynamics365/import-equipment", isAuthenticated, async (req, res) => {
     try {
       const { equipment: selectedEquipment, defaultCategoryId, prefix } = req.body;
@@ -5221,42 +5222,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let savedCount = 0;
       let updatedCount = 0;
       let skippedCount = 0;
+      let categoriesCreated = 0;
       const errors: string[] = [];
+      const categoryMap = new Map<string, string>(); // Maps category name to category ID
       
       for (const d365Equip of selectedEquipment) {
         try {
-          // Check if equipment exists by asset number
           const assetNo = d365Equip.Asset_No || d365Equip.No;
-          const existingEquip = await db.select()
-            .from(equipment)
-            .where(eq(equipment.assetNo, assetNo))
-            .limit(1);
           
-          const equipData = {
-            categoryId: defaultCategoryId || null,
-            equipmentType: d365Equip.Type || d365Equip.Description?.split(' ')[0] || 'UNKNOWN',
-            make: d365Equip.Make || 'UNKNOWN',
-            model: d365Equip.Model || d365Equip.Description || 'UNKNOWN',
-            assetNo: assetNo,
-            machineSerial: d365Equip.Serial_No || null,
-            plantNumber: d365Equip.Plant_Number || null,
-            price: d365Equip.Unit_Price?.toString() || null,
-            remarks: `Imported from Dynamics 365 - ${d365Equip.Description}`,
-          };
+          // Pattern-based categorization:
+          // If asset number ends with "0000" -> Create Equipment Category
+          // If asset number ends with "0001+" -> Create Equipment under matching category
+          const isCategory = assetNo?.endsWith('0000');
           
-          if (existingEquip.length > 0) {
-            // Update existing equipment
-            await db.update(equipment)
-              .set(equipData)
-              .where(eq(equipment.assetNo, assetNo));
-            updatedCount++;
+          if (isCategory) {
+            // Extract category name (prefix before -0000)
+            const categoryName = assetNo.replace(/-?0000$/, '').trim();
+            
+            // Check if category already exists
+            const existingCategory = await db.select()
+              .from(equipmentCategories)
+              .where(eq(equipmentCategories.name, categoryName))
+              .limit(1);
+            
+            if (existingCategory.length === 0) {
+              // Create new category
+              const newCategory = await db.insert(equipmentCategories).values({
+                name: categoryName,
+                description: d365Equip.Description || `${categoryName} Equipment Category`,
+                backgroundImage: null,
+              }).returning();
+              
+              categoryMap.set(categoryName, newCategory[0].id);
+              categoriesCreated++;
+              console.log(`Created category: ${categoryName} (ID: ${newCategory[0].id})`);
+            } else {
+              categoryMap.set(categoryName, existingCategory[0].id);
+              console.log(`Category already exists: ${categoryName} (ID: ${existingCategory[0].id})`);
+            }
           } else {
-            // Insert new equipment
-            await db.insert(equipment).values(equipData);
-            savedCount++;
+            // This is equipment (ends with 0001+)
+            // Find matching category by extracting prefix
+            const match = assetNo?.match(/^(.+?)-?(\d{4})$/);
+            let categoryId = defaultCategoryId || null;
+            
+            if (match) {
+              const categoryPrefix = match[1].trim();
+              
+              // Try to find category in our map first
+              if (categoryMap.has(categoryPrefix)) {
+                categoryId = categoryMap.get(categoryPrefix)!;
+              } else {
+                // Search database for matching category
+                const existingCategory = await db.select()
+                  .from(equipmentCategories)
+                  .where(eq(equipmentCategories.name, categoryPrefix))
+                  .limit(1);
+                
+                if (existingCategory.length > 0) {
+                  categoryId = existingCategory[0].id;
+                  categoryMap.set(categoryPrefix, categoryId);
+                }
+              }
+            }
+            
+            // Check if equipment exists by asset number
+            const existingEquip = await db.select()
+              .from(equipment)
+              .where(eq(equipment.assetNo, assetNo))
+              .limit(1);
+            
+            const equipData = {
+              categoryId: categoryId,
+              equipmentType: d365Equip.Type || d365Equip.Description?.split(' ')[0] || 'UNKNOWN',
+              make: d365Equip.Make || 'UNKNOWN',
+              model: d365Equip.Model || d365Equip.Description || 'UNKNOWN',
+              assetNo: assetNo,
+              machineSerial: d365Equip.Serial_No || null,
+              plantNumber: d365Equip.Plant_Number || null,
+              price: d365Equip.Unit_Price?.toString() || null,
+              remarks: `Imported from Dynamics 365 - ${d365Equip.Description}`,
+            };
+            
+            if (existingEquip.length > 0) {
+              // Update existing equipment
+              await db.update(equipment)
+                .set(equipData)
+                .where(eq(equipment.assetNo, assetNo));
+              updatedCount++;
+            } else {
+              // Insert new equipment
+              await db.insert(equipment).values(equipData);
+              savedCount++;
+            }
           }
         } catch (equipError: any) {
-          console.error(`Error saving equipment ${d365Equip.No}:`, equipError.message);
+          console.error(`Error processing ${d365Equip.No}:`, equipError.message);
           errors.push(`${d365Equip.No}: ${equipError.message}`);
           skippedCount++;
         }
@@ -5276,12 +5337,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         importData: JSON.stringify(selectedEquipment.slice(0, 10)), // Store first 10 items as sample
       });
       
-      console.log(`Imported ${savedCount} new equipment, updated ${updatedCount} equipment`);
+      console.log(`Imported ${savedCount} new equipment, updated ${updatedCount} equipment, created ${categoriesCreated} categories`);
       
       res.json({
         success: true,
         savedCount,
         updatedCount,
+        categoriesCreated,
         errors: errors.length > 0 ? errors : undefined,
         totalProcessed: selectedEquipment.length,
       });

@@ -251,24 +251,26 @@ export default function EquipmentReception() {
 
       <div className="flex-1 overflow-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
-            <TabsTrigger value="driver-dropoff" className="gap-2">
-              <Truck className="h-4 w-4" />
-              Driver Drop-off
-            </TabsTrigger>
-            <TabsTrigger value="reception-list" className="gap-2">
-              <ClipboardCheck className="h-4 w-4" />
-              Receptions
-            </TabsTrigger>
-            <TabsTrigger value="mechanic-inspection" className="gap-2">
-              <Wrench className="h-4 w-4" />
-              Inspection
-            </TabsTrigger>
-            <TabsTrigger value="workflow-diagram" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Workflow
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:max-w-2xl lg:grid-cols-4">
+              <TabsTrigger value="driver-dropoff" className="gap-2">
+                <Truck className="h-4 w-4" />
+                Driver Drop-off
+              </TabsTrigger>
+              <TabsTrigger value="reception-list" className="gap-2">
+                <ClipboardCheck className="h-4 w-4" />
+                Receptions
+              </TabsTrigger>
+              <TabsTrigger value="mechanic-inspection" className="gap-2">
+                <Wrench className="h-4 w-4" />
+                Inspection
+              </TabsTrigger>
+              <TabsTrigger value="workflow-diagram" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Workflow
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Driver Drop-off Form */}
           <TabsContent value="driver-dropoff" className="space-y-6">

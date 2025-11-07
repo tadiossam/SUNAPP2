@@ -1225,11 +1225,13 @@ function EquipmentDetailDialog({
 
           {/* Tabs for detailed information */}
           <Tabs defaultValue="maintenance" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="maintenance">Maintenance History</TabsTrigger>
-              <TabsTrigger value="parts">Parts Used</TabsTrigger>
-              <TabsTrigger value="reports">Operating Reports</TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto">
+              <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-3">
+                <TabsTrigger value="maintenance">Maintenance History</TabsTrigger>
+                <TabsTrigger value="parts">Parts Used</TabsTrigger>
+                <TabsTrigger value="reports">Operating Reports</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="maintenance" className="space-y-3 mt-4">
               {recordsLoading ? (

@@ -488,32 +488,34 @@ export default function Inspection() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="pending" data-testid="tab-pending-inspections">
-            Pending Inspections
-            <Badge variant="secondary" className="ml-2">
-              {filteredReceptions.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="waiting" data-testid="tab-waiting-inspections">
-            Waiting For Approval
-            <Badge variant="secondary" className="ml-2">
-              {waitingForApprovalInspections.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="completed" data-testid="tab-completed-inspections">
-            Completed Inspections
-            <Badge variant="secondary" className="ml-2">
-              {completedInspections.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="canceled" data-testid="tab-canceled-inspections">
-            Canceled Inspections
-            <Badge variant="secondary" className="ml-2">
-              {canceledInspections.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-4">
+            <TabsTrigger value="pending" data-testid="tab-pending-inspections">
+              Pending Inspections
+              <Badge variant="secondary" className="ml-2">
+                {filteredReceptions.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="waiting" data-testid="tab-waiting-inspections">
+              Waiting For Approval
+              <Badge variant="secondary" className="ml-2">
+                {waitingForApprovalInspections.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="completed" data-testid="tab-completed-inspections">
+              Completed Inspections
+              <Badge variant="secondary" className="ml-2">
+                {completedInspections.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="canceled" data-testid="tab-canceled-inspections">
+              Canceled Inspections
+              <Badge variant="secondary" className="ml-2">
+                {canceledInspections.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Pending Inspections Tab */}
         <TabsContent value="pending" className="space-y-4 mt-4">

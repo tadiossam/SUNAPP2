@@ -168,20 +168,22 @@ export default function TeamPerformancePage() {
 
       <div className="flex-1 overflow-y-auto p-6">
         <Tabs defaultValue="daily" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3" data-testid="tabs-performance-period">
-            <TabsTrigger value="daily" data-testid="tab-daily">
-              <Clock className="h-4 w-4 mr-2" />
-              Daily
-            </TabsTrigger>
-            <TabsTrigger value="monthly" data-testid="tab-monthly">
-              <Wrench className="h-4 w-4 mr-2" />
-              Monthly
-            </TabsTrigger>
-            <TabsTrigger value="yearly" data-testid="tab-yearly">
-              <Trophy className="h-4 w-4 mr-2" />
-              Yearly
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:max-w-md lg:grid-cols-3" data-testid="tabs-performance-period">
+              <TabsTrigger value="daily" data-testid="tab-daily">
+                <Clock className="h-4 w-4 mr-2" />
+                Daily
+              </TabsTrigger>
+              <TabsTrigger value="monthly" data-testid="tab-monthly">
+                <Wrench className="h-4 w-4 mr-2" />
+                Monthly
+              </TabsTrigger>
+              <TabsTrigger value="yearly" data-testid="tab-yearly">
+                <Trophy className="h-4 w-4 mr-2" />
+                Yearly
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="daily" className="space-y-6">
             <Card>

@@ -630,11 +630,13 @@ export default function EquipmentCategoryPage() {
 
           {/* Tabs */}
           <Tabs defaultValue="maintenance" className="w-full px-8 pb-8">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="maintenance" data-testid="tab-maintenance">Maintenance History</TabsTrigger>
-              <TabsTrigger value="parts" data-testid="tab-parts">Parts Used</TabsTrigger>
-              <TabsTrigger value="operating" data-testid="tab-operating">Operating Reports</TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto">
+              <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-3 mb-6">
+                <TabsTrigger value="maintenance" data-testid="tab-maintenance">Maintenance History</TabsTrigger>
+                <TabsTrigger value="parts" data-testid="tab-parts">Parts Used</TabsTrigger>
+                <TabsTrigger value="operating" data-testid="tab-operating">Operating Reports</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="maintenance" className="space-y-3 mt-4">
               {equipmentMaintenanceRecords.length === 0 ? (

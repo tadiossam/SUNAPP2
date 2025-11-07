@@ -179,14 +179,16 @@ export default function WorkshopDetail() {
       <div>
         <h2 className="text-2xl font-semibold mb-4">Work Orders</h2>
         <Tabs defaultValue="pending" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="pending">
-              Pending ({pendingOrders.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed">
-              Completed ({completedOrders.length})
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-2">
+              <TabsTrigger value="pending">
+                Pending ({pendingOrders.length})
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Completed ({completedOrders.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="pending" className="mt-4">
             {pendingOrders.length > 0 ? (

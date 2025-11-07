@@ -415,14 +415,16 @@ export default function WorkOrdersPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="pending" data-testid="tab-pending-work-orders">
-            Pending ({pendingWorkOrders.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed" data-testid="tab-completed-work-orders">
-            Completed ({completedWorkOrders.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:max-w-md lg:grid-cols-2">
+            <TabsTrigger value="pending" data-testid="tab-pending-work-orders">
+              Pending ({pendingWorkOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" data-testid="tab-completed-work-orders">
+              Completed ({completedWorkOrders.length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value={activeTab} className="mt-6">
           {/* Filters */}

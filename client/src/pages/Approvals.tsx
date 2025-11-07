@@ -304,20 +304,22 @@ export default function ApprovalsPage() {
         </div>
 
         <Tabs defaultValue="inspections" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="inspections" data-testid="tab-inspections">
-              <ClipboardCheck className="h-4 w-4 mr-2" />
-              Waiting For Approval ({pendingInspections.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed" data-testid="tab-completed">
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Completed ({completedInspections.length})
-            </TabsTrigger>
-            <TabsTrigger value="work-orders" data-testid="tab-work-orders">
-              <FileText className="h-4 w-4 mr-2" />
-              {t("workOrders")} ({pendingWorkOrders.length})
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-3">
+              <TabsTrigger value="inspections" data-testid="tab-inspections">
+                <ClipboardCheck className="h-4 w-4 mr-2" />
+                Waiting For Approval ({pendingInspections.length})
+              </TabsTrigger>
+              <TabsTrigger value="completed" data-testid="tab-completed">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Completed ({completedInspections.length})
+              </TabsTrigger>
+              <TabsTrigger value="work-orders" data-testid="tab-work-orders">
+                <FileText className="h-4 w-4 mr-2" />
+                {t("workOrders")} ({pendingWorkOrders.length})
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="inspections" className="space-y-4">
             {loadingInspections ? (

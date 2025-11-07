@@ -37,6 +37,7 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
 - **Attendance Device Integration**: Integration with ZKTeco iFace990 Plus for employee management.
 - **Deployment Tool**: Admin settings for server host/port configuration, saved to the database. Includes database schema export functionality.
+- **Fleet Tracking System**: Real-time GPS tracking integration with MellaTech platform. Features include vehicle location tracking, trip history, fleet alerts monitoring, automatic data synchronization, and comprehensive fleet management dashboard. Credentials stored securely as environment variables.
 
 ## External Dependencies
 - **Replit Object Storage**: For 3D models, images, and videos.
@@ -44,3 +45,4 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Resend**: Email notification service.
 - **ZKTeco Biometric Device**: iFace990 Plus attendance device, utilizing the `zkteco-js` library.
 - **Dynamics 365 Business Central**: For importing Fixed Assets and Items (equipment and spare parts).
+- **MellaTech Fleet Tracking**: GPS vehicle tracking platform (mellatech.et) for real-time fleet monitoring, trip history, and alerts. Authentication credentials stored as environment variables (MELLATECH_USERNAME, MELLATECH_PASSWORD).

@@ -399,7 +399,12 @@ export default function AdminSettings() {
 
   // Deployment Tool Mutations
   const saveDeploymentMutation = useMutation({
-    mutationFn: async (data: { serverHost: string; serverPort: number }) => {
+    mutationFn: async (data: { 
+      serverHost: string; 
+      serverPort: number;
+      mellatechUsername?: string;
+      mellatechPassword?: string;
+    }) => {
       const response = await apiRequest("PATCH", "/api/system-settings", data);
       return response.json();
     },
@@ -409,8 +414,9 @@ export default function AdminSettings() {
         description: t("settingsSavedSuccessfully"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/system-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/mellatech/status"] });
     },
-    onError: (error: any) => {
+    onError: (error: any) {
       toast({
         title: t("error"),
         description: error.message || t("failedToSaveSettings"),
@@ -1375,7 +1381,7 @@ export default function AdminSettings() {
   });
 
   // Check if MellaTech credentials are configured
-  const { data: mellaTechStatus } = useQuery({
+  const { data: mellaTechStatus } = useQuery<{ configured: boolean }>({
     queryKey: ["/api/mellatech/status"],
   });
   const isMellaTechConfigured = mellaTechStatus?.configured || false;

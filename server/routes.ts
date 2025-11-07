@@ -6464,7 +6464,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   app.patch("/api/system-settings", isCEOOrAdmin, async (req, res) => {
     try {
       const { systemSettings, insertSystemSettingsSchema } = await import("@shared/schema");
-      const { encrypt } = await import("../utils/encryption");
+      const { encrypt } = await import("./utils/encryption");
       const settingsData = insertSystemSettingsSchema.partial().parse(req.body);
       
       // Validate server settings if provided
@@ -6962,6 +6962,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   // MellaTech Fleet Tracking API Routes
   app.get("/api/mellatech/status", isAuthenticated, async (req, res) => {
     try {
+      const { systemSettings } = await import("@shared/schema");
       // Check database first
       let configured = false;
       

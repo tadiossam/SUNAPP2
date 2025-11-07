@@ -1,12 +1,32 @@
 import crypto from 'crypto';
 
-// Use environment variable or fallback to a default key (should be set in production)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'gelan-terminal-maintenance-encryption-key-32-chars!!';
 const ALGORITHM = 'aes-256-cbc';
+
+// Get encryption key from environment variable
+// For production deployment, user must set ENCRYPTION_KEY environment variable
+// For development on Replit, a generated key is acceptable
+const getEncryptionKey = (): string => {
+  if (process.env.ENCRYPTION_KEY) {
+    return process.env.ENCRYPTION_KEY;
+  }
+  
+  // In development, generate a session-specific key
+  // This means credentials saved in one session won't decrypt in another
+  // but it's acceptable for development/testing
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('⚠️ ENCRYPTION_KEY not set - using temporary development key');
+    console.warn('⚠️ Credentials will need to be re-entered after server restart');
+    return 'dev-temp-key-gelan-terminal-maintenance-' + process.pid;
+  }
+  
+  // In production, fail fast if key is not set
+  throw new Error('ENCRYPTION_KEY environment variable must be set in production');
+};
 
 // Ensure key is exactly 32 bytes for AES-256
 const getKey = () => {
-  return crypto.createHash('sha256').update(ENCRYPTION_KEY).digest();
+  const keyString = getEncryptionKey();
+  return crypto.createHash('sha256').update(keyString).digest();
 };
 
 export function encrypt(text: string): string {

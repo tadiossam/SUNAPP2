@@ -30,7 +30,6 @@ import WorkOrdersPage from "@/pages/WorkOrders";
 import PartsLocationsPage from "@/pages/PartsLocations";
 import AdminPage from "@/pages/Admin";
 import AdminSettingsPage from "@/pages/AdminSettings";
-import ItemsPage from "@/pages/Items";
 import StoreManagerDashboard from "@/pages/StoreManagerDashboard";
 import PurchaseOrders from "@/pages/PurchaseOrders";
 import TeamPerformance from "@/pages/TeamPerformance";
@@ -67,7 +66,6 @@ function Router() {
       <Route path="/approvals" component={ApprovalsPage} />
       <Route path="/work-orders" component={WorkOrdersPage} />
       <Route path="/parts-locations" component={PartsLocationsPage} />
-      <Route path="/items" component={ItemsPage} />
       <Route path="/store-manager" component={StoreManagerDashboard} />
       <Route path="/purchase-orders" component={PurchaseOrders} />
       <Route path="/foreman" component={ForemanDashboard} />

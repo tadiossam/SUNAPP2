@@ -1498,6 +1498,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/work-orders/verifier/verified", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check for verifier, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'verifier', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Verifier or CEO role required (admin has full access)" });
+      }
+      
+      const verifiedWorkOrders = await storage.getVerifierVerifiedWorkOrders();
+      res.json(verifiedWorkOrders);
+    } catch (error) {
+      console.error("Error fetching verifier verified work orders:", error);
+      res.status(500).json({ error: "Failed to fetch verified work orders" });
+    }
+  });
+
+  app.get("/api/work-orders/verifier/rejected", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Check for verifier, ceo roles (admin has automatic full access)
+      if (!hasRole(req.user, 'verifier', 'ceo')) {
+        return res.status(403).json({ error: "Access denied: Verifier or CEO role required (admin has full access)" });
+      }
+      
+      const rejectedWorkOrders = await storage.getVerifierRejectedWorkOrders();
+      res.json(rejectedWorkOrders);
+    } catch (error) {
+      console.error("Error fetching verifier rejected work orders:", error);
+      res.status(500).json({ error: "Failed to fetch rejected work orders" });
+    }
+  });
+
   // Supervisor dashboard endpoint (MUST be before :id route)
   app.get("/api/work-orders/supervisor/pending", async (req, res) => {
     try {

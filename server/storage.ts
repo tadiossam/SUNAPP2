@@ -232,6 +232,8 @@ export interface IStorage {
   getWorkOrdersByTeamMember(teamMemberId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]>;
   assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void>;
   getVerifierPendingWorkOrders(): Promise<WorkOrderWithDetails[]>;
+  getVerifierVerifiedWorkOrders(): Promise<WorkOrderWithDetails[]>;
+  getVerifierRejectedWorkOrders(): Promise<WorkOrderWithDetails[]>;
   approveWorkOrderVerification(workOrderId: string, verifierId: string, notes?: string): Promise<void>;
   rejectWorkOrderVerification(workOrderId: string, verifierId: string, rejectionNotes: string): Promise<void>;
   markWorkComplete(workOrderId: string, teamMemberId: string): Promise<void>;
@@ -3497,6 +3499,34 @@ export class DatabaseStorage implements IStorage {
     
     const ordersWithDetails = await Promise.all(
       pendingOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async getVerifierVerifiedWorkOrders(): Promise<WorkOrderWithDetails[]> {
+    const verifiedOrders = await db
+      .select()
+      .from(workOrders)
+      .where(eq(workOrders.verificationStatus, "approved"))
+      .orderBy(desc(workOrders.verifiedAt));
+    
+    const ordersWithDetails = await Promise.all(
+      verifiedOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async getVerifierRejectedWorkOrders(): Promise<WorkOrderWithDetails[]> {
+    const rejectedOrders = await db
+      .select()
+      .from(workOrders)
+      .where(eq(workOrders.verificationStatus, "rejected"))
+      .orderBy(desc(workOrders.verifiedAt));
+    
+    const ordersWithDetails = await Promise.all(
+      rejectedOrders.map(order => this.getWorkOrderById(order.id))
     );
     
     return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];

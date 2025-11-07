@@ -2,8 +2,9 @@ import axios, { AxiosInstance } from 'axios';
 
 interface MellaTechConfig {
   baseUrl: string;
-  username: string;
-  password: string;
+  username?: string;
+  password?: string;
+  apiKey?: string;
 }
 
 interface MellaTechVehicleData {
@@ -52,21 +53,33 @@ class MellaTechService {
   private sessionCookies: string = '';
   private uat: string = '';
   private isAuthenticated: boolean = false;
+  private usesApiKey: boolean = false;
 
   constructor(config: MellaTechConfig) {
     this.config = config;
+    this.usesApiKey = !!config.apiKey;
+    
+    const headers: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/javascript, */*; q=0.01',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Connection': 'keep-alive',
+    };
+    
+    // If using API key, add it to headers
+    if (config.apiKey) {
+      headers['X-API-Key'] = config.apiKey;
+      // Also try common API key header variations
+      headers['Authorization'] = `Bearer ${config.apiKey}`;
+      this.isAuthenticated = true; // API key means we're already authenticated
+    }
     
     this.axiosInstance = axios.create({
       baseURL: config.baseUrl,
       timeout: 30000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive',
-      },
+      headers,
       maxRedirects: 5,
-      withCredentials: true,
+      withCredentials: !config.apiKey, // Only use cookies if not using API key
     });
 
     this.axiosInstance.interceptors.response.use(
@@ -412,7 +425,18 @@ export async function getMellaTechService(): Promise<MellaTechService> {
     return mellaTechServiceInstance;
   }
 
-  // Try to get credentials from database first
+  // Priority 1: Check for API key in environment variables (most secure)
+  const apiKey = process.env.MELLATECH_API_KEY;
+  if (apiKey) {
+    console.log('✅ Using MellaTech API Key from environment variable');
+    mellaTechServiceInstance = new MellaTechService({
+      baseUrl: 'https://mellatech.et',
+      apiKey,
+    });
+    return mellaTechServiceInstance;
+  }
+
+  // Priority 2: Try to get username/password credentials from database
   let username = '';
   let password = '';
 
@@ -433,7 +457,7 @@ export async function getMellaTechService(): Promise<MellaTechService> {
     console.log('⚠️ Could not read MellaTech credentials from database, falling back to environment variables');
   }
 
-  // Fall back to environment variables if not in database
+  // Priority 3: Fall back to environment variables for username/password
   if (!username || !password) {
     username = process.env.MELLATECH_USERNAME || '';
     password = process.env.MELLATECH_PASSWORD || '';

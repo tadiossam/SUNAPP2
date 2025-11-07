@@ -6963,15 +6963,20 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   app.get("/api/mellatech/status", isAuthenticated, async (req, res) => {
     try {
       const { systemSettings } = await import("@shared/schema");
-      // Check database first
       let configured = false;
       
-      const settings = await db.select().from(systemSettings).limit(1);
-      if (settings.length > 0 && settings[0].mellatechUsername && settings[0].mellatechPassword) {
+      // Priority 1: Check for API key in environment
+      if (process.env.MELLATECH_API_KEY) {
         configured = true;
-      } else if (process.env.MELLATECH_USERNAME && process.env.MELLATECH_PASSWORD) {
-        // Fall back to environment variables
-        configured = true;
+      } else {
+        // Priority 2: Check database for username/password
+        const settings = await db.select().from(systemSettings).limit(1);
+        if (settings.length > 0 && settings[0].mellatechUsername && settings[0].mellatechPassword) {
+          configured = true;
+        } else if (process.env.MELLATECH_USERNAME && process.env.MELLATECH_PASSWORD) {
+          // Priority 3: Fall back to environment variables for username/password
+          configured = true;
+        }
       }
       
       res.json({ configured });

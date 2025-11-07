@@ -177,10 +177,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: "Logged out successfully" });
   });
 
-  app.get("/api/auth/me", (req, res) => {
+  app.get("/api/auth/me", async (req, res) => {
     if (req.user) {
       const { password, ...userWithoutPassword } = req.user as any;
-      res.json({ user: userWithoutPassword });
+      
+      // Fetch user's page permissions
+      try {
+        const permissions = await storage.getEmployeePagePermissions(req.user.id);
+        res.json({ 
+          user: { 
+            ...userWithoutPassword,
+            pagePermissions: permissions 
+          } 
+        });
+      } catch (error) {
+        console.error("Error fetching user permissions:", error);
+        // Return user without permissions if fetch fails
+        res.json({ user: userWithoutPassword });
+      }
     } else {
       res.json({ user: null });
     }

@@ -45,6 +45,7 @@ import {
   Image,
   Terminal,
   Info,
+  Shield,
 } from "lucide-react";
 import {
   Dialog,
@@ -1360,6 +1361,10 @@ export default function AdminSettings() {
                 <Palette className="h-4 w-4" />
                 Customisations
               </TabsTrigger>
+              <TabsTrigger value="userControl" className="gap-2" data-testid="tab-user-control">
+                <Shield className="h-4 w-4" />
+                User Control
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -2285,6 +2290,82 @@ export default function AdminSettings() {
                       Changes will take effect after refreshing the page. The app name will appear on the login page and throughout the application.
                     </AlertDescription>
                   </Alert>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* User Control Tab */}
+          <TabsContent value="userControl" className="flex-1 overflow-auto p-6 m-0">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Employee Page Access Control
+                  </CardTitle>
+                  <CardDescription>
+                    Manage which pages each employee can access. Denied pages will not appear in their navigation.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      Select an employee and toggle page access. CEO and Admin users always have access to all pages.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <Label>Select Employee</Label>
+                      <Select>
+                        <SelectTrigger data-testid="select-employee">
+                          <SelectValue placeholder="Choose an employee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees?.map((emp: any) => (
+                            <SelectItem key={emp.id} value={emp.id}>
+                              {emp.fullName} - {emp.role}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4">
+                      <h3 className="font-semibold mb-3">Available Pages</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          { path: "/dashboard", name: "Dashboard" },
+                          { path: "/equipment", name: "Equipment" },
+                          { path: "/spare-parts", name: "Spare Parts" },
+                          { path: "/work-orders", name: "Work Orders" },
+                          { path: "/garages", name: "Garages" },
+                          { path: "/employees", name: "Employees" },
+                          { path: "/equipment-reception", name: "Equipment Reception" },
+                          { path: "/equipment-inspection", name: "Equipment Inspection" },
+                          { path: "/approvals", name: "Approvals" },
+                          { path: "/item-requisitions", name: "Item Requisitions" },
+                          { path: "/performance", name: "Performance" },
+                          { path: "/maintenance-history", name: "Maintenance History" },
+                          { path: "/admin-settings", name: "Admin Settings" },
+                        ].map((page) => (
+                          <div key={page.path} className="flex items-center space-x-2">
+                            <Checkbox id={page.path} data-testid={`checkbox-${page.path}`} />
+                            <Label htmlFor={page.path} className="cursor-pointer">
+                              {page.name}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <Button className="w-full" data-testid="button-save-permissions">
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Permissions
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>

@@ -6220,6 +6220,118 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // Export database schema
+  app.get("/api/system-settings/export-schema", isCEOOrAdmin, async (_req, res) => {
+    try {
+      // Query PostgreSQL information_schema to get full database schema
+      const schemaQuery = `
+        SELECT 
+          table_name,
+          column_name,
+          data_type,
+          is_nullable,
+          column_default,
+          character_maximum_length
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        ORDER BY table_name, ordinal_position;
+      `;
+      
+      const tablesResult = await db.execute(sql.raw(schemaQuery));
+      
+      // Get constraints (primary keys, foreign keys, unique)
+      const constraintsQuery = `
+        SELECT
+          tc.table_name,
+          tc.constraint_name,
+          tc.constraint_type,
+          kcu.column_name,
+          ccu.table_name AS foreign_table_name,
+          ccu.column_name AS foreign_column_name
+        FROM information_schema.table_constraints AS tc
+        LEFT JOIN information_schema.key_column_usage AS kcu
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+        LEFT JOIN information_schema.constraint_column_usage AS ccu
+          ON ccu.constraint_name = tc.constraint_name
+          AND ccu.table_schema = tc.table_schema
+        WHERE tc.table_schema = 'public'
+        ORDER BY tc.table_name, tc.constraint_type;
+      `;
+      
+      const constraintsResult = await db.execute(sql.raw(constraintsQuery));
+      
+      // Generate SQL schema export
+      const timestamp = new Date().toISOString().split('T')[0];
+      let sqlContent = `-- Gelan Terminal Maintenance - Database Schema Export\n`;
+      sqlContent += `-- Generated: ${new Date().toLocaleString()}\n`;
+      sqlContent += `-- Database: PostgreSQL\n\n`;
+      
+      sqlContent += `-- Tables and Columns\n`;
+      sqlContent += `-- This schema represents the current database structure\n\n`;
+      
+      // Group columns by table
+      const tableMap = new Map();
+      (tablesResult.rows as any[]).forEach((row: any) => {
+        if (!tableMap.has(row.table_name)) {
+          tableMap.set(row.table_name, []);
+        }
+        tableMap.get(row.table_name).push(row);
+      });
+      
+      // Generate CREATE TABLE statements
+      tableMap.forEach((columns: any[], tableName: string) => {
+        sqlContent += `\n-- Table: ${tableName}\n`;
+        sqlContent += `CREATE TABLE IF NOT EXISTS ${tableName} (\n`;
+        
+        const columnDefs = columns.map((col: any) => {
+          let def = `  ${col.column_name} ${col.data_type}`;
+          if (col.character_maximum_length) {
+            def += `(${col.character_maximum_length})`;
+          }
+          if (col.is_nullable === 'NO') {
+            def += ' NOT NULL';
+          }
+          if (col.column_default) {
+            def += ` DEFAULT ${col.column_default}`;
+          }
+          return def;
+        });
+        
+        sqlContent += columnDefs.join(',\n');
+        sqlContent += `\n);\n`;
+      });
+      
+      // Add constraints
+      sqlContent += `\n-- Constraints\n`;
+      const constraintMap = new Map();
+      (constraintsResult.rows as any[]).forEach((row: any) => {
+        const key = `${row.table_name}_${row.constraint_name}`;
+        if (!constraintMap.has(key)) {
+          constraintMap.set(key, row);
+        }
+      });
+      
+      constraintMap.forEach((constraint: any) => {
+        if (constraint.constraint_type === 'PRIMARY KEY') {
+          sqlContent += `-- PRIMARY KEY on ${constraint.table_name}(${constraint.column_name})\n`;
+        } else if (constraint.constraint_type === 'FOREIGN KEY') {
+          sqlContent += `-- FOREIGN KEY: ${constraint.table_name}(${constraint.column_name}) → ${constraint.foreign_table_name}(${constraint.foreign_column_name})\n`;
+        } else if (constraint.constraint_type === 'UNIQUE') {
+          sqlContent += `-- UNIQUE constraint on ${constraint.table_name}(${constraint.column_name})\n`;
+        }
+      });
+      
+      // Set response headers for file download
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="database_schema_${timestamp}.sql"`);
+      res.send(sqlContent);
+    } catch (error: any) {
+      console.error("Error exporting database schema:", error);
+      res.status(500).json({ error: "Failed to export database schema" });
+    }
+  });
+
   // Update system settings
   app.patch("/api/system-settings", isCEOOrAdmin, async (req, res) => {
     try {

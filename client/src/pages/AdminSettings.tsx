@@ -2023,7 +2023,20 @@ export default function AdminSettings() {
                     </div>
                   )}
 
-                  <div className="pt-4 flex justify-end">
+                  <div className="pt-4 flex justify-between items-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // Download database schema
+                        const token = localStorage.getItem("auth_token");
+                        window.open(`/api/system-settings/export-schema?token=${token}`, '_blank');
+                      }}
+                      data-testid="button-download-schema"
+                    >
+                      <Database className="h-4 w-4 mr-2" />
+                      Download Database Schema
+                    </Button>
+                    
                     <Button
                       onClick={handleSaveDeployment}
                       disabled={saveDeploymentMutation.isPending || isLoadingDeploy}

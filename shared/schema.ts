@@ -1615,6 +1615,8 @@ export const systemSettings = pgTable("system_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   serverHost: text("server_host").notNull().default("0.0.0.0"), // Server IP/host
   serverPort: integer("server_port").notNull().default(3000), // Server port
+  mellatechUsername: text("mellatech_username"), // MellaTech API username
+  mellatechPassword: text("mellatech_password"), // MellaTech API password
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (CEO/Admin)
 });

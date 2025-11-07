@@ -11,6 +11,8 @@ I prefer iterative development with clear communication at each stage. Please as
 ### UI/UX Decisions
 The system utilizes an Industrial Material Design 3 theme with light/dark modes, professional blue primary colors, and Inter/JetBrains Mono typography. It features sidebar navigation, responsive data-dense layouts, comprehensive accessibility, and an interactive 3D viewer for technical engineering drawings with millimeter-accurate dimensions, ISO 2768 tolerance standards, SVG annotations, and CAD export badges. Logo customization allows for company logo display on login and in the sidebar.
 
+**Mobile Responsiveness**: Comprehensive mobile-first design across all pages with responsive patterns including: horizontal scrolling tabs using `inline-flex w-full min-w-max lg:grid` pattern, responsive grids with `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` breakpoints, and full-width form controls to prevent horizontal overflow. The ResponsiveFrame component handles iframe/3D viewer aspect-ratio preservation. All filter controls and data tables properly stack on mobile devices while maintaining multi-column layouts on desktop. Optimized for iOS Safari with proper touch targets and viewport handling.
+
 ### Technical Implementations
 The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, Wouter for routing, and TanStack Query. The backend uses Express.js and Node.js, with PostgreSQL (Neon) and Drizzle ORM. Three.js is used for 3D rendering.
 

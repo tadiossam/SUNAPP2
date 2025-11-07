@@ -37,7 +37,7 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 - **Currency Conversion**: Dynamic USD/ETB conversion in the parts catalog.
 - **Attendance Device Integration**: Integration with ZKTeco iFace990 Plus for employee management.
 - **Deployment Tool**: Admin settings for server host/port configuration, saved to the database. Includes database schema export functionality.
-- **Fleet Tracking System**: Real-time GPS tracking integration with MellaTech platform. Features include vehicle location tracking, trip history, fleet alerts monitoring, automatic data synchronization, and comprehensive fleet management dashboard. Credentials stored securely as environment variables.
+- **Fleet Tracking System**: Real-time GPS tracking integration with MellaTech platform. Features include vehicle location tracking, trip history, fleet alerts monitoring, automatic data synchronization, and comprehensive fleet management dashboard. **Fleet Management Integration**: Admin Settings includes a "Fleet Management INT" tab showing MellaTech credential configuration status with "Test Connection" and "Sync Now" functionality. **Equipment Reception Auto-fill**: When equipment is selected during driver check-in, the system automatically queries the MellaTech API by plate number and auto-fills the kilometer reading field if GPS tracking data is available. Users receive informative toasts for all scenarios (data found, not found, or service unavailable). Credentials stored securely as environment variables (MELLATECH_USERNAME, MELLATECH_PASSWORD).
 
 ## External Dependencies
 - **Replit Object Storage**: For 3D models, images, and videos.

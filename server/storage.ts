@@ -105,6 +105,12 @@ import {
   type InsertSystemSettings,
   type EmployeePagePermission,
   type InsertEmployeePagePermission,
+  mellaTechVehicles,
+  mellaTechAlerts,
+  type MellaTechVehicle,
+  type InsertMellaTechVehicle,
+  type MellaTechAlert,
+  type InsertMellaTechAlert,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
@@ -381,6 +387,17 @@ export interface IStorage {
   createItem(data: InsertItem): Promise<Item>;
   updateItem(id: string, data: Partial<InsertItem>): Promise<Item>;
   deleteItem(id: string): Promise<void>;
+  
+  // MellaTech Fleet Tracking Operations
+  syncMellaTechVehicles(vehiclesData: any[]): Promise<void>;
+  getAllMellaTechVehicles(): Promise<any[]>;
+  getMellaTechVehicleById(id: string): Promise<any | undefined>;
+  getMellaTechVehicleByMellaTechId(mellaTechId: string): Promise<any | undefined>;
+  updateMellaTechVehicle(id: string, data: any): Promise<any>;
+  linkMellaTechVehicleToEquipment(vehicleId: string, equipmentId: string): Promise<void>;
+  getMellaTechAlerts(options?: { unreadOnly?: boolean; limit?: number }): Promise<any[]>;
+  markAlertAsRead(alertId: string): Promise<void>;
+  createMellaTechAlert(data: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3922,6 +3939,120 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(items)
       .where(eq(items.id, id));
+  }
+
+  // MellaTech Fleet Tracking Operations
+  async syncMellaTechVehicles(vehiclesData: any[]): Promise<void> {
+    for (const vehicleData of vehiclesData) {
+      const existing = await this.getMellaTechVehicleByMellaTechId(vehicleData.mellaTechId);
+      
+      if (existing) {
+        await db
+          .update(mellaTechVehicles)
+          .set({
+            name: vehicleData.name,
+            plateNumber: vehicleData.plateNumber,
+            speed: vehicleData.speed,
+            latitude: vehicleData.latitude,
+            longitude: vehicleData.longitude,
+            altitude: vehicleData.altitude,
+            angle: vehicleData.angle,
+            batteryLevel: vehicleData.battery,
+            distance: vehicleData.distance,
+            status: vehicleData.status,
+            lastUpdate: vehicleData.lastUpdate,
+            syncedAt: new Date(),
+          })
+          .where(eq(mellaTechVehicles.id, existing.id));
+      } else {
+        await db
+          .insert(mellaTechVehicles)
+          .values({
+            mellaTechId: vehicleData.mellaTechId || vehicleData.id,
+            name: vehicleData.name,
+            plateNumber: vehicleData.plateNumber,
+            speed: vehicleData.speed,
+            latitude: vehicleData.latitude,
+            longitude: vehicleData.longitude,
+            altitude: vehicleData.altitude,
+            angle: vehicleData.angle,
+            batteryLevel: vehicleData.battery,
+            distance: vehicleData.distance,
+            status: vehicleData.status,
+            lastUpdate: vehicleData.lastUpdate,
+          });
+      }
+    }
+  }
+
+  async getAllMellaTechVehicles(): Promise<MellaTechVehicle[]> {
+    return await db
+      .select()
+      .from(mellaTechVehicles)
+      .orderBy(desc(mellaTechVehicles.syncedAt));
+  }
+
+  async getMellaTechVehicleById(id: string): Promise<MellaTechVehicle | undefined> {
+    const [result] = await db
+      .select()
+      .from(mellaTechVehicles)
+      .where(eq(mellaTechVehicles.id, id));
+    return result || undefined;
+  }
+
+  async getMellaTechVehicleByMellaTechId(mellaTechId: string): Promise<MellaTechVehicle | undefined> {
+    const [result] = await db
+      .select()
+      .from(mellaTechVehicles)
+      .where(eq(mellaTechVehicles.mellaTechId, mellaTechId));
+    return result || undefined;
+  }
+
+  async updateMellaTechVehicle(id: string, data: any): Promise<MellaTechVehicle> {
+    const [result] = await db
+      .update(mellaTechVehicles)
+      .set({ ...data, syncedAt: new Date() })
+      .where(eq(mellaTechVehicles.id, id))
+      .returning();
+    return result;
+  }
+
+  async linkMellaTechVehicleToEquipment(vehicleId: string, equipmentId: string): Promise<void> {
+    await db
+      .update(mellaTechVehicles)
+      .set({ equipmentId })
+      .where(eq(mellaTechVehicles.id, vehicleId));
+  }
+
+  async getMellaTechAlerts(options?: { unreadOnly?: boolean; limit?: number }): Promise<MellaTechAlert[]> {
+    let query = db.select().from(mellaTechAlerts);
+
+    if (options?.unreadOnly) {
+      query = query.where(eq(mellaTechAlerts.isRead, false)) as any;
+    }
+
+    query = query.orderBy(desc(mellaTechAlerts.occurredAt)) as any;
+
+    if (options?.limit) {
+      query = query.limit(options.limit) as any;
+    }
+
+    return await query;
+  }
+
+  async markAlertAsRead(alertId: string): Promise<void> {
+    await db
+      .update(mellaTechAlerts)
+      .set({ isRead: true })
+      .where(eq(mellaTechAlerts.id, alertId));
+  }
+
+  async createMellaTechAlert(data: InsertMellaTechAlert): Promise<MellaTechAlert> {
+    const [result] = await db
+      .insert(mellaTechAlerts)
+      .values(data)
+      .returning();
+    return result;
   }
 }
 

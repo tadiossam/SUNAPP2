@@ -6947,6 +6947,121 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // MellaTech Fleet Tracking API Routes
+  app.get("/api/mellatech/test", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { getMellaTechService } = await import("./services/mellatech");
+      const mellaTech = getMellaTechService();
+      const result = await mellaTech.testConnection();
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error testing MellaTech connection:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/mellatech/sync", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { getMellaTechService } = await import("./services/mellatech");
+      const mellaTech = getMellaTechService();
+      
+      const vehicles = await mellaTech.getVehicles();
+      
+      const vehiclesData = vehicles.map(v => ({
+        mellaTechId: v.id,
+        id: v.id,
+        name: v.name,
+        plateNumber: v.plateNumber,
+        speed: v.speed,
+        latitude: v.latitude,
+        longitude: v.longitude,
+        altitude: v.altitude,
+        angle: v.angle,
+        battery: v.battery,
+        distance: v.distance,
+        status: v.status,
+        lastUpdate: v.lastUpdate,
+      }));
+      
+      await storage.syncMellaTechVehicles(vehiclesData);
+      
+      res.json({ 
+        success: true, 
+        message: `Synced ${vehicles.length} vehicles`,
+        count: vehicles.length 
+      });
+    } catch (error: any) {
+      console.error("Error syncing MellaTech vehicles:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/mellatech/vehicles", isAuthenticated, async (req, res) => {
+    try {
+      const vehicles = await storage.getAllMellaTechVehicles();
+      res.json(vehicles);
+    } catch (error: any) {
+      console.error("Error fetching MellaTech vehicles:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/mellatech/vehicles/:id", isAuthenticated, async (req, res) => {
+    try {
+      const vehicle = await storage.getMellaTechVehicleById(req.params.id);
+      if (!vehicle) {
+        return res.status(404).json({ error: "Vehicle not found" });
+      }
+      res.json(vehicle);
+    } catch (error: any) {
+      console.error("Error fetching MellaTech vehicle:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/mellatech/vehicles/:id/link-equipment", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { equipmentId } = req.body;
+      
+      if (!equipmentId) {
+        return res.status(400).json({ error: "Equipment ID is required" });
+      }
+      
+      await storage.linkMellaTechVehicleToEquipment(req.params.id, equipmentId);
+      
+      res.json({ success: true, message: "Vehicle linked to equipment" });
+    } catch (error: any) {
+      console.error("Error linking vehicle to equipment:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/mellatech/alerts", isAuthenticated, async (req, res) => {
+    try {
+      const { unreadOnly, limit } = req.query;
+      
+      const alerts = await storage.getMellaTechAlerts({
+        unreadOnly: unreadOnly === 'true',
+        limit: limit ? parseInt(limit as string) : undefined,
+      });
+      
+      res.json(alerts);
+    } catch (error: any) {
+      console.error("Error fetching MellaTech alerts:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/mellatech/alerts/:id/mark-read", isAuthenticated, async (req, res) => {
+    try {
+      await storage.markAlertAsRead(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error marking alert as read:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

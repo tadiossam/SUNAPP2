@@ -6227,7 +6227,10 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         });
       }
       
-      res.json(settings[0]);
+      // Never send encrypted credentials to frontend - security risk
+      const { mellatechUsername, mellatechPassword, ...safeSettings } = settings[0];
+      
+      res.json(safeSettings);
     } catch (error: any) {
       console.error("Error fetching system settings:", error);
       res.status(500).json({ error: "Failed to fetch system settings" });
@@ -6959,7 +6962,17 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   // MellaTech Fleet Tracking API Routes
   app.get("/api/mellatech/status", isAuthenticated, async (req, res) => {
     try {
-      const configured = !!(process.env.MELLATECH_USERNAME && process.env.MELLATECH_PASSWORD);
+      // Check database first
+      let configured = false;
+      
+      const settings = await db.select().from(systemSettings).limit(1);
+      if (settings.length > 0 && settings[0].mellatechUsername && settings[0].mellatechPassword) {
+        configured = true;
+      } else if (process.env.MELLATECH_USERNAME && process.env.MELLATECH_PASSWORD) {
+        // Fall back to environment variables
+        configured = true;
+      }
+      
       res.json({ configured });
     } catch (error: any) {
       console.error("Error checking MellaTech status:", error);
@@ -6970,7 +6983,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   app.get("/api/mellatech/test", isCEOOrAdmin, async (req, res) => {
     try {
       const { getMellaTechService } = await import("./services/mellatech");
-      const mellaTech = getMellaTechService();
+      const mellaTech = await getMellaTechService();
       const result = await mellaTech.testConnection();
       res.json(result);
     } catch (error: any) {
@@ -6982,7 +6995,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   app.post("/api/mellatech/sync", isCEOOrAdmin, async (req, res) => {
     try {
       const { getMellaTechService } = await import("./services/mellatech");
-      const mellaTech = getMellaTechService();
+      const mellaTech = await getMellaTechService();
       
       const vehicles = await mellaTech.getVehicles();
       

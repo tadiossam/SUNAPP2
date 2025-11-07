@@ -210,8 +210,8 @@ export default function AdminSettings() {
     if (deploySettings) {
       setServerHost(deploySettings.serverHost || "0.0.0.0");
       setServerPort(deploySettings.serverPort || 3000);
-      setMellatechUsername(deploySettings.mellatechUsername || "");
-      setMellatechPassword(deploySettings.mellatechPassword || "");
+      // Note: Credentials are NOT sent from backend for security
+      // They will only be updated when user saves new values
     }
   }, [deploySettings]);
 

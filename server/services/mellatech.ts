@@ -259,20 +259,52 @@ class MellaTechService {
 
 let mellaTechServiceInstance: MellaTechService | null = null;
 
-export function getMellaTechService(): MellaTechService {
-  if (!mellaTechServiceInstance) {
-    const config: MellaTechConfig = {
-      baseUrl: 'https://mellatech.et',
-      username: process.env.MELLATECH_USERNAME || '',
-      password: process.env.MELLATECH_PASSWORD || '',
-    };
-
-    if (!config.username || !config.password) {
-      throw new Error('MellaTech credentials not configured. Please set MELLATECH_USERNAME and MELLATECH_PASSWORD environment variables.');
-    }
-
-    mellaTechServiceInstance = new MellaTechService(config);
+export async function getMellaTechService(): Promise<MellaTechService> {
+  if (mellaTechServiceInstance) {
+    return mellaTechServiceInstance;
   }
+
+  // Try to get credentials from database first
+  let username = '';
+  let password = '';
+
+  try {
+    const { db } = await import('../db');
+    const { systemSettings } = await import('@shared/schema');
+    const { decrypt } = await import('../utils/encryption');
+
+    const settings = await db.select().from(systemSettings).limit(1);
+    
+    if (settings.length > 0 && settings[0].mellatechUsername && settings[0].mellatechPassword) {
+      // Decrypt credentials from database
+      username = decrypt(settings[0].mellatechUsername);
+      password = decrypt(settings[0].mellatechPassword);
+      console.log('✅ Using MellaTech credentials from database');
+    }
+  } catch (error) {
+    console.log('⚠️ Could not read MellaTech credentials from database, falling back to environment variables');
+  }
+
+  // Fall back to environment variables if not in database
+  if (!username || !password) {
+    username = process.env.MELLATECH_USERNAME || '';
+    password = process.env.MELLATECH_PASSWORD || '';
+    if (username && password) {
+      console.log('✅ Using MellaTech credentials from environment variables');
+    }
+  }
+
+  const config: MellaTechConfig = {
+    baseUrl: 'https://mellatech.et',
+    username,
+    password,
+  };
+
+  if (!config.username || !config.password) {
+    throw new Error('MellaTech credentials not configured. Please configure them in Admin Settings or set MELLATECH_USERNAME and MELLATECH_PASSWORD environment variables.');
+  }
+
+  mellaTechServiceInstance = new MellaTechService(config);
 
   return mellaTechServiceInstance;
 }

@@ -135,6 +135,7 @@ export interface IStorage {
   getPartByPartNumber(partNumber: string): Promise<SparePartWithCompatibility | undefined>;
   createPart(data: InsertSparePart, compatibility?: InsertPartCompatibility[]): Promise<SparePart>;
   updatePart(id: string, data: Partial<InsertSparePart>): Promise<SparePart | undefined>;
+  deletePart(id: string): Promise<boolean>;
   updatePartModel(id: string, model3dPath: string): Promise<SparePart | undefined>;
   updatePartImages(id: string, imageUrls: string[]): Promise<SparePart | undefined>;
   addPartImages(id: string, newImageUrls: string[]): Promise<SparePart | undefined>;
@@ -531,6 +532,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(spareParts.id, id))
       .returning();
     return result || undefined;
+  }
+
+  async deletePart(id: string): Promise<boolean> {
+    const result = await db
+      .delete(spareParts)
+      .where(eq(spareParts.id, id))
+      .returning();
+    return result.length > 0;
   }
 
   async updatePartModel(id: string, model3dPath: string): Promise<SparePart | undefined> {

@@ -2026,10 +2026,51 @@ export default function AdminSettings() {
                   <div className="pt-4 flex justify-between items-center">
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        // Download database schema
-                        const token = localStorage.getItem("auth_token");
-                        window.open(`/api/system-settings/export-schema?token=${token}`, '_blank');
+                      onClick={async () => {
+                        try {
+                          // Download database schema with authentication
+                          const token = localStorage.getItem("auth_token");
+                          const response = await fetch("/api/system-settings/export-schema", {
+                            method: "GET",
+                            headers: {
+                              Authorization: `Bearer ${token}`,
+                            },
+                          });
+
+                          if (!response.ok) {
+                            throw new Error("Failed to download schema");
+                          }
+
+                          // Create blob and trigger download
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          
+                          // Extract filename from Content-Disposition header
+                          const contentDisposition = response.headers.get("Content-Disposition");
+                          const filename = contentDisposition
+                            ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+                            : `database_schema_${new Date().toISOString().split('T')[0]}.sql`;
+                          
+                          a.download = filename;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          window.URL.revokeObjectURL(url);
+
+                          toast({
+                            title: t("success"),
+                            description: "Database schema downloaded successfully",
+                          });
+                        } catch (error) {
+                          console.error("Error downloading schema:", error);
+                          toast({
+                            title: t("error"),
+                            description: "Failed to download database schema",
+                            variant: "destructive",
+                          });
+                        }
                       }}
                       data-testid="button-download-schema"
                     >

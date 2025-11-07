@@ -655,9 +655,9 @@ export default function SparePartsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger data-testid="select-category">
+                <SelectTrigger className="w-full" data-testid="select-category">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -671,7 +671,7 @@ export default function SparePartsPage() {
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger data-testid="select-status">
+                <SelectTrigger className="w-full" data-testid="select-status">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -683,7 +683,7 @@ export default function SparePartsPage() {
               </Select>
 
               <Select value={currency} onValueChange={(value: "USD" | "ETB") => setCurrency(value)}>
-                <SelectTrigger data-testid="select-currency">
+                <SelectTrigger className="w-full" data-testid="select-currency">
                   <SelectValue placeholder="Currency" />
                 </SelectTrigger>
                 <SelectContent>

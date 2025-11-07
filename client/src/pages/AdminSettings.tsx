@@ -1312,6 +1312,59 @@ export default function AdminSettings() {
     },
   });
 
+  // MellaTech Fleet Tracking Mutations
+  const testMellaTechConnectionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("GET", "/api/mellatech/test", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({
+          title: "Connection Successful",
+          description: data.message || "Successfully connected to MellaTech platform",
+        });
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: data.message || "Could not connect to MellaTech",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Connection Error",
+        description: error.message || "Failed to test connection",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const syncMellaTechDataMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/mellatech/sync", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/mellatech/vehicles"] });
+      toast({
+        title: "Sync Complete",
+        description: data.message || `Synced ${data.count || 0} vehicles successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Failed to sync fleet data",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Check if MellaTech credentials are configured
+  const isMellaTechConfigured = !!(import.meta.env.MELLATECH_USERNAME || process.env.MELLATECH_USERNAME);
+
   // Animate progress bar during import
   useEffect(() => {
     if (importSelectedUsersMutation.isPending) {
@@ -2012,17 +2065,77 @@ export default function AdminSettings() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Truck className="h-5 w-5" />
-                    Fleet Management Integration
+                    MellaTech Fleet Tracking Integration
                   </CardTitle>
-                  <CardDescription>Configure integration with fleet management systems</CardDescription>
+                  <CardDescription>Monitor GPS vehicle tracking and fleet data</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
                   <Alert>
-                    <AlertCircle className="h-4 w-4" />
+                    <Info className="h-4 w-4" />
                     <AlertDescription>
-                      Fleet management integration settings will be available in a future update.
+                      <div className="space-y-2">
+                        <p className="font-medium">How Fleet Integration Works:</p>
+                        <ul className="text-xs space-y-1 list-disc list-inside">
+                          <li>MellaTech credentials are securely stored as environment variables (MELLATECH_USERNAME, MELLATECH_PASSWORD)</li>
+                          <li>When equipment arrives at Equipment Reception, plate numbers are matched with fleet data</li>
+                          <li>If a match is found, kilometer reading is automatically populated from GPS tracking data</li>
+                          <li>Sync fleet data regularly to keep vehicle information up to date</li>
+                        </ul>
+                      </div>
                     </AlertDescription>
                   </Alert>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border rounded-md">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-2 w-2 rounded-full ${isMellaTechConfigured ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <div>
+                          <p className="font-medium">Connection Status</p>
+                          <p className="text-sm text-muted-foreground">
+                            {isMellaTechConfigured ? 'MellaTech credentials are configured' : 'MellaTech credentials not configured'}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => testMellaTechConnectionMutation.mutate()}
+                        disabled={testMellaTechConnectionMutation.isPending}
+                        data-testid="button-test-mellatech"
+                      >
+                        {testMellaTechConnectionMutation.isPending ? (
+                          <>Testing...</>
+                        ) : (
+                          <>Test Connection</>
+                        )}
+                      </Button>
+                    </div>
+
+                    {isMellaTechConfigured && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">Vehicle Data Synchronization</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Sync latest vehicle tracking data from MellaTech platform
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => syncMellaTechDataMutation.mutate()}
+                            disabled={syncMellaTechDataMutation.isPending}
+                            data-testid="button-sync-mellatech"
+                          >
+                            {syncMellaTechDataMutation.isPending ? (
+                              <>Syncing...</>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Sync Now
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </div>

@@ -7019,6 +7019,19 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  app.get("/api/mellatech/vehicles/by-plate/:plateNumber", isAuthenticated, async (req, res) => {
+    try {
+      const vehicle = await storage.getMellaTechVehicleByPlateNumber(req.params.plateNumber);
+      if (!vehicle) {
+        return res.status(404).json({ error: "Vehicle not found", found: false });
+      }
+      res.json({ ...vehicle, found: true });
+    } catch (error: any) {
+      console.error("Error fetching MellaTech vehicle by plate:", error);
+      res.status(500).json({ error: error.message, found: false });
+    }
+  });
+
   app.post("/api/mellatech/vehicles/:id/link-equipment", isCEOOrAdmin, async (req, res) => {
     try {
       const { equipmentId } = req.body;

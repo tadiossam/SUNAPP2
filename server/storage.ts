@@ -393,6 +393,7 @@ export interface IStorage {
   getAllMellaTechVehicles(): Promise<any[]>;
   getMellaTechVehicleById(id: string): Promise<any | undefined>;
   getMellaTechVehicleByMellaTechId(mellaTechId: string): Promise<any | undefined>;
+  getMellaTechVehicleByPlateNumber(plateNumber: string): Promise<any | undefined>;
   updateMellaTechVehicle(id: string, data: any): Promise<any>;
   linkMellaTechVehicleToEquipment(vehicleId: string, equipmentId: string): Promise<void>;
   getMellaTechAlerts(options?: { unreadOnly?: boolean; limit?: number }): Promise<any[]>;
@@ -4005,6 +4006,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(mellaTechVehicles)
       .where(eq(mellaTechVehicles.mellaTechId, mellaTechId));
+    return result || undefined;
+  }
+
+  async getMellaTechVehicleByPlateNumber(plateNumber: string): Promise<MellaTechVehicle | undefined> {
+    const [result] = await db
+      .select()
+      .from(mellaTechVehicles)
+      .where(eq(mellaTechVehicles.plateNumber, plateNumber));
     return result || undefined;
   }
 

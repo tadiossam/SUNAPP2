@@ -416,7 +416,7 @@ export default function AdminSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/system-settings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/mellatech/status"] });
     },
-    onError: (error: any) {
+    onError: (error) => {
       toast({
         title: t("error"),
         description: error.message || t("failedToSaveSettings"),

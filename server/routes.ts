@@ -6283,7 +6283,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       // Generate CREATE TABLE statements
       tableMap.forEach((columns: any[], tableName: string) => {
         sqlContent += `\n-- Table: ${tableName}\n`;
-        sqlContent += `CREATE TABLE IF NOT EXISTS ${tableName} (\n`;
+        sqlContent += `CREATE TABLE IF NOT EXISTS "${tableName}" (\n`;
         
         const columnDefs = columns.map((col: any) => {
           let dataType = col.data_type;
@@ -6300,7 +6300,8 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
             dataType = col.udt_name;
           }
           
-          let def = `  ${col.column_name} ${dataType}`;
+          // Quote column name to handle reserved keywords (column, user, table, etc.)
+          let def = `  "${col.column_name}" ${dataType}`;
           
           if (col.character_maximum_length && !dataType.includes('[]')) {
             def += `(${col.character_maximum_length})`;

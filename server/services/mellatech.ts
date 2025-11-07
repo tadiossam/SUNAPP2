@@ -111,6 +111,9 @@ class MellaTechService {
       console.log('   Final URL:', redirectUrl);
 
       if (response.status === 200) {
+        const responseText = typeof response.data === 'string' ? response.data : '';
+        console.log('   Response length:', responseText.length);
+        
         // Check if successfully redirected to tracking page
         if (redirectUrl.includes('tracking.php')) {
           console.log('✅ MellaTech login successful - redirected to tracking page');
@@ -121,25 +124,51 @@ class MellaTechService {
           return { success: true, uat: this.uat };
         }
         
-        // Check response data for error messages
-        const responseText = typeof response.data === 'string' ? response.data : '';
-        console.log('   Response length:', responseText.length);
+        // Check if we have valid session cookies - MellaTech might not redirect anymore
+        // If we got cookies and status 200, try to access tracking page directly
+        if (this.sessionCookies && cookies && cookies.length > 0) {
+          console.log('   Attempting to access tracking page directly with session cookies...');
+          
+          try {
+            const trackingResponse = await this.axiosInstance.get('/et/tracking.php', {
+              headers: {
+                'Cookie': this.sessionCookies,
+                'Referer': `${this.config.baseUrl}/et/index.php`,
+              },
+            });
+            
+            if (trackingResponse.status === 200 && 
+                !trackingResponse.request?.res?.responseUrl?.includes('index.php')) {
+              console.log('✅ MellaTech login successful - tracking page accessible');
+              this.isAuthenticated = true;
+              
+              // Extract UAT from tracking page
+              const trackingHtml = trackingResponse.data;
+              const uatMatch = trackingHtml.match(/"uat"\s*:\s*"(\d+)"/);
+              if (uatMatch && uatMatch[1]) {
+                this.uat = uatMatch[1];
+                console.log('   Extracted UAT token:', this.uat);
+              }
+              
+              return { success: true, uat: this.uat };
+            }
+          } catch (trackingError) {
+            console.log('   Could not access tracking page - likely invalid credentials');
+          }
+        }
         
-        // Look for common error indicators in the HTML response
+        // Look for error indicators in the HTML response
         if (responseText.toLowerCase().includes('invalid') || 
             responseText.toLowerCase().includes('incorrect') ||
-            responseText.toLowerCase().includes('wrong')) {
+            responseText.toLowerCase().includes('wrong') ||
+            responseText.toLowerCase().includes('error')) {
           console.log('❌ Login failed - error keywords found in response');
-          const errorSnippet = responseText.substring(0, 500);
-          console.log('   Response preview:', errorSnippet);
           return { success: false, error: 'Invalid username or password - MellaTech rejected login' };
         }
         
         // If we stayed on index.php, it's likely invalid credentials
         if (redirectUrl.includes('index.php') || !redirectUrl.includes('tracking')) {
           console.log('❌ Login failed - stayed on login page (invalid credentials)');
-          const errorSnippet = responseText.substring(0, 500);
-          console.log('   Response preview:', errorSnippet);
           return { success: false, error: 'Invalid username or password - please verify your credentials' };
         }
       }

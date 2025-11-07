@@ -595,22 +595,32 @@ export default function EquipmentPage() {
               onChange={handleFileImport}
               className="hidden"
             />
-            <Button 
-              variant="destructive" 
-              onClick={() => setDeleteAllCategoriesConfirm(true)} 
-              data-testid="button-delete-all-categories"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete All Categories
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => setDeleteAllUnitsConfirm(true)} 
-              data-testid="button-delete-all-units"
-            >
-              <Database className="h-4 w-4 mr-2" />
-              Delete All Units
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="destructive" data-testid="button-bulk-delete-menu">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Bulk Delete
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={() => setDeleteAllCategoriesConfirm(true)} 
+                  data-testid="menu-delete-all-categories"
+                  className="text-destructive focus:text-destructive"
+                >
+                  <FolderX className="h-4 w-4 mr-2" />
+                  Delete All Categories
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setDeleteAllUnitsConfirm(true)} 
+                  data-testid="menu-delete-all-units"
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  Delete All Units
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>

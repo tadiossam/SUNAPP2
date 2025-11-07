@@ -171,6 +171,7 @@ class MellaTechService {
           
           try {
             // Try cpanel.php first (MellaTech's actual landing page after login)
+            console.log('   Trying to access cpanel.php...');
             const cpanelResponse = await this.axiosInstance.get('/et/cpanel.php', {
               headers: {
                 'Cookie': this.sessionCookies,
@@ -182,6 +183,10 @@ class MellaTechService {
             
             // Check if we were NOT redirected back to login
             const cpanelUrl = cpanelResponse.request?.res?.responseUrl || cpanelResponse.request?.path || '';
+            console.log('   Cpanel status:', cpanelResponse.status);
+            console.log('   Cpanel URL:', cpanelUrl);
+            console.log('   Contains index.php?', cpanelUrl.includes('index.php'));
+            
             if (cpanelResponse.status === 200 && !cpanelUrl.includes('index.php')) {
               console.log('✅ MellaTech login successful - cpanel.php accessible');
               this.isAuthenticated = true;

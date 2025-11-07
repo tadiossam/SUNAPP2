@@ -6948,6 +6948,16 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   });
 
   // MellaTech Fleet Tracking API Routes
+  app.get("/api/mellatech/status", isAuthenticated, async (req, res) => {
+    try {
+      const configured = !!(process.env.MELLATECH_USERNAME && process.env.MELLATECH_PASSWORD);
+      res.json({ configured });
+    } catch (error: any) {
+      console.error("Error checking MellaTech status:", error);
+      res.status(500).json({ configured: false });
+    }
+  });
+
   app.get("/api/mellatech/test", isCEOOrAdmin, async (req, res) => {
     try {
       const { getMellaTechService } = await import("./services/mellatech");

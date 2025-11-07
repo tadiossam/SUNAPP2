@@ -132,10 +132,27 @@ export default function EquipmentReception() {
               title: "Fleet Data Found",
               description: `Auto-filled kilometer reading: ${vehicleData.distance} km from GPS tracking`,
             });
+          } else if (!vehicleData.found) {
+            toast({
+              title: "Fleet Data Not Available",
+              description: `No GPS tracking data found for plate ${equip.plateNo}. Please enter kilometer reading manually.`,
+              variant: "default",
+            });
           }
+        } else {
+          toast({
+            title: "Fleet Data Unavailable",
+            description: "Unable to retrieve GPS tracking data. Please enter kilometer reading manually.",
+            variant: "default",
+          });
         }
       } catch (error) {
         console.log("Fleet data not available for this plate number");
+        toast({
+          title: "Fleet Data Service Unavailable",
+          description: "GPS tracking service is not responding. Please enter kilometer reading manually.",
+          variant: "default",
+        });
       }
     }
     

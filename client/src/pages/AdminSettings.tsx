@@ -1363,7 +1363,10 @@ export default function AdminSettings() {
   });
 
   // Check if MellaTech credentials are configured
-  const isMellaTechConfigured = !!(import.meta.env.MELLATECH_USERNAME || process.env.MELLATECH_USERNAME);
+  const { data: mellaTechStatus } = useQuery({
+    queryKey: ["/api/mellatech/status"],
+  });
+  const isMellaTechConfigured = mellaTechStatus?.configured || false;
 
   // Animate progress bar during import
   useEffect(() => {

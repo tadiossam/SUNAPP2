@@ -6226,6 +6226,26 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       const { systemSettings, insertSystemSettingsSchema } = await import("@shared/schema");
       const settingsData = insertSystemSettingsSchema.partial().parse(req.body);
       
+      // Validate server settings if provided
+      if (settingsData.serverHost !== undefined) {
+        const host = settingsData.serverHost.trim();
+        // Validate host format (IP address or hostname)
+        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+        
+        if (host !== "0.0.0.0" && host !== "localhost" && !ipRegex.test(host) && !hostnameRegex.test(host)) {
+          return res.status(400).json({ error: "Invalid server host format" });
+        }
+        settingsData.serverHost = host;
+      }
+      
+      if (settingsData.serverPort !== undefined) {
+        const port = settingsData.serverPort;
+        if (port < 1 || port > 65535) {
+          return res.status(400).json({ error: "Port must be between 1 and 65535" });
+        }
+      }
+      
       // Get current user ID from session
       const userId = (req.user as any)?.id;
       

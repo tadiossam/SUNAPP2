@@ -48,6 +48,26 @@ app.use((req, res, next) => {
   // Seed production users on startup (only creates if they don't exist)
   await seedProductionUsers();
 
+  // Load deployment settings from database
+  let deploymentHost = "0.0.0.0";
+  let deploymentPort = parseInt(process.env.PORT || '5000', 10);
+  
+  try {
+    const { db } = await import("./db");
+    const { systemSettings } = await import("@shared/schema");
+    const settings = await db.select().from(systemSettings).limit(1);
+    
+    if (settings.length > 0 && settings[0].serverHost && settings[0].serverPort) {
+      deploymentHost = settings[0].serverHost;
+      deploymentPort = settings[0].serverPort;
+      log(`Using deployment settings from database: ${deploymentHost}:${deploymentPort}`);
+    } else {
+      log(`Using default settings: ${deploymentHost}:${deploymentPort}`);
+    }
+  } catch (error) {
+    log(`Could not load deployment settings from database, using defaults: ${error}`);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -73,19 +93,19 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
+  // Use deployment settings from database if available, otherwise fall back to environment variables
+  // On Replit, PORT must be 5000 for webview to work properly
+  // In production deployment, you can configure custom host and port via Admin Settings
+  const port = deploymentPort;
+  const host = deploymentHost;
   
   // reusePort is not supported on Windows, so only use it on Linux/Mac
   const isWindows = process.platform === 'win32';
   const listenOptions = isWindows 
-    ? { port, host: "0.0.0.0" }
-    : { port, host: "0.0.0.0", reusePort: true };
+    ? { port, host }
+    : { port, host, reusePort: true };
   
   server.listen(listenOptions, () => {
-    log(`serving on port ${port}`);
+    log(`serving on ${host}:${port}`);
   });
 })();

@@ -1962,9 +1962,18 @@ export default function AdminSettings() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Alert>
-                    <AlertCircle className="h-4 w-4" />
+                    <Info className="h-4 w-4" />
                     <AlertDescription>
-                      {t("serverRestartRequired")}
+                      <div className="space-y-2">
+                        <p className="font-medium">How Server Settings Work:</p>
+                        <ul className="text-xs space-y-1 list-disc list-inside">
+                          <li>Settings are saved to the database when you click "Save Settings"</li>
+                          <li>The server reads these settings automatically on startup</li>
+                          <li>You must restart the server for changes to take effect</li>
+                          <li>On Replit: Port 5000 is required for webview (default)</li>
+                          <li>For production deployment: Configure your custom host and port</li>
+                        </ul>
+                      </div>
                     </AlertDescription>
                   </Alert>
 
@@ -2026,13 +2035,18 @@ export default function AdminSettings() {
                   </div>
 
                   <Alert className="mt-4">
-                    <AlertCircle className="h-4 w-4" />
+                    <Terminal className="h-4 w-4" />
                     <AlertDescription>
                       <div className="space-y-2">
-                        <p className="font-medium">{t("howToRestartServer")}:</p>
-                        <div className="bg-background p-2 rounded border font-mono text-xs">
-                          {t("runStartWindowsBat")}
-                        </div>
+                        <p className="font-medium">To Apply Settings - Restart the Server:</p>
+                        <ul className="text-xs space-y-1 list-disc list-inside">
+                          <li><strong>On Replit:</strong> Stop and restart the "Start application" workflow</li>
+                          <li><strong>On Windows:</strong> Run <code className="bg-background px-1 rounded">start-windows.bat</code></li>
+                          <li><strong>On Linux/Mac:</strong> Restart your Node.js process</li>
+                        </ul>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          The server will automatically load the saved settings from the database on startup.
+                        </p>
                       </div>
                     </AlertDescription>
                   </Alert>

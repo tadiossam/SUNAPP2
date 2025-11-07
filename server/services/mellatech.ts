@@ -121,6 +121,8 @@ class MellaTechService {
           'Origin': this.config.baseUrl,
           'Referer': `${this.config.baseUrl}/et/index.php`,
         },
+        maxRedirects: 0, // Disable automatic redirects to check manually
+        validateStatus: (status) => status < 400, // Accept 3xx status codes
       });
 
       const cookies = response.headers['set-cookie'];
@@ -130,6 +132,21 @@ class MellaTechService {
       }
 
       console.log('   Response status:', response.status);
+      const locationHeader = response.headers['location'] || '';
+      console.log('   Location header:', locationHeader);
+      
+      // Check if we got a redirect (302/301) to cpanel.php or tracking.php
+      if ((response.status === 302 || response.status === 301) && locationHeader) {
+        if (locationHeader.includes('cpanel.php') || locationHeader.includes('tracking.php')) {
+          console.log('✅ MellaTech login successful - server redirecting to', locationHeader);
+          this.isAuthenticated = true;
+          
+          await this.fetchUat();
+          
+          return { success: true, uat: this.uat };
+        }
+      }
+      
       const redirectUrl = response.request?.res?.responseUrl || response.request?.path || '';
       console.log('   Final URL:', redirectUrl);
 

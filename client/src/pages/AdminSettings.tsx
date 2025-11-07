@@ -125,6 +125,8 @@ export default function AdminSettings() {
   // Deployment Tool state
   const [serverHost, setServerHost] = useState("0.0.0.0");
   const [serverPort, setServerPort] = useState(3000);
+  const [mellatechUsername, setMellatechUsername] = useState("");
+  const [mellatechPassword, setMellatechPassword] = useState("");
 
   // Dynamics 365 Settings state
   const [d365Form, setD365Form] = useState({
@@ -202,6 +204,16 @@ export default function AdminSettings() {
   const { data: deploySettings, isLoading: isLoadingDeploy } = useQuery<SystemSettings>({
     queryKey: ["/api/system-settings"],
   });
+
+  // Load deployment settings when available
+  useEffect(() => {
+    if (deploySettings) {
+      setServerHost(deploySettings.serverHost || "0.0.0.0");
+      setServerPort(deploySettings.serverPort || 3000);
+      setMellatechUsername(deploySettings.mellatechUsername || "");
+      setMellatechPassword(deploySettings.mellatechPassword || "");
+    }
+  }, [deploySettings]);
 
   // Fetch D365 settings
   const { data: d365Settings, isLoading: isLoadingD365 } = useQuery<any>({
@@ -2079,7 +2091,7 @@ export default function AdminSettings() {
                       <div className="space-y-2">
                         <p className="font-medium">How Fleet Integration Works:</p>
                         <ul className="text-xs space-y-1 list-disc list-inside">
-                          <li>MellaTech credentials are securely stored as environment variables (MELLATECH_USERNAME, MELLATECH_PASSWORD)</li>
+                          <li>MellaTech credentials are securely encrypted and stored in the database</li>
                           <li>When equipment arrives at Equipment Reception, plate numbers are matched with fleet data</li>
                           <li>If a match is found, kilometer reading is automatically populated from GPS tracking data</li>
                           <li>Sync fleet data regularly to keep vehicle information up to date</li>
@@ -2089,6 +2101,48 @@ export default function AdminSettings() {
                   </Alert>
 
                   <div className="space-y-4">
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Credentials Configuration</h4>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="mellatechUsername">Username</Label>
+                        <Input
+                          id="mellatechUsername"
+                          type="text"
+                          value={mellatechUsername}
+                          onChange={(e) => setMellatechUsername(e.target.value)}
+                          placeholder="Enter MellaTech username"
+                          data-testid="input-mellatech-username"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="mellatechPassword">Password</Label>
+                        <Input
+                          id="mellatechPassword"
+                          type="password"
+                          value={mellatechPassword}
+                          onChange={(e) => setMellatechPassword(e.target.value)}
+                          placeholder="Enter MellaTech password"
+                          data-testid="input-mellatech-password"
+                        />
+                      </div>
+
+                      <Button
+                        onClick={() => saveDeploymentMutation.mutate({
+                          serverHost,
+                          serverPort,
+                          mellatechUsername,
+                          mellatechPassword
+                        })}
+                        disabled={saveDeploymentMutation.isPending}
+                        className="w-full"
+                        data-testid="button-save-mellatech"
+                      >
+                        {saveDeploymentMutation.isPending ? "Saving..." : "Save Settings"}
+                      </Button>
+                    </div>
+
                     <div className="flex items-center justify-between p-4 border rounded-md">
                       <div className="flex items-center gap-3">
                         <div className={`h-2 w-2 rounded-full ${isMellaTechConfigured ? 'bg-green-500' : 'bg-red-500'}`} />

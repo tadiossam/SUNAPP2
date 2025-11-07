@@ -933,7 +933,7 @@ export default function AdminSettings() {
     console.log('[D365 PAGINATION] Next page clicked:', {
       currentType: currentDataType,
       currentSkip: currentSkip,
-      newSkip: currentSkip + 20,
+      newSkip: currentSkip + 50,
       filterValue: currentFilterValue,
       timestamp: new Date().toISOString()
     });
@@ -941,17 +941,17 @@ export default function AdminSettings() {
     fetchPowerShellDataMutation.mutate({
       type: currentDataType,
       filterValue: currentFilterValue,
-      skip: currentSkip + 20,
-      top: 20,
+      skip: currentSkip + 50,
+      top: 50,
     });
   };
 
   const handlePreviousPage = () => {
-    if (!currentDataType || currentSkip < 20) return;
+    if (!currentDataType || currentSkip < 50) return;
     console.log('[D365 PAGINATION] Previous page clicked:', {
       currentType: currentDataType,
       currentSkip: currentSkip,
-      newSkip: currentSkip - 20,
+      newSkip: currentSkip - 50,
       filterValue: currentFilterValue,
       timestamp: new Date().toISOString()
     });
@@ -959,8 +959,8 @@ export default function AdminSettings() {
     fetchPowerShellDataMutation.mutate({
       type: currentDataType,
       filterValue: currentFilterValue,
-      skip: currentSkip - 20,
-      top: 20,
+      skip: currentSkip - 50,
+      top: 50,
     });
   };
 
@@ -1829,7 +1829,7 @@ export default function AdminSettings() {
                       onClick={() => fetchPowerShellDataMutation.mutate({ 
                         type: 'items',
                         filterValue: d365Form.itemPrefix,
-                        top: 20
+                        top: 50
                       })}
                       disabled={fetchPowerShellDataMutation.isPending || !d365Form.bcCompany}
                       data-testid="button-fetch-items"
@@ -1848,7 +1848,7 @@ export default function AdminSettings() {
                       onClick={() => fetchPowerShellDataMutation.mutate({ 
                         type: 'FixedAssets',
                         filterValue: d365Form.itemPrefix,
-                        top: 20
+                        top: 50
                       })}
                       disabled={fetchPowerShellDataMutation.isPending || !d365Form.bcCompany}
                       className="bg-green-600 hover:bg-green-700"
@@ -2329,7 +2329,7 @@ export default function AdminSettings() {
         <DialogContent className="max-w-6xl h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
-              {currentDataType === 'items' ? 'Items' : 'Fixed Assets'} (Page {Math.floor(currentSkip / 20) + 1})
+              {currentDataType === 'items' ? 'Items' : 'Fixed Assets'} (Page {Math.floor(currentSkip / 50) + 1})
             </DialogTitle>
             <DialogDescription>
               Review and select records to import from Dynamics 365 Business Central
@@ -2431,8 +2431,9 @@ export default function AdminSettings() {
                 disabled={selectedRecordNos.length === 0 || importItemsToSparePartsMutation.isPending || currentDataType !== 'items'}
                 onClick={handleInsertSelected}
                 data-testid="button-insert-selected"
+                title={currentDataType !== 'items' ? 'Fixed Assets must be imported via Equipment page' : ''}
               >
-                {importItemsToSparePartsMutation.isPending ? "Importing..." : "Insert Selected"}
+                {importItemsToSparePartsMutation.isPending ? "Importing..." : currentDataType !== 'items' ? "Insert Selected (Items Only)" : "Insert Selected"}
               </Button>
             </div>
           </div>

@@ -705,7 +705,7 @@ export default function AdminSettings() {
         title: "Import Complete",
         description: `Imported ${data.totalImported} items (${data.savedCount} new, ${data.updatedCount} updated)`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/parts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/sync-logs"] });
       setIsItemsReviewOpen(false);
     },

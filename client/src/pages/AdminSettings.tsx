@@ -2164,11 +2164,11 @@ export default function AdminSettings() {
                       <div className="space-y-2">
                         <p className="font-medium">How Server Settings Work:</p>
                         <ul className="text-xs space-y-1 list-disc list-inside">
-                          <li>Settings are saved to the database when you click "Save Settings"</li>
-                          <li>The server reads these settings automatically on startup</li>
-                          <li>You must restart the server for changes to take effect</li>
-                          <li>On Replit: Port 5000 is required for webview (default)</li>
-                          <li>For production deployment: Configure your custom host and port</li>
+                          <li><strong>On Replit:</strong> Keep 0.0.0.0:5000 (required for webview)</li>
+                          <li><strong>On Local PC:</strong> Use your computer's IP (e.g., 192.168.0.3:3000)</li>
+                          <li>Settings are saved to database - export and import on local PC</li>
+                          <li>You must restart the server after changing settings</li>
+                          <li>Find your local IP: Open Command Prompt and type "ipconfig"</li>
                         </ul>
                       </div>
                     </AlertDescription>
@@ -2180,11 +2180,11 @@ export default function AdminSettings() {
                       id="serverHost"
                       value={serverHost}
                       onChange={(e) => setServerHost(e.target.value)}
-                      placeholder="0.0.0.0"
+                      placeholder="192.168.0.3 (for local) or 0.0.0.0 (for Replit)"
                       data-testid="input-server-host"
                     />
                     <p className="text-xs text-muted-foreground">
-                      {t("serverHostDescription")}
+                      Enter your local network IP (e.g., 192.168.0.3) or 0.0.0.0 for all interfaces
                     </p>
                   </div>
 
@@ -2201,7 +2201,7 @@ export default function AdminSettings() {
                       data-testid="input-server-port"
                     />
                     <p className="text-xs text-muted-foreground">
-                      {t("serverPortDescription")}
+                      Recommended: 3000 for local deployment, 5000 for Replit
                     </p>
                   </div>
 

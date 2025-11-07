@@ -6461,6 +6461,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   app.patch("/api/system-settings", isCEOOrAdmin, async (req, res) => {
     try {
       const { systemSettings, insertSystemSettingsSchema } = await import("@shared/schema");
+      const { encrypt } = await import("../utils/encryption");
       const settingsData = insertSystemSettingsSchema.partial().parse(req.body);
       
       // Validate server settings if provided
@@ -6481,6 +6482,14 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         if (port < 1 || port > 65535) {
           return res.status(400).json({ error: "Port must be between 1 and 65535" });
         }
+      }
+      
+      // Encrypt MellaTech credentials if provided
+      if (settingsData.mellatechUsername) {
+        settingsData.mellatechUsername = encrypt(settingsData.mellatechUsername);
+      }
+      if (settingsData.mellatechPassword) {
+        settingsData.mellatechPassword = encrypt(settingsData.mellatechPassword);
       }
       
       // Get current user ID from session

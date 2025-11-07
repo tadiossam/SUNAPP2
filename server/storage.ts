@@ -3711,8 +3711,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(deviceImportLogs)
-      .orderBy(desc(deviceImportLogs.createdAt))
-      .limit(50);
+      .orderBy(desc(deviceImportLogs.createdAt));
   }
 
   // Dynamics 365 Settings Operations

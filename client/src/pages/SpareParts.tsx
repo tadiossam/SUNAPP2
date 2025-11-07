@@ -188,50 +188,25 @@ export default function SparePartsPage() {
     mutationFn: async (file: File) => {
       if (!selectedPart) throw new Error("No part selected");
       
-      // Step 1: Get presigned upload URL from backend
+      // Upload video to local storage
       const token = localStorage.getItem('auth_token');
-      const urlResponse = await fetch(`/api/parts/${selectedPart.id}/tutorial/upload-url`, {
+      const formData = new FormData();
+      formData.append('video', file);
+
+      const uploadResponse = await fetch(`/api/parts/${selectedPart.id}/tutorial/upload-local`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` }),
         },
-      });
-
-      if (!urlResponse.ok) {
-        throw new Error('Failed to get upload URL');
-      }
-
-      const { uploadURL, objectPath } = await urlResponse.json();
-
-      // Step 2: Upload file directly to object storage using presigned URL
-      const uploadResponse = await fetch(uploadURL, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type,
-        },
-        body: file,
+        body: formData,
       });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload tutorial video');
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || 'Failed to upload tutorial video');
       }
 
-      // Step 3: Update part with tutorial video URL (use permanent object path, not presigned URL)
-      const updateResponse = await fetch(`/api/parts/${selectedPart.id}/tutorial`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-        body: JSON.stringify({ tutorialVideoURL: objectPath }),
-      });
-
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update part with tutorial video');
-      }
-
-      return updateResponse.json();
+      return uploadResponse.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parts"] });

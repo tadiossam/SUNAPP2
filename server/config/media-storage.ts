@@ -27,7 +27,7 @@ export const MEDIA_STORAGE_CONFIG = {
   
   // Max file sizes (in bytes)
   maxFileSize: {
-    image: 10 * 1024 * 1024, // 10MB
-    video: 100 * 1024 * 1024, // 100MB
+    image: 30 * 1024 * 1024, // 30MB
+    video: 1000 * 1024 * 1024, // 1000MB (1GB)
   },
 };

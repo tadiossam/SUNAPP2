@@ -60,13 +60,27 @@ import { calculateWorkOrderElapsedTime } from "./work-timer-utils";
 // Configure multer for memory storage
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB limit for images
   fileFilter: (_req, file, cb) => {
-    // Accept images and videos
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+    // Accept images only
+    if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image and video files are allowed'));
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// Configure multer for video uploads
+const uploadVideo = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 1000 * 1024 * 1024 }, // 1000MB (1GB) limit for videos
+  fileFilter: (_req, file, cb) => {
+    // Accept videos only
+    if (file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only video files are allowed'));
     }
   }
 });
@@ -3224,7 +3238,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get presigned upload URL for tutorial videos
+  // Local video upload endpoint for spare parts tutorial videos
+  app.post("/api/parts/:id/tutorial/upload-local", isCEOOrAdmin, uploadVideo.single('video'), async (req, res) => {
+    try {
+      const partId = req.params.id;
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ error: "No video file provided" });
+      }
+
+      // Create unique filename
+      const fileExtension = file.originalname.split('.').pop();
+      const fileName = `${partId}-${nanoid()}.${fileExtension}`;
+      const uploadsDir = join(process.cwd(), 'public', 'uploads', 'spare-parts');
+      const filePath = join(uploadsDir, fileName);
+      
+      // Ensure directory exists
+      await mkdir(uploadsDir, { recursive: true });
+      
+      // Save file to local storage
+      await writeFile(filePath, file.buffer);
+      
+      // Generate URL for accessing the video
+      const videoUrl = `/uploads/spare-parts/${fileName}`;
+      
+      // Update part with video URL
+      const part = await storage.updatePartMaintenance(partId, { tutorialVideoUrl: videoUrl });
+      
+      if (!part) {
+        return res.status(404).json({ error: "Part not found" });
+      }
+
+      // Send notification to CEO
+      if (process.env.RESEND_API_KEY) {
+        const userEmail = (req as any).user?.email || 'unknown';
+        await sendCEONotification(
+          `Tutorial video uploaded for spare part`,
+          `Part Number: ${part.partNumber}\nPart Name: ${part.partName}\nUploaded by: ${userEmail}`,
+          createNotification(
+            { action: 'tutorial video uploaded', videoUrl }
+          )
+        );
+      }
+
+      res.json({ 
+        success: true,
+        videoUrl,
+        part
+      });
+    } catch (error) {
+      console.error("Error uploading tutorial video:", error);
+      res.status(500).json({ error: "Failed to upload tutorial video" });
+    }
+  });
+
+  // Get presigned upload URL for tutorial videos (cloud storage - legacy)
   app.post("/api/parts/:id/tutorial/upload-url", isCEOOrAdmin, async (req, res) => {
     try {
       const objectStorageService = new ObjectStorageService();

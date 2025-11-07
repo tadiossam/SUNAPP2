@@ -1478,6 +1478,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/work-orders/foreman/approved-completions", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      
+      // Admin can see all foreman data
+      const isAdmin = hasRole(req.user, 'admin');
+      const approvedCompletions = await storage.getForemanApprovedCompletions(req.user.id, isAdmin);
+      const enrichedWorkOrders = await enrichWorkOrdersWithTimeTracking(approvedCompletions);
+      res.json(enrichedWorkOrders);
+    } catch (error) {
+      console.error("Error fetching foreman approved completions:", error);
+      res.status(500).json({ error: "Failed to fetch approved completions" });
+    }
+  });
+
   // Verifier dashboard endpoint (MUST be before :id route)
   app.get("/api/work-orders/verifier/pending", async (req, res) => {
     try {

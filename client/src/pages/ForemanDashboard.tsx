@@ -115,6 +115,10 @@ export default function ForemanDashboard() {
     },
   });
 
+  const { data: approvedCompletions = [] } = useQuery<WorkOrder[]>({
+    queryKey: ["/api/work-orders/foreman/approved-completions"],
+  });
+
   // Fetch inspection details when viewing
   const { data: inspectionDetails } = useQuery<any>({
     queryKey: ["/api/inspections", viewingInspectionId],
@@ -211,6 +215,7 @@ export default function ForemanDashboard() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/active"] });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/pending-completion"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/approved-completions"] });
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Failed to approve work completion";
@@ -456,56 +461,115 @@ export default function ForemanDashboard() {
           </TabsContent>
 
           <TabsContent value="completions" className="space-y-4">
-            {pendingCompletions.length > 0 ? (
-              pendingCompletions.map((workOrder) => (
-                <Card key={workOrder.id} className="hover-elevate" data-testid={`completion-card-${workOrder.id}`}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{workOrder.workOrderNumber}</CardTitle>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Equipment: {workOrder.equipmentModel || "N/A"}
-                        </p>
-                      </div>
-                      <Badge variant="outline">Pending Approval</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {workOrder.description && (
-                      <div>
-                        <Label className="text-muted-foreground text-sm">Description:</Label>
-                        <p>{workOrder.description}</p>
-                      </div>
-                    )}
-                    {workOrder.teamMembers && workOrder.teamMembers.length > 0 && (
-                      <div>
-                        <Label className="text-muted-foreground text-sm mb-2 block">Team Members:</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {workOrder.teamMembers.map((member: any) => (
-                            <Badge key={member.id} variant="secondary">{member.fullName}</Badge>
-                          ))}
+            <Tabs defaultValue="pending" className="space-y-4">
+              <TabsList className="grid w-full max-w-2xl grid-cols-2">
+                <TabsTrigger value="pending" data-testid="tab-pending-completions">
+                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                  Pending ({pendingCompletions.length})
+                </TabsTrigger>
+                <TabsTrigger value="approved" data-testid="tab-approved-completions">
+                  <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                  Approved ({approvedCompletions.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="pending" className="space-y-4">
+                {pendingCompletions.length > 0 ? (
+                  pendingCompletions.map((workOrder) => (
+                    <Card key={workOrder.id} className="hover-elevate" data-testid={`completion-card-${workOrder.id}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-lg">{workOrder.workOrderNumber}</CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Equipment: {workOrder.equipmentModel || "N/A"}
+                            </p>
+                          </div>
+                          <Badge variant="outline">Pending Approval</Badge>
                         </div>
-                      </div>
-                    )}
-                    <Button
-                      onClick={() => approveCompletionMutation.mutate({ workOrderId: workOrder.id })}
-                      disabled={approveCompletionMutation.isPending}
-                      className="w-full"
-                      data-testid={`button-approve-completion-${workOrder.id}`}
-                    >
-                      <ThumbsUp className="h-4 w-4 mr-2" />
-                      {approveCompletionMutation.isPending ? "Approving..." : "Approve Completion"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No work orders pending completion approval
-                </CardContent>
-              </Card>
-            )}
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {workOrder.description && (
+                          <div>
+                            <Label className="text-muted-foreground text-sm">Description:</Label>
+                            <p>{workOrder.description}</p>
+                          </div>
+                        )}
+                        {workOrder.teamMembers && workOrder.teamMembers.length > 0 && (
+                          <div>
+                            <Label className="text-muted-foreground text-sm mb-2 block">Team Members:</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {workOrder.teamMembers.map((member: any) => (
+                                <Badge key={member.id} variant="secondary">{member.fullName}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <Button
+                          onClick={() => approveCompletionMutation.mutate({ workOrderId: workOrder.id })}
+                          disabled={approveCompletionMutation.isPending}
+                          className="w-full"
+                          data-testid={`button-approve-completion-${workOrder.id}`}
+                        >
+                          <ThumbsUp className="h-4 w-4 mr-2" />
+                          {approveCompletionMutation.isPending ? "Approving..." : "Approve Completion"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      No work orders pending completion approval
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="approved" className="space-y-4">
+                {approvedCompletions.length > 0 ? (
+                  approvedCompletions.map((workOrder) => (
+                    <Card key={workOrder.id} className="hover-elevate" data-testid={`approved-completion-card-${workOrder.id}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-lg">{workOrder.workOrderNumber}</CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Equipment: {workOrder.equipmentModel || "N/A"}
+                            </p>
+                          </div>
+                          <Badge>Approved</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {workOrder.description && (
+                          <div>
+                            <Label className="text-muted-foreground text-sm">Description:</Label>
+                            <p>{workOrder.description}</p>
+                          </div>
+                        )}
+                        {workOrder.teamMembers && workOrder.teamMembers.length > 0 && (
+                          <div>
+                            <Label className="text-muted-foreground text-sm mb-2 block">Team Members:</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {workOrder.teamMembers.map((member: any) => (
+                                <Badge key={member.id} variant="secondary">{member.fullName}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <Card>
+                    <CardContent className="py-12 text-center text-muted-foreground">
+                      No approved work order completions
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="requisitions" className="space-y-4">

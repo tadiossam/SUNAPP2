@@ -229,6 +229,7 @@ export interface IStorage {
   deleteWorkOrder(id: string): Promise<void>;
   getForemanPendingWorkOrders(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]>;
   getForemanActiveWorkOrders(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]>;
+  getForemanApprovedCompletions(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]>;
   getWorkOrdersByTeamMember(teamMemberId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]>;
   assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void>;
   getVerifierPendingWorkOrders(): Promise<WorkOrderWithDetails[]>;
@@ -1521,6 +1522,61 @@ export class DatabaseStorage implements IStorage {
     // Get full details for each order
     const ordersWithDetails = await Promise.all(
       activeOrders.map(order => this.getWorkOrderById(order.id))
+    );
+    
+    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+  }
+
+  async getForemanApprovedCompletions(foremanId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]> {
+    // If admin, return all approved completions for all foremen
+    if (isAdmin) {
+      const approvedCompletions = await db
+        .select()
+        .from(workOrders)
+        .where(eq(workOrders.completionApprovalStatus, "approved"))
+        .orderBy(desc(workOrders.completionApprovedAt));
+      
+      // Get full details for each order
+      const ordersWithDetails = await Promise.all(
+        approvedCompletions.map(order => this.getWorkOrderById(order.id))
+      );
+      
+      return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+    }
+    
+    // Get work orders where the foreman is assigned and completions are approved
+    const foremanMemberships = await db
+      .select()
+      .from(workOrderMemberships)
+      .where(
+        and(
+          eq(workOrderMemberships.employeeId, foremanId),
+          eq(workOrderMemberships.role, "foreman"),
+          eq(workOrderMemberships.isActive, true)
+        )
+      );
+    
+    if (foremanMemberships.length === 0) {
+      return [];
+    }
+    
+    const workOrderIds = foremanMemberships.map(m => m.workOrderId);
+    
+    // Get work orders with approved completions
+    const approvedCompletions = await db
+      .select()
+      .from(workOrders)
+      .where(
+        and(
+          inArray(workOrders.id, workOrderIds),
+          eq(workOrders.completionApprovalStatus, "approved")
+        )
+      )
+      .orderBy(desc(workOrders.completionApprovedAt));
+    
+    // Get full details for each order
+    const ordersWithDetails = await Promise.all(
+      approvedCompletions.map(order => this.getWorkOrderById(order.id))
     );
     
     return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];

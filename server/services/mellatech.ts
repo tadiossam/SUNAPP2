@@ -123,15 +123,29 @@ class MellaTechService {
         
         // Check response data for error messages
         const responseText = typeof response.data === 'string' ? response.data : '';
-        if (responseText.includes('error') || responseText.includes('invalid')) {
-          console.log('❌ Login failed - error in response');
-          return { success: false, error: 'Invalid credentials - MellaTech rejected login' };
+        console.log('   Response length:', responseText.length);
+        
+        // Look for common error indicators in the HTML response
+        if (responseText.toLowerCase().includes('invalid') || 
+            responseText.toLowerCase().includes('incorrect') ||
+            responseText.toLowerCase().includes('wrong')) {
+          console.log('❌ Login failed - error keywords found in response');
+          const errorSnippet = responseText.substring(0, 500);
+          console.log('   Response preview:', errorSnippet);
+          return { success: false, error: 'Invalid username or password - MellaTech rejected login' };
+        }
+        
+        // If we stayed on index.php, it's likely invalid credentials
+        if (redirectUrl.includes('index.php') || !redirectUrl.includes('tracking')) {
+          console.log('❌ Login failed - stayed on login page (invalid credentials)');
+          const errorSnippet = responseText.substring(0, 500);
+          console.log('   Response preview:', errorSnippet);
+          return { success: false, error: 'Invalid username or password - please verify your credentials' };
         }
       }
 
-      console.log('❌ MellaTech login failed - no redirect to tracking page');
-      console.log('   This usually means invalid credentials or MellaTech API changes');
-      return { success: false, error: 'Login failed - invalid credentials or redirect' };
+      console.log('❌ MellaTech login failed - unexpected response');
+      return { success: false, error: 'Login failed - unexpected response from MellaTech' };
 
     } catch (error: any) {
       console.error('❌ MellaTech login error:', error.message);

@@ -86,6 +86,7 @@ class MellaTechService {
   async login(): Promise<MellaTechLoginResponse> {
     try {
       console.log('🔐 Attempting MellaTech login...');
+      console.log('   Username:', this.config.username);
 
       const loginData = new URLSearchParams();
       loginData.append('login', this.config.username);
@@ -102,25 +103,42 @@ class MellaTechService {
       const cookies = response.headers['set-cookie'];
       if (cookies) {
         this.sessionCookies = cookies.join('; ');
+        console.log('   Cookies received:', cookies.length);
       }
 
+      console.log('   Response status:', response.status);
+      const redirectUrl = response.request?.res?.responseUrl || response.request?.path || '';
+      console.log('   Final URL:', redirectUrl);
+
       if (response.status === 200) {
-        const redirectUrl = response.request?.res?.responseUrl || '';
+        // Check if successfully redirected to tracking page
         if (redirectUrl.includes('tracking.php')) {
-          console.log('✅ MellaTech login successful');
+          console.log('✅ MellaTech login successful - redirected to tracking page');
           this.isAuthenticated = true;
           
           await this.fetchUat();
           
           return { success: true, uat: this.uat };
         }
+        
+        // Check response data for error messages
+        const responseText = typeof response.data === 'string' ? response.data : '';
+        if (responseText.includes('error') || responseText.includes('invalid')) {
+          console.log('❌ Login failed - error in response');
+          return { success: false, error: 'Invalid credentials - MellaTech rejected login' };
+        }
       }
 
       console.log('❌ MellaTech login failed - no redirect to tracking page');
+      console.log('   This usually means invalid credentials or MellaTech API changes');
       return { success: false, error: 'Login failed - invalid credentials or redirect' };
 
     } catch (error: any) {
       console.error('❌ MellaTech login error:', error.message);
+      if (error.response) {
+        console.error('   Response status:', error.response.status);
+        console.error('   Response data:', error.response.data?.substring(0, 200));
+      }
       return { success: false, error: error.message };
     }
   }

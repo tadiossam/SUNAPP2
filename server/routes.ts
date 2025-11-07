@@ -5211,7 +5211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Import selected equipment from D365 with description parsing
+  // Import selected equipment from D365 with description parsing and automatic category detection
   app.post("/api/dynamics365/import-equipment", isAuthenticated, async (req, res) => {
     try {
       const { equipment: selectedEquipment, defaultCategoryId, prefix } = req.body;
@@ -5223,17 +5223,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let savedCount = 0;
       let updatedCount = 0;
       let skippedCount = 0;
+      let categoriesCreated = 0;
       const errors: string[] = [];
       
+      // Helper function to detect if asset number is a category (ends with 0000)
+      const isCategoryAsset = (assetNo: string): boolean => {
+        return /0000$/.test(assetNo);
+      };
+      
+      // Helper function to get category asset number from unit asset number
+      // Example: HV-AD-0015 -> HV-AD-0000
+      const getCategoryAssetNo = (assetNo: string): string => {
+        return assetNo.replace(/\d{4}$/, '0000');
+      };
+      
+      // First pass: Create categories from 0000 assets
+      const categoryMap = new Map<string, string>(); // Maps category asset number to category ID
+      
+      for (const d365Equip of selectedEquipment) {
+        const assetNo = d365Equip.Asset_No || d365Equip.No;
+        
+        if (isCategoryAsset(assetNo)) {
+          const fullDescription = d365Equip.Description || "";
+          const parsed = parseEquipmentDescription(fullDescription);
+          const categoryName = parsed.equipmentName || d365Equip.Type || assetNo;
+          
+          console.log(`[CATEGORY] Detected category asset: ${assetNo} -> "${categoryName}"`);
+          
+          // Check if category already exists by name
+          const existingCategory = await db.select()
+            .from(equipmentCategories)
+            .where(eq(equipmentCategories.name, categoryName))
+            .limit(1);
+          
+          if (existingCategory.length > 0) {
+            categoryMap.set(assetNo, existingCategory[0].id);
+            console.log(`[CATEGORY] Using existing category: ${categoryName} (${existingCategory[0].id})`);
+          } else {
+            // Create new category
+            const [newCategory] = await db.insert(equipmentCategories)
+              .values({ name: categoryName })
+              .returning();
+            categoryMap.set(assetNo, newCategory.id);
+            categoriesCreated++;
+            console.log(`[CATEGORY] Created new category: ${categoryName} (${newCategory.id})`);
+          }
+        }
+      }
+      
+      // Second pass: Import equipment and assign categories
       for (const d365Equip of selectedEquipment) {
         try {
           const assetNo = d365Equip.Asset_No || d365Equip.No;
           const fullDescription = d365Equip.Description || "";
           
+          // Skip category assets (0000) - they're not actual equipment units
+          if (isCategoryAsset(assetNo)) {
+            console.log(`[SKIP] Skipping category asset: ${assetNo}`);
+            continue;
+          }
+          
           // Parse the description to extract equipment name, plate number, and serial number
           const parsed = parseEquipmentDescription(fullDescription);
           
-          console.log(`Parsed ${assetNo}: name="${parsed.equipmentName}", plate="${parsed.plateNumber}", serial="${parsed.serialNumber}"`);
+          // Determine category for this equipment
+          let categoryId = defaultCategoryId || null;
+          
+          // Try to find category based on asset number pattern
+          const categoryAssetNo = getCategoryAssetNo(assetNo);
+          if (categoryMap.has(categoryAssetNo)) {
+            categoryId = categoryMap.get(categoryAssetNo)!;
+            console.log(`[AUTO-CATEGORY] ${assetNo} -> category ${categoryAssetNo} (${categoryId})`);
+          }
+          
+          console.log(`Parsed ${assetNo}: name="${parsed.equipmentName}", plate="${parsed.plateNumber}", serial="${parsed.serialNumber}", categoryId=${categoryId}`);
           
           // Check if equipment exists by asset number
           const existingEquip = await db.select()
@@ -5242,7 +5305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .limit(1);
           
           const equipData = {
-            categoryId: defaultCategoryId || null,
+            categoryId: categoryId,
             equipmentType: parsed.equipmentName || d365Equip.Type || 'UNKNOWN',
             make: d365Equip.Make || 'UNKNOWN',
             model: d365Equip.Model || parsed.equipmentName || 'UNKNOWN',
@@ -5286,13 +5349,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         importData: JSON.stringify(selectedEquipment.slice(0, 10)), // Store first 10 items as sample
       });
       
-      console.log(`Imported ${savedCount} new equipment, updated ${updatedCount} equipment`);
+      console.log(`Imported ${savedCount} new equipment, updated ${updatedCount} equipment, created ${categoriesCreated} categories`);
       
       res.json({
         success: true,
         savedCount,
         updatedCount,
         skippedCount,
+        categoriesCreated,
         errors: errors.length > 0 ? errors : undefined,
         totalProcessed: selectedEquipment.length,
       });

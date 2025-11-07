@@ -913,9 +913,10 @@ export default function AdminSettings() {
       });
       
       if (data.success) {
+        const categoryMsg = data.categoriesCreated > 0 ? `, created ${data.categoriesCreated} categories` : '';
         toast({
           title: "Import Successful",
-          description: `Imported ${data.savedCount} new equipment, updated ${data.updatedCount} equipment`,
+          description: `Imported ${data.savedCount} new equipment, updated ${data.updatedCount} equipment${categoryMsg}`,
         });
         
         // Close the modal and clear selection
@@ -923,8 +924,9 @@ export default function AdminSettings() {
         setFetchedRecords([]);
         setSelectedRecordNos([]);
         
-        // Invalidate equipment cache
+        // Invalidate equipment and categories cache
         queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/equipment-categories"] });
         queryClient.invalidateQueries({ queryKey: ["/api/dynamics365/sync-logs"] });
       } else {
         toast({

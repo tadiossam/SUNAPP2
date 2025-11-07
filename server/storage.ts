@@ -3564,8 +3564,8 @@ export class DatabaseStorage implements IStorage {
     const verifiedOrders = await db
       .select()
       .from(workOrders)
-      .where(eq(workOrders.verificationStatus, "approved"))
-      .orderBy(desc(workOrders.verifiedAt));
+      .where(eq(workOrders.status, "verified"))
+      .orderBy(desc(workOrders.completedAt));
     
     const ordersWithDetails = await Promise.all(
       verifiedOrders.map(order => this.getWorkOrderById(order.id))
@@ -3578,8 +3578,8 @@ export class DatabaseStorage implements IStorage {
     const rejectedOrders = await db
       .select()
       .from(workOrders)
-      .where(eq(workOrders.verificationStatus, "rejected"))
-      .orderBy(desc(workOrders.verifiedAt));
+      .where(eq(workOrders.status, "rejected"))
+      .orderBy(desc(workOrders.updatedAt));
     
     const ordersWithDetails = await Promise.all(
       rejectedOrders.map(order => this.getWorkOrderById(order.id))

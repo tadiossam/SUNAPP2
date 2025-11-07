@@ -93,12 +93,6 @@ export function AppSidebar() {
       icon: Upload,
       testId: "link-upload",
     },
-    {
-      title: t("items"),
-      url: "/items",
-      icon: Package,
-      testId: "link-items",
-    },
   ];
 
   const garageMenuItems = [

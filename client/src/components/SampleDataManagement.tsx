@@ -63,9 +63,8 @@ export function SampleDataManagement() {
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              This tool will populate your database with realistic sample data including work orders, requisitions,
-              inspections, team performance metrics, and archived data from previous years. This is useful for testing
-              and demonstrating the system's capabilities.
+              This tool will populate your database with <strong>1000+ realistic sample records</strong> covering all pages and tabs.
+              Perfect for offline/local deployments and comprehensive system testing.
             </AlertDescription>
           </Alert>
 
@@ -79,75 +78,79 @@ export function SampleDataManagement() {
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    Work Orders
+                    50 Employees
                   </h3>
                   <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                    <li>Pending mechanic assignment</li>
-                    <li>In progress work orders</li>
-                    <li>Awaiting parts</li>
-                    <li>Pending verification</li>
-                    <li>Verified and completed</li>
+                    <li>Team members</li>
+                    <li>Foremen & supervisors</li>
+                    <li>Verifiers & store managers</li>
+                    <li>Across multiple departments</li>
                   </ul>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    Item Requisitions
+                    100 Equipment Items
                   </h3>
                   <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                    <li>Pending foreman approval</li>
-                    <li>Approved by foreman</li>
-                    <li>Rejected items</li>
-                    <li>Pending store manager approval</li>
+                    <li>Excavators, loaders, trucks</li>
+                    <li>Cranes, forklifts, compactors</li>
+                    <li>Across multiple project sites</li>
+                    <li>Various operational statuses</li>
                   </ul>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    Inspections
+                    200 Spare Parts
                   </h3>
                   <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                    <li>Pending inspections</li>
-                    <li>Completed inspections</li>
-                    <li>With equipment receptions</li>
+                    <li>Engine, hydraulic, electrical</li>
+                    <li>Brake, filter, bearing, seal</li>
+                    <li>With stock levels & locations</li>
+                    <li>Various price ranges</li>
                   </ul>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    Parts & Performance
+                    300 Work Orders
                   </h3>
                   <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                    <li>Parts receipts (received items)</li>
-                    <li>Team performance snapshots</li>
-                    <li>Daily & monthly metrics</li>
+                    <li>All states: pending → completed</li>
+                    <li>Various priorities & work types</li>
+                    <li>With foreman/team assignments</li>
+                    <li>Includes cost breakdowns</li>
                   </ul>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    Archived Data (2017)
+                    100 Requisitions
                   </h3>
                   <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                    <li>10 archived work orders</li>
-                    <li>Ethiopian year 2017</li>
-                    <li>With spare parts usage data</li>
-                    <li>Complete cost breakdowns</li>
+                    <li>~300 requisition lines</li>
+                    <li>Foreman & store approvals</li>
+                    <li>Approved/rejected/fulfilled</li>
+                    <li>Parts receipts included</li>
                   </ul>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                    Note
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    Additional Data
                   </h3>
-                  <p className="text-sm text-muted-foreground ml-6">
-                    Purchase requests are auto-generated when requisition items are approved but parts are out of stock.
-                  </p>
+                  <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                    <li>50 equipment receptions</li>
+                    <li>Equipment inspections</li>
+                    <li>100 performance snapshots</li>
+                    <li>100 archived WOs (2017)</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>
@@ -200,13 +203,15 @@ export function SampleDataManagement() {
             <Alert className="border-green-200 bg-green-50 dark:bg-green-950/10">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800 dark:text-green-200">
-                Sample data has been successfully seeded! Navigate to the following pages to view the data:
+                Successfully seeded 1000+ sample records! All pages now have data:
                 <ul className="mt-2 ml-4 space-y-1 list-disc">
-                  <li>Work Orders - Various statuses</li>
-                  <li>Item Requisitions - Different approval states</li>
-                  <li>Equipment Inspections - Pending and completed</li>
-                  <li>Team Performance - Daily and monthly metrics</li>
-                  <li>Archived Work Orders - Filter by year 2017 to see historical data</li>
+                  <li>Dashboard - Updated analytics & metrics</li>
+                  <li>Work Orders - 300 orders across all statuses</li>
+                  <li>Equipment - 100 units across sites</li>
+                  <li>Spare Parts - 200 parts with stock levels</li>
+                  <li>Requisitions - 100 requisitions with ~300 lines</li>
+                  <li>Team Performance - Performance data for all team members</li>
+                  <li>Archived Work Orders - 100 orders from year 2017</li>
                 </ul>
               </AlertDescription>
             </Alert>

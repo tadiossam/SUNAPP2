@@ -3,6 +3,8 @@
 ## Overview
 A comprehensive web application for industrial equipment maintenance, focusing on efficient management of heavy equipment inventory and spare parts. It features a detailed parts catalog with 3D models, streamlines searching and visualization, and integrates robust garage, equipment reception, and multi-level approval workflows to enhance maintenance operations and tracking. The project aims to significantly improve efficiency in heavy equipment maintenance.
 
+**Sample Data System**: Comprehensive seeding capability creating 1000+ realistic sample records (50 employees, 100 equipment, 200 spare parts, 300 work orders, 100 requisitions with ~300 lines, 50 receptions/inspections, 100 performance snapshots, 100 archived orders from Ethiopian year 2017). Accessible via Admin Settings > Sample Data tab. Designed for offline/local deployments and testing all system features.
+
 ## User Preferences
 I prefer iterative development with clear communication at each stage. Please ask for confirmation before implementing significant architectural changes or adding new external dependencies. I also prefer detailed explanations for complex technical decisions. Ensure all solutions are mobile-compatible, especially for iOS Safari.
 

@@ -498,8 +498,8 @@ export default function GarageDetails() {
             <DialogTitle>Add Workshop to {garage.name}</DialogTitle>
           </DialogHeader>
           <Form {...workshopForm}>
-            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="flex flex-col overflow-hidden">
-              <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="flex flex-col gap-4 h-full overflow-hidden">
+              <div className="flex-1 space-y-4 overflow-y-auto pr-2 min-h-0">
               <FormField
                 control={workshopForm.control}
                 name="name"
@@ -708,7 +708,7 @@ export default function GarageDetails() {
               </div>
               </div>
 
-              <div className="flex gap-2 pt-4 mt-4 border-t">
+              <div className="flex gap-2 pt-4 border-t shrink-0">
                 <Button
                   type="button"
                   variant="outline"
@@ -738,8 +738,8 @@ export default function GarageDetails() {
             <DialogTitle>Edit Workshop</DialogTitle>
           </DialogHeader>
           <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col overflow-hidden">
-              <div className="space-y-4 overflow-y-auto pr-2" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col gap-4 h-full overflow-hidden">
+              <div className="flex-1 space-y-4 overflow-y-auto pr-2 min-h-0">
               <FormField
                 control={editWorkshopForm.control}
                 name="name"
@@ -964,7 +964,7 @@ export default function GarageDetails() {
               </div>
               </div>
 
-              <div className="flex gap-2 pt-4 mt-4 border-t">
+              <div className="flex gap-2 pt-4 border-t shrink-0">
                 <Button
                   type="button"
                   variant="outline"

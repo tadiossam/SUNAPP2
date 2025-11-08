@@ -66,15 +66,12 @@ export async function seedSampleData() {
       const reception = await db.insert(equipmentReceptions).values({
         receptionNumber: `REC-2025-${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
         equipmentId: allEquipment[1].id,
-        garageId: allGarages[0].id,
-        driverName: "Test Driver",
-        driverPhone: "0911223344",
-        kilometerReading: 45000,
-        serviceType: "preventive_maintenance",
-        reportedIssues: "Routine inspection scheduled",
-        priority: "medium",
-        checkedInById: admin.id,
-        checkedInAt: new Date()
+        arrivalDate: new Date(),
+        driverId: admin.id,
+        reasonOfMaintenance: "Service",
+        issuesReported: "Routine inspection scheduled",
+        serviceType: "long_term",
+        status: "driver_submitted"
       }).returning();
 
       const inspection = await db.insert(equipmentInspections).values({
@@ -95,15 +92,12 @@ export async function seedSampleData() {
       const completedReception = await db.insert(equipmentReceptions).values({
         receptionNumber: `REC-2025-${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
         equipmentId: allEquipment[2].id,
-        garageId: allGarages[0].id,
-        driverName: "Safety Inspector",
-        driverPhone: "0922334455",
-        kilometerReading: 32000,
-        serviceType: "safety_inspection",
-        reportedIssues: "Regular safety check",
-        priority: "low",
-        checkedInById: admin.id,
-        checkedInAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+        arrivalDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        driverId: admin.id,
+        reasonOfMaintenance: "Service",
+        issuesReported: "Regular safety check",
+        serviceType: "short_term",
+        status: "driver_submitted"
       }).returning();
 
       const completedInspection = await db.insert(equipmentInspections).values({
@@ -151,11 +145,8 @@ export async function seedSampleData() {
     const requisition1 = await db.insert(itemRequisitions).values({
       requisitionNumber: `REQ-2025-${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
       workOrderId: awaitingPartsWO.id,
-      requestedById: allEmployees[1]?.id || admin.id,
-      requestedByName: allEmployees[1]?.fullName || admin.fullName,
+      requesterId: allEmployees[1]?.id || admin.id,
       workshopId: allWorkshops[0]?.id,
-      workshopName: allWorkshops[0]?.name || "Workshop 1",
-      description: "Hydraulic pump and seals required",
       status: "pending_foreman_approval",
       neededBy: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
     }).returning();
@@ -164,25 +155,25 @@ export async function seedSampleData() {
     await db.insert(itemRequisitionLines).values([
       {
         requisitionId: requisition1[0].id,
+        lineNumber: 1,
         sparePartId: allParts[0]?.id,
         partNumber: allParts[0]?.partNumber || "HP-001",
         partName: allParts[0]?.name || "Hydraulic Pump",
         description: "Main hydraulic pump assembly",
         quantityRequested: 1,
         unitOfMeasure: "piece",
-        foremanApprovalStatus: "pending",
-        storeApprovalStatus: "pending"
+        status: "pending"
       },
       {
         requisitionId: requisition1[0].id,
+        lineNumber: 2,
         sparePartId: allParts[1]?.id,
         partNumber: allParts[1]?.partNumber || "HS-002",
         partName: allParts[1]?.name || "Hydraulic Seal Kit",
         description: "Complete seal kit for hydraulic system",
         quantityRequested: 2,
         unitOfMeasure: "kit",
-        foremanApprovalStatus: "pending",
-        storeApprovalStatus: "pending"
+        status: "pending"
       }
     ]);
     console.log(`✓ Created requisition ${requisition1[0].requisitionNumber} - Items Pending Foreman Approval`);
@@ -191,41 +182,41 @@ export async function seedSampleData() {
     const requisition2 = await db.insert(itemRequisitions).values({
       requisitionNumber: `REQ-2025-${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
       workOrderId: inProgressWO.id,
-      requestedById: allEmployees[2]?.id || admin.id,
-      requestedByName: allEmployees[2]?.fullName || admin.fullName,
+      requesterId: allEmployees[2]?.id || admin.id,
       workshopId: allWorkshops[1]?.id,
-      workshopName: allWorkshops[1]?.name || "Workshop 2",
-      description: "Oil filters and lubricants",
       status: "pending_store_approval",
+      foremanApprovalStatus: "approved",
+      foremanApprovedById: admin.id,
+      foremanApprovedAt: new Date(),
       neededBy: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
     }).returning();
 
     const approvedLines = await db.insert(itemRequisitionLines).values([
       {
         requisitionId: requisition2[0].id,
+        lineNumber: 1,
         sparePartId: allParts[2]?.id,
         partNumber: allParts[2]?.partNumber || "OF-001",
         partName: allParts[2]?.name || "Oil Filter",
         description: "Engine oil filter",
         quantityRequested: 2,
         unitOfMeasure: "piece",
-        foremanApprovalStatus: "approved",
-        foremanApprovedById: admin.id,
-        foremanApprovedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        storeApprovalStatus: "pending"
+        status: "pending",
+        foremanReviewerId: admin.id,
+        foremanDecisionAt: new Date(Date.now() - 1 * 60 * 60 * 1000)
       },
       {
         requisitionId: requisition2[0].id,
+        lineNumber: 2,
         sparePartId: allParts[3]?.id,
         partNumber: allParts[3]?.partNumber || "OIL-001",
         partName: allParts[3]?.name || "Engine Oil 15W-40",
         description: "Premium engine oil",
         quantityRequested: 20,
         unitOfMeasure: "liter",
-        foremanApprovalStatus: "approved",
-        foremanApprovedById: admin.id,
-        foremanApprovedAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        storeApprovalStatus: "pending"
+        status: "pending",
+        foremanReviewerId: admin.id,
+        foremanDecisionAt: new Date(Date.now() - 1 * 60 * 60 * 1000)
       }
     ]).returning();
     console.log(`✓ Created requisition ${requisition2[0].requisitionNumber} - Items Approved by Foreman, Pending Store`);
@@ -234,28 +225,29 @@ export async function seedSampleData() {
     const requisition3 = await db.insert(itemRequisitions).values({
       requisitionNumber: `REQ-2025-${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
       workOrderId: pendingMechanicWO.id,
-      requestedById: allEmployees[3]?.id || admin.id,
-      requestedByName: allEmployees[3]?.fullName || admin.fullName,
+      requesterId: allEmployees[3]?.id || admin.id,
       workshopId: allWorkshops[0]?.id,
-      workshopName: allWorkshops[0]?.name || "Workshop 1",
-      description: "Excessive parts request - rejected",
       status: "rejected",
+      foremanApprovalStatus: "rejected",
+      foremanApprovedById: admin.id,
+      foremanApprovedAt: new Date(),
+      foremanRemarks: "Excessive parts request - rejected",
       neededBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
     }).returning();
 
     await db.insert(itemRequisitionLines).values({
       requisitionId: requisition3[0].id,
+      lineNumber: 1,
       sparePartId: allParts[4]?.id,
       partNumber: allParts[4]?.partNumber || "TYR-001",
       partName: allParts[4]?.name || "Heavy Duty Tire",
       description: "Replacement tire - unnecessary at this time",
       quantityRequested: 4,
       unitOfMeasure: "piece",
-      foremanApprovalStatus: "rejected",
-      foremanApprovedById: admin.id,
-      foremanApprovedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      foremanRemarks: "Not required for current work scope",
-      storeApprovalStatus: "pending"
+      status: "rejected",
+      foremanReviewerId: admin.id,
+      foremanDecisionAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      foremanDecisionRemarks: "Not required for current work scope"
     });
     console.log(`✓ Created requisition ${requisition3[0].requisitionNumber} - Items Rejected by Foreman`);
 
@@ -275,17 +267,21 @@ export async function seedSampleData() {
     const requisition4 = await db.insert(itemRequisitions).values({
       requisitionNumber: `REQ-2025-${String(Math.floor(Math.random() * 100) + 1).padStart(3, '0')}`,
       workOrderId: completedWO.id,
-      requestedById: allEmployees[4]?.id || admin.id,
-      requestedByName: allEmployees[4]?.fullName || admin.fullName,
+      requesterId: allEmployees[4]?.id || admin.id,
       workshopId: allWorkshops[2]?.id,
-      workshopName: allWorkshops[2]?.name || "Workshop 3",
-      description: "Brake pads and rotors",
       status: "approved",
+      foremanApprovalStatus: "approved",
+      foremanApprovedById: admin.id,
+      foremanApprovedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      storeApprovalStatus: "approved",
+      storeApprovedById: admin.id,
+      storeApprovedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
       neededBy: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
     }).returning();
 
     const receivedLine = await db.insert(itemRequisitionLines).values({
       requisitionId: requisition4[0].id,
+      lineNumber: 1,
       sparePartId: allParts[5]?.id,
       partNumber: allParts[5]?.partNumber || "BP-001",
       partName: allParts[5]?.name || "Brake Pad Set",
@@ -293,12 +289,9 @@ export async function seedSampleData() {
       quantityRequested: 1,
       quantityApproved: 1,
       unitOfMeasure: "set",
-      foremanApprovalStatus: "approved",
-      foremanApprovedById: admin.id,
-      foremanApprovedAt: new Date(Date.now() - 1.5 * 24 * 60 * 60 * 1000),
-      storeApprovalStatus: "approved",
-      storeApprovedById: admin.id,
-      storeApprovedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+      status: "approved",
+      foremanReviewerId: admin.id,
+      foremanDecisionAt: new Date(Date.now() - 1.5 * 24 * 60 * 60 * 1000)
     }).returning();
 
     // Create parts receipt

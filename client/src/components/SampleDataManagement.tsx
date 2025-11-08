@@ -22,7 +22,7 @@ export function SampleDataManagement() {
   // Seed sample data mutation
   const seedMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/admin/seed-sample-data", "POST", {});
+      return await apiRequest("POST", "/api/admin/seed-sample-data");
     },
     onSuccess: () => {
       setLastSeededAt(new Date());

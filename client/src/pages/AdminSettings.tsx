@@ -61,6 +61,7 @@ import {
   Shield,
   Check,
   ChevronsUpDown,
+  Calendar,
 } from "lucide-react";
 import {
   Dialog,
@@ -93,6 +94,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { SystemSettings } from "@shared/schema";
 import { D365ItemsReviewDialog } from "@/components/D365ItemsReviewDialog";
 import { D365EquipmentReviewDialog } from "@/components/D365EquipmentReviewDialog";
+import { EthiopianYearManagement } from "@/components/EthiopianYearManagement";
 
 type DeviceSettings = {
   id: string;
@@ -1515,8 +1517,17 @@ export default function AdminSettings() {
                 <Shield className="h-4 w-4" />
                 User Control
               </TabsTrigger>
+              <TabsTrigger value="ethiopianYear" className="gap-2" data-testid="tab-ethiopian-year">
+                <Calendar className="h-4 w-4" />
+                Ethiopian Year
+              </TabsTrigger>
             </TabsList>
           </div>
+
+          {/* Ethiopian Year Management Tab */}
+          <TabsContent value="ethiopianYear" className="flex-1 overflow-auto p-6 m-0">
+            <EthiopianYearManagement />
+          </TabsContent>
 
           {/* Biometric Device Tab */}
           <TabsContent value="biometric" className="flex-1 overflow-auto p-6 m-0">

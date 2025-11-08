@@ -1617,6 +1617,9 @@ export const systemSettings = pgTable("system_settings", {
   serverPort: integer("server_port").notNull().default(3000), // Server port
   mellatechUsername: text("mellatech_username"), // MellaTech API username
   mellatechPassword: text("mellatech_password"), // MellaTech API password
+  activeEthiopianYear: integer("active_ethiopian_year"), // Current active Ethiopian year (e.g., 2017)
+  lastYearClosureDate: timestamp("last_year_closure_date"), // Date when year was last closed
+  planningTargetsLocked: boolean("planning_targets_locked").default(true).notNull(), // Lock planning targets after setup
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (CEO/Admin)
 });
@@ -1815,3 +1818,67 @@ export type InsertMellaTechLocationHistory = z.infer<typeof insertMellaTechLocat
 
 export type MellaTechAlert = typeof mellaTechAlerts.$inferSelect;
 export type InsertMellaTechAlert = z.infer<typeof insertMellaTechAlertSchema>;
+
+// ============================================
+// ETHIOPIAN CALENDAR YEAR MANAGEMENT
+// ============================================
+
+// Work Orders Archive - Storage for completed work orders from previous years
+export const workOrdersArchive = pgTable("work_orders_archive", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originalWorkOrderId: varchar("original_work_order_id").notNull(), // Original work order ID before archiving
+  workOrderNumber: text("work_order_number").notNull(),
+  ethiopianYear: integer("ethiopian_year").notNull(), // Ethiopian year when this work order was completed
+  equipmentId: varchar("equipment_id"),
+  equipmentModel: text("equipment_model"),
+  priority: text("priority"),
+  workType: text("work_type"),
+  description: text("description"),
+  status: text("status"),
+  actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }),
+  directMaintenanceCost: decimal("direct_maintenance_cost", { precision: 12, scale: 2 }),
+  overtimeCost: decimal("overtime_cost", { precision: 12, scale: 2 }),
+  outsourceCost: decimal("outsource_cost", { precision: 12, scale: 2 }),
+  overheadCost: decimal("overhead_cost", { precision: 12, scale: 2 }),
+  isOutsourced: boolean("is_outsourced"),
+  createdById: varchar("created_by_id"),
+  createdByName: text("created_by_name"), // Denormalized for history
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at"),
+  archivedAt: timestamp("archived_at").defaultNow().notNull(),
+  archivedBy: varchar("archived_by").references(() => employees.id),
+});
+
+// Year Closure Logs - Track Ethiopian year closure events
+export const yearClosureLogs = pgTable("year_closure_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  closedEthiopianYear: integer("closed_ethiopian_year").notNull(), // Year that was closed
+  newEthiopianYear: integer("new_ethiopian_year").notNull(), // New year that was started
+  workOrdersArchived: integer("work_orders_archived").default(0).notNull(), // Count of completed work orders archived
+  workOrdersRolledOver: integer("work_orders_rolled_over").default(0).notNull(), // Count of pending work orders copied to new year
+  workshopsReset: integer("workshops_reset").default(0).notNull(), // Count of workshops whose targets were reset
+  closedAt: timestamp("closed_at").defaultNow().notNull(),
+  closedBy: varchar("closed_by").notNull().references(() => employees.id),
+  closedByName: text("closed_by_name"), // Denormalized for history
+  notes: text("notes"), // Optional notes about the closure
+});
+
+// Insert schemas for Ethiopian year management
+export const insertWorkOrdersArchiveSchema = createInsertSchema(workOrdersArchive).omit({
+  id: true,
+  archivedAt: true,
+});
+
+export const insertYearClosureLogSchema = createInsertSchema(yearClosureLogs).omit({
+  id: true,
+  closedAt: true,
+});
+
+// Select types for Ethiopian year management
+export type WorkOrderArchive = typeof workOrdersArchive.$inferSelect;
+export type InsertWorkOrderArchive = z.infer<typeof insertWorkOrdersArchiveSchema>;
+
+export type YearClosureLog = typeof yearClosureLogs.$inferSelect;
+export type InsertYearClosureLog = z.infer<typeof insertYearClosureLogSchema>;

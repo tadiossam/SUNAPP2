@@ -111,6 +111,12 @@ import {
   type InsertMellaTechVehicle,
   type MellaTechAlert,
   type InsertMellaTechAlert,
+  workOrdersArchive,
+  yearClosureLogs,
+  type WorkOrderArchive,
+  type InsertWorkOrderArchive,
+  type YearClosureLog,
+  type InsertYearClosureLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
@@ -402,6 +408,12 @@ export interface IStorage {
   getMellaTechAlerts(options?: { unreadOnly?: boolean; limit?: number }): Promise<any[]>;
   markAlertAsRead(alertId: string): Promise<void>;
   createMellaTechAlert(data: any): Promise<any>;
+  
+  // Ethiopian Calendar Year Management Operations
+  closeEthiopianYear(closedByEmployeeId: string, notes?: string): Promise<YearClosureLog>;
+  getYearClosureLogs(): Promise<YearClosureLog[]>;
+  getArchivedWorkOrders(ethiopianYear?: number): Promise<WorkOrderArchive[]>;
+  updatePlanningTargetsLockStatus(locked: boolean): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4209,6 +4221,162 @@ export class DatabaseStorage implements IStorage {
       .values(data)
       .returning();
     return result;
+  }
+
+  // Ethiopian Calendar Year Management Operations
+  async closeEthiopianYear(closedByEmployeeId: string, notes?: string): Promise<YearClosureLog> {
+    const { getCurrentEthiopianYear } = await import("./ethiopian-calendar");
+    
+    // Use a transaction to ensure atomicity
+    return await db.transaction(async (tx) => {
+      // Get current settings
+      const [settings] = await tx.select().from(systemSettings).limit(1);
+      const currentYear = settings?.activeEthiopianYear || getCurrentEthiopianYear();
+      const newYear = currentYear + 1;
+      
+      // Get employee details for denormalization
+      const [closedByEmployee] = await tx
+        .select()
+        .from(employees)
+        .where(eq(employees.id, closedByEmployeeId))
+        .limit(1);
+      
+      if (!closedByEmployee) {
+        throw new Error("Employee not found");
+      }
+      
+      // Archive completed work orders - capture specific IDs
+      const completedOrders = await tx
+        .select()
+        .from(workOrders)
+        .where(eq(workOrders.status, "completed"));
+      
+      const archivedIds: string[] = [];
+      
+      // Archive each work order
+      for (const order of completedOrders) {
+        const [creator] = order.createdById 
+          ? await tx.select().from(employees).where(eq(employees.id, order.createdById)).limit(1)
+          : [];
+        
+        await tx.insert(workOrdersArchive).values({
+          originalWorkOrderId: order.id,
+          workOrderNumber: order.workOrderNumber,
+          ethiopianYear: currentYear,
+          equipmentId: order.equipmentId,
+          priority: order.priority,
+          workType: order.workType,
+          description: order.description,
+          status: order.status,
+          actualHours: order.actualHours,
+          actualCost: order.actualCost,
+          directMaintenanceCost: order.directMaintenanceCost,
+          overtimeCost: order.overtimeCost,
+          outsourceCost: order.outsourceCost,
+          overheadCost: order.overheadCost,
+          isOutsourced: order.isOutsourced,
+          createdById: order.createdById,
+          createdByName: creator?.fullName,
+          startedAt: order.startedAt,
+          completedAt: order.completedAt,
+          createdAt: order.createdAt,
+          archivedBy: closedByEmployeeId,
+        });
+        
+        archivedIds.push(order.id);
+      }
+      
+      // Delete only the specific work orders that were archived
+      if (archivedIds.length > 0) {
+        await tx.delete(workOrders).where(inArray(workOrders.id, archivedIds));
+      }
+      
+      // Reset planning targets for all workshops
+      const allWorkshops = await tx.select().from(workshops);
+      for (const workshop of allWorkshops) {
+        await tx.update(workshops)
+          .set({
+            monthlyTarget: 0,
+            q1Target: 0,
+            q2Target: 0,
+            q3Target: 0,
+            q4Target: 0,
+            annualTarget: 0,
+          })
+          .where(eq(workshops.id, workshop.id));
+      }
+      
+      // Update system settings
+      if (settings) {
+        await tx.update(systemSettings)
+          .set({
+            activeEthiopianYear: newYear,
+            lastYearClosureDate: new Date(),
+            planningTargetsLocked: false, // Unlock for new year planning
+            updatedAt: new Date(),
+            updatedBy: closedByEmployeeId,
+          })
+          .where(eq(systemSettings.id, settings.id));
+      } else {
+        // Create initial settings if not exists
+        await tx.insert(systemSettings).values({
+          activeEthiopianYear: newYear,
+          lastYearClosureDate: new Date(),
+          planningTargetsLocked: false,
+          updatedBy: closedByEmployeeId,
+        });
+      }
+      
+      // Create year closure log
+      const [closureLog] = await tx.insert(yearClosureLogs).values({
+        closedEthiopianYear: currentYear,
+        newEthiopianYear: newYear,
+        workOrdersArchived: archivedIds.length,
+        workOrdersRolledOver: 0, // Pending orders stay as-is
+        workshopsReset: allWorkshops.length,
+        closedBy: closedByEmployeeId,
+        closedByName: closedByEmployee.fullName,
+        notes,
+      }).returning();
+      
+      return closureLog;
+    });
+  }
+
+  async getYearClosureLogs(): Promise<YearClosureLog[]> {
+    return await db
+      .select()
+      .from(yearClosureLogs)
+      .orderBy(desc(yearClosureLogs.closedAt));
+  }
+
+  async getArchivedWorkOrders(ethiopianYear?: number): Promise<WorkOrderArchive[]> {
+    if (ethiopianYear) {
+      return await db
+        .select()
+        .from(workOrdersArchive)
+        .where(eq(workOrdersArchive.ethiopianYear, ethiopianYear))
+        .orderBy(desc(workOrdersArchive.archivedAt));
+    }
+    
+    return await db
+      .select()
+      .from(workOrdersArchive)
+      .orderBy(desc(workOrdersArchive.archivedAt));
+  }
+
+  async updatePlanningTargetsLockStatus(locked: boolean): Promise<void> {
+    const [settings] = await db.select().from(systemSettings).limit(1);
+    
+    if (settings) {
+      await db
+        .update(systemSettings)
+        .set({ 
+          planningTargetsLocked: locked,
+          updatedAt: new Date(),
+        })
+        .where(eq(systemSettings.id, settings.id));
+    }
   }
 }
 

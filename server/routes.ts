@@ -7317,6 +7317,99 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // ============================================
+  // ETHIOPIAN CALENDAR YEAR MANAGEMENT ROUTES
+  // ============================================
+
+  // Get Ethiopian year information
+  app.get("/api/ethiopian-year/info", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const { getEthiopianYearInfo } = await import("./ethiopian-calendar");
+      const yearInfo = getEthiopianYearInfo();
+      
+      // Get current settings
+      const settings = await storage.getSystemSettings();
+      
+      res.json({
+        ...yearInfo,
+        activeYear: settings?.activeEthiopianYear,
+        lastClosureDate: settings?.lastYearClosureDate,
+        planningTargetsLocked: settings?.planningTargetsLocked ?? true,
+      });
+    } catch (error: any) {
+      console.error("Error getting Ethiopian year info:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Close current Ethiopian year and start new year
+  app.post("/api/ethiopian-year/close", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { notes } = req.body;
+      
+      const closureLog = await storage.closeEthiopianYear(req.user.id, notes);
+      
+      res.json({
+        success: true,
+        message: "Year closed successfully",
+        closureLog,
+      });
+    } catch (error: any) {
+      console.error("Error closing Ethiopian year:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get year closure logs
+  app.get("/api/year-closure-logs", isCEOOrAdmin, async (_req, res) => {
+    try {
+      const logs = await storage.getYearClosureLogs();
+      res.json(logs);
+    } catch (error: any) {
+      console.error("Error fetching year closure logs:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get archived work orders
+  app.get("/api/archived-work-orders", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { ethiopianYear } = req.query;
+      const year = ethiopianYear ? parseInt(ethiopianYear as string) : undefined;
+      
+      const archivedOrders = await storage.getArchivedWorkOrders(year);
+      res.json(archivedOrders);
+    } catch (error: any) {
+      console.error("Error fetching archived work orders:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Lock/unlock planning targets
+  app.post("/api/planning-targets/lock", isCEOOrAdmin, async (req, res) => {
+    try {
+      const { locked } = req.body;
+      
+      if (typeof locked !== 'boolean') {
+        return res.status(400).json({ error: "Invalid lock status" });
+      }
+      
+      await storage.updatePlanningTargetsLockStatus(locked);
+      
+      res.json({
+        success: true,
+        message: locked ? "Planning targets locked" : "Planning targets unlocked",
+      });
+    } catch (error: any) {
+      console.error("Error updating planning targets lock status:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

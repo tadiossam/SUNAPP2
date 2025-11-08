@@ -967,9 +967,7 @@ export default function AdminSettings() {
           description: `Imported ${data.imported} items to Spare Parts. ${data.failed > 0 ? `${data.failed} items failed.` : ''}`,
         });
         
-        // Close the modal and clear selection
-        setIsDataTableOpen(false);
-        setFetchedRecords([]);
+        // Clear selection (keep dialog open for next page)
         setSelectedRecordNos([]);
         
         // Invalidate spare parts cache
@@ -1016,9 +1014,7 @@ export default function AdminSettings() {
           description: `Imported ${data.savedCount} new equipment, updated ${data.updatedCount} equipment${categoryMsg}`,
         });
         
-        // Close the modal and clear selection
-        setIsDataTableOpen(false);
-        setFetchedRecords([]);
+        // Clear selection (keep dialog open for next page)
         setSelectedRecordNos([]);
         
         // Invalidate equipment and categories cache

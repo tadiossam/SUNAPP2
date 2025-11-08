@@ -182,7 +182,6 @@ export default function StoreManagerDashboard() {
     mutationFn: async (data: { id: string; quantityReceived: number }) => {
       return apiRequest("PATCH", `/api/purchase-requests/${data.id}`, {
         status: "received",
-        receivedDate: new Date(),
         quantityReceived: data.quantityReceived,
       });
     },
@@ -267,12 +266,18 @@ export default function StoreManagerDashboard() {
 
   const handleOpenReceiveDialog = (request: PurchaseRequest) => {
     setSelectedPOForReceive(request);
-    setReceivedQuantity(request.quantityRequested); // Default to full quantity
+    // Calculate remaining quantity to receive (in case of partial receipts)
+    const remainingToReceive = request.quantityRequested - (request.quantityReceived || 0);
+    setReceivedQuantity(remainingToReceive); // Default to remaining quantity
     setIsReceiveDialogOpen(true);
   };
 
   const handleConfirmReceive = () => {
     if (!selectedPOForReceive) return;
+    
+    // Calculate remaining quantity to receive
+    const alreadyReceived = selectedPOForReceive.quantityReceived || 0;
+    const remainingToReceive = selectedPOForReceive.quantityRequested - alreadyReceived;
     
     if (receivedQuantity <= 0) {
       toast({
@@ -283,15 +288,16 @@ export default function StoreManagerDashboard() {
       return;
     }
 
-    if (receivedQuantity > selectedPOForReceive.quantityRequested) {
+    if (receivedQuantity > remainingToReceive) {
       toast({
         title: "Invalid Quantity",
-        description: `Received quantity cannot exceed requested quantity (${selectedPOForReceive.quantityRequested})`,
+        description: `Received quantity cannot exceed remaining quantity (${remainingToReceive})`,
         variant: "destructive",
       });
       return;
     }
 
+    // Send the incremental quantity to add to stock
     markAsReceivedMutation.mutate({ 
       id: selectedPOForReceive.id, 
       quantityReceived: receivedQuantity 
@@ -974,45 +980,70 @@ export default function StoreManagerDashboard() {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedPOForReceive && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Item</Label>
-                <div className="text-sm font-medium">
-                  {selectedPOForReceive.sparePart?.partName || selectedPOForReceive.lineItem?.description}
+          {selectedPOForReceive && (() => {
+            const alreadyReceived = selectedPOForReceive.quantityReceived || 0;
+            const remainingToReceive = selectedPOForReceive.quantityRequested - alreadyReceived;
+            
+            return (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Item</Label>
+                  <div className="text-sm font-medium">
+                    {selectedPOForReceive.sparePart?.partName || selectedPOForReceive.lineItem?.description}
+                  </div>
+                  {selectedPOForReceive.sparePart?.partNumber && (
+                    <div className="text-xs text-muted-foreground">
+                      Part #: {selectedPOForReceive.sparePart.partNumber}
+                    </div>
+                  )}
                 </div>
-                {selectedPOForReceive.sparePart?.partNumber && (
-                  <div className="text-xs text-muted-foreground">
-                    Part #: {selectedPOForReceive.sparePart.partNumber}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Quantity Requested</Label>
+                    <div className="text-sm font-medium">
+                      {selectedPOForReceive.quantityRequested} {selectedPOForReceive.lineItem?.unitOfMeasure || 'units'}
+                    </div>
+                  </div>
+
+                  {alreadyReceived > 0 && (
+                    <div className="space-y-2">
+                      <Label>Already Received</Label>
+                      <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                        {alreadyReceived} {selectedPOForReceive.lineItem?.unitOfMeasure || 'units'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {alreadyReceived > 0 && (
+                  <div className="space-y-2">
+                    <Label>Remaining to Receive</Label>
+                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      {remainingToReceive} {selectedPOForReceive.lineItem?.unitOfMeasure || 'units'}
+                    </div>
                   </div>
                 )}
-              </div>
 
-              <div className="space-y-2">
-                <Label>Quantity Requested</Label>
-                <div className="text-sm font-medium">
-                  {selectedPOForReceive.quantityRequested} {selectedPOForReceive.lineItem?.unitOfMeasure || 'units'}
+                <div className="space-y-2">
+                  <Label htmlFor="received-qty">Quantity to Receive Now *</Label>
+                  <Input
+                    id="received-qty"
+                    type="number"
+                    min="1"
+                    max={remainingToReceive}
+                    value={receivedQuantity}
+                    onChange={(e) => setReceivedQuantity(parseInt(e.target.value) || 0)}
+                    placeholder="Enter quantity to receive"
+                    data-testid="input-received-quantity"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Maximum: {remainingToReceive} {selectedPOForReceive.lineItem?.unitOfMeasure || 'units'}
+                  </p>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="received-qty">Quantity Received *</Label>
-                <Input
-                  id="received-qty"
-                  type="number"
-                  min="1"
-                  max={selectedPOForReceive.quantityRequested}
-                  value={receivedQuantity}
-                  onChange={(e) => setReceivedQuantity(parseInt(e.target.value) || 0)}
-                  placeholder="Enter received quantity"
-                  data-testid="input-received-quantity"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Maximum: {selectedPOForReceive.quantityRequested}
-                </p>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           <DialogFooter>
             <Button

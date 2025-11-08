@@ -3403,7 +3403,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Purchase request not found");
       }
 
-      // If marking as received, update stock
+      // If marking as received, update stock and increment quantityReceived
       if (data.status === 'received' && data.quantityReceived) {
         const [line] = await tx
           .select()
@@ -3412,7 +3412,7 @@ export class DatabaseStorage implements IStorage {
           .limit(1);
 
         if (line && line.sparePartId) {
-          // Add received quantity to stock
+          // Add received quantity to stock (incremental)
           const [part] = await tx
             .select()
             .from(spareParts)
@@ -3429,13 +3429,38 @@ export class DatabaseStorage implements IStorage {
         }
       }
 
+      // Prepare update data
+      const updateData: any = {
+        ...data,
+        updatedAt: new Date(),
+      };
+
+      // Automatically set receivedDate when status is "received" (first time only)
+      if (data.status === 'received' && !data.receivedDate && !purchaseRequest.receivedDate) {
+        updateData.receivedDate = new Date();
+      }
+
+      // Increment quantityReceived instead of overwriting it (for partial receipts)
+      if (data.quantityReceived !== undefined) {
+        const currentReceived = purchaseRequest.quantityReceived || 0;
+        const newTotal = currentReceived + data.quantityReceived;
+        
+        // Server-side validation: prevent over-receipting
+        if (newTotal > purchaseRequest.quantityRequested) {
+          throw new Error(
+            `Cannot receive ${data.quantityReceived} units. ` +
+            `Already received: ${currentReceived}, Requested: ${purchaseRequest.quantityRequested}. ` +
+            `Maximum allowed: ${purchaseRequest.quantityRequested - currentReceived}`
+          );
+        }
+        
+        updateData.quantityReceived = newTotal;
+      }
+
       // Update the purchase request
       await tx
         .update(purchaseRequests)
-        .set({
-          ...data,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(purchaseRequests.id, id));
     });
   }

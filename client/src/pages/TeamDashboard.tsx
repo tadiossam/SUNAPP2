@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { ClipboardList, Package, CheckCircle, PackageCheck, FileText, Info, Filter } from "lucide-react";
 import { RequestPartsDialog } from "@/components/RequestPartsDialog";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";

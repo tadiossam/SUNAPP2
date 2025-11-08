@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, Package, CheckCircle, PackageCheck, FileText, Info } from "lucide-react";
+import { ClipboardList, Package, CheckCircle, PackageCheck, FileText, Info, Filter } from "lucide-react";
 import { RequestPartsDialog } from "@/components/RequestPartsDialog";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -63,6 +63,10 @@ export default function TeamDashboard() {
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
   const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  
+  // Date range filtering state
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   const { data: myWorkOrders = [], isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/my-assignments"],
@@ -168,6 +172,24 @@ export default function TeamDashboard() {
       wo.status === "pending_supervisor" ||
       wo.status === "completed"
   );
+
+  // Filter completed work orders by date range
+  const filteredCompletedWorkOrders = completedWorkOrders.filter((wo) => {
+    if (!startDate && !endDate) return true;
+    
+    // Use completedAt if available, otherwise use the work order creation date
+    const workOrderDate = wo.completedAt || wo.startedAt;
+    if (!workOrderDate) return false;
+    
+    const woDate = new Date(workOrderDate);
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate + "T23:59:59") : null;
+    
+    if (start && woDate < start) return false;
+    if (end && woDate > end) return false;
+    
+    return true;
+  });
 
   const approvedRequisitions = myRequisitions.filter(
     (req) => req.status === "approved"
@@ -635,8 +657,65 @@ export default function TeamDashboard() {
         </TabsContent>
 
         <TabsContent value="completed" className="space-y-4">
-          {completedWorkOrders.length > 0 ? (
-            completedWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
+          {/* Date Range Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                {language === "am" ? "በቀን ክልል ያጣራ" : "Filter by Date Range"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="start-date-td">
+                    {language === "am" ? "የመጀመሪያ ቀን" : "Start Date"}
+                  </Label>
+                  <Input
+                    id="start-date-td"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    data-testid="input-start-date"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="end-date-td">
+                    {language === "am" ? "የመጨረሻ ቀን" : "End Date"}
+                  </Label>
+                  <Input
+                    id="end-date-td"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    data-testid="input-end-date"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setStartDate("");
+                      setEndDate("");
+                    }}
+                    data-testid="button-clear-filters"
+                  >
+                    {language === "am" ? "አጥራ" : "Clear Filters"}
+                  </Button>
+                </div>
+              </div>
+              {(startDate || endDate) && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {language === "am" 
+                    ? `${filteredCompletedWorkOrders.length} ከ ${completedWorkOrders.length} የስራ ትእዛዞች` 
+                    : `Showing ${filteredCompletedWorkOrders.length} of ${completedWorkOrders.length} work orders`}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {filteredCompletedWorkOrders.length > 0 ? (
+            filteredCompletedWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
           ) : (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">

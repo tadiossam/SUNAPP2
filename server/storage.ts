@@ -4261,11 +4261,17 @@ export class DatabaseStorage implements IStorage {
           ? await tx.select().from(employees).where(eq(employees.id, order.createdById)).limit(1)
           : [];
         
+        // Fetch equipment model if equipment is assigned
+        const [equipmentInfo] = order.equipmentId
+          ? await tx.select().from(equipment).where(eq(equipment.id, order.equipmentId)).limit(1)
+          : [];
+        
         await tx.insert(workOrdersArchive).values({
           originalWorkOrderId: order.id,
           workOrderNumber: order.workOrderNumber,
           ethiopianYear: currentYear,
           equipmentId: order.equipmentId,
+          equipmentModel: equipmentInfo?.model,
           priority: order.priority,
           workType: order.workType,
           description: order.description,

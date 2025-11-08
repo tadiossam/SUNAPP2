@@ -30,6 +30,7 @@ import {
   Package,
 } from "lucide-react";
 import { formatDistance } from "date-fns";
+import type { Equipment } from "@shared/schema";
 
 type PartUsed = {
   id: string;
@@ -92,6 +93,11 @@ export default function ArchivedWorkOrders() {
       : ["/api/archived-work-orders", `?ethiopianYear=${selectedYear}`],
   });
 
+  // Fetch all equipment for the dropdown
+  const { data: allEquipment = [] } = useQuery<Equipment[]>({
+    queryKey: ["/api/equipment"],
+  });
+
   // Get list of available years from closure logs
   const availableYears = closureLogs
     .map((log) => log.closedEthiopianYear)
@@ -141,15 +147,15 @@ export default function ArchivedWorkOrders() {
     );
   }, [filteredOrders]);
 
-  // Get unique equipment models for filter
+  // Get unique equipment models for filter from ALL equipment in database
   const uniqueEquipment = useMemo(() => {
-    const equipment = new Set(
-      archivedOrders
-        .map((order) => order.equipmentModel)
+    const models = new Set(
+      allEquipment
+        .map((equipment) => equipment.model)
         .filter((model): model is string => !!model)
     );
-    return Array.from(equipment).sort();
-  }, [archivedOrders]);
+    return Array.from(models).sort();
+  }, [allEquipment]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

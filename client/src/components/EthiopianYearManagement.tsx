@@ -112,6 +112,7 @@ export function EthiopianYearManagement() {
           : "Workshop planning targets are now editable",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/ethiopian-year/info"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/system-settings"] });
     },
     onError: (error: any) => {
       toast({

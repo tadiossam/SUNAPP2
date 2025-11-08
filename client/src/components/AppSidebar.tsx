@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store, Trophy, UserCheck, ClipboardSignature, Briefcase, Navigation } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store, Trophy, UserCheck, ClipboardSignature, Briefcase, Navigation, Archive } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -137,6 +137,12 @@ export function AppSidebar() {
       url: "/work-orders",
       icon: FileText,
       testId: "link-work-orders",
+    },
+    {
+      title: "Archived Work Orders",
+      url: "/archived-work-orders",
+      icon: Archive,
+      testId: "link-archived-work-orders",
     },
     {
       title: t("partsLocations"),

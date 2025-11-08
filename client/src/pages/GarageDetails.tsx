@@ -493,13 +493,13 @@ export default function GarageDetails() {
 
       {/* Add Workshop Dialog */}
       <Dialog open={isAddWorkshopDialogOpen} onOpenChange={setIsAddWorkshopDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Add Workshop to {garage.name}</DialogTitle>
           </DialogHeader>
           <Form {...workshopForm}>
-            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="space-y-4">
-              <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-4">
+            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="flex flex-col gap-4 flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4">
               <FormField
                 control={workshopForm.control}
                 name="name"
@@ -733,13 +733,13 @@ export default function GarageDetails() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Workshop</DialogTitle>
           </DialogHeader>
           <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
-              <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-4">
+            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col gap-4 flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4">
               <FormField
                 control={editWorkshopForm.control}
                 name="name"

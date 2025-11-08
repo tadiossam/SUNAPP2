@@ -744,228 +744,228 @@ export default function GarageDetails() {
             <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
               <ScrollArea className="h-[60vh] pr-4">
                 <div className="space-y-4 pr-4">
-              <FormField
-                control={editWorkshopForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Workshop Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        data-testid="input-edit-workshop-name"
-                        placeholder="e.g., Engine Workshop, Hydraulics Shop"
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Workshop Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            data-testid="input-edit-workshop-name"
+                            placeholder="e.g., Engine Workshop, Hydraulics Shop"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="foremanId"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>Foreman (Boss) *</FormLabel>
+                        <FormControl>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-start"
+                            onClick={() => setIsEditForemanSearchOpen(true)}
+                            data-testid="button-edit-select-foreman"
+                          >
+                            <Users className="h-4 w-4 mr-2" />
+                            {editSelectedForeman ? editSelectedForeman.fullName : "Select foreman"}
+                          </Button>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editWorkshopForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            placeholder="Workshop description"
+                            data-testid="input-edit-workshop-description"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div>
+                    <FormLabel>Workshop Members *</FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-start mt-2"
+                      onClick={() => setIsEditMembersSearchOpen(true)}
+                      data-testid="button-edit-select-members"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      {editSelectedMemberIds.length > 0
+                        ? `${editSelectedMemberIds.length} member(s) selected`
+                        : "Select team members"}
+                    </Button>
+                  </div>
+
+                  {/* Planning Targets */}
+                  <div className="space-y-3">
+                    <FormLabel className="text-base">Planning Targets (Optional)</FormLabel>
+                    
+                    {planningTargetsLocked && (
+                      <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
+                        <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                          Planning targets are locked for the current Ethiopian year. They can only be edited when a new year starts through the Year Closure process in Admin Settings.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={editWorkshopForm.control}
+                        name="monthlyTarget"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Monthly</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                placeholder="0"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                data-testid="input-edit-monthly-target"
+                                disabled={planningTargetsLocked}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              <FormField
-                control={editWorkshopForm.control}
-                name="foremanId"
-                render={() => (
-                  <FormItem>
-                    <FormLabel>Foreman (Boss) *</FormLabel>
-                    <FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => setIsEditForemanSearchOpen(true)}
-                        data-testid="button-edit-select-foreman"
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        {editSelectedForeman ? editSelectedForeman.fullName : "Select foreman"}
-                      </Button>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={editWorkshopForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        {...field}
-                        placeholder="Workshop description"
-                        data-testid="input-edit-workshop-description"
+                      <FormField
+                        control={editWorkshopForm.control}
+                        name="annualTarget"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Annual</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                placeholder="0"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                data-testid="input-edit-annual-target"
+                                disabled={planningTargetsLocked}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
-              <div>
-                <FormLabel>Workshop Members *</FormLabel>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start mt-2"
-                  onClick={() => setIsEditMembersSearchOpen(true)}
-                  data-testid="button-edit-select-members"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  {editSelectedMemberIds.length > 0
-                    ? `${editSelectedMemberIds.length} member(s) selected`
-                    : "Select team members"}
-                </Button>
-              </div>
+                      <FormField
+                        control={editWorkshopForm.control}
+                        name="q1Target"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Q1 (Jan-Mar)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                placeholder="0"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                data-testid="input-edit-q1-target"
+                                disabled={planningTargetsLocked}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-              {/* Planning Targets */}
-              <div className="space-y-3">
-                <FormLabel className="text-base">Planning Targets (Optional)</FormLabel>
-                
-                {planningTargetsLocked && (
-                  <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
-                    <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
-                      Planning targets are locked for the current Ethiopian year. They can only be edited when a new year starts through the Year Closure process in Admin Settings.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="monthlyTarget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Monthly</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-monthly-target"
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      <FormField
+                        control={editWorkshopForm.control}
+                        name="q2Target"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Q2 (Apr-Jun)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                placeholder="0"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                data-testid="input-edit-q2-target"
+                                disabled={planningTargetsLocked}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="annualTarget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Annual</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-annual-target"
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                      <FormField
+                        control={editWorkshopForm.control}
+                        name="q3Target"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Q3 (Jul-Sep)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                placeholder="0"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                data-testid="input-edit-q3-target"
+                                disabled={planningTargetsLocked}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q1Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q1 (Jan-Mar)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q1-target"
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q2Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q2 (Apr-Jun)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q2-target"
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q3Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q3 (Jul-Sep)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q3-target"
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q4Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Q4 (Oct-Dec)</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            type="number"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-edit-q4-target"
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+                      <FormField
+                        control={editWorkshopForm.control}
+                        name="q4Target"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Q4 (Oct-Dec)</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                type="number"
+                                placeholder="0"
+                                value={field.value ?? ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                data-testid="input-edit-q4-target"
+                                disabled={planningTargetsLocked}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                 </div>
               </ScrollArea>
 

@@ -9,11 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Wrench, CheckCircle, Clock, Edit, UserCheck, Users } from "lucide-react";
+import { ArrowLeft, Wrench, CheckCircle, Clock, Edit, UserCheck, Users, Lock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function WorkshopDetail() {
   const [, setLocation] = useLocation();
@@ -26,6 +27,14 @@ export default function WorkshopDetail() {
   const [editDescription, setEditDescription] = useState("");
   const [editForemanId, setEditForemanId] = useState("");
   const [isForemanSearchOpen, setIsForemanSearchOpen] = useState(false);
+  
+  // Planning targets state
+  const [editMonthlyTarget, setEditMonthlyTarget] = useState<number | undefined>(undefined);
+  const [editQ1Target, setEditQ1Target] = useState<number | undefined>(undefined);
+  const [editQ2Target, setEditQ2Target] = useState<number | undefined>(undefined);
+  const [editQ3Target, setEditQ3Target] = useState<number | undefined>(undefined);
+  const [editQ4Target, setEditQ4Target] = useState<number | undefined>(undefined);
+  const [editAnnualTarget, setEditAnnualTarget] = useState<number | undefined>(undefined);
 
   const { data: workshopDetails, isLoading } = useQuery<any>({
     queryKey: [`/api/workshops/${workshopId}/details`],
@@ -35,6 +44,13 @@ export default function WorkshopDetail() {
   const { data: employees } = useQuery<any[]>({
     queryKey: ["/api/employees"],
   });
+
+  // Get system settings for planning targets lock status
+  const { data: systemSettings } = useQuery<{ planningTargetsLocked: boolean }>({
+    queryKey: ["/api/system-settings"],
+  });
+
+  const planningTargetsLocked = systemSettings?.planningTargetsLocked ?? true;
 
   const updateWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -63,6 +79,12 @@ export default function WorkshopDetail() {
       setEditName(workshopDetails.workshop.name);
       setEditDescription(workshopDetails.workshop.description || "");
       setEditForemanId(workshopDetails.workshop.foremanId || "");
+      setEditMonthlyTarget(workshopDetails.workshop.monthlyTarget ?? undefined);
+      setEditQ1Target(workshopDetails.workshop.q1Target ?? undefined);
+      setEditQ2Target(workshopDetails.workshop.q2Target ?? undefined);
+      setEditQ3Target(workshopDetails.workshop.q3Target ?? undefined);
+      setEditQ4Target(workshopDetails.workshop.q4Target ?? undefined);
+      setEditAnnualTarget(workshopDetails.workshop.annualTarget ?? undefined);
       setIsEditDialogOpen(true);
     }
   };
@@ -74,6 +96,12 @@ export default function WorkshopDetail() {
       description: editDescription,
       foremanId: editForemanId || null,
       garageId: workshopDetails.workshop.garageId,
+      monthlyTarget: editMonthlyTarget,
+      q1Target: editQ1Target,
+      q2Target: editQ2Target,
+      q3Target: editQ3Target,
+      q4Target: editQ4Target,
+      annualTarget: editAnnualTarget,
     });
   };
 
@@ -319,6 +347,100 @@ export default function WorkshopDetail() {
                   ? employees.find((e: any) => e.id === editForemanId).fullName
                   : "Select foreman (optional)"}
               </Button>
+            </div>
+
+            {/* Planning Targets Section */}
+            <div className="border-t pt-4 space-y-3">
+              <Label className="text-base">Planning Targets (Optional)</Label>
+              
+              {planningTargetsLocked && (
+                <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                    Planning targets are locked for the current Ethiopian year. They can only be edited when a new year starts through the Year Closure process in Admin Settings.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-monthly-target" className="text-xs">Monthly Target</Label>
+                  <Input
+                    id="edit-monthly-target"
+                    type="number"
+                    placeholder="0"
+                    value={editMonthlyTarget ?? ""}
+                    onChange={(e) => setEditMonthlyTarget(e.target.value ? parseInt(e.target.value) : undefined)}
+                    disabled={planningTargetsLocked}
+                    data-testid="input-edit-monthly-target"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-annual-target" className="text-xs">Annual Target</Label>
+                  <Input
+                    id="edit-annual-target"
+                    type="number"
+                    placeholder="0"
+                    value={editAnnualTarget ?? ""}
+                    onChange={(e) => setEditAnnualTarget(e.target.value ? parseInt(e.target.value) : undefined)}
+                    disabled={planningTargetsLocked}
+                    data-testid="input-edit-annual-target"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-q1-target" className="text-xs">Q1 Target (Jan-Mar)</Label>
+                  <Input
+                    id="edit-q1-target"
+                    type="number"
+                    placeholder="0"
+                    value={editQ1Target ?? ""}
+                    onChange={(e) => setEditQ1Target(e.target.value ? parseInt(e.target.value) : undefined)}
+                    disabled={planningTargetsLocked}
+                    data-testid="input-edit-q1-target"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-q2-target" className="text-xs">Q2 Target (Apr-Jun)</Label>
+                  <Input
+                    id="edit-q2-target"
+                    type="number"
+                    placeholder="0"
+                    value={editQ2Target ?? ""}
+                    onChange={(e) => setEditQ2Target(e.target.value ? parseInt(e.target.value) : undefined)}
+                    disabled={planningTargetsLocked}
+                    data-testid="input-edit-q2-target"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-q3-target" className="text-xs">Q3 Target (Jul-Sep)</Label>
+                  <Input
+                    id="edit-q3-target"
+                    type="number"
+                    placeholder="0"
+                    value={editQ3Target ?? ""}
+                    onChange={(e) => setEditQ3Target(e.target.value ? parseInt(e.target.value) : undefined)}
+                    disabled={planningTargetsLocked}
+                    data-testid="input-edit-q3-target"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-q4-target" className="text-xs">Q4 Target (Oct-Dec)</Label>
+                  <Input
+                    id="edit-q4-target"
+                    type="number"
+                    placeholder="0"
+                    value={editQ4Target ?? ""}
+                    onChange={(e) => setEditQ4Target(e.target.value ? parseInt(e.target.value) : undefined)}
+                    disabled={planningTargetsLocked}
+                    data-testid="input-edit-q4-target"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">

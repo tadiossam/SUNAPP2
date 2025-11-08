@@ -95,6 +95,7 @@ import type { SystemSettings } from "@shared/schema";
 import { D365ItemsReviewDialog } from "@/components/D365ItemsReviewDialog";
 import { D365EquipmentReviewDialog } from "@/components/D365EquipmentReviewDialog";
 import { EthiopianYearManagement } from "@/components/EthiopianYearManagement";
+import { SampleDataManagement } from "@/components/SampleDataManagement";
 
 type DeviceSettings = {
   id: string;
@@ -1517,8 +1518,17 @@ export default function AdminSettings() {
                 <Calendar className="h-4 w-4" />
                 Ethiopian Year
               </TabsTrigger>
+              <TabsTrigger value="sampleData" className="gap-2" data-testid="tab-sample-data">
+                <Sparkles className="h-4 w-4" />
+                Sample Data
+              </TabsTrigger>
             </TabsList>
           </div>
+
+          {/* Sample Data Tab */}
+          <TabsContent value="sampleData" className="flex-1 overflow-auto p-6 m-0">
+            <SampleDataManagement />
+          </TabsContent>
 
           {/* Ethiopian Year Management Tab */}
           <TabsContent value="ethiopianYear" className="flex-1 overflow-auto p-6 m-0">

@@ -7783,6 +7783,27 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     }
   });
 
+  // Seed sample data endpoint (Admin only)
+  app.post("/api/admin/seed-sample-data", isAuthenticated, async (req, res) => {
+    try {
+      // Check if user is admin
+      if (!hasRole(req.user, 'admin') && !hasRole(req.user, 'ceo')) {
+        return res.status(403).json({ error: "Forbidden - Admin access required" });
+      }
+
+      const { seedSampleData } = await import("./seed-sample-data");
+      await seedSampleData();
+      
+      res.json({ 
+        success: true, 
+        message: "Sample data seeded successfully! Check the database for new work orders, requisitions, inspections, and archived data." 
+      });
+    } catch (error: any) {
+      console.error("Error seeding sample data:", error);
+      res.status(500).json({ error: "Failed to seed sample data", details: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

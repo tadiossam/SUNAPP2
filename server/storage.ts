@@ -576,6 +576,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPart(data: InsertSparePart, compatibility?: InsertPartCompatibility[]): Promise<SparePart> {
+    // Auto-calculate stockStatus based on stockQuantity
+    if (data.stockQuantity !== undefined && data.stockQuantity !== null) {
+      if (data.stockQuantity === 0) {
+        data.stockStatus = "out_of_stock";
+      } else if (data.stockQuantity > 0 && data.stockQuantity <= 5) {
+        data.stockStatus = "low_stock";
+      } else {
+        data.stockStatus = "in_stock";
+      }
+    }
+    
     const [result] = await db.insert(spareParts).values(data).returning();
 
     if (compatibility && compatibility.length > 0) {
@@ -590,7 +601,7 @@ export class DatabaseStorage implements IStorage {
     if (data.stockQuantity !== undefined && data.stockQuantity !== null) {
       if (data.stockQuantity === 0) {
         data.stockStatus = "out_of_stock";
-      } else if (data.stockQuantity > 0 && data.stockQuantity <= 10) {
+      } else if (data.stockQuantity > 0 && data.stockQuantity <= 5) {
         data.stockStatus = "low_stock";
       } else {
         data.stockStatus = "in_stock";

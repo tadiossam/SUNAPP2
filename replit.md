@@ -21,7 +21,7 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 ### Feature Specifications
 - **Dashboard**: Dynamic analytics with real-time filtering, KPI cards, and charts.
 - **Equipment Inventory**: CRUD operations for equipment categories and units. Includes D365 Fixed Asset import with intelligent description parsing.
-- **Spare Parts Catalog**: Full CRUD operations for parts, advanced filtering, detailed information, and D365 BC Item import. Statistics cards show total, low, and out of stock items.
+- **Spare Parts Catalog**: Full CRUD operations for parts, advanced filtering, detailed information, and D365 BC Item import. Statistics cards show total, low, and out of stock items. **Stock Status Logic**: Automatically calculates stock status based on quantity: 0 = out_of_stock, 1-5 = low_stock, >5 = in_stock. This logic applies to all operations (create, update, and D365 import).
 - **3D Models Library**: Interactive viewer with upload and 360-degree rotation.
 - **Maintenance Information System**: Guides, tutorials, tools lists, and time estimates.
 - **Garage & Workshop Management**: CRUD for hierarchical structures, including foreman and team assignments.

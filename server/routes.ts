@@ -6225,14 +6225,24 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           }
 
           // Map D365 item fields to spare parts schema
+          const stockQty = parseInt(item.InventoryField) || 0;
+          let stockStatus = 'out_of_stock';
+          if (stockQty === 0) {
+            stockStatus = 'out_of_stock';
+          } else if (stockQty > 0 && stockQty <= 5) {
+            stockStatus = 'low_stock';
+          } else {
+            stockStatus = 'in_stock';
+          }
+          
           const newPart = await db.insert(spareParts).values({
             partNumber: item.No,
             partName: item.Description || item.No,
             description: item.Description || '',
             category: 'General', // Default category, can be updated later
             price: item.Unit_Cost ? String(item.Unit_Cost) : '0',
-            stockQuantity: parseInt(item.InventoryField) || 0,
-            stockStatus: (parseInt(item.InventoryField) || 0) > 0 ? 'in_stock' : 'out_of_stock',
+            stockQuantity: stockQty,
+            stockStatus: stockStatus,
             specifications: JSON.stringify({
               unitOfMeasure: item.Purch_Unit_of_Measure || '',
               lastModified: item.Last_Date_Modified || '',

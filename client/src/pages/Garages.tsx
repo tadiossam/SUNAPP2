@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench, UserCheck, ChevronDown, ChevronUp, FileText, CheckCircle, Clock } from "lucide-react";
+import { Building2, Plus, MapPin, Users, Trash2, Eye, Pencil, Wrench, UserCheck, ChevronDown, ChevronUp, FileText, CheckCircle, Clock, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ import { insertGarageSchema, type InsertGarage, type GarageWithDetails } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Garages() {
   const { t } = useLanguage();
@@ -55,6 +56,13 @@ export default function Garages() {
   const { data: employees } = useQuery<any[]>({
     queryKey: ["/api/employees"],
   });
+
+  // Get system settings for planning targets lock status
+  const { data: systemSettings } = useQuery<{ planningTargetsLocked: boolean }>({
+    queryKey: ["/api/system-settings"],
+  });
+
+  const planningTargetsLocked = systemSettings?.planningTargetsLocked ?? true;
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertGarage) => {
@@ -893,6 +901,15 @@ export default function Garages() {
                 <h3 className="text-sm font-medium">Planning Targets (Optional)</h3>
                 <p className="text-xs text-muted-foreground">Set planned work order targets for dashboard reporting</p>
                 
+                {planningTargetsLocked && (
+                  <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
+                    <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                      Planning targets are locked for the current Ethiopian year. They can only be edited when a new year starts through the Year Closure process in Admin Settings.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="grid grid-cols-2 gap-3">
                   <FormField
                     control={editWorkshopForm.control}
@@ -907,6 +924,7 @@ export default function Garages() {
                             data-testid="input-edit-monthly-target"
                             value={field.value || ''}
                             onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -927,6 +945,7 @@ export default function Garages() {
                             data-testid="input-edit-annual-target"
                             value={field.value || ''}
                             onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -949,6 +968,7 @@ export default function Garages() {
                             data-testid="input-edit-q1-target"
                             value={field.value || ''}
                             onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -969,6 +989,7 @@ export default function Garages() {
                             data-testid="input-edit-q2-target"
                             value={field.value || ''}
                             onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -989,6 +1010,7 @@ export default function Garages() {
                             data-testid="input-edit-q3-target"
                             value={field.value || ''}
                             onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1009,6 +1031,7 @@ export default function Garages() {
                             data-testid="input-edit-q4-target"
                             value={field.value || ''}
                             onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />

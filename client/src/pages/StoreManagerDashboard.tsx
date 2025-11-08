@@ -103,6 +103,9 @@ export default function StoreManagerDashboard() {
   const [selectedPO, setSelectedPO] = useState<PurchaseRequest | null>(null);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [isPODialogOpen, setIsPODialogOpen] = useState(false);
+  const [isReceiveDialogOpen, setIsReceiveDialogOpen] = useState(false);
+  const [selectedPOForReceive, setSelectedPOForReceive] = useState<PurchaseRequest | null>(null);
+  const [receivedQuantity, setReceivedQuantity] = useState<number>(0);
   const [approvalRemarks, setApprovalRemarks] = useState("");
   const [lineDecisions, setLineDecisions] = useState<Record<string, LineDecision>>({});
 
@@ -260,6 +263,33 @@ export default function StoreManagerDashboard() {
       ...prev,
       [lineId]: { ...prev[lineId], ...updates, lineId }
     }));
+  };
+
+  const handleOpenReceiveDialog = (request: PurchaseRequest) => {
+    setSelectedPOForReceive(request);
+    setReceivedQuantity(request.quantityRequested); // Default to full quantity
+    setIsReceiveDialogOpen(true);
+  };
+
+  const handleConfirmReceive = () => {
+    if (!selectedPOForReceive) return;
+    
+    if (receivedQuantity <= 0) {
+      toast({
+        title: "Invalid Quantity",
+        description: "Received quantity must be greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    markAsReceivedMutation.mutate({ 
+      id: selectedPOForReceive.id, 
+      quantityReceived: receivedQuantity 
+    });
+    setIsReceiveDialogOpen(false);
+    setSelectedPOForReceive(null);
+    setReceivedQuantity(0);
   };
 
   const handleProcessLines = () => {
@@ -567,11 +597,10 @@ export default function StoreManagerDashboard() {
                           <Button
                             variant="default"
                             size="sm"
-                            onClick={() => markAsReceivedMutation.mutate({ id: request.id, quantityReceived: request.quantityRequested })}
-                            disabled={markAsReceivedMutation.isPending}
+                            onClick={() => handleOpenReceiveDialog(request)}
                             data-testid={`button-received-${request.id}`}
                           >
-                            <CheckCircle className="h-4 w-4 mr-1" />
+                            <Truck className="h-4 w-4 mr-1" />
                             Received
                           </Button>
                         )}
@@ -921,6 +950,89 @@ export default function StoreManagerDashboard() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Receive Items Dialog */}
+      <Dialog open={isReceiveDialogOpen} onOpenChange={setIsReceiveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Receive Items</DialogTitle>
+            <DialogDescription>
+              Enter the quantity of items received for {selectedPOForReceive?.purchaseRequestNumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPOForReceive && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Item</Label>
+                <div className="text-sm font-medium">
+                  {selectedPOForReceive.sparePart?.partName || selectedPOForReceive.lineItem?.description}
+                </div>
+                {selectedPOForReceive.sparePart?.partNumber && (
+                  <div className="text-xs text-muted-foreground">
+                    Part #: {selectedPOForReceive.sparePart.partNumber}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Quantity Requested</Label>
+                <div className="text-sm font-medium">
+                  {selectedPOForReceive.quantityRequested} {selectedPOForReceive.lineItem?.unitOfMeasure || 'units'}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="received-qty">Quantity Received *</Label>
+                <Input
+                  id="received-qty"
+                  type="number"
+                  min="1"
+                  max={selectedPOForReceive.quantityRequested}
+                  value={receivedQuantity}
+                  onChange={(e) => setReceivedQuantity(parseInt(e.target.value) || 0)}
+                  placeholder="Enter received quantity"
+                  data-testid="input-received-quantity"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Maximum: {selectedPOForReceive.quantityRequested}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsReceiveDialogOpen(false);
+                setSelectedPOForReceive(null);
+                setReceivedQuantity(0);
+              }}
+              data-testid="button-cancel-receive"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmReceive}
+              disabled={markAsReceivedMutation.isPending || receivedQuantity <= 0}
+              data-testid="button-confirm-receive"
+            >
+              {markAsReceivedMutation.isPending ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm Received
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

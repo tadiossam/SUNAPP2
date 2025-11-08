@@ -49,7 +49,7 @@ app.use((req, res, next) => {
   await seedProductionUsers();
 
   // Load deployment settings from database
-  let deploymentHost = "0.0.0.0";
+  let deploymentHost = process.env.HOST || "0.0.0.0";
   let deploymentPort = parseInt(process.env.PORT || '5000', 10);
   
   try {
@@ -57,9 +57,17 @@ app.use((req, res, next) => {
     const { systemSettings } = await import("@shared/schema");
     const settings = await db.select().from(systemSettings).limit(1);
     
-    if (settings.length > 0 && settings[0].serverHost && settings[0].serverPort) {
+    // Environment variables override database settings
+    if (!process.env.HOST && settings.length > 0 && settings[0].serverHost) {
       deploymentHost = settings[0].serverHost;
+    }
+    if (!process.env.PORT && settings.length > 0 && settings[0].serverPort) {
       deploymentPort = settings[0].serverPort;
+    }
+    
+    if (process.env.HOST || process.env.PORT) {
+      log(`Using environment variables: ${deploymentHost}:${deploymentPort}`);
+    } else if (settings.length > 0 && settings[0].serverHost && settings[0].serverPort) {
       log(`Using deployment settings from database: ${deploymentHost}:${deploymentPort}`);
     } else {
       log(`Using default settings: ${deploymentHost}:${deploymentPort}`);

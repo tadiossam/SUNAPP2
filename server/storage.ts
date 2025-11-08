@@ -3426,6 +3426,42 @@ export class DatabaseStorage implements IStorage {
               .set({ stockQuantity: newStock })
               .where(eq(spareParts.id, line.sparePartId));
           }
+
+          // If the line is backordered, move it to pending_store for re-approval
+          if (line.status === 'backordered') {
+            await tx
+              .update(itemRequisitionLines)
+              .set({ 
+                status: 'pending_store',
+                remarks: 'Stock replenished - ready for store manager approval',
+                updatedAt: new Date()
+              })
+              .where(eq(itemRequisitionLines.id, line.id));
+
+            // Check if this was the last backordered line for this requisition
+            const requisitionId = line.requisitionId;
+            if (requisitionId) {
+              const allLines = await tx
+                .select()
+                .from(itemRequisitionLines)
+                .where(eq(itemRequisitionLines.requisitionId, requisitionId));
+
+              const hasRemainingBackorders = allLines.some(
+                l => l.id !== line.id && l.status === 'backordered'
+              );
+
+              // If no more backordered lines, update requisition status to pending_store
+              if (!hasRemainingBackorders) {
+                await tx
+                  .update(itemRequisitions)
+                  .set({ 
+                    status: 'pending_store',
+                    updatedAt: new Date()
+                  })
+                  .where(eq(itemRequisitions.id, requisitionId));
+              }
+            }
+          }
         }
       }
 

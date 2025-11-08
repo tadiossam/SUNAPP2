@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench, Eye, Info } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench, Eye, Info, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
@@ -60,6 +60,10 @@ export default function WorkOrdersPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isInspectionSelectOpen, setIsInspectionSelectOpen] = useState(false);
   const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null);
+  
+  // Date range filtering state
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   
   // Form state
   const [workOrderNumber, setWorkOrderNumber] = useState("");
@@ -361,7 +365,23 @@ export default function WorkOrdersPage() {
   const pendingWorkOrders = workOrders?.filter((wo) => wo.status !== "completed" && wo.status !== "cancelled") || [];
   const completedWorkOrders = workOrders?.filter((wo) => wo.status === "completed") || [];
   
-  const currentTabWorkOrders = activeTab === "pending" ? pendingWorkOrders : completedWorkOrders;
+  // Filter completed work orders by date range
+  const filteredCompletedWorkOrders = completedWorkOrders.filter((wo) => {
+    if (!startDate && !endDate) return true;
+    
+    const completedDate = wo.createdAt ? new Date(wo.createdAt) : null;
+    if (!completedDate) return false;
+    
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate + "T23:59:59") : null;
+    
+    if (start && completedDate < start) return false;
+    if (end && completedDate > end) return false;
+    
+    return true;
+  });
+  
+  const currentTabWorkOrders = activeTab === "pending" ? pendingWorkOrders : filteredCompletedWorkOrders;
   
   const filteredWorkOrders = currentTabWorkOrders.filter((wo) => {
     const matchesSearch = wo.workOrderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -476,6 +496,56 @@ export default function WorkOrdersPage() {
                   {t("addWorkOrder")}
                 </Button>
               </div>
+
+              {/* Date Range Filters (only for completed tab) */}
+              {activeTab === "completed" && (
+                <div className="mt-4 pt-4 border-t">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Date Range Filter</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <Label htmlFor="start-date-wo" className="text-xs">Start Date</Label>
+                      <Input
+                        id="start-date-wo"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        data-testid="input-start-date"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="end-date-wo" className="text-xs">End Date</Label>
+                      <Input
+                        id="end-date-wo"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        data-testid="input-end-date"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setStartDate("");
+                          setEndDate("");
+                        }}
+                        data-testid="button-clear-filters"
+                      >
+                        Clear Dates
+                      </Button>
+                    </div>
+                  </div>
+                  {(startDate || endDate) && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Showing {filteredCompletedWorkOrders.length} of {completedWorkOrders.length} completed work orders
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

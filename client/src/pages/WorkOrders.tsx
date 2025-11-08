@@ -571,6 +571,11 @@ export default function WorkOrdersPage() {
                     </Badge>
                   </div>
                 </div>
+                {wo.equipment && (
+                  <p className="text-xs text-muted-foreground mt-2" data-testid={`equipment-model-${wo.id}`}>
+                    Equipment: {wo.equipment.make} {wo.equipment.model} {wo.equipment.assetNo ? `(${wo.equipment.assetNo})` : wo.equipment.plateNo ? `(${wo.equipment.plateNo})` : ''}
+                  </p>
+                )}
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>

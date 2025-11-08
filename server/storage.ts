@@ -4397,7 +4397,7 @@ export class DatabaseStorage implements IStorage {
         issuedAt: partsReceipts.issuedAt,
         notes: partsReceipts.notes,
         partNumber: spareParts.partNumber,
-        partName: spareParts.name,
+        partName: spareParts.partName,
         description: spareParts.description,
         unitOfMeasure: spareParts.unitOfMeasure,
       })

@@ -60,8 +60,8 @@ export default function ArchivedWorkOrders() {
   // Fetch archived work orders
   const { data: archivedOrders = [], isLoading } = useQuery<ArchivedWorkOrder[]>({
     queryKey: selectedYear === "all" 
-      ? ["/api/work-orders/archive"]
-      : ["/api/work-orders/archive", `?ethiopianYear=${selectedYear}`],
+      ? ["/api/archived-work-orders"]
+      : ["/api/archived-work-orders", `?ethiopianYear=${selectedYear}`],
   });
 
   // Get list of available years from closure logs

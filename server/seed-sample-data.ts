@@ -42,80 +42,113 @@ export async function seedSampleData() {
     // ============================================
     console.log("🔧 Creating prerequisite lookup data (categories, workshops, garages)...");
     
-    // Create Equipment Categories if they don't exist
+    // Create Equipment Categories (always attempt, onConflictDoNothing handles duplicates)
     let existingCategories = await db.select().from(equipmentCategories);
-    if (existingCategories.length === 0) {
-      const categoryNames = ['Heavy Equipment', 'Light Vehicles', 'Construction Tools', 'Material Handling', 'Earth Moving'];
-      for (const name of categoryNames) {
-        try {
-          const [cat] = await db.insert(equipmentCategories).values({
-            name: name,
-            description: `Sample category for ${name.toLowerCase()}`
-          }).onConflictDoNothing().returning();
-          if (cat) existingCategories.push(cat);
-        } catch (e) {
-          // Skip if exists
+    const categoryNames = ['Heavy Equipment', 'Light Vehicles', 'Construction Tools', 'Material Handling', 'Earth Moving'];
+    let newCategoryCount = 0;
+    for (const name of categoryNames) {
+      try {
+        const [cat] = await db.insert(equipmentCategories).values({
+          name: name,
+          description: `Sample category for ${name.toLowerCase()}`
+        }).onConflictDoNothing().returning();
+        if (cat) {
+          existingCategories.push(cat);
+          newCategoryCount++;
         }
+      } catch (e) {
+        // Skip if exists
       }
-      console.log(`✓ Created ${existingCategories.length} equipment categories`);
     }
+    if (existingCategories.length === 0) existingCategories = await db.select().from(equipmentCategories);
+    console.log(`✓ Equipment categories: ${newCategoryCount} new, ${existingCategories.length} total`);
 
-    // Create Garages if they don't exist
+    // Create 3 Sample Garages (always attempt, onConflictDoNothing handles duplicates)
     let existingGarages = await db.select().from(garages);
-    if (existingGarages.length === 0) {
-      const garageNames = ['Main Garage', 'North Workshop', 'South Service Center'];
-      for (let i = 0; i < garageNames.length; i++) {
-        try {
-          const [garage] = await db.insert(garages).values({
-            name: garageNames[i],
-            location: `Location ${i + 1}`,
-            capacity: 20 + (i * 10),
-            status: 'active'
-          }).onConflictDoNothing().returning();
-          if (garage) existingGarages.push(garage);
-        } catch (e) {
-          // Skip if exists
+    const garageData = ['Main Garage', 'North Service Center', 'South Workshop Complex'];
+    const newGarages = [];
+    let newGarageCount = 0;
+    
+    for (let i = 0; i < garageData.length; i++) {
+      try {
+        const [garage] = await db.insert(garages).values({
+          name: garageData[i],
+          location: `Sample Location ${i + 1}`,
+          type: 'workshop', // Required field: workshop, field_station, or warehouse
+          capacity: 25 + (i * 15),
+          isActive: true
+        }).onConflictDoNothing().returning();
+        if (garage) {
+          newGarages.push(garage);
+          existingGarages.push(garage);
+          newGarageCount++;
         }
+      } catch (e: any) {
+        console.error(`Error creating garage "${garageData[i]}":`, e.message);
       }
-      console.log(`✓ Created ${existingGarages.length} garages`);
     }
+    if (existingGarages.length === 0) existingGarages = await db.select().from(garages);
+    console.log(`✓ Garages: ${newGarageCount} new, ${existingGarages.length} total`);
 
-    // Create Workshops if they don't exist
-    let existingWorkshops = await db.select().from(workshops);
-    if (existingWorkshops.length === 0) {
-      const workshopData = [
-        { name: 'Mechanical Workshop', type: 'mechanical', capacity: 15 },
-        { name: 'Electrical Workshop', type: 'electrical', capacity: 10 },
-        { name: 'Hydraulic Workshop', type: 'hydraulic', capacity: 12 }
-      ];
-      
-      for (let i = 0; i < workshopData.length; i++) {
-        const data = workshopData[i];
-        const garage = existingGarages[i % existingGarages.length];
-        try {
-          const [workshop] = await db.insert(workshops).values({
-            name: data.name,
-            garageId: garage?.id,
-            workshopType: data.type,
-            capacity: data.capacity,
-            currentWorkload: 0,
-            status: 'active',
-            monthlyTarget: 20,
-            quarterlyTarget: 60,
-            annualTarget: 240
-          }).onConflictDoNothing().returning();
-          if (workshop) existingWorkshops.push(workshop);
-        } catch (e) {
-          // Skip if exists
-        }
-      }
-      console.log(`✓ Created ${existingWorkshops.length} workshops`);
-    }
-
-    console.log(`✓ Prerequisite data ready: ${existingCategories.length} categories, ${existingGarages.length} garages, ${existingWorkshops.length} workshops\n`);
-
-    // Fetch existing data after creating prerequisites
+    // Fetch existing data early (needed for workshop foreman assignment)
     const existingEmployees = await db.select().from(employees);
+    const foremEmployees = existingEmployees.filter(e => e.role === 'foreman');
+    const defaultForeman = foremEmployees[0] || admin; // Use first foreman or admin as fallback
+
+    // Create 12 Sample Workshops (always attempt, onConflictDoNothing handles duplicates)
+    let existingWorkshops = await db.select().from(workshops);
+    const workshopData = [
+      { name: 'Mechanical Workshop A', type: 'mechanical', capacity: 15 },
+      { name: 'Mechanical Workshop B', type: 'mechanical', capacity: 12 },
+      { name: 'Electrical Workshop A', type: 'electrical', capacity: 10 },
+      { name: 'Electrical Workshop B', type: 'electrical', capacity: 8 },
+      { name: 'Hydraulic Workshop A', type: 'hydraulic', capacity: 12 },
+      { name: 'Hydraulic Workshop B', type: 'hydraulic', capacity: 10 },
+      { name: 'Engine Workshop', type: 'mechanical', capacity: 14 },
+      { name: 'Transmission Workshop', type: 'mechanical', capacity: 11 },
+      { name: 'Welding & Fabrication', type: 'mechanical', capacity: 13 },
+      { name: 'Diagnostic Center', type: 'electrical', capacity: 9 },
+      { name: 'Paint & Body Shop', type: 'mechanical', capacity: 10 },
+      { name: 'General Repair Workshop', type: 'mechanical', capacity: 16 }
+    ];
+    
+    let newWorkshopCount = 0;
+    // Use new garages if created, otherwise use all existing garages
+    const garagesForWorkshops = newGarages.length > 0 ? newGarages : existingGarages;
+    
+    for (let i = 0; i < workshopData.length; i++) {
+      const data = workshopData[i];
+      const garage = garagesForWorkshops[i % garagesForWorkshops.length];
+      if (!garage) continue;
+      
+      // Assign foreman (cycle through available foremen or use default)
+      const foremanForWorkshop = foremEmployees.length > 0 ? foremEmployees[i % foremEmployees.length] : defaultForeman;
+      
+      try {
+        const [workshop] = await db.insert(workshops).values({
+          name: data.name,
+          garageId: garage.id,
+          foremanId: foremanForWorkshop.id, // Required field
+          description: `Sample ${data.type} workshop for maintenance operations`,
+          isActive: true,
+          monthlyTarget: 20,
+          annualTarget: 240
+        }).onConflictDoNothing().returning();
+        if (workshop) {
+          existingWorkshops.push(workshop);
+          newWorkshopCount++;
+        }
+      } catch (e: any) {
+        console.error(`Error creating workshop "${data.name}":`, e.message);
+      }
+    }
+    if (existingWorkshops.length === 0) existingWorkshops = await db.select().from(workshops);
+    console.log(`✓ Workshops: ${newWorkshopCount} new, ${existingWorkshops.length} total`);
+
+    console.log(`✓ Prerequisite data ready: ${existingCategories.length} categories, ${existingGarages.length} garages, ${existingWorkshops.length} workshops`);
+    console.log(`   (Created for offline deployment: all lookup data is self-contained)\n`);
+
+    // Fetch existing equipment and parts (employees already fetched for workshop creation)
     const existingEquipment = await db.select().from(equipment);
     const existingParts = await db.select().from(spareParts);
 
@@ -293,8 +326,8 @@ export async function seedSampleData() {
       }
       
       try {
-        const [wo] = await db.insert(workOrders).values(woData).returning();
-        sampleWorkOrders.push(wo);
+        const [wo] = await db.insert(workOrders).values(woData).onConflictDoNothing().returning();
+        if (wo) sampleWorkOrders.push(wo);
       } catch (e: any) {
         console.error(`Error creating WO ${woNum}:`, e.message);
       }
@@ -327,10 +360,10 @@ export async function seedSampleData() {
           issuesReported: `Sample reported issues for reception ${recNum}`,
           serviceType: serviceType,
           status: i % 4 === 0 ? 'driver_submitted' : i % 4 === 1 ? 'awaiting_mechanic' : i % 4 === 2 ? 'under_inspection' : 'inspection_complete'
-        }).returning();
+        }).onConflictDoNothing().returning();
         
         // Create inspection for some receptions
-        if (i % 3 === 0) {
+        if (i % 3 === 0 && reception) {
           const insNum = String(3000 + i).padStart(3, '0');
           const inspector = allEmployees.filter(e => e.role === 'supervisor' || e.role === 'foreman')[i % 10] || admin;
           
@@ -342,7 +375,7 @@ export async function seedSampleData() {
             inspectionDate: new Date(arrivalDate.getTime() + 2 * 60 * 60 * 1000),
             status: i % 2 === 0 ? 'in_progress' : 'completed',
             findings: `Sample inspection findings for ${reception.receptionNumber}`
-          });
+          }).onConflictDoNothing();
         }
       } catch (e: any) {
         console.error(`Error creating reception ${recNum}:`, e.message);
@@ -394,7 +427,8 @@ export async function seedSampleData() {
       }
       
       try {
-        const [requisition] = await db.insert(itemRequisitions).values(reqData).returning();
+        const [requisition] = await db.insert(itemRequisitions).values(reqData).onConflictDoNothing().returning();
+        if (!requisition) continue; // Skip if duplicate
         sampleRequisitions.push(requisition);
         
         // Create 2-4 requisition lines per requisition
@@ -423,10 +457,10 @@ export async function seedSampleData() {
           }
           
           try {
-            const [line] = await db.insert(itemRequisitionLines).values(lineData).returning();
+            const [line] = await db.insert(itemRequisitionLines).values(lineData).onConflictDoNothing().returning();
             
-            // Create parts receipt for fulfilled lines
-            if (status === 'fulfilled' && part) {
+            // Create parts receipt for fulfilled lines (only if workOrder exists)
+            if (status === 'fulfilled' && part && line && workOrder) {
               await db.insert(partsReceipts).values({
                 workOrderId: workOrder.id,
                 requisitionLineId: line.id,
@@ -435,7 +469,7 @@ export async function seedSampleData() {
                 issuedById: reqData.storeApprovedById || admin.id,
                 issuedAt: new Date(createdAt.getTime() + 8 * 60 * 60 * 1000),
                 notes: `Parts issued for ${workOrder.workOrderNumber}`
-              });
+              }).onConflictDoNothing();
             }
           } catch (e: any) {
             console.error(`Error creating requisition line:`, e.message);
@@ -517,7 +551,7 @@ export async function seedSampleData() {
           completedAt: completedAt,
           archivedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
           archivedBy: admin.id
-        });
+        }).onConflictDoNothing();
       } catch (e: any) {
         console.error(`Error creating archived WO ${woNum}:`, e.message);
       }
@@ -531,6 +565,7 @@ export async function seedSampleData() {
     console.log("\n✅ SAMPLE DATA SEEDING COMPLETE!");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log(`📊 Summary of Created Data:`);
+    console.log(`   • Prerequisites: ${existingCategories.length} categories, ${existingGarages.length} garages, ${existingWorkshops.length} workshops`);
     console.log(`   • ${sampleEmployees.length} new employees (${allEmployees.length} total)`);
     console.log(`   • ${sampleEquipment.length} new equipment (${allEquipment.length} total)`);
     console.log(`   • ${sampleParts.length} new spare parts (${allParts.length} total)`);
@@ -542,7 +577,7 @@ export async function seedSampleData() {
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`🎯 Total: ~1000+ sample records created!`);
     console.log(`📱 All pages and tabs now have realistic sample data`);
-    console.log(`💾 Data seeded successfully for offline/local deployment`);
+    console.log(`💾 Idempotent & offline-ready: Works on fresh databases`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
   } catch (error: any) {

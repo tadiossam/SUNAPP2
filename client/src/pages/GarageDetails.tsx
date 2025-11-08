@@ -493,13 +493,13 @@ export default function GarageDetails() {
 
       {/* Add Workshop Dialog */}
       <Dialog open={isAddWorkshopDialogOpen} onOpenChange={setIsAddWorkshopDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] !grid-flow-row !grid-rows-[auto_1fr] !gap-0 overflow-hidden">
+          <DialogHeader className="pb-4 border-b">
             <DialogTitle>Add Workshop to {garage.name}</DialogTitle>
           </DialogHeader>
           <Form {...workshopForm}>
-            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="flex flex-col gap-4 h-full overflow-hidden">
-              <div className="flex-1 space-y-4 overflow-y-auto pr-2 min-h-0">
+            <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="flex flex-col overflow-hidden h-full pt-4">
+              <div className="flex-1 space-y-4 overflow-y-auto pr-2 min-h-0 pb-4">
               <FormField
                 control={workshopForm.control}
                 name="name"
@@ -733,13 +733,13 @@ export default function GarageDetails() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] !grid-flow-row !grid-rows-[auto_1fr] !gap-0 overflow-hidden">
+          <DialogHeader className="pb-4 border-b">
             <DialogTitle>Edit Workshop</DialogTitle>
           </DialogHeader>
           <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col gap-4 h-full overflow-hidden">
-              <div className="flex-1 space-y-4 overflow-y-auto pr-2 min-h-0">
+            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col overflow-hidden h-full pt-4">
+              <div className="flex-1 space-y-4 overflow-y-auto pr-2 min-h-0 pb-4">
               <FormField
                 control={editWorkshopForm.control}
                 name="name"

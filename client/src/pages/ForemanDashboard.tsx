@@ -7,13 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye, Package, ThumbsUp, ThumbsDown, XCircle, Check, X, Info } from "lucide-react";
+import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye, Package, ThumbsUp, ThumbsDown, XCircle, Check, X, Info, Calendar, Filter } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 type WorkOrder = {
   id: string;
@@ -89,6 +92,10 @@ export default function ForemanDashboard() {
   const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   
+  // Date range filtering state
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  
   // Per-line approval state
   const [lineRemarks, setLineRemarks] = useState<{ [lineId: string]: string }>({});
   const [lineApprovedQty, setLineApprovedQty] = useState<{ [lineId: string]: number }>({});
@@ -120,6 +127,22 @@ export default function ForemanDashboard() {
 
   const { data: approvedCompletions = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/foreman/approved-completions"],
+  });
+
+  // Filter approved completions by date range
+  const filteredApprovedCompletions = approvedCompletions.filter((wo) => {
+    if (!startDate && !endDate) return true;
+    
+    const completedDate = wo.completedAt ? new Date(wo.completedAt) : null;
+    if (!completedDate) return false;
+    
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate + "T23:59:59") : null; // Include the entire end date
+    
+    if (start && completedDate < start) return false;
+    if (end && completedDate > end) return false;
+    
+    return true;
   });
 
   // Fetch inspection details when viewing
@@ -534,8 +557,59 @@ export default function ForemanDashboard() {
               </TabsContent>
 
               <TabsContent value="approved" className="space-y-4">
-                {approvedCompletions.length > 0 ? (
-                  approvedCompletions.map((workOrder) => (
+                {/* Date Range Filters */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      Filter by Date Range
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="flex-1">
+                        <Label htmlFor="start-date">Start Date</Label>
+                        <Input
+                          id="start-date"
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          data-testid="input-start-date"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label htmlFor="end-date">End Date</Label>
+                        <Input
+                          id="end-date"
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          data-testid="input-end-date"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setStartDate("");
+                            setEndDate("");
+                          }}
+                          data-testid="button-clear-filters"
+                        >
+                          Clear Filters
+                        </Button>
+                      </div>
+                    </div>
+                    {(startDate || endDate) && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Showing {filteredApprovedCompletions.length} of {approvedCompletions.length} work orders
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {filteredApprovedCompletions.length > 0 ? (
+                  filteredApprovedCompletions.map((workOrder) => (
                     <Card key={workOrder.id} className="hover-elevate" data-testid={`approved-completion-card-${workOrder.id}`}>
                       <CardHeader>
                         <div className="flex items-center justify-between">

@@ -1656,6 +1656,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get detailed work order information including memberships, requisitions, and time tracking
+  app.get("/api/work-orders/:id/details", async (req, res) => {
+    try {
+      const workOrderId = req.params.id;
+      
+      // Get basic work order info with time tracking
+      const workOrder = await storage.getWorkOrderById(workOrderId);
+      if (!workOrder) {
+        return res.status(404).json({ error: "Work order not found" });
+      }
+      
+      // Enrich with time tracking
+      const enriched = await enrichWorkOrdersWithTimeTracking([workOrder]);
+      const enrichedWorkOrder = enriched[0];
+      
+      // Get memberships with employee details
+      const memberships = await db
+        .select({
+          id: workOrderMemberships.id,
+          role: workOrderMemberships.role,
+          assignedAt: workOrderMemberships.assignedAt,
+          employee: {
+            id: employees.id,
+            fullName: employees.fullName,
+            role: employees.role,
+          }
+        })
+        .from(workOrderMemberships)
+        .innerJoin(employees, eq(workOrderMemberships.employeeId, employees.id))
+        .where(
+          and(
+            eq(workOrderMemberships.workOrderId, workOrderId),
+            eq(workOrderMemberships.isActive, true)
+          )
+        );
+      
+      // Get item requisitions with lines and spare part details
+      const requisitions = await db
+        .select({
+          id: itemRequisitions.id,
+          requisitionNumber: itemRequisitions.requisitionNumber,
+          status: itemRequisitions.status,
+        })
+        .from(itemRequisitions)
+        .where(eq(itemRequisitions.workOrderId, workOrderId));
+      
+      // For each requisition, get its lines with spare part details
+      const requisitionsWithLines = await Promise.all(
+        requisitions.map(async (req) => {
+          const lines = await db
+            .select({
+              id: itemRequisitionLines.id,
+              description: itemRequisitionLines.description,
+              unitOfMeasure: itemRequisitionLines.unitOfMeasure,
+              quantityRequested: itemRequisitionLines.quantityRequested,
+              quantityApproved: itemRequisitionLines.quantityApproved,
+              status: itemRequisitionLines.status,
+              sparePart: {
+                id: spareParts.id,
+                partName: spareParts.partName,
+                partNumber: spareParts.partNumber,
+              }
+            })
+            .from(itemRequisitionLines)
+            .leftJoin(spareParts, eq(itemRequisitionLines.sparePartId, spareParts.id))
+            .where(eq(itemRequisitionLines.requisitionId, req.id));
+          
+          return {
+            ...req,
+            lines: lines.map(line => ({
+              ...line,
+              sparePart: line.sparePart.id ? line.sparePart : undefined
+            }))
+          };
+        })
+      );
+      
+      res.json({
+        id: enrichedWorkOrder.id,
+        workOrderNumber: enrichedWorkOrder.workOrderNumber,
+        status: enrichedWorkOrder.status,
+        equipmentModel: (enrichedWorkOrder as any).equipmentModel,
+        description: enrichedWorkOrder.description,
+        elapsedTime: (enrichedWorkOrder as any).elapsedTime,
+        elapsedHours: (enrichedWorkOrder as any).elapsedHours,
+        startedAt: enrichedWorkOrder.startedAt,
+        completedAt: enrichedWorkOrder.completedAt,
+        memberships,
+        itemRequisitions: requisitionsWithLines,
+      });
+    } catch (error) {
+      console.error("Error fetching work order details:", error);
+      res.status(500).json({ error: "Failed to fetch work order details" });
+    }
+  });
+
   app.get("/api/work-orders/:id/assignments", async (req, res) => {
     try {
       const workOrderId = req.params.id;

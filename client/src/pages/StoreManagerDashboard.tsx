@@ -181,8 +181,8 @@ export default function StoreManagerDashboard() {
   const markAsReceivedMutation = useMutation({
     mutationFn: async (data: { id: string; quantityReceived: number }) => {
       return apiRequest("PATCH", `/api/purchase-requests/${data.id}`, {
-        status: "completed",
-        receivedDate: new Date().toISOString(),
+        status: "received",
+        receivedDate: new Date(),
         quantityReceived: data.quantityReceived,
       });
     },
@@ -190,7 +190,7 @@ export default function StoreManagerDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-requests"] });
       toast({
         title: "Success",
-        description: "Purchase order marked as completed and stock updated",
+        description: "Purchase order marked as received and stock updated",
       });
     },
     onError: (error: Error) => {
@@ -278,6 +278,15 @@ export default function StoreManagerDashboard() {
       toast({
         title: "Invalid Quantity",
         description: "Received quantity must be greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (receivedQuantity > selectedPOForReceive.quantityRequested) {
+      toast({
+        title: "Invalid Quantity",
+        description: `Received quantity cannot exceed requested quantity (${selectedPOForReceive.quantityRequested})`,
         variant: "destructive",
       });
       return;
@@ -531,12 +540,14 @@ export default function StoreManagerDashboard() {
                 const statusColors: Record<string, string> = {
                   pending: "warning",
                   ordered: "info",
+                  received: "success",
                   completed: "success",
                   cancelled: "destructive",
                 };
                 const statusIcons: Record<string, any> = {
                   pending: Clock,
                   ordered: Package,
+                  received: CheckCircle,
                   completed: CheckCircle,
                   cancelled: XCircle,
                 };

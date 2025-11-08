@@ -736,13 +736,13 @@ export default function GarageDetails() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Edit Workshop</DialogTitle>
           </DialogHeader>
           <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
-              <ScrollArea className="h-[60vh] pr-4">
+            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="flex flex-col flex-1 min-h-0 gap-4">
+              <ScrollArea className="flex-1">
                 <div className="space-y-4 pr-4">
               <FormField
                 control={editWorkshopForm.control}
@@ -969,7 +969,7 @@ export default function GarageDetails() {
                 </div>
               </ScrollArea>
 
-              <div className="flex gap-2 pt-4 border-t">
+              <div className="flex gap-2 border-t pt-4">
                 <Button
                   type="button"
                   variant="outline"

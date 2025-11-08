@@ -127,30 +127,52 @@ export default function Employees() {
     mutationFn: async (file: File) => {
       if (!selectedEmployee) throw new Error("No employee selected");
       
-      // Step 1: Get presigned upload URL
+      // Step 1: Get upload URL (object storage or local)
       const urlResponse = await apiRequest("POST", `/api/employees/${selectedEmployee.id}/photo/upload-url`);
-      const { uploadURL, objectPath } = await urlResponse.json() as { uploadURL: string; objectPath: string };
+      const urlData = await urlResponse.json() as { 
+        uploadURL: string; 
+        objectPath: string;
+        useLocalUpload?: boolean;
+      };
 
-      // Step 2: Upload file directly to object storage
-      const uploadResponse = await fetch(uploadURL, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      });
+      // Step 2: Upload file
+      if (urlData.useLocalUpload) {
+        // Local upload: send as multipart/form-data
+        const formData = new FormData();
+        formData.append('photo', file);
+        
+        const uploadResponse = await fetch(urlData.uploadURL, {
+          method: 'PUT',
+          body: formData,
+        });
 
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file to storage');
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload file locally');
+        }
+
+        const employee = await uploadResponse.json();
+        return employee;
+      } else {
+        // Object storage upload: use presigned URL
+        const uploadResponse = await fetch(urlData.uploadURL, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type,
+          },
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload file to storage');
+        }
+
+        // Step 3: Update employee with photo URL
+        const updateResponse = await apiRequest("PUT", `/api/employees/${selectedEmployee.id}/photo`, {
+          photoUrl: urlData.objectPath,
+        });
+        const employee = await updateResponse.json();
+        return employee;
       }
-
-      // Step 3: Update employee with photo URL
-      const updateResponse = await apiRequest("PUT", `/api/employees/${selectedEmployee.id}/photo`, {
-        photoUrl: objectPath,
-      });
-      const employee = await updateResponse.json();
-
-      return employee;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });

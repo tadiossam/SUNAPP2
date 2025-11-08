@@ -1365,17 +1365,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get presigned upload URL for employee photo
   app.post("/api/employees/:id/photo/upload-url", isCEOOrAdmin, async (req, res) => {
     try {
-      const objectStorageService = new ObjectStorageService();
-      const uploadURL = await objectStorageService.getPublicObjectUploadURL();
-      
-      // Extract the object path from the upload URL (before query parameters)
-      const url = new URL(uploadURL);
-      const objectPath = objectStorageService.normalizePublicObjectPath(url.origin + url.pathname);
-      
-      res.json({ uploadURL, objectPath });
+      // Try to use object storage if available (Replit environment)
+      try {
+        const objectStorageService = new ObjectStorageService();
+        const uploadURL = await objectStorageService.getPublicObjectUploadURL();
+        
+        // Extract the object path from the upload URL (before query parameters)
+        const url = new URL(uploadURL);
+        const objectPath = objectStorageService.normalizePublicObjectPath(url.origin + url.pathname);
+        
+        return res.json({ uploadURL, objectPath });
+      } catch (storageError: any) {
+        // Fall back to local upload for development environments
+        console.log("Object storage not available, using local file upload:", storageError.message);
+        
+        // Generate unique filename
+        const fileId = nanoid();
+        const uploadPath = `/uploads/employees/${fileId}`;
+        
+        // Return a local upload URL (handled by a different endpoint)
+        return res.json({ 
+          uploadURL: `/api/employees/${req.params.id}/photo/local-upload`,
+          objectPath: uploadPath,
+          useLocalUpload: true,
+          fileId
+        });
+      }
     } catch (error) {
       console.error("Error generating photo upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  // Local file upload endpoint (for development without object storage)
+  app.put("/api/employees/:id/photo/local-upload", isCEOOrAdmin, upload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Create directory if it doesn't exist
+      const uploadsDir = join(process.cwd(), 'public', 'uploads', 'employees');
+      await mkdir(uploadsDir, { recursive: true });
+
+      // Generate filename with proper extension
+      const fileExtension = req.file.originalname.split('.').pop() || 'jpg';
+      const filename = `${nanoid()}.${fileExtension}`;
+      const filepath = join(uploadsDir, filename);
+
+      // Save file to disk
+      await writeFile(filepath, req.file.buffer);
+
+      // Update employee with photo path
+      const photoPath = `/uploads/employees/${filename}`;
+      const employee = await storage.updateEmployeePhoto(req.params.id, photoPath);
+      
+      if (!employee) {
+        return res.status(404).json({ error: "Employee not found" });
+      }
+
+      res.json(employee);
+    } catch (error) {
+      console.error("Error uploading employee photo locally:", error);
+      res.status(500).json({ error: "Failed to upload photo" });
     }
   });
 

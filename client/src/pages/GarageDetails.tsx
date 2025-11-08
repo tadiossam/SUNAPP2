@@ -736,7 +736,7 @@ export default function GarageDetails() {
 
       {/* Edit Workshop Dialog */}
       <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent className="max-w-2xl h-[85vh] flex flex-col gap-0 p-0">
+        <DialogContent className="max-w-2xl h-[60vh] flex flex-col gap-0 p-0">
           <div className="px-6 pt-6 flex-shrink-0">
             <DialogHeader>
               <DialogTitle>Edit Workshop</DialogTitle>

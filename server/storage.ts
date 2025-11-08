@@ -3640,7 +3640,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(workOrders)
       .where(eq(workOrders.status, "rejected"))
-      .orderBy(desc(workOrders.updatedAt));
+      .orderBy(desc(workOrders.createdAt));
     
     const ordersWithDetails = await Promise.all(
       rejectedOrders.map(order => this.getWorkOrderById(order.id))

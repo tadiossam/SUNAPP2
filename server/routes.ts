@@ -1659,6 +1659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get detailed work order information including memberships, requisitions, and time tracking
   app.get("/api/work-orders/:id/details", async (req, res) => {
     try {
+      const { workOrderMemberships, employees, itemRequisitions, itemRequisitionLines, spareParts } = await import("@shared/schema");
       const workOrderId = req.params.id;
       
       // Get basic work order info with time tracking

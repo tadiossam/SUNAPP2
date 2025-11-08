@@ -41,12 +41,14 @@ import {
   Eye,
   Calendar,
   Clock,
-  DollarSign
+  DollarSign,
+  Lock
 } from "lucide-react";
 import type { Garage, WorkOrder, Workshop, Employee } from "@shared/schema";
 import { insertWorkshopSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type GarageWithDetails = Garage & {
   workOrders?: WorkOrder[];
@@ -86,6 +88,13 @@ export default function GarageDetails() {
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
   });
+
+  // Get system settings for planning targets lock status
+  const { data: systemSettings } = useQuery<{ planningTargetsLocked: boolean }>({
+    queryKey: ["/api/system-settings"],
+  });
+
+  const planningTargetsLocked = systemSettings?.planningTargetsLocked ?? true;
 
   // Fetch work orders for selected workshop
   const { data: workshopWorkOrders = [] } = useQuery<WorkOrder[]>({
@@ -809,6 +818,16 @@ export default function GarageDetails() {
               {/* Planning Targets */}
               <div className="space-y-3">
                 <FormLabel className="text-base">Planning Targets (Optional)</FormLabel>
+                
+                {planningTargetsLocked && (
+                  <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
+                    <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                      Planning targets are locked for the current Ethiopian year. They can only be edited when a new year starts through the Year Closure process in Admin Settings.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="grid grid-cols-2 gap-3">
                   <FormField
                     control={editWorkshopForm.control}
@@ -824,6 +843,7 @@ export default function GarageDetails() {
                             value={field.value ?? ""}
                             onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             data-testid="input-edit-monthly-target"
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -845,6 +865,7 @@ export default function GarageDetails() {
                             value={field.value ?? ""}
                             onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             data-testid="input-edit-annual-target"
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -866,6 +887,7 @@ export default function GarageDetails() {
                             value={field.value ?? ""}
                             onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             data-testid="input-edit-q1-target"
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -887,6 +909,7 @@ export default function GarageDetails() {
                             value={field.value ?? ""}
                             onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             data-testid="input-edit-q2-target"
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -908,6 +931,7 @@ export default function GarageDetails() {
                             value={field.value ?? ""}
                             onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             data-testid="input-edit-q3-target"
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />
@@ -929,6 +953,7 @@ export default function GarageDetails() {
                             value={field.value ?? ""}
                             onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
                             data-testid="input-edit-q4-target"
+                            disabled={planningTargetsLocked}
                           />
                         </FormControl>
                         <FormMessage />

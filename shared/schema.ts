@@ -576,9 +576,10 @@ export const purchaseRequests = pgTable("purchase_requests", {
 });
 
 // Parts Receipts - Track actual parts issued to work orders for display on dashboards
+// NOTE: workOrderId does NOT cascade delete to preserve historical data when work orders are archived
 export const partsReceipts = pgTable("parts_receipts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  workOrderId: varchar("work_order_id").notNull(), // No FK constraint to preserve data when work orders are archived
   requisitionLineId: varchar("requisition_line_id").notNull().references(() => itemRequisitionLines.id, { onDelete: "cascade" }),
   sparePartId: varchar("spare_part_id").references(() => spareParts.id, { onDelete: "set null" }),
   quantityIssued: integer("quantity_issued").notNull(), // Actual quantity issued from stock

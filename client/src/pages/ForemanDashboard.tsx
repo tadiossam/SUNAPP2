@@ -7,12 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye, Package, ThumbsUp, ThumbsDown, XCircle, Check, X } from "lucide-react";
+import { ClipboardList, Users, CheckCircle, Clock, FileText, Eye, Package, ThumbsUp, ThumbsDown, XCircle, Check, X, Info } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
+import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
 
 type WorkOrder = {
   id: string;
@@ -85,6 +86,8 @@ export default function ForemanDashboard() {
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null);
   const [actionRemarks, setActionRemarks] = useState("");
+  const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   
   // Per-line approval state
   const [lineRemarks, setLineRemarks] = useState<{ [lineId: string]: string }>({});
@@ -541,6 +544,14 @@ export default function ForemanDashboard() {
                             <p className="text-sm text-muted-foreground mt-1">
                               Equipment: {workOrder.equipmentModel || "N/A"}
                             </p>
+                            {workOrder.elapsedTime && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium text-primary">
+                                  {workOrder.elapsedTime}
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <Badge>Approved</Badge>
                         </div>
@@ -562,6 +573,18 @@ export default function ForemanDashboard() {
                             </div>
                           </div>
                         )}
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            setDetailsWorkOrderId(workOrder.id);
+                            setIsDetailsDialogOpen(true);
+                          }}
+                          data-testid={`button-view-details-${workOrder.id}`}
+                        >
+                          <Info className="h-4 w-4 mr-2" />
+                          View Details
+                        </Button>
                       </CardContent>
                     </Card>
                   ))
@@ -1131,6 +1154,13 @@ export default function ForemanDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Work Order Details Dialog */}
+      <WorkOrderDetailsDialog
+        workOrderId={detailsWorkOrderId}
+        open={isDetailsDialogOpen}
+        onOpenChange={setIsDetailsDialogOpen}
+      />
     </div>
   );
 }

@@ -58,6 +58,14 @@ import express from "express";
 import bcrypt from "bcrypt";
 import { calculateWorkOrderElapsedTime } from "./work-timer-utils";
 import { parseEquipmentDescription } from "./parse-equipment-description";
+import {
+  generateExcelTemplate,
+  parseExcelFile,
+  validateAndTransformExcelData,
+  employeeTemplateConfig,
+  sparePartsTemplateConfig,
+  equipmentTemplateConfig,
+} from "./excel-utils";
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -106,6 +114,28 @@ const upload3DModel = multer({
       cb(null, true);
     } else {
       cb(new Error('Only 3D model files (GLB, GLTF, OBJ) are allowed'));
+    }
+  }
+});
+
+// Configure multer for Excel file uploads (import)
+const uploadExcel = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for Excel files
+  fileFilter: (_req, file, cb) => {
+    // Accept Excel files only
+    const allowedMimeTypes = [
+      'application/vnd.ms-excel', // XLS
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
+      'text/csv', // CSV
+    ];
+    const allowedExtensions = ['.xls', '.xlsx', '.csv'];
+    const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    
+    if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files (XLS, XLSX, CSV) are allowed'));
     }
   }
 });
@@ -356,6 +386,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Excel Import/Export - Equipment
+  // Download equipment Excel template
+  app.get("/api/equipment/template", isAuthenticated, async (req, res) => {
+    try {
+      const buffer = generateExcelTemplate(equipmentTemplateConfig);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=equipment_template.xlsx');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating equipment template:", error);
+      res.status(500).json({ error: "Failed to generate template" });
+    }
+  });
+
+  // Import equipment from Excel
+  app.post("/api/equipment/import", isCEOOrAdmin, uploadExcel.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Parse Excel file
+      const rawData = parseExcelFile(req.file.buffer);
+
+      // Validate and transform data
+      const result = validateAndTransformExcelData(
+        rawData,
+        equipmentTemplateConfig,
+        insertEquipmentSchema.partial({ categoryId: true }),
+        (row) => ({
+          ...row,
+          price: row.price ? parseFloat(row.price) : undefined,
+        })
+      );
+
+      if (!result.success || !result.data) {
+        return res.status(400).json({
+          error: "Validation failed",
+          errors: result.errors,
+          summary: result.summary,
+        });
+      }
+
+      // Bulk insert using transaction
+      const importResults = await db.transaction(async (tx) => {
+        let created = 0;
+        let updated = 0;
+        let skipped = 0;
+        const errors: any[] = [];
+
+        for (const equip of result.data) {
+          try {
+            // Check if equipment already exists (by assetNo or plateNo)
+            let existing = null;
+            if (equip.assetNo) {
+              existing = await tx.query.equipment.findFirst({
+                where: eq(equipment.assetNo, equip.assetNo),
+              });
+            }
+            if (!existing && equip.plateNo) {
+              existing = await tx.query.equipment.findFirst({
+                where: eq(equipment.plateNo, equip.plateNo),
+              });
+            }
+
+            if (existing) {
+              // Update existing equipment
+              await tx.update(equipment)
+                .set(equip)
+                .where(eq(equipment.id, existing.id));
+              updated++;
+            } else {
+              // Insert new equipment
+              await tx.insert(equipment).values(equip);
+              created++;
+            }
+          } catch (error) {
+            skipped++;
+            errors.push({
+              assetNo: equip.assetNo || equip.plateNo,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+
+        return { created, updated, skipped, errors };
+      });
+
+      res.json({
+        success: true,
+        message: "Import completed",
+        results: importResults,
+        summary: result.summary,
+      });
+    } catch (error) {
+      console.error("Error importing equipment:", error);
+      res.status(500).json({ error: "Failed to import equipment" });
+    }
+  });
+
   // Equipment endpoints with server-side search
   app.get("/api/equipment", async (req, res) => {
     try {
@@ -563,6 +693,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error importing equipment:", error);
       res.status(400).json({ error: "Invalid equipment data" });
+    }
+  });
+
+  // Excel Import/Export - Spare Parts
+  // Download spare parts Excel template
+  app.get("/api/parts/template", isAuthenticated, async (req, res) => {
+    try {
+      const buffer = generateExcelTemplate(sparePartsTemplateConfig);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=spare_parts_template.xlsx');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating spare parts template:", error);
+      res.status(500).json({ error: "Failed to generate template" });
+    }
+  });
+
+  // Import spare parts from Excel
+  app.post("/api/parts/import", isCEOOrAdmin, uploadExcel.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Parse Excel file
+      const rawData = parseExcelFile(req.file.buffer);
+
+      // Validate and transform data
+      const result = validateAndTransformExcelData(
+        rawData,
+        sparePartsTemplateConfig,
+        insertSparePartSchema.partial(),
+        (row) => ({
+          ...row,
+          price: row.price ? parseFloat(row.price) : undefined,
+          stockQuantity: row.stockQuantity ? parseInt(row.stockQuantity) : 0,
+          stockStatus: 'in_stock',
+        })
+      );
+
+      if (!result.success || !result.data) {
+        return res.status(400).json({
+          error: "Validation failed",
+          errors: result.errors,
+          summary: result.summary,
+        });
+      }
+
+      // Bulk insert using transaction
+      const importResults = await db.transaction(async (tx) => {
+        let created = 0;
+        let updated = 0;
+        let skipped = 0;
+        const errors: any[] = [];
+
+        for (const part of result.data) {
+          try {
+            // Check if part already exists
+            const existing = await tx.query.spareParts.findFirst({
+              where: eq(spareParts.partNumber, part.partNumber),
+            });
+
+            if (existing) {
+              // Update existing part
+              await tx.update(spareParts)
+                .set(part)
+                .where(eq(spareParts.partNumber, part.partNumber));
+              updated++;
+            } else {
+              // Insert new part
+              await tx.insert(spareParts).values(part);
+              created++;
+            }
+          } catch (error) {
+            skipped++;
+            errors.push({
+              partNumber: part.partNumber,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+
+        return { created, updated, skipped, errors };
+      });
+
+      res.json({
+        success: true,
+        message: "Import completed",
+        results: importResults,
+        summary: result.summary,
+      });
+    } catch (error) {
+      console.error("Error importing spare parts:", error);
+      res.status(500).json({ error: "Failed to import spare parts" });
     }
   });
 
@@ -1207,6 +1431,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching workshop details:", error);
       res.status(500).json({ error: "Failed to fetch workshop details" });
+    }
+  });
+
+  // Excel Import/Export - Employees
+  // Download employee Excel template
+  app.get("/api/employees/template", isAuthenticated, async (req, res) => {
+    try {
+      const buffer = generateExcelTemplate(employeeTemplateConfig);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=employees_template.xlsx');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating employee template:", error);
+      res.status(500).json({ error: "Failed to generate template" });
+    }
+  });
+
+  // Import employees from Excel
+  app.post("/api/employees/import", isCEOOrAdmin, uploadExcel.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Parse Excel file
+      const rawData = parseExcelFile(req.file.buffer);
+
+      // Validate and transform data
+      const result = validateAndTransformExcelData(
+        rawData,
+        employeeTemplateConfig,
+        insertEmployeeSchema.extend({
+          isActive: z.boolean().optional().default(true),
+        }).partial({ password: true, username: true }),
+        (row) => ({
+          ...row,
+          isActive: true,
+          // Convert price string to number if present
+          price: row.price ? parseFloat(row.price) : undefined,
+        })
+      );
+
+      if (!result.success || !result.data) {
+        return res.status(400).json({
+          error: "Validation failed",
+          errors: result.errors,
+          summary: result.summary,
+        });
+      }
+
+      // Bulk insert using transaction
+      const importResults = await db.transaction(async (tx) => {
+        let created = 0;
+        let updated = 0;
+        let skipped = 0;
+        const errors: any[] = [];
+
+        for (const employee of result.data) {
+          try {
+            // Check if employee already exists
+            const existing = await tx.query.employees.findFirst({
+              where: eq(employees.employeeId, employee.employeeId),
+            });
+
+            if (existing) {
+              // Update existing employee
+              await tx.update(employees)
+                .set(employee)
+                .where(eq(employees.employeeId, employee.employeeId));
+              updated++;
+            } else {
+              // Insert new employee
+              await tx.insert(employees).values(employee);
+              created++;
+            }
+          } catch (error) {
+            skipped++;
+            errors.push({
+              employeeId: employee.employeeId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+
+        return { created, updated, skipped, errors };
+      });
+
+      res.json({
+        success: true,
+        message: "Import completed",
+        results: importResults,
+        summary: result.summary,
+      });
+    } catch (error) {
+      console.error("Error importing employees:", error);
+      res.status(500).json({ error: "Failed to import employees" });
     }
   });
 

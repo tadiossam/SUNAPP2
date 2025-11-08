@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Users, Plus, Phone, Mail, Briefcase, Upload, User, Pencil, Trash2, Search, Grid3x3, List } from "lucide-react";
+import { Users, Plus, Phone, Mail, Briefcase, Upload, User, Pencil, Trash2, Search, Grid3x3, List, Download, FileSpreadsheet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -38,6 +38,9 @@ export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importResults, setImportResults] = useState<any>(null);
 
   const { data: employees, isLoading } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
@@ -122,6 +125,86 @@ export default function Employees() {
       });
     },
   });
+
+  const importExcelMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch('/api/employees/import', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Import failed');
+      }
+      
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setImportResults(data);
+      setIsImportDialogOpen(false);
+      toast({
+        title: "Import Completed",
+        description: `Created: ${data.results.created}, Updated: ${data.results.updated}, Skipped: ${data.results.skipped}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import employees",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetch('/api/employees/template', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+      
+      if (!res.ok) throw new Error('Failed to download template');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'employees_template.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Template Downloaded",
+        description: "Excel template has been downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to download template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      importExcelMutation.mutate(file);
+    }
+    // Reset input so same file can be uploaded again
+    event.target.value = "";
+  };
 
   const uploadPhotoMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -344,6 +427,32 @@ export default function Employees() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDownloadTemplate}
+              data-testid="button-download-template"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Template
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => excelInputRef.current?.click()}
+              disabled={importExcelMutation.isPending}
+              data-testid="button-import-excel"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {importExcelMutation.isPending ? "Importing..." : "Import Excel"}
+            </Button>
+            <input
+              type="file"
+              ref={excelInputRef}
+              onChange={handleFileUpload}
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+            />
+            
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button

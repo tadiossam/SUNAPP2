@@ -1099,19 +1099,6 @@ export default function GarageDetails() {
                           </div>
                         </div>
 
-                        {/* Scheduled Date */}
-                        {order.scheduledDate && (
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">Scheduled</p>
-                              <p className="text-sm font-medium">
-                                {new Date(order.scheduledDate).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Completed Date */}
                         {order.completedAt && (
                           <div className="flex items-center gap-2">
@@ -1121,17 +1108,6 @@ export default function GarageDetails() {
                               <p className="text-sm font-medium">
                                 {new Date(order.completedAt).toLocaleDateString()}
                               </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Estimated Hours */}
-                        {order.estimatedHours && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="text-xs text-muted-foreground">Est. Hours</p>
-                              <p className="text-sm font-medium">{order.estimatedHours}h</p>
                             </div>
                           </div>
                         )}
@@ -1219,14 +1195,6 @@ export default function GarageDetails() {
                               </div>
                             )}
                           </div>
-                        </div>
-                      )}
-
-                      {/* Notes */}
-                      {order.notes && (
-                        <div className="pt-3 border-t">
-                          <p className="text-xs text-muted-foreground mb-1">Notes:</p>
-                          <p className="text-sm">{order.notes}</p>
                         </div>
                       )}
                     </div>

@@ -166,32 +166,57 @@ export default function Employees() {
 
   const handleDownloadTemplate = async () => {
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to download the template",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const res = await fetch('/api/employees/template', {
+        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       
-      if (!res.ok) throw new Error('Failed to download template');
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to download template');
+      }
       
+      // Get the blob from the response
       const blob = await res.blob();
+      
+      // Create a download link
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'employees_template.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'employees_template.xlsx';
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
       
       toast({
         title: "Template Downloaded",
         description: "Excel template has been downloaded successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Download error:', error);
       toast({
         title: "Download Failed",
-        description: "Failed to download template",
+        description: error.message || "Failed to download template",
         variant: "destructive",
       });
     }

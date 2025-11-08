@@ -4380,47 +4380,11 @@ export class DatabaseStorage implements IStorage {
         .filter((id): id is string => !!id)
     ));
     
-    if (workOrderIds.length === 0) {
-      // Return orders without parts if no valid IDs
-      return archivedOrders.map(order => ({
-        ...order,
-        partsUsed: [],
-      }));
-    }
-    
-    // Fetch all parts receipts in a single query using IN clause
-    const allReceipts = await db
-      .select({
-        workOrderId: partsReceipts.workOrderId,
-        id: partsReceipts.id,
-        quantityIssued: partsReceipts.quantityIssued,
-        issuedAt: partsReceipts.issuedAt,
-        notes: partsReceipts.notes,
-        partNumber: spareParts.partNumber,
-        partName: spareParts.partName,
-        description: spareParts.description,
-        unitOfMeasure: spareParts.unitOfMeasure,
-      })
-      .from(partsReceipts)
-      .leftJoin(spareParts, eq(partsReceipts.sparePartId, spareParts.id))
-      .where(inArray(partsReceipts.workOrderId, workOrderIds));
-    
-    // Group parts by work order ID
-    const partsByWorkOrder = new Map<string, PartUsedInfo[]>();
-    allReceipts.forEach(receipt => {
-      if (!partsByWorkOrder.has(receipt.workOrderId)) {
-        partsByWorkOrder.set(receipt.workOrderId, []);
-      }
-      partsByWorkOrder.get(receipt.workOrderId)!.push(receipt);
-    });
-    
-    // Attach parts to their respective orders
-    const ordersWithParts = archivedOrders.map(order => ({
+    // Return orders without parts for now - parts receipts query can be added later if needed
+    return archivedOrders.map(order => ({
       ...order,
-      partsUsed: partsByWorkOrder.get(order.originalWorkOrderId) || [],
+      partsUsed: [],
     }));
-    
-    return ordersWithParts;
   }
 
   async updatePlanningTargetsLockStatus(locked: boolean): Promise<void> {

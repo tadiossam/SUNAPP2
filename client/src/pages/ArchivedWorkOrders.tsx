@@ -75,6 +75,8 @@ export default function ArchivedWorkOrders() {
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEquipment, setSelectedEquipment] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   // Fetch Ethiopian year info
   const { data: yearInfo } = useQuery<EthiopianYearInfo>({
@@ -127,8 +129,29 @@ export default function ArchivedWorkOrders() {
       );
     }
 
+    // Date range filter (based on completedAt date)
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      filtered = filtered.filter((order) => {
+        if (!order.completedAt) return false;
+        const orderDate = new Date(order.completedAt);
+        return orderDate >= start;
+      });
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((order) => {
+        if (!order.completedAt) return false;
+        const orderDate = new Date(order.completedAt);
+        return orderDate <= end;
+      });
+    }
+
     return filtered;
-  }, [archivedOrders, searchQuery, selectedEquipment]);
+  }, [archivedOrders, searchQuery, selectedEquipment, startDate, endDate]);
 
   // Group orders by equipment
   const ordersByEquipment = useMemo(() => {
@@ -203,30 +226,76 @@ export default function ArchivedWorkOrders() {
       </div>
 
       {/* Search and Filter */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by work order, equipment, description..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-archived"
-          />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by work order, equipment, description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-archived"
+            />
+          </div>
+          <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
+            <SelectTrigger className="w-full md:w-[250px]" data-testid="select-equipment-filter">
+              <SelectValue placeholder="All Equipment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Equipment</SelectItem>
+              {uniqueEquipment.map((equipment) => (
+                <SelectItem key={equipment} value={equipment}>
+                  {equipment}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
-          <SelectTrigger className="w-full md:w-[250px]" data-testid="select-equipment-filter">
-            <SelectValue placeholder="All Equipment" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Equipment</SelectItem>
-            {uniqueEquipment.map((equipment) => (
-              <SelectItem key={equipment} value={equipment}>
-                {equipment}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
+        {/* Date Range Filter */}
+        <div className="flex flex-col md:flex-row gap-3 items-end">
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="start-date" className="text-sm">Start Date</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="pl-9"
+                data-testid="input-start-date"
+              />
+            </div>
+          </div>
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="end-date" className="text-sm">End Date</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="pl-9"
+                data-testid="input-end-date"
+              />
+            </div>
+          </div>
+          {(startDate || endDate) && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+              }}
+              data-testid="button-clear-dates"
+            >
+              Clear Dates
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -310,9 +379,15 @@ export default function ArchivedWorkOrders() {
                         <Truck className="h-5 w-5 text-primary" />
                         <div className="text-left">
                           <CardTitle className="text-lg">{equipment}</CardTitle>
-                          <p className="text-sm text-muted-foreground">
-                            {orders.length} work order{orders.length !== 1 ? "s" : ""}
-                          </p>
+                          <div className="flex flex-col gap-1">
+                            <p className="text-sm text-muted-foreground">
+                              {orders.length} work order{orders.length !== 1 ? "s" : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Package className="h-3 w-3" />
+                              {orders.reduce((total, order) => total + (order.partsUsed?.length || 0), 0)} spare part{orders.reduce((total, order) => total + (order.partsUsed?.length || 0), 0) !== 1 ? "s" : ""} used
+                            </p>
+                          </div>
                         </div>
                       </div>
                       <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />

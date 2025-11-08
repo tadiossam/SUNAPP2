@@ -11,10 +11,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench, Eye } from "lucide-react";
+import { Search, Plus, FileText, Calendar, User, Clock, DollarSign, X, Package, ShoppingCart, Edit, Trash2, Users, Building2, Wrench, Eye, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
+import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
 
 type WorkOrderRequiredPart = {
   id: string;
@@ -69,6 +70,8 @@ export default function WorkOrdersPage() {
   const [workType, setWorkType] = useState("repair");
   const [description, setDescription] = useState("");
   const [isWorkshopDialogOpen, setIsWorkshopDialogOpen] = useState(false);
+  const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   // Inspection and Maintenance detail dialogs
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
@@ -581,6 +584,25 @@ export default function WorkOrdersPage() {
                     >
                       <Eye className="h-3.5 w-3.5 mr-1.5" />
                       {markAsCompletedMutation.isPending ? "Processing..." : "Mark as Completed"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* View Details Button - Show for completed work orders */}
+                {wo.status === 'completed' && (
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setDetailsWorkOrderId(wo.id);
+                        setIsDetailsDialogOpen(true);
+                      }}
+                      className="w-full"
+                      data-testid={`button-view-details-${wo.id}`}
+                    >
+                      <Info className="h-3.5 w-3.5 mr-1.5" />
+                      View Details
                     </Button>
                   </div>
                 )}
@@ -1296,6 +1318,13 @@ export default function WorkOrdersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Work Order Details Dialog */}
+      <WorkOrderDetailsDialog
+        workOrderId={detailsWorkOrderId}
+        open={isDetailsDialogOpen}
+        onOpenChange={setIsDetailsDialogOpen}
+      />
     </div>
   );
 }

@@ -500,8 +500,8 @@ export default function GarageDetails() {
           </DialogHeader>
           <Form {...workshopForm}>
             <form onSubmit={workshopForm.handleSubmit(onWorkshopSubmit)} className="space-y-4">
-              <ScrollArea className="max-h-[60vh] pr-4">
-                <div className="space-y-4">
+              <ScrollArea className="h-[60vh] pr-4">
+                <div className="space-y-4 pr-4">
               <FormField
                 control={workshopForm.control}
                 name="name"
@@ -742,8 +742,8 @@ export default function GarageDetails() {
           </DialogHeader>
           <Form {...editWorkshopForm}>
             <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
-              <ScrollArea className="max-h-[60vh] pr-4">
-                <div className="space-y-4">
+              <ScrollArea className="h-[60vh] pr-4">
+                <div className="space-y-4 pr-4">
               <FormField
                 control={editWorkshopForm.control}
                 name="name"

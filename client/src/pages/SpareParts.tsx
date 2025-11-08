@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Package, Eye, AlertCircle, Upload, Image as ImageIcon, MapPin, Wrench, Clock, Video, Edit, Trash2, X, Plus } from "lucide-react";
+import { Search, Package, Eye, AlertCircle, Upload, Image as ImageIcon, MapPin, Wrench, Clock, Video, Edit, Trash2, X, Plus, Download, FileSpreadsheet } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -76,6 +76,7 @@ export default function SparePartsPage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // Ethiopian Birr exchange rate (1 USD = 125 ETB approximately)
@@ -226,6 +227,103 @@ export default function SparePartsPage() {
       });
     },
   });
+
+  const importExcelMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch('/api/parts/import', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Import failed');
+      }
+      
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/parts"] });
+      toast({
+        title: "Import Completed",
+        description: `Created: ${data.results.created}, Updated: ${data.results.updated}, Skipped: ${data.results.skipped}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import spare parts",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to download the template",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const res = await fetch('/api/parts/template', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to download template');
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'spare_parts_template.xlsx';
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast({
+        title: "Template Downloaded",
+        description: "Excel template has been downloaded successfully",
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExcelFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      importExcelMutation.mutate(file);
+    }
+    event.target.value = "";
+  };
 
   const updateMaintenanceMutation = useMutation({
     mutationFn: async (data: typeof maintenanceForm) => {
@@ -570,12 +668,40 @@ export default function SparePartsPage() {
                 Browse and search for compatible parts
               </p>
             </div>
-            {isCEOorAdmin && (
-              <Button onClick={openCreateDialog} data-testid="button-create-part">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Part
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleDownloadTemplate}
+                data-testid="button-download-template"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
               </Button>
-            )}
+              
+              <Button
+                variant="outline"
+                onClick={() => excelInputRef.current?.click()}
+                disabled={importExcelMutation.isPending}
+                data-testid="button-import-excel"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                {importExcelMutation.isPending ? "Importing..." : "Import Excel"}
+              </Button>
+              <input
+                type="file"
+                ref={excelInputRef}
+                onChange={handleExcelFileUpload}
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+              />
+              
+              {isCEOorAdmin && (
+                <Button onClick={openCreateDialog} data-testid="button-create-part">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Part
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Inventory Statistics Cards */}

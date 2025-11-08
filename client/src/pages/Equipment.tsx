@@ -76,6 +76,7 @@ export default function EquipmentPage() {
   // Import/Export state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   // D365 import state
   
@@ -256,6 +257,103 @@ export default function EquipmentPage() {
       });
     },
   });
+
+  const importExcelMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch('/api/equipment/import', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Import failed');
+      }
+      
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
+      toast({
+        title: "Import Completed",
+        description: `Created: ${data.results.created}, Updated: ${data.results.updated}, Skipped: ${data.results.skipped}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import equipment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to download the template",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const res = await fetch('/api/equipment/template', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to download template');
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'equipment_template.xlsx';
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast({
+        title: "Template Downloaded",
+        description: "Excel template has been downloaded successfully",
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Download Failed",
+        description: error.message || "Failed to download template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExcelFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      importExcelMutation.mutate(file);
+    }
+    event.target.value = "";
+  };
 
   const importEquipmentMutation = useMutation({
     mutationFn: async (equipmentList: InsertEquipment[]) => {
@@ -567,6 +665,32 @@ export default function EquipmentPage() {
           </div>
 
           <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={handleDownloadTemplate}
+              data-testid="button-download-template"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Template
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => excelInputRef.current?.click()}
+              disabled={importExcelMutation.isPending}
+              data-testid="button-import-excel"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {importExcelMutation.isPending ? "Importing..." : "Import Excel"}
+            </Button>
+            <input
+              type="file"
+              ref={excelInputRef}
+              onChange={handleExcelFileUpload}
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+            />
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button data-testid="button-add-menu">
@@ -585,21 +709,6 @@ export default function EquipmentPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" onClick={downloadTemplate} data-testid="button-download-template">
-              <Download className="h-4 w-4 mr-2" />
-              Download Template
-            </Button>
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()} data-testid="button-import-excel">
-              <Upload className="h-4 w-4 mr-2" />
-              Import from Excel
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileImport}
-              className="hidden"
-            />
           </div>
         </div>
       </div>

@@ -127,6 +127,9 @@ export default function Employees() {
     mutationFn: async (file: File) => {
       if (!selectedEmployee) throw new Error("No employee selected");
       
+      // Get auth token for file upload
+      const token = localStorage.getItem("auth_token");
+      
       // Step 1: Get upload URL (object storage or local)
       const urlResponse = await apiRequest("POST", `/api/employees/${selectedEmployee.id}/photo/upload-url`);
       const urlData = await urlResponse.json() as { 
@@ -137,17 +140,24 @@ export default function Employees() {
 
       // Step 2: Upload file
       if (urlData.useLocalUpload) {
-        // Local upload: send as multipart/form-data
+        // Local upload: send as multipart/form-data with auth token
         const formData = new FormData();
         formData.append('photo', file);
         
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
         const uploadResponse = await fetch(urlData.uploadURL, {
           method: 'PUT',
+          headers,
           body: formData,
         });
 
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload file locally');
+          const errorText = await uploadResponse.text();
+          throw new Error(errorText || 'Failed to upload file locally');
         }
 
         const employee = await uploadResponse.json();

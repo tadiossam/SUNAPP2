@@ -1659,7 +1659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get detailed work order information including memberships, requisitions, and time tracking
   app.get("/api/work-orders/:id/details", async (req, res) => {
     try {
-      const { workOrderMemberships, employees, itemRequisitions, itemRequisitionLines, spareParts } = await import("@shared/schema");
+      const { workOrderMemberships, employees, itemRequisitions, itemRequisitionLines, spareParts, partsReceipts } = await import("@shared/schema");
       const workOrderId = req.params.id;
       
       // Get basic work order info with time tracking
@@ -1734,6 +1734,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
+      // Get parts receipts for this work order with spare part details
+      const receiptsData = await db
+        .select({
+          id: partsReceipts.id,
+          workOrderId: partsReceipts.workOrderId,
+          quantityIssued: partsReceipts.quantityIssued,
+          issuedAt: partsReceipts.issuedAt,
+          notes: partsReceipts.notes,
+          sparePart: {
+            id: spareParts.id,
+            partName: spareParts.partName,
+            partNumber: spareParts.partNumber,
+            unitOfMeasure: spareParts.unitOfMeasure,
+          },
+          issuedBy: {
+            id: employees.id,
+            fullName: employees.fullName,
+          }
+        })
+        .from(partsReceipts)
+        .leftJoin(spareParts, eq(partsReceipts.sparePartId, spareParts.id))
+        .leftJoin(employees, eq(partsReceipts.issuedById, employees.id))
+        .where(eq(partsReceipts.workOrderId, workOrderId));
+      
+      const receipts = receiptsData.map((r: any) => ({
+        id: r.id,
+        workOrderId: r.workOrderId,
+        quantityIssued: r.quantityIssued,
+        issuedAt: r.issuedAt,
+        notes: r.notes,
+        sparePart: r.sparePart.id ? r.sparePart : null,
+        issuedBy: r.issuedBy.id ? r.issuedBy : null,
+      }));
+      
       res.json({
         id: enrichedWorkOrder.id,
         workOrderNumber: enrichedWorkOrder.workOrderNumber,
@@ -1746,6 +1780,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completedAt: enrichedWorkOrder.completedAt,
         memberships,
         itemRequisitions: requisitionsWithLines,
+        partsReceipts: receipts,
       });
     } catch (error) {
       console.error("Error fetching work order details:", error);

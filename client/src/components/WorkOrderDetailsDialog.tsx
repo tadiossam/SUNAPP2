@@ -4,8 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Clock, User, Package, CheckCircle, Users, FileText } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Clock, User, Package, CheckCircle, Users, FileText, PackageCheck } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { format } from "date-fns";
 
 type WorkOrderDetailsDialogProps = {
   workOrderId: string | null;
@@ -45,6 +47,24 @@ type ItemRequisition = {
   lines: ItemRequisitionLine[];
 };
 
+type PartReceipt = {
+  id: string;
+  workOrderId: string;
+  quantityIssued: number;
+  issuedAt: string;
+  notes?: string;
+  sparePart?: {
+    id: string;
+    partName: string;
+    partNumber: string;
+    unitOfMeasure?: string;
+  } | null;
+  issuedBy?: {
+    id: string;
+    fullName: string;
+  } | null;
+};
+
 type WorkOrderDetails = {
   id: string;
   workOrderNumber: string;
@@ -57,6 +77,7 @@ type WorkOrderDetails = {
   completedAt?: string;
   memberships: WorkOrderMembership[];
   itemRequisitions: ItemRequisition[];
+  partsReceipts: PartReceipt[];
 };
 
 export function WorkOrderDetailsDialog({ workOrderId, open, onOpenChange }: WorkOrderDetailsDialogProps) {
@@ -227,50 +248,102 @@ export function WorkOrderDetailsDialog({ workOrderId, open, onOpenChange }: Work
               </Card>
             )}
 
-            {/* Spare Parts Used Card */}
-            {sparePartsUsed.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Spare Parts Used ({sparePartsUsed.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {sparePartsUsed.map((line, index) => (
-                      <div key={line.id} className="flex items-start justify-between border-b pb-3 last:border-0">
-                        <div className="flex-1">
-                          <p className="font-medium">{line.description}</p>
-                          {line.sparePart && (
-                            <p className="text-sm text-muted-foreground">
-                              Part #: {line.sparePart.partNumber}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right ml-4">
-                          <p className="font-medium text-primary">
-                            {line.quantityApproved || line.quantityRequested} {line.unitOfMeasure || "pcs"}
-                          </p>
-                          <Badge variant="outline" className="mt-1">
-                            {line.status}
-                          </Badge>
-                        </div>
+            {/* Parts Tracking Tabs */}
+            <Card>
+              <CardContent className="pt-6">
+                <Tabs defaultValue="requisitions" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="requisitions" data-testid="tab-requisitions">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Requisitions ({sparePartsUsed.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="receipts" data-testid="tab-parts-receipts">
+                      <PackageCheck className="h-4 w-4 mr-2" />
+                      Parts Receipts ({details?.partsReceipts?.length || 0})
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="requisitions" className="mt-4">
+                    {sparePartsUsed.length > 0 ? (
+                      <div className="space-y-3">
+                        {sparePartsUsed.map((line) => (
+                          <div key={line.id} className="flex items-start justify-between border-b pb-3 last:border-0" data-testid={`requisition-line-${line.id}`}>
+                            <div className="flex-1">
+                              <p className="font-medium">{line.description}</p>
+                              {line.sparePart && (
+                                <p className="text-sm text-muted-foreground">
+                                  Part #: {line.sparePart.partNumber}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="font-medium text-primary">
+                                {line.quantityApproved || line.quantityRequested} {line.unitOfMeasure || "pcs"}
+                              </p>
+                              <Badge variant="outline" className="mt-1">
+                                {line.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {sparePartsUsed.length === 0 && (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No spare parts used for this work order</p>
-                </CardContent>
-              </Card>
-            )}
+                    ) : (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>No requisitions for this work order</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="receipts" className="mt-4">
+                    {details?.partsReceipts && details.partsReceipts.length > 0 ? (
+                      <div className="space-y-3">
+                        {details.partsReceipts.map((receipt) => (
+                          <div key={receipt.id} className="flex items-start justify-between border-b pb-3 last:border-0" data-testid={`parts-receipt-${receipt.id}`}>
+                            <div className="flex-1">
+                              <p className="font-medium">
+                                {receipt.sparePart?.partName || "Unknown Part"}
+                              </p>
+                              {receipt.sparePart && (
+                                <p className="text-sm text-muted-foreground">
+                                  Part #: {receipt.sparePart.partNumber}
+                                </p>
+                              )}
+                              <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                                {receipt.issuedBy && (
+                                  <span>Issued by: {receipt.issuedBy.fullName}</span>
+                                )}
+                                <span>
+                                  {format(new Date(receipt.issuedAt), "MMM dd, yyyy HH:mm")}
+                                </span>
+                              </div>
+                              {receipt.notes && (
+                                <p className="text-sm text-muted-foreground mt-1 italic">
+                                  Note: {receipt.notes}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="font-medium text-primary">
+                                {receipt.quantityIssued} {receipt.sparePart?.unitOfMeasure || "pcs"}
+                              </p>
+                              <Badge variant="secondary" className="mt-1">
+                                issued
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <PackageCheck className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>No parts receipts for this work order</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <div className="py-12 text-center text-muted-foreground">

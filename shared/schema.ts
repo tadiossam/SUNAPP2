@@ -1882,3 +1882,20 @@ export type InsertWorkOrderArchive = z.infer<typeof insertWorkOrdersArchiveSchem
 
 export type YearClosureLog = typeof yearClosureLogs.$inferSelect;
 export type InsertYearClosureLog = z.infer<typeof insertYearClosureLogSchema>;
+
+// Extended type for archived work orders with parts
+export type PartUsedInfo = {
+  workOrderId: string;
+  id: string;
+  quantityIssued: number;
+  issuedAt: Date;
+  notes: string | null;
+  partNumber: string | null;
+  partName: string | null;
+  description: string | null;
+  unitOfMeasure: string | null;
+};
+
+export type WorkOrderArchiveWithParts = WorkOrderArchive & {
+  partsUsed: PartUsedInfo[];
+};

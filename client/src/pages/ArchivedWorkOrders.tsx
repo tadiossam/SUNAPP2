@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,6 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Archive,
   Calendar,
   Building2,
@@ -19,8 +25,22 @@ import {
   Clock,
   FileText,
   Truck,
+  Search,
+  ChevronDown,
+  Package,
 } from "lucide-react";
 import { formatDistance } from "date-fns";
+
+type PartUsed = {
+  id: string;
+  quantityIssued: number;
+  issuedAt: string;
+  notes: string | null;
+  partNumber: string | null;
+  partName: string | null;
+  description: string | null;
+  unitOfMeasure: string | null;
+};
 
 type ArchivedWorkOrder = {
   id: string;
@@ -39,6 +59,7 @@ type ArchivedWorkOrder = {
   createdAt: string | null;
   ethiopianYear: number;
   archivedAt: string;
+  partsUsed: PartUsed[];
 };
 
 type EthiopianYearInfo = {
@@ -51,6 +72,8 @@ type EthiopianYearInfo = {
 
 export default function ArchivedWorkOrders() {
   const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedEquipment, setSelectedEquipment] = useState<string>("all");
 
   // Fetch Ethiopian year info
   const { data: yearInfo } = useQuery<EthiopianYearInfo>({
@@ -73,6 +96,60 @@ export default function ArchivedWorkOrders() {
   const availableYears = closureLogs
     .map((log) => log.closedEthiopianYear)
     .sort((a, b) => b - a);
+
+  // Filter and search logic
+  const filteredOrders = useMemo(() => {
+    let filtered = [...archivedOrders];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (order) =>
+          order.workOrderNumber.toLowerCase().includes(query) ||
+          order.equipmentModel?.toLowerCase().includes(query) ||
+          order.description?.toLowerCase().includes(query) ||
+          order.workType?.toLowerCase().includes(query) ||
+          order.createdByName?.toLowerCase().includes(query)
+      );
+    }
+
+    // Equipment filter
+    if (selectedEquipment !== "all") {
+      filtered = filtered.filter(
+        (order) => order.equipmentModel === selectedEquipment
+      );
+    }
+
+    return filtered;
+  }, [archivedOrders, searchQuery, selectedEquipment]);
+
+  // Group orders by equipment
+  const ordersByEquipment = useMemo(() => {
+    const grouped = new Map<string, ArchivedWorkOrder[]>();
+    
+    filteredOrders.forEach((order) => {
+      const equipment = order.equipmentModel || "Unknown Equipment";
+      if (!grouped.has(equipment)) {
+        grouped.set(equipment, []);
+      }
+      grouped.get(equipment)!.push(order);
+    });
+
+    return Array.from(grouped.entries()).sort((a, b) => 
+      a[0].localeCompare(b[0])
+    );
+  }, [filteredOrders]);
+
+  // Get unique equipment models for filter
+  const uniqueEquipment = useMemo(() => {
+    const equipment = new Set(
+      archivedOrders
+        .map((order) => order.equipmentModel)
+        .filter((model): model is string => !!model)
+    );
+    return Array.from(equipment).sort();
+  }, [archivedOrders]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -119,19 +196,50 @@ export default function ArchivedWorkOrders() {
         </div>
       </div>
 
+      {/* Search and Filter */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by work order, equipment, description..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-archived"
+          />
+        </div>
+        <Select value={selectedEquipment} onValueChange={setSelectedEquipment}>
+          <SelectTrigger className="w-full md:w-[250px]" data-testid="select-equipment-filter">
+            <SelectValue placeholder="All Equipment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Equipment</SelectItem>
+            {uniqueEquipment.map((equipment) => (
+              <SelectItem key={equipment} value={equipment}>
+                {equipment}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Archived</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {searchQuery || selectedEquipment !== "all" ? "Filtered" : "Total Archived"}
+            </CardTitle>
             <Archive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-archived">
-              {archivedOrders.length}
+              {filteredOrders.length}
             </div>
             <p className="text-xs text-muted-foreground">
-              {selectedYear === "all" ? "All years" : `Year ${selectedYear}`}
+              {searchQuery || selectedEquipment !== "all" 
+                ? `of ${archivedOrders.length} total`
+                : selectedYear === "all" ? "All years" : `Year ${selectedYear}`}
             </p>
           </CardContent>
         </Card>
@@ -163,28 +271,51 @@ export default function ArchivedWorkOrders() {
         </Card>
       </div>
 
-      {/* Archived Work Orders List */}
+      {/* Archived Work Orders List - Grouped by Equipment */}
       {isLoading ? (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground">Loading archived work orders...</p>
           </CardContent>
         </Card>
-      ) : archivedOrders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">No Archived Work Orders</h3>
+            <h3 className="text-lg font-semibold mb-2">No Work Orders Found</h3>
             <p className="text-sm text-muted-foreground">
-              {selectedYear === "all"
+              {searchQuery || selectedEquipment !== "all"
+                ? "Try adjusting your filters."
+                : selectedYear === "all"
                 ? "No work orders have been archived yet."
                 : `No work orders found for Year ${selectedYear}.`}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {archivedOrders.map((order) => (
+        <div className="space-y-4">
+          {ordersByEquipment.map(([equipment, orders]) => (
+            <Collapsible key={equipment} defaultOpen className="space-y-2">
+              <Card>
+                <CollapsibleTrigger className="w-full" data-testid={`trigger-equipment-${equipment}`}>
+                  <CardHeader className="hover-elevate cursor-pointer">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Truck className="h-5 w-5 text-primary" />
+                        <div className="text-left">
+                          <CardTitle className="text-lg">{equipment}</CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {orders.length} work order{orders.length !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200" />
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 pt-0">
+                    {orders.map((order) => (
             <Card key={order.id} className="hover-elevate" data-testid={`card-archived-order-${order.id}`}>
               <CardHeader>
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
@@ -292,8 +423,58 @@ export default function ArchivedWorkOrders() {
                     </div>
                   )}
                 </div>
+
+                {/* Spare Parts Used */}
+                {order.partsUsed && order.partsUsed.length > 0 && (
+                  <div className="space-y-2 pt-3 border-t">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="h-4 w-4 text-primary" />
+                      <Label className="text-sm font-semibold">Spare Parts Used</Label>
+                      <Badge variant="secondary">{order.partsUsed.length}</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {order.partsUsed.map((part) => (
+                        <div
+                          key={part.id}
+                          className="flex items-start gap-3 p-2 rounded-md bg-muted/50"
+                          data-testid={`part-${part.id}`}
+                        >
+                          <Package className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {part.partNumber && (
+                                <Badge variant="outline" className="font-mono text-xs">
+                                  {part.partNumber}
+                                </Badge>
+                              )}
+                              <span className="font-medium text-sm">
+                                {part.partName || part.description || "Unknown Part"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                              <span>
+                                Qty: <span className="font-medium">{part.quantityIssued}</span>
+                                {part.unitOfMeasure && ` ${part.unitOfMeasure}`}
+                              </span>
+                              {part.notes && (
+                                <span className="truncate" title={part.notes}>
+                                  Note: {part.notes}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
+                    ))}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           ))}
         </div>
       )}

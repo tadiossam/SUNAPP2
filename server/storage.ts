@@ -117,6 +117,8 @@ import {
   type InsertWorkOrderArchive,
   type YearClosureLog,
   type InsertYearClosureLog,
+  type WorkOrderArchiveWithParts,
+  type PartUsedInfo,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
@@ -412,7 +414,7 @@ export interface IStorage {
   // Ethiopian Calendar Year Management Operations
   closeEthiopianYear(closedByEmployeeId: string, notes?: string): Promise<YearClosureLog>;
   getYearClosureLogs(): Promise<YearClosureLog[]>;
-  getArchivedWorkOrders(ethiopianYear?: number): Promise<WorkOrderArchive[]>;
+  getArchivedWorkOrders(ethiopianYear?: number): Promise<WorkOrderArchiveWithParts[]>;
   updatePlanningTargetsLockStatus(locked: boolean): Promise<void>;
 }
 
@@ -4350,19 +4352,75 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(yearClosureLogs.closedAt));
   }
 
-  async getArchivedWorkOrders(ethiopianYear?: number): Promise<WorkOrderArchive[]> {
+  async getArchivedWorkOrders(ethiopianYear?: number): Promise<WorkOrderArchiveWithParts[]> {
+    // Fetch archived orders
+    let archivedOrders;
+    
     if (ethiopianYear) {
-      return await db
+      archivedOrders = await db
         .select()
         .from(workOrdersArchive)
         .where(eq(workOrdersArchive.ethiopianYear, ethiopianYear))
         .orderBy(desc(workOrdersArchive.archivedAt));
+    } else {
+      archivedOrders = await db
+        .select()
+        .from(workOrdersArchive)
+        .orderBy(desc(workOrdersArchive.archivedAt));
     }
     
-    return await db
-      .select()
-      .from(workOrdersArchive)
-      .orderBy(desc(workOrdersArchive.archivedAt));
+    if (archivedOrders.length === 0) {
+      return [];
+    }
+    
+    // Collect all original work order IDs (filter out null values and deduplicate)
+    const workOrderIds = Array.from(new Set(
+      archivedOrders
+        .map(order => order.originalWorkOrderId)
+        .filter((id): id is string => !!id)
+    ));
+    
+    if (workOrderIds.length === 0) {
+      // Return orders without parts if no valid IDs
+      return archivedOrders.map(order => ({
+        ...order,
+        partsUsed: [],
+      }));
+    }
+    
+    // Fetch all parts receipts in a single query using IN clause
+    const allReceipts = await db
+      .select({
+        workOrderId: partsReceipts.workOrderId,
+        id: partsReceipts.id,
+        quantityIssued: partsReceipts.quantityIssued,
+        issuedAt: partsReceipts.issuedAt,
+        notes: partsReceipts.notes,
+        partNumber: spareParts.partNumber,
+        partName: spareParts.name,
+        description: spareParts.description,
+        unitOfMeasure: spareParts.unitOfMeasure,
+      })
+      .from(partsReceipts)
+      .leftJoin(spareParts, eq(partsReceipts.sparePartId, spareParts.id))
+      .where(inArray(partsReceipts.workOrderId, workOrderIds));
+    
+    // Group parts by work order ID
+    const partsByWorkOrder = new Map<string, PartUsedInfo[]>();
+    allReceipts.forEach(receipt => {
+      if (!partsByWorkOrder.has(receipt.workOrderId)) {
+        partsByWorkOrder.set(receipt.workOrderId, []);
+      }
+      partsByWorkOrder.get(receipt.workOrderId)!.push(receipt);
+    });
+    
+    // Attach parts to their respective orders
+    const ordersWithParts = archivedOrders.map(order => ({
+      ...order,
+      partsUsed: partsByWorkOrder.get(order.originalWorkOrderId) || [],
+    }));
+    
+    return ordersWithParts;
   }
 
   async updatePlanningTargetsLockStatus(locked: boolean): Promise<void> {

@@ -79,10 +79,7 @@ export function EthiopianYearManagement() {
   // Close year mutation
   const closeYearMutation = useMutation({
     mutationFn: async (notes: string) => {
-      return await apiRequest("/api/ethiopian-year/close", {
-        method: "POST",
-        body: { notes },
-      });
+      return await apiRequest("POST", "/api/ethiopian-year/close", { notes });
     },
     onSuccess: () => {
       toast({
@@ -105,10 +102,7 @@ export function EthiopianYearManagement() {
   // Lock/unlock planning targets mutation
   const lockTargetsMutation = useMutation({
     mutationFn: async (locked: boolean) => {
-      return await apiRequest("/api/planning-targets/lock", {
-        method: "POST",
-        body: { locked },
-      });
+      return await apiRequest("POST", "/api/planning-targets/lock", { locked });
     },
     onSuccess: (_, locked) => {
       toast({

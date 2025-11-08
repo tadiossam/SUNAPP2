@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ClipboardList, Package, CheckCircle, PackageCheck, FileText } from "lucide-react";
+import { ClipboardList, Package, CheckCircle, PackageCheck, FileText, Info } from "lucide-react";
 import { RequestPartsDialog } from "@/components/RequestPartsDialog";
+import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -60,6 +61,8 @@ export default function TeamDashboard() {
   const [isRequestPartsOpen, setIsRequestPartsOpen] = useState(false);
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
+  const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   const { data: myWorkOrders = [], isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/my-assignments"],
@@ -281,32 +284,49 @@ export default function TeamDashboard() {
           )}
 
           <div className="flex gap-2 pt-2 border-t">
-            <Button
-              onClick={() => handleRequestParts(workOrder)}
-              size="sm"
-              variant="outline"
-              disabled={
-                workOrder.status === "completed" ||
-                workOrder.status === "pending_verification" ||
-                workOrder.status === "pending_supervisor"
-              }
-              data-testid={`button-request-parts-${workOrder.id}`}
-            >
-              <Package className="h-4 w-4 mr-2" />
-              {language === "am" ? "እቃ ጠይቅ" : "Request Parts"}
-            </Button>
-            {workOrder.status === "in_progress" && (
+            {workOrder.status === "completed" ? (
               <Button
-                onClick={() => markCompleteMutation.mutate(workOrder.id)}
-                disabled={markCompleteMutation.isPending}
+                onClick={() => {
+                  setDetailsWorkOrderId(workOrder.id);
+                  setIsDetailsDialogOpen(true);
+                }}
                 size="sm"
-                data-testid={`button-complete-work-${workOrder.id}`}
+                variant="outline"
+                className="w-full"
+                data-testid={`button-view-details-${workOrder.id}`}
               >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {markCompleteMutation.isPending
-                  ? (language === "am" ? "በመላክ ላይ..." : "Submitting...")
-                  : (language === "am" ? "ስራውን አጠናቅቅ" : "Complete Work")}
+                <Info className="h-4 w-4 mr-2" />
+                {language === "am" ? "ዝርዝር ይመልከቱ" : "View Details"}
               </Button>
+            ) : (
+              <>
+                <Button
+                  onClick={() => handleRequestParts(workOrder)}
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    workOrder.status === "pending_verification" ||
+                    workOrder.status === "pending_supervisor"
+                  }
+                  data-testid={`button-request-parts-${workOrder.id}`}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  {language === "am" ? "እቃ ጠይቅ" : "Request Parts"}
+                </Button>
+                {workOrder.status === "in_progress" && (
+                  <Button
+                    onClick={() => markCompleteMutation.mutate(workOrder.id)}
+                    disabled={markCompleteMutation.isPending}
+                    size="sm"
+                    data-testid={`button-complete-work-${workOrder.id}`}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {markCompleteMutation.isPending
+                      ? (language === "am" ? "በመላክ ላይ..." : "Submitting...")
+                      : (language === "am" ? "ስራውን አጠናቅቅ" : "Complete Work")}
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -856,6 +876,13 @@ export default function TeamDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Work Order Details Dialog */}
+      <WorkOrderDetailsDialog
+        workOrderId={detailsWorkOrderId}
+        open={isDetailsDialogOpen}
+        onOpenChange={setIsDetailsDialogOpen}
+      />
     </div>
   );
 }

@@ -7200,16 +7200,24 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       const { sql: drizzleSql, and, gte, lte, between } = await import("drizzle-orm");
       
       // Parse query parameters
-      const timePeriod = req.query.timePeriod as string || 'annual'; // daily, weekly, monthly, q1, q2, q3, q4, annual
+      const timePeriod = req.query.timePeriod as string || 'annual'; // daily, weekly, monthly, q1, q2, q3, q4, annual, custom
       const workshopId = req.query.workshopId as string | undefined; // Optional workshop filter
       const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      const startDateParam = req.query.startDate as string | undefined;
+      const endDateParam = req.query.endDate as string | undefined;
       
       // Build date filter based on time period
       let dateFilter: any = {};
       const startOfYear = new Date(year, 0, 1);
       const endOfYear = new Date(year, 11, 31, 23, 59, 59);
       
-      if (timePeriod === 'q1') {
+      if (timePeriod === 'custom' && startDateParam && endDateParam) {
+        // Custom date range
+        const customStart = new Date(startDateParam);
+        const customEnd = new Date(endDateParam);
+        customEnd.setHours(23, 59, 59, 999); // Set to end of day
+        dateFilter = { start: customStart, end: customEnd };
+      } else if (timePeriod === 'q1') {
         dateFilter = {
           start: new Date(year, 0, 1),
           end: new Date(year, 2, 31, 23, 59, 59)

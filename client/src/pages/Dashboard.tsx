@@ -2,6 +2,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -20,6 +21,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, DollarSign, CheckCircle, AlertCircle, Users, Wrench, Calendar, Filter } from "lucide-react";
+import { format } from "date-fns";
 
 const COLORS = ["#2563eb", "#7c3aed", "#dc2626", "#f59e0b", "#10b981", "#f97316", "#8b5cf6"];
 
@@ -28,10 +30,28 @@ export default function Dashboard() {
   const [timePeriod, setTimePeriod] = useState<string>("annual");
   const [workshopId, setWorkshopId] = useState<string>("all");
   const [year, setYear] = useState<number>(new Date().getFullYear());
+  
+  // Date range state
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [useCustomRange, setUseCustomRange] = useState<boolean>(false);
 
+  // Build query params based on whether using custom range or predefined period
+  const buildQueryParams = () => {
+    let params = `workshopId=${workshopId}`;
+    
+    if (useCustomRange && startDate && endDate) {
+      params += `&startDate=${startDate}&endDate=${endDate}&timePeriod=custom`;
+    } else {
+      params += `&timePeriod=${timePeriod}&year=${year}`;
+    }
+    
+    return params;
+  };
+  
   // Fetch dashboard analytics data
   const { data: analyticsData, isLoading } = useQuery({
-    queryKey: [`/api/dashboard/analytics?timePeriod=${timePeriod}&workshopId=${workshopId}&year=${year}`],
+    queryKey: [`/api/dashboard/analytics?${buildQueryParams()}`],
   });
 
   const kpis = analyticsData?.kpis || {
@@ -81,61 +101,132 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                {/* Time Period Filter */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Time Period</label>
-                  <Select value={timePeriod} onValueChange={setTimePeriod}>
-                    <SelectTrigger data-testid="select-time-period">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="q1">Q1 (Jan-Mar)</SelectItem>
-                      <SelectItem value="q2">Q2 (Apr-Jun)</SelectItem>
-                      <SelectItem value="q3">Q3 (Jul-Sep)</SelectItem>
-                      <SelectItem value="q4">Q4 (Oct-Dec)</SelectItem>
-                      <SelectItem value="annual">Annual</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-4">
+                {/* Filter Mode Toggle */}
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant={!useCustomRange ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUseCustomRange(false)}
+                    data-testid="button-predefined-period"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Predefined Period
+                  </Button>
+                  <Button
+                    variant={useCustomRange ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUseCustomRange(true)}
+                    data-testid="button-custom-range"
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Custom Date Range
+                  </Button>
                 </div>
 
-                {/* Workshop Filter */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Maintenance Workshop</label>
-                  <Select value={workshopId} onValueChange={setWorkshopId}>
-                    <SelectTrigger data-testid="select-workshop">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Workshops</SelectItem>
-                      {workshops.map((workshop: any) => (
-                        <SelectItem key={workshop.id} value={workshop.id}>
-                          {workshop.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Conditional Filter Display */}
+                {!useCustomRange ? (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {/* Time Period Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Time Period</label>
+                      <Select value={timePeriod} onValueChange={setTimePeriod}>
+                        <SelectTrigger data-testid="select-time-period">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="q1">Q1 (Jan-Mar)</SelectItem>
+                          <SelectItem value="q2">Q2 (Apr-Jun)</SelectItem>
+                          <SelectItem value="q3">Q3 (Jul-Sep)</SelectItem>
+                          <SelectItem value="q4">Q4 (Oct-Dec)</SelectItem>
+                          <SelectItem value="annual">Annual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {/* Year Filter */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Year</label>
-                  <Select value={year.toString()} onValueChange={(val) => setYear(parseInt(val))}>
-                    <SelectTrigger data-testid="select-year">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {yearOptions.map((y) => (
-                        <SelectItem key={y} value={y.toString()}>
-                          {y}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    {/* Workshop Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Maintenance Workshop</label>
+                      <Select value={workshopId} onValueChange={setWorkshopId}>
+                        <SelectTrigger data-testid="select-workshop">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Workshops</SelectItem>
+                          {workshops.map((workshop: any) => (
+                            <SelectItem key={workshop.id} value={workshop.id}>
+                              {workshop.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Year Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Year</label>
+                      <Select value={year.toString()} onValueChange={(val) => setYear(parseInt(val))}>
+                        <SelectTrigger data-testid="select-year">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {yearOptions.map((y) => (
+                            <SelectItem key={y} value={y.toString()}>
+                              {y}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {/* Start Date */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">From Date</label>
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        data-testid="input-start-date"
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* End Date */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">To Date</label>
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        data-testid="input-end-date"
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Workshop Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Maintenance Workshop</label>
+                      <Select value={workshopId} onValueChange={setWorkshopId}>
+                        <SelectTrigger data-testid="select-workshop">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Workshops</SelectItem>
+                          {workshops.map((workshop: any) => (
+                            <SelectItem key={workshop.id} value={workshop.id}>
+                              {workshop.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

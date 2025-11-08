@@ -400,7 +400,7 @@ export default function ArchivedWorkOrders() {
             <Card key={order.id} className="hover-elevate" data-testid={`card-archived-order-${order.id}`}>
               <CardHeader>
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-lg">{order.workOrderNumber}</CardTitle>
                       {order.status && (
@@ -413,9 +413,9 @@ export default function ArchivedWorkOrders() {
                         Year {order.ethiopianYear}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <Truck className="h-3 w-3" />
-                      {order.equipmentModel || "No equipment info"}
+                    <p className="text-sm font-medium text-foreground flex items-center gap-2" data-testid={`equipment-model-${order.id}`}>
+                      <Truck className="h-4 w-4 text-primary" />
+                      Equipment: {order.equipmentModel || "No equipment info"}
                     </p>
                   </div>
                 </div>

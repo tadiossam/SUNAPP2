@@ -176,6 +176,8 @@ export default function Employees() {
         return;
       }
 
+      console.log('Starting template download...');
+      
       const res = await fetch('/api/employees/template', {
         method: 'GET',
         headers: {
@@ -188,36 +190,50 @@ export default function Employees() {
         throw new Error(errorText || 'Failed to download template');
       }
       
+      console.log('Template received, creating blob...');
+      
       // Get the blob from the response
       const blob = await res.blob();
+      console.log('Blob created, size:', blob.size);
       
-      // Create a download link
-      const url = window.URL.createObjectURL(blob);
+      // Create a download link with proper MIME type
+      const url = window.URL.createObjectURL(new Blob([blob], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      }));
+      
       const link = document.createElement('a');
       link.href = url;
       link.download = 'employees_template.xlsx';
-      link.style.display = 'none';
+      link.setAttribute('download', 'employees_template.xlsx'); // Ensure download attribute
       
-      // Trigger download
+      // For better compatibility, add to body before clicking
       document.body.appendChild(link);
-      link.click();
       
-      // Cleanup
+      // Trigger download with a slight delay to ensure DOM is ready
       setTimeout(() => {
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }, 100);
+        console.log('Triggering download click...');
+        link.click();
+        console.log('Download triggered');
+        
+        // Cleanup after a delay
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 250);
+      }, 50);
       
       toast({
-        title: "Template Downloaded",
-        description: "Excel template has been downloaded successfully",
+        title: "Template Ready",
+        description: "Check your Downloads folder for employees_template.xlsx. In some browsers, you may need to allow downloads from this site.",
+        duration: 5000,
       });
     } catch (error: any) {
       console.error('Download error:', error);
       toast({
         title: "Download Failed",
-        description: error.message || "Failed to download template",
+        description: error.message || "Failed to download template. Try using a different browser (Chrome/Firefox) or check if downloads are blocked.",
         variant: "destructive",
+        duration: 7000,
       });
     }
   };

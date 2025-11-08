@@ -276,6 +276,8 @@ export default function SparePartsPage() {
         return;
       }
 
+      console.log('Starting spare parts template download...');
+      
       const res = await fetch('/api/parts/template', {
         method: 'GET',
         headers: {
@@ -288,31 +290,44 @@ export default function SparePartsPage() {
         throw new Error(errorText || 'Failed to download template');
       }
       
+      console.log('Template received, creating blob...');
       const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
+      console.log('Blob created, size:', blob.size);
+      
+      const url = window.URL.createObjectURL(new Blob([blob], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      }));
+      
       const link = document.createElement('a');
       link.href = url;
       link.download = 'spare_parts_template.xlsx';
-      link.style.display = 'none';
+      link.setAttribute('download', 'spare_parts_template.xlsx');
       
       document.body.appendChild(link);
-      link.click();
       
       setTimeout(() => {
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }, 100);
+        console.log('Triggering download click...');
+        link.click();
+        console.log('Download triggered');
+        
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 250);
+      }, 50);
       
       toast({
-        title: "Template Downloaded",
-        description: "Excel template has been downloaded successfully",
+        title: "Template Ready",
+        description: "Check your Downloads folder for spare_parts_template.xlsx. In some browsers, you may need to allow downloads from this site.",
+        duration: 5000,
       });
     } catch (error: any) {
       console.error('Download error:', error);
       toast({
         title: "Download Failed",
-        description: error.message || "Failed to download template",
+        description: error.message || "Failed to download template. Try using a different browser (Chrome/Firefox) or check if downloads are blocked.",
         variant: "destructive",
+        duration: 7000,
       });
     }
   };

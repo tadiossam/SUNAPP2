@@ -4386,10 +4386,72 @@ export class DatabaseStorage implements IStorage {
         .filter((id): id is string => !!id)
     ));
     
-    // Return orders without parts for now - parts receipts query can be added later if needed
+    if (workOrderIds.length === 0) {
+      return archivedOrders.map(order => ({
+        ...order,
+        partsUsed: [],
+      }));
+    }
+    
+    // Fetch all parts receipts for these work orders
+    const receiptsData = await db
+      .select({
+        receiptId: partsReceipts.id,
+        workOrderId: partsReceipts.workOrderId,
+        quantityIssued: partsReceipts.quantityIssued,
+        issuedAt: partsReceipts.issuedAt,
+        notes: partsReceipts.notes,
+        sparePartId: partsReceipts.sparePartId,
+      })
+      .from(partsReceipts)
+      .where(inArray(partsReceipts.workOrderId, workOrderIds as string[]));
+    
+    // Get all unique spare part IDs
+    const sparePartIds = Array.from(new Set(
+      receiptsData
+        .map((r: any) => r.sparePartId)
+        .filter((id: any): id is string => !!id)
+    ));
+    
+    // Fetch spare parts details
+    const partsMap = new Map<string, any>();
+    if (sparePartIds.length > 0) {
+      const parts = await db
+        .select()
+        .from(spareParts)
+        .where(inArray(spareParts.id, sparePartIds as string[]));
+      
+      parts.forEach((part: any) => {
+        partsMap.set(part.id, part);
+      });
+    }
+    
+    // Group receipts by work order ID and enrich with spare part details
+    const partsByWorkOrder = new Map<string, PartUsedInfo[]>();
+    receiptsData.forEach((receipt: any) => {
+      if (!partsByWorkOrder.has(receipt.workOrderId)) {
+        partsByWorkOrder.set(receipt.workOrderId, []);
+      }
+      
+      const part = receipt.sparePartId ? partsMap.get(receipt.sparePartId) : null;
+      
+      partsByWorkOrder.get(receipt.workOrderId)!.push({
+        id: receipt.receiptId,
+        workOrderId: receipt.workOrderId,
+        quantityIssued: receipt.quantityIssued,
+        issuedAt: receipt.issuedAt?.toISOString() || '',
+        notes: receipt.notes,
+        partNumber: part?.partNumber || null,
+        partName: part?.partName || null,
+        description: part?.description || null,
+        unitOfMeasure: null, // spare_parts doesn't have unitOfMeasure
+      });
+    });
+    
+    // Attach parts to their respective orders
     return archivedOrders.map(order => ({
       ...order,
-      partsUsed: [],
+      partsUsed: partsByWorkOrder.get(order.originalWorkOrderId) || [],
     }));
   }
 

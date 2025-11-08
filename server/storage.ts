@@ -586,6 +586,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePart(id: string, data: Partial<InsertSparePart>): Promise<SparePart | undefined> {
+    // Auto-calculate stockStatus if stockQuantity is being updated
+    if (data.stockQuantity !== undefined && data.stockQuantity !== null) {
+      if (data.stockQuantity === 0) {
+        data.stockStatus = "out_of_stock";
+      } else if (data.stockQuantity > 0 && data.stockQuantity <= 10) {
+        data.stockStatus = "low_stock";
+      } else {
+        data.stockStatus = "in_stock";
+      }
+    }
+    
     const [result] = await db
       .update(spareParts)
       .set(data)

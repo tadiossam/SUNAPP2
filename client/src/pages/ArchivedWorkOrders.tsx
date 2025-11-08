@@ -25,15 +25,20 @@ import { formatDistance } from "date-fns";
 type ArchivedWorkOrder = {
   id: string;
   workOrderNumber: string;
-  equipmentName: string;
-  workshopName: string;
-  garageName: string;
-  assignedTeamMembers: string[];
-  status: string;
-  createdAt: string;
+  equipmentId: string | null;
+  equipmentModel: string | null;
+  priority: string | null;
+  workType: string | null;
+  description: string | null;
+  status: string | null;
+  actualHours: string | null;
+  actualCost: string | null;
+  createdByName: string | null;
+  startedAt: string | null;
   completedAt: string | null;
+  createdAt: string | null;
   ethiopianYear: number;
-  problemDescription: string;
+  archivedAt: string;
 };
 
 type EthiopianYearInfo = {
@@ -186,9 +191,11 @@ export default function ArchivedWorkOrders() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <CardTitle className="text-lg">{order.workOrderNumber}</CardTitle>
-                      <Badge className={getStatusColor(order.status)}>
-                        {order.status}
-                      </Badge>
+                      {order.status && (
+                        <Badge className={getStatusColor(order.status)}>
+                          {order.status}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
                         <Calendar className="h-3 w-3 mr-1" />
                         Year {order.ethiopianYear}
@@ -196,56 +203,80 @@ export default function ArchivedWorkOrders() {
                     </div>
                     <p className="text-sm text-muted-foreground flex items-center gap-2">
                       <Truck className="h-3 w-3" />
-                      {order.equipmentName}
+                      {order.equipmentModel || "No equipment info"}
                     </p>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Problem Description */}
-                {order.problemDescription && (
+                {/* Description */}
+                {order.description && (
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Problem Description</Label>
-                    <p className="text-sm">{order.problemDescription}</p>
+                    <Label className="text-xs text-muted-foreground">Description</Label>
+                    <p className="text-sm">{order.description}</p>
                   </div>
                 )}
 
-                {/* Workshop & Garage */}
+                {/* Work Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{order.workshopName}</p>
-                      <p className="text-xs text-muted-foreground">{order.garageName}</p>
+                  {order.workType && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{order.workType}</p>
+                        <p className="text-xs text-muted-foreground">Work Type</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">
-                        {order.assignedTeamMembers.length > 0
-                          ? order.assignedTeamMembers.join(", ")
-                          : "No team assigned"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Team Members</p>
+                  {order.priority && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge variant={order.priority === "high" ? "destructive" : "outline"}>
+                        {order.priority}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground">Priority</p>
                     </div>
-                  </div>
+                  )}
                 </div>
+
+                {/* Cost and Hours */}
+                {(order.actualCost || order.actualHours) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t">
+                    {order.actualCost && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{parseFloat(order.actualCost).toLocaleString()} ETB</p>
+                          <p className="text-xs text-muted-foreground">Total Cost</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {order.actualHours && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{order.actualHours} hours</p>
+                          <p className="text-xs text-muted-foreground">Work Duration</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Dates */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Created</p>
-                      <p className="font-medium">
-                        {formatDistance(new Date(order.createdAt), new Date(), {
-                          addSuffix: true,
-                        })}
-                      </p>
+                  {order.createdAt && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Created By</p>
+                        <p className="font-medium">
+                          {order.createdByName || "Unknown"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {order.completedAt && (
                     <div className="flex items-center gap-2 text-sm">

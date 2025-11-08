@@ -206,8 +206,11 @@ export default function StoreManagerDashboard() {
       req.workOrder?.workOrderNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.requester?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
 
+    const hasBackorderedLines = req.lines?.some(line => line.status === 'backordered');
+
     const matchesTab = 
       (activeTab === "pending" && req.status === "pending_store") ||
+      (activeTab === "backordered" && hasBackorderedLines) ||
       (activeTab === "approved" && (req.status === "approved" || req.status === "waiting_purchase")) ||
       (activeTab === "rejected" && req.status === "rejected") ||
       (activeTab === "purchase_orders") ||
@@ -237,14 +240,16 @@ export default function StoreManagerDashboard() {
       setSelectedRequisition(freshRequisition);
       setIsApprovalDialogOpen(true);
       
-      // Initialize line decisions with default approve action
+      // Initialize line decisions with default actions
       const initialDecisions: Record<string, LineDecision> = {};
       freshRequisition.lines?.forEach(line => {
+        // For backordered lines, default to approve with the previously requested quantity
+        // For new lines, default to approve with requested quantity
         initialDecisions[line.id] = {
           lineId: line.id,
-          action: 'approve',
-          quantityApproved: line.quantityRequested,
-          remarks: '',
+          action: line.status === 'backordered' ? 'approve' : 'approve',
+          quantityApproved: line.status === 'backordered' ? (line.quantityApproved || line.quantityRequested) : line.quantityRequested,
+          remarks: line.status === 'backordered' ? 'Fulfilling backordered item after stock replenishment' : '',
         };
       });
       setLineDecisions(initialDecisions);
@@ -453,9 +458,12 @@ export default function StoreManagerDashboard() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="w-full overflow-x-auto">
-          <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-5">
+          <TabsList className="inline-flex w-full min-w-max lg:grid lg:w-full lg:grid-cols-6">
             <TabsTrigger value="pending" data-testid="tab-pending">
               Pending ({requisitions.filter(r => r.status === "pending_store").length})
+            </TabsTrigger>
+            <TabsTrigger value="backordered" data-testid="tab-backordered">
+              Backordered ({requisitions.filter(r => r.lines?.some(line => line.status === 'backordered')).length})
             </TabsTrigger>
             <TabsTrigger value="approved" data-testid="tab-approved">
               Approved
@@ -511,6 +519,11 @@ export default function StoreManagerDashboard() {
                       <div className="space-y-2">
                         <div className="text-sm">
                           <span className="font-medium">Items:</span> {requisition.lines?.length || 0}
+                          {requisition.lines?.some(line => line.status === 'backordered') && (
+                            <span className="ml-2 text-xs text-orange-600 dark:text-orange-400 font-semibold">
+                              ({requisition.lines.filter(line => line.status === 'backordered').length} backordered)
+                            </span>
+                          )}
                         </div>
                         {requisition.status === "pending_store" && (
                           <Button
@@ -519,6 +532,17 @@ export default function StoreManagerDashboard() {
                             data-testid={`button-review-${requisition.id}`}
                           >
                             Review Requisition
+                          </Button>
+                        )}
+                        {requisition.lines?.some(line => line.status === 'backordered') && (
+                          <Button
+                            onClick={() => handleOpenApproval(requisition)}
+                            className="w-full"
+                            variant="outline"
+                            data-testid={`button-review-backorder-${requisition.id}`}
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Review Backordered Lines
                           </Button>
                         )}
                       </div>
@@ -683,12 +707,18 @@ export default function StoreManagerDashboard() {
                     selectedRequisition.lines.map((line) => {
                     const decision = lineDecisions[line.id];
                     return (
-                      <Card key={line.id}>
+                      <Card key={line.id} className={line.status === 'backordered' ? 'border-orange-500 dark:border-orange-400' : ''}>
                         <CardContent className="pt-4">
                           <div className="grid gap-4">
                             <div>
                               <div className="font-medium flex items-center gap-2">
                                 {line.description}
+                                {line.status === 'backordered' && (
+                                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                    <ShoppingCart className="h-3 w-3 mr-1" />
+                                    Backordered
+                                  </Badge>
+                                )}
                                 {line.availableStock !== undefined && (
                                   <span className="text-sm text-red-600 dark:text-red-400 font-semibold">
                                     (Stock: {line.availableStock})
@@ -713,6 +743,11 @@ export default function StoreManagerDashboard() {
                                   </Badge>
                                 )}
                               </div>
+                              {line.status === 'backordered' && line.remarks && (
+                                <div className="mt-2 text-xs bg-orange-50 dark:bg-orange-950 p-2 rounded border border-orange-200 dark:border-orange-800">
+                                  <strong>Backorder Info:</strong> {line.remarks}
+                                </div>
+                              )}
                             </div>
                             
                             <div className="grid grid-cols-3 gap-4">

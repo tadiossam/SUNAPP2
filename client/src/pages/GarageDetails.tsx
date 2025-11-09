@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDeletionAlert } from "@/components/ConfirmDeletionAlert";
 import { 
   ArrowLeft, 
   Building2, 
@@ -48,6 +49,10 @@ export default function GarageDetails() {
 
   const [selectedWorkshopForDetails, setSelectedWorkshopForDetails] = useState<Workshop | null>(null);
   const [isWorkshopDetailsDialogOpen, setIsWorkshopDetailsDialogOpen] = useState(false);
+  
+  // Delete confirmation state
+  const [workshopToDelete, setWorkshopToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const { data: garage, isLoading } = useQuery<GarageWithDetails>({
     queryKey: [`/api/garages/${id}`],
@@ -70,6 +75,8 @@ export default function GarageDetails() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/garages/${id}`] });
+      setIsDeleteDialogOpen(false);
+      setWorkshopToDelete(null);
       toast({
         title: "Workshop deleted",
         description: "Workshop has been successfully removed.",
@@ -90,8 +97,13 @@ export default function GarageDetails() {
   };
 
   const handleDeleteWorkshop = (workshopId: string, workshopName: string) => {
-    if (confirm(`Are you sure you want to delete "${workshopName}"? This action cannot be undone.`)) {
-      deleteWorkshopMutation.mutate(workshopId);
+    setWorkshopToDelete({ id: workshopId, name: workshopName });
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDeleteWorkshop = () => {
+    if (workshopToDelete) {
+      deleteWorkshopMutation.mutate(workshopToDelete.id);
     }
   };
 
@@ -511,6 +523,16 @@ export default function GarageDetails() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Delete Workshop Confirmation */}
+      <ConfirmDeletionAlert
+        isOpen={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        entityLabel="Workshop"
+        entityName={workshopToDelete?.name || ""}
+        onConfirm={confirmDeleteWorkshop}
+        isConfirming={deleteWorkshopMutation.isPending}
+      />
       </div>
     </div>
   );

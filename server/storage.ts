@@ -1118,10 +1118,10 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Workshop not found");
     }
 
-    // Check for dependencies
-    const workOrdersList = await db.select().from(workOrders).where(eq(workOrders.workshopId, id));
+    // Check for dependencies via junction table
+    const workshopWorkOrderLinks = await db.select().from(workOrderWorkshops).where(eq(workOrderWorkshops.workshopId, id));
     
-    if (workOrdersList.length > 0) {
+    if (workshopWorkOrderLinks.length > 0) {
       throw new Error("Cannot delete workshop: has active work orders");
     }
 

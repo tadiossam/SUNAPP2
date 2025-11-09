@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ConfirmDeletionAlert } from "@/components/ConfirmDeletionAlert";
 
 export default function Garages() {
   const { t } = useLanguage();
@@ -34,6 +35,12 @@ export default function Garages() {
   // Employee search dialog states for Add Workshop
   const [isForemanSearchOpen, setIsForemanSearchOpen] = useState(false);
   const [isMemberSearchOpen, setIsMemberSearchOpen] = useState(false);
+  
+  // Delete confirmation states
+  const [garageToDelete, setGarageToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleteGarageDialogOpen, setIsDeleteGarageDialogOpen] = useState(false);
+  const [workshopToDelete, setWorkshopToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleteWorkshopDialogOpen, setIsDeleteWorkshopDialogOpen] = useState(false);
   
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
@@ -97,6 +104,8 @@ export default function Garages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      setIsDeleteGarageDialogOpen(false);
+      setGarageToDelete(null);
       toast({
         title: "Garage deleted",
         description: "Garage has been successfully deleted.",
@@ -135,9 +144,18 @@ export default function Garages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
+      setIsDeleteWorkshopDialogOpen(false);
+      setWorkshopToDelete(null);
       toast({
         title: "Workshop deleted",
         description: "Workshop has been successfully deleted.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete workshop",
+        variant: "destructive",
       });
     },
   });
@@ -230,9 +248,25 @@ export default function Garages() {
     setLocation(`/garages/${workshop.garageId}/workshops/${workshop.id}/edit`);
   };
 
-  const handleDeleteWorkshop = (workshopId: string) => {
-    if (confirm("Are you sure you want to delete this workshop?")) {
-      deleteWorkshopMutation.mutate(workshopId);
+  const handleDeleteWorkshop = (workshopId: string, workshopName: string) => {
+    setWorkshopToDelete({ id: workshopId, name: workshopName });
+    setIsDeleteWorkshopDialogOpen(true);
+  };
+  
+  const confirmDeleteWorkshop = () => {
+    if (workshopToDelete) {
+      deleteWorkshopMutation.mutate(workshopToDelete.id);
+    }
+  };
+  
+  const handleDeleteGarage = (garageId: string, garageName: string) => {
+    setGarageToDelete({ id: garageId, name: garageName });
+    setIsDeleteGarageDialogOpen(true);
+  };
+  
+  const confirmDeleteGarage = () => {
+    if (garageToDelete) {
+      deleteMutation.mutate(garageToDelete.id);
     }
   };
 
@@ -382,9 +416,7 @@ export default function Garages() {
                           className="h-8 w-8"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm("Are you sure you want to delete this garage?")) {
-                              deleteMutation.mutate(garage.id);
-                            }
+                            handleDeleteGarage(garage.id, garage.name);
                           }}
                           disabled={deleteMutation.isPending}
                           data-testid={`button-delete-garage-${garage.id}`}
@@ -776,6 +808,26 @@ export default function Garages() {
         onSelect={(ids) => {
           workshopForm.setValue('memberIds', ids);
         }}
+      />
+      
+      {/* Delete Garage Confirmation */}
+      <ConfirmDeletionAlert
+        isOpen={isDeleteGarageDialogOpen}
+        onOpenChange={setIsDeleteGarageDialogOpen}
+        entityLabel="Garage"
+        entityName={garageToDelete?.name || ""}
+        onConfirm={confirmDeleteGarage}
+        isConfirming={deleteMutation.isPending}
+      />
+      
+      {/* Delete Workshop Confirmation */}
+      <ConfirmDeletionAlert
+        isOpen={isDeleteWorkshopDialogOpen}
+        onOpenChange={setIsDeleteWorkshopDialogOpen}
+        entityLabel="Workshop"
+        entityName={workshopToDelete?.name || ""}
+        onConfirm={confirmDeleteWorkshop}
+        isConfirming={deleteWorkshopMutation.isPending}
       />
 
       </div>

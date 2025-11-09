@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClipboardList, Package, CheckCircle, PackageCheck, FileText, Info, Filter } from "lucide-react";
 import { RequestPartsDialog } from "@/components/RequestPartsDialog";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
@@ -69,9 +68,6 @@ export default function TeamDashboard() {
   // Date range filtering state
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
-  
-  // Active work order status filter
-  const [activeStatusFilter, setActiveStatusFilter] = useState<string>("all");
 
   const { data: myWorkOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/my-assignments"],
@@ -167,19 +163,13 @@ export default function TeamDashboard() {
     setIsRequestPartsOpen(true);
   };
 
-  const activeWorkOrders = useMemo(() => safeWorkOrders.filter(
+  const activeWorkOrders = safeWorkOrders.filter(
     (wo) =>
       wo.status === "active" ||
       wo.status === "in_progress" ||
       wo.status === "awaiting_parts" ||
       wo.status === "waiting_purchase"
-  ), [safeWorkOrders]);
-  
-  // Filter active work orders by selected status
-  const filteredActiveWorkOrders = useMemo(() => activeWorkOrders.filter((wo) => {
-    if (activeStatusFilter === "all") return true;
-    return wo.status === activeStatusFilter;
-  }), [activeWorkOrders, activeStatusFilter]);
+  );
 
   const completedWorkOrders = safeWorkOrders.filter(
     (wo) =>
@@ -411,7 +401,7 @@ export default function TeamDashboard() {
 
         <Card 
           className="cursor-pointer hover-elevate active-elevate-2" 
-          onClick={() => setLocation('/purchase-orders')}
+          onClick={() => setLocation('/awaiting-parts')}
           data-testid="card-awaiting-parts"
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -425,7 +415,7 @@ export default function TeamDashboard() {
               {safeWorkOrders.filter((wo) => wo.status === "awaiting_parts" || wo.status === "waiting_purchase").length}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {language === "am" ? "ይመልከቱ" : "View purchase orders"}
+              {language === "am" ? "ይመልከቱ" : "Click to view"}
             </p>
           </CardContent>
         </Card>
@@ -465,71 +455,12 @@ export default function TeamDashboard() {
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
-          {/* Status Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                {language === "am" ? "በሁኔታ ያጣራ" : "Filter by Status"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row gap-4 items-end">
-                <div className="flex-1 w-full">
-                  <Label htmlFor="status-filter-active">
-                    {language === "am" ? "ሁኔታ" : "Status"}
-                  </Label>
-                  <Select value={activeStatusFilter} onValueChange={setActiveStatusFilter}>
-                    <SelectTrigger id="status-filter-active" data-testid="select-active-status-filter">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" data-testid="option-status-all">
-                        {language === "am" ? "ሁሉም" : "All Statuses"}
-                      </SelectItem>
-                      <SelectItem value="active" data-testid="option-status-active">
-                        {language === "am" ? "ንቁ" : "Active"}
-                      </SelectItem>
-                      <SelectItem value="in_progress" data-testid="option-status-in-progress">
-                        {language === "am" ? "በሂደት ላይ" : "In Progress"}
-                      </SelectItem>
-                      <SelectItem value="awaiting_parts" data-testid="option-status-awaiting-parts">
-                        {language === "am" ? "እቃ በመጠባበቅ" : "Awaiting Parts"}
-                      </SelectItem>
-                      <SelectItem value="waiting_purchase" data-testid="option-status-waiting-purchase">
-                        {language === "am" ? "ግዢ በመጠባበቅ" : "Waiting Purchase"}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {activeStatusFilter !== "all" && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setActiveStatusFilter("all")}
-                    data-testid="button-clear-status-filter"
-                  >
-                    {language === "am" ? "ማጽጃ አጥራ" : "Clear Filter"}
-                  </Button>
-                )}
-              </div>
-              {activeStatusFilter !== "all" && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  {language === "am" 
-                    ? `${filteredActiveWorkOrders.length} ከ ${activeWorkOrders.length} የስራ ትእዛዞች` 
-                    : `Showing ${filteredActiveWorkOrders.length} of ${activeWorkOrders.length} work orders`}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {filteredActiveWorkOrders.length > 0 ? (
-            filteredActiveWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
+          {activeWorkOrders.length > 0 ? (
+            activeWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
           ) : (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                {activeStatusFilter !== "all" 
-                  ? (language === "am" ? "በዚህ ሁኔታ ምንም የስራ ትእዛዞች የሉም" : "No work orders with this status")
-                  : (language === "am" ? "ምንም ንቁ የስራ ትእዛዞች የሉም" : "No active work orders")}
+                {language === "am" ? "ምንም ንቁ የስራ ትእዛዞች የሉም" : "No active work orders"}
               </CardContent>
             </Card>
           )}

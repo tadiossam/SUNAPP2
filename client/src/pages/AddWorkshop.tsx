@@ -29,7 +29,7 @@ export default function AddWorkshop() {
   const { garageId } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { draft, setDraft, updateDraft, clearDraft } = useWorkshopDraft();
+  const { draft, setDraft, updateDraft, clearDraft, initDraft } = useWorkshopDraft();
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
@@ -62,18 +62,28 @@ export default function AddWorkshop() {
     },
   });
 
-  // Initialize draft on mount if not exists
+  // Initialize scoped draft on mount
   useEffect(() => {
-    if (!draft) {
-      setDraft({
-        name: "",
-        foremanId: "",
-        description: "",
-        garageId: garageId!,
-        memberIds: [],
-      });
-    }
-  }, [draft, setDraft, garageId]);
+    initDraft(garageId!, undefined);
+    
+    // If no draft exists after init, create a fresh one
+    const timer = setTimeout(() => {
+      if (!draft) {
+        setDraft({
+          name: "",
+          foremanId: "",
+          description: "",
+          garageId: garageId!,
+          memberIds: [],
+        });
+      }
+    }, 0);
+    
+    return () => {
+      clearTimeout(timer);
+      // Don't clear draft on unmount - preserve it for back navigation
+    };
+  }, [garageId, initDraft]);
 
   // Sync form changes to draft
   useEffect(() => {

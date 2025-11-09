@@ -22,31 +22,47 @@ interface WorkshopDraftContextType {
   clearDraft: () => void;
   setForemanId: (foremanId: string) => void;
   setMemberIds: (memberIds: string[]) => void;
+  getStorageKey: (garageId: string, workshopId?: string) => string;
+  initDraft: (garageId: string, workshopId?: string) => void;
 }
 
-const STORAGE_KEY = "workshop_draft";
+const getStorageKey = (garageId: string, workshopId?: string) => {
+  return `workshop_draft_${garageId}_${workshopId || "new"}`;
+};
 
 const WorkshopDraftContext = createContext<WorkshopDraftContextType | undefined>(undefined);
 
 export function WorkshopDraftProvider({ children }: { children: ReactNode }) {
-  const [draft, setDraftState] = useState<WorkshopDraft | null>(() => {
-    // Initialize from sessionStorage
-    try {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [draft, setDraftState] = useState<WorkshopDraft | null>(null);
+  const [currentStorageKey, setCurrentStorageKey] = useState<string | null>(null);
 
   // Persist to sessionStorage whenever draft changes
   useEffect(() => {
-    if (draft) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
-    } else {
-      sessionStorage.removeItem(STORAGE_KEY);
+    if (currentStorageKey) {
+      if (draft) {
+        sessionStorage.setItem(currentStorageKey, JSON.stringify(draft));
+      } else {
+        sessionStorage.removeItem(currentStorageKey);
+      }
     }
-  }, [draft]);
+  }, [draft, currentStorageKey]);
+
+  const initDraft = (garageId: string, workshopId?: string) => {
+    const key = getStorageKey(garageId, workshopId);
+    setCurrentStorageKey(key);
+    
+    // Load from sessionStorage if exists
+    try {
+      const stored = sessionStorage.getItem(key);
+      if (stored) {
+        setDraftState(JSON.parse(stored));
+      } else {
+        setDraftState(null);
+      }
+    } catch {
+      setDraftState(null);
+    }
+  };
 
   const setDraft = (newDraft: WorkshopDraft | null) => {
     setDraftState(newDraft);
@@ -57,8 +73,11 @@ export function WorkshopDraftProvider({ children }: { children: ReactNode }) {
   };
 
   const clearDraft = () => {
+    if (currentStorageKey) {
+      sessionStorage.removeItem(currentStorageKey);
+    }
     setDraftState(null);
-    sessionStorage.removeItem(STORAGE_KEY);
+    setCurrentStorageKey(null);
   };
 
   const setForemanId = (foremanId: string) => {
@@ -71,7 +90,16 @@ export function WorkshopDraftProvider({ children }: { children: ReactNode }) {
 
   return (
     <WorkshopDraftContext.Provider
-      value={{ draft, setDraft, updateDraft, clearDraft, setForemanId, setMemberIds }}
+      value={{ 
+        draft, 
+        setDraft, 
+        updateDraft, 
+        clearDraft, 
+        setForemanId, 
+        setMemberIds,
+        getStorageKey,
+        initDraft
+      }}
     >
       {children}
     </WorkshopDraftContext.Provider>

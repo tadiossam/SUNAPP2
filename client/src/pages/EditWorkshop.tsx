@@ -30,7 +30,7 @@ export default function EditWorkshop() {
   const { garageId, workshopId } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { draft, setDraft, updateDraft, clearDraft } = useWorkshopDraft();
+  const { draft, setDraft, updateDraft, clearDraft, initDraft } = useWorkshopDraft();
 
   const { data: workshop, isLoading } = useQuery<Workshop & { membersList?: Employee[] }>({
     queryKey: [`/api/workshops/${workshopId}`],
@@ -67,7 +67,16 @@ export default function EditWorkshop() {
     },
   });
 
-  // Initialize draft from workshop data
+  // Initialize scoped draft on mount
+  useEffect(() => {
+    initDraft(garageId!, workshopId);
+    
+    return () => {
+      // Don't clear draft on unmount - preserve it for back navigation
+    };
+  }, [garageId, workshopId, initDraft]);
+
+  // Initialize draft from workshop data when workshop loads
   useEffect(() => {
     if (workshop && (!draft || draft.workshopId !== workshopId)) {
       const memberIds = workshop.membersList?.map((m: Employee) => m.id) || [];

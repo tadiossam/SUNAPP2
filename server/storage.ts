@@ -1658,52 +1658,94 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkOrdersByTeamMember(teamMemberId: string, isAdmin?: boolean): Promise<WorkOrderWithDetails[]> {
+    let ordersList: typeof workOrders.$inferSelect[];
+    
     // If admin, return all work orders with team member assignments
     if (isAdmin) {
-      const allOrders = await db
+      ordersList = await db
         .select()
         .from(workOrders)
         .orderBy(desc(workOrders.createdAt));
+    } else {
+      // Get work orders where the user is a team member
+      const teamMemberships = await db
+        .select()
+        .from(workOrderMemberships)
+        .where(
+          and(
+            eq(workOrderMemberships.employeeId, teamMemberId),
+            eq(workOrderMemberships.role, "team_member"),
+            eq(workOrderMemberships.isActive, true)
+          )
+        );
       
-      // Get full details for each order
-      const ordersWithDetails = await Promise.all(
-        allOrders.map(order => this.getWorkOrderById(order.id))
-      );
+      if (teamMemberships.length === 0) {
+        return [];
+      }
       
-      return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+      const workOrderIds = teamMemberships.map(m => m.workOrderId);
+      
+      // Get work orders (all active statuses)
+      ordersList = await db
+        .select()
+        .from(workOrders)
+        .where(inArray(workOrders.id, workOrderIds))
+        .orderBy(desc(workOrders.createdAt));
     }
     
-    // Get work orders where the user is a team member
-    const teamMemberships = await db
-      .select()
-      .from(workOrderMemberships)
-      .where(
-        and(
-          eq(workOrderMemberships.employeeId, teamMemberId),
-          eq(workOrderMemberships.role, "team_member"),
-          eq(workOrderMemberships.isActive, true)
-        )
-      );
-    
-    if (teamMemberships.length === 0) {
+    if (ordersList.length === 0) {
       return [];
     }
     
-    const workOrderIds = teamMemberships.map(m => m.workOrderId);
+    // Batch fetch all related data to avoid N+1 queries
+    const orderIds = ordersList.map(o => o.id);
+    const equipmentIds = [...new Set(ordersList.map(o => o.equipmentId))];
+    const garageIds = [...new Set(ordersList.map(o => o.garageId).filter((id): id is string => id !== null))];
+    const workshopIds = [...new Set(ordersList.map(o => o.workshopId).filter((id): id is string => id !== null))];
+    const employeeIds = [...new Set(ordersList.flatMap(o => [
+      ...(o.assignedToIds || []),
+      o.createdById
+    ].filter((id): id is string => id !== null && id !== undefined)))];
     
-    // Get work orders (all active statuses)
-    const assignedOrders = await db
-      .select()
-      .from(workOrders)
-      .where(inArray(workOrders.id, workOrderIds))
-      .orderBy(desc(workOrders.createdAt));
+    // Fetch all related data in parallel (with guards for empty arrays to avoid invalid SQL)
+    const [equipmentList, garageList, workshopList, employeeList, requiredPartsList] = await Promise.all([
+      equipmentIds.length > 0 ? db.select().from(equipment).where(inArray(equipment.id, equipmentIds)) : Promise.resolve([]),
+      garageIds.length > 0 ? db.select().from(garages).where(inArray(garages.id, garageIds)) : Promise.resolve([]),
+      workshopIds.length > 0 ? db.select().from(workshops).where(inArray(workshops.id, workshopIds)) : Promise.resolve([]),
+      employeeIds.length > 0 ? db.select().from(employees).where(inArray(employees.id, employeeIds)) : Promise.resolve([]),
+      orderIds.length > 0 ? db.select().from(workOrderRequiredParts).where(inArray(workOrderRequiredParts.workOrderId, orderIds)) : Promise.resolve([])
+    ]);
     
-    // Get full details for each order
-    const ordersWithDetails = await Promise.all(
-      assignedOrders.map(order => this.getWorkOrderById(order.id))
-    );
+    // Create lookup maps for O(1) access
+    const equipmentMap = new Map(equipmentList.map(e => [e.id, e]));
+    const garageMap = new Map(garageList.map(g => [g.id, g]));
+    const workshopMap = new Map(workshopList.map(w => [w.id, w]));
+    const employeeMap = new Map(employeeList.map(e => [e.id, e]));
+    const requiredPartsMap = new Map<string, typeof workOrderRequiredParts.$inferSelect[]>();
+    requiredPartsList.forEach(part => {
+      const existing = requiredPartsMap.get(part.workOrderId) || [];
+      existing.push(part);
+      requiredPartsMap.set(part.workOrderId, existing);
+    });
     
-    return ordersWithDetails.filter(order => order !== undefined) as WorkOrderWithDetails[];
+    // Assemble work orders with details using in-memory lookups
+    const ordersWithDetails: WorkOrderWithDetails[] = ordersList.map(order => {
+      const assignedToList = (order.assignedToIds || [])
+        .map(id => employeeMap.get(id))
+        .filter((e): e is typeof employees.$inferSelect => e !== undefined);
+      
+      return {
+        ...order,
+        equipment: equipmentMap.get(order.equipmentId),
+        garage: order.garageId ? garageMap.get(order.garageId) : undefined,
+        workshop: order.workshopId ? workshopMap.get(order.workshopId) : undefined,
+        assignedToList,
+        createdBy: order.createdById ? employeeMap.get(order.createdById) : undefined,
+        requiredParts: requiredPartsMap.get(order.id) || [],
+      };
+    });
+    
+    return ordersWithDetails;
   }
 
   async assignTeamToWorkOrder(workOrderId: string, teamMemberIds: string[], foremanId: string): Promise<void> {

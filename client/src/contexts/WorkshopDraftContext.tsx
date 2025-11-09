@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 
 interface WorkshopDraft {
   name: string;
-  foremanId: string;
+  foremanId?: string; // Optional until selected
   description: string;
   garageId: string;
   memberIds: string[];

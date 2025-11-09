@@ -54,7 +54,7 @@ export default function EditWorkshop() {
     ),
     defaultValues: draft || {
       name: "",
-      foremanId: "",
+      foremanId: undefined,
       description: "",
       garageId: garageId,
       memberIds: [] as string[],
@@ -78,7 +78,7 @@ export default function EditWorkshop() {
       const memberIds = workshop.membersList?.map((m: Employee) => m.id) || [];
       const initialDraft = {
         name: workshop.name,
-        foremanId: workshop.foremanId || "",
+        foremanId: workshop.foremanId || undefined,
         description: workshop.description || "",
         garageId: workshop.garageId,
         memberIds: memberIds,
@@ -98,20 +98,23 @@ export default function EditWorkshop() {
   // Update form when draft changes (from SelectEmployees or sessionStorage)
   useEffect(() => {
     if (draft && workshop) {
-      // Sync all fields from draft to form
-      const currentValues = form.getValues();
-      if (currentValues.foremanId !== draft.foremanId) {
-        form.setValue("foremanId", draft.foremanId);
-      }
-      if (JSON.stringify(currentValues.memberIds) !== JSON.stringify(draft.memberIds)) {
-        form.setValue("memberIds", draft.memberIds);
-      }
-      if (currentValues.name !== draft.name) {
-        form.setValue("name", draft.name);
-      }
-      if (currentValues.description !== draft.description) {
-        form.setValue("description", draft.description || "");
-      }
+      // Reset entire form with draft data to ensure validation state is updated
+      form.reset({
+        name: draft.name || "",
+        foremanId: draft.foremanId || undefined,
+        description: draft.description || "",
+        garageId: draft.garageId,
+        memberIds: draft.memberIds || [],
+        monthlyTarget: draft.monthlyTarget,
+        q1Target: draft.q1Target,
+        q2Target: draft.q2Target,
+        q3Target: draft.q3Target,
+        q4Target: draft.q4Target,
+        annualTarget: draft.annualTarget,
+      }, { keepDefaultValues: false });
+      
+      // Trigger validation after reset
+      form.trigger(['foremanId', 'memberIds']);
     }
   }, [draft, workshop, form]);
 

@@ -38,11 +38,15 @@ import VerifierDashboard from "@/pages/VerifierDashboard";
 import TeamDashboard from "@/pages/TeamDashboard";
 import FleetTracking from "@/pages/FleetTracking";
 import ArchivedWorkOrders from "@/pages/ArchivedWorkOrders";
+import AddWorkshop from "@/pages/AddWorkshop";
+import EditWorkshop from "@/pages/EditWorkshop";
+import SelectEmployees from "@/pages/SelectEmployees";
 import NotFound from "@/pages/not-found";
 import { Button } from "@/components/ui/button";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
+import { WorkshopDraftProvider } from "@/contexts/WorkshopDraftContext";
 
 function Router() {
   return (
@@ -59,6 +63,9 @@ function Router() {
       <Route path="/maintenance" component={MaintenancePage} />
       <Route path="/models" component={ModelsPage} />
       <Route path="/upload" component={UploadModelPage} />
+      <Route path="/garages/:garageId/workshops/new" component={AddWorkshop} />
+      <Route path="/garages/:garageId/workshops/:workshopId/edit" component={EditWorkshop} />
+      <Route path="/garages/:garageId/workshops/select-employees" component={SelectEmployees} />
       <Route path="/garages/:id/old" component={GarageDetailsPage} />
       <Route path="/garages/:id" component={GarageDetailPage} />
       <Route path="/garages" component={GaragesPage} />
@@ -184,8 +191,10 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <LanguageProvider>
           <TooltipProvider>
-            <AppContent />
-            <Toaster />
+            <WorkshopDraftProvider>
+              <AppContent />
+              <Toaster />
+            </WorkshopDraftProvider>
           </TooltipProvider>
         </LanguageProvider>
       </QueryClientProvider>

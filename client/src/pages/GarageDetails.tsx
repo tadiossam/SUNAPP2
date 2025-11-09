@@ -229,24 +229,8 @@ export default function GarageDetails() {
   };
 
   const handleEditWorkshop = (workshop: any) => {
-    setEditingWorkshop(workshop);
-    const memberIds = workshop.membersList?.map((m: Employee) => m.id) || [];
-    setEditSelectedForemanId(workshop.foremanId || "");
-    setEditSelectedMemberIds(memberIds);
-    editWorkshopForm.reset({
-      name: workshop.name,
-      foremanId: workshop.foremanId,
-      description: workshop.description || "",
-      garageId: workshop.garageId,
-      memberIds: memberIds,
-      monthlyTarget: workshop.monthlyTarget ?? undefined,
-      q1Target: workshop.q1Target ?? undefined,
-      q2Target: workshop.q2Target ?? undefined,
-      q3Target: workshop.q3Target ?? undefined,
-      q4Target: workshop.q4Target ?? undefined,
-      annualTarget: workshop.annualTarget ?? undefined,
-    });
-    setIsEditWorkshopDialogOpen(true);
+    // Navigate to edit workshop page
+    setLocation(`/garages/${id}/workshops/${workshop.id}/edit`);
   };
 
   const handleDeleteWorkshop = (workshopId: string, workshopName: string) => {
@@ -362,7 +346,7 @@ export default function GarageDetails() {
               Workshops ({garage.workshops?.length || 0})
             </CardTitle>
             <Button 
-              onClick={() => setIsAddWorkshopDialogOpen(true)}
+              onClick={() => setLocation(`/garages/${id}/workshops/new`)}
               size="sm"
               data-testid="button-add-workshop"
             >

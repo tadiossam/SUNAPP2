@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
+import { WorkOrderCostDialog } from "@/components/WorkOrderCostDialog";
 import { useEquipmentModels } from "@/hooks/useEquipmentModels";
 import { EquipmentModelFilter } from "@/components/EquipmentModelFilter";
 
@@ -80,6 +81,10 @@ export default function WorkOrdersPage() {
   const [isWorkshopDialogOpen, setIsWorkshopDialogOpen] = useState(false);
   const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  
+  // Cost tracking dialog
+  const [costDialogWorkOrderId, setCostDialogWorkOrderId] = useState<string | null>(null);
+  const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
 
   // Inspection and Maintenance detail dialogs
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
@@ -671,6 +676,25 @@ export default function WorkOrdersPage() {
                     >
                       <Eye className="h-3.5 w-3.5 mr-1.5" />
                       {markAsCompletedMutation.isPending ? "Processing..." : "Mark as Completed"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Cost Tracking Button - Show for in_progress, verified, and completed work orders */}
+                {(wo.status === 'in_progress' || wo.status === 'verified' || wo.status === 'completed') && (
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setCostDialogWorkOrderId(wo.id);
+                        setIsCostDialogOpen(true);
+                      }}
+                      className="w-full"
+                      data-testid={`button-cost-tracking-${wo.id}`}
+                    >
+                      <DollarSign className="h-3.5 w-3.5 mr-1.5" />
+                      Cost Tracking
                     </Button>
                   </div>
                 )}
@@ -1411,6 +1435,13 @@ export default function WorkOrdersPage() {
         workOrderId={detailsWorkOrderId}
         open={isDetailsDialogOpen}
         onOpenChange={setIsDetailsDialogOpen}
+      />
+
+      {/* Work Order Cost Tracking Dialog */}
+      <WorkOrderCostDialog
+        workOrderId={costDialogWorkOrderId}
+        open={isCostDialogOpen}
+        onOpenChange={setIsCostDialogOpen}
       />
     </div>
   );

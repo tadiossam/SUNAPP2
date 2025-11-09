@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, User, Package, CheckCircle, Users, FileText, PackageCheck } from "lucide-react";
+import { Clock, User, Package, CheckCircle, Users, FileText, PackageCheck, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 
@@ -65,6 +65,47 @@ type PartReceipt = {
   } | null;
 };
 
+type LaborEntry = {
+  id: string;
+  employeeName: string;
+  hoursWorked: number;
+  hourlyRate: number;
+  totalCost: number;
+  description?: string;
+  workDate: string;
+};
+
+type LubricantEntry = {
+  id: string;
+  lubricantType: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  description?: string;
+  usedDate: string;
+};
+
+type OutsourceEntry = {
+  id: string;
+  vendorName: string;
+  serviceDescription: string;
+  cost: number;
+  invoiceNumber?: string;
+  serviceDate: string;
+};
+
+type CostSummary = {
+  plannedLaborCost: number;
+  actualLaborCost: number;
+  plannedLubricantCost: number;
+  actualLubricantCost: number;
+  plannedOutsourceCost: number;
+  actualOutsourceCost: number;
+  totalPlannedCost: number;
+  totalActualCost: number;
+  costVariance: number;
+};
+
 type WorkOrderDetails = {
   id: string;
   workOrderNumber: string;
@@ -78,6 +119,7 @@ type WorkOrderDetails = {
   memberships: WorkOrderMembership[];
   itemRequisitions: ItemRequisition[];
   partsReceipts: PartReceipt[];
+  costSummary?: CostSummary;
 };
 
 export function WorkOrderDetailsDialog({ workOrderId, open, onOpenChange }: WorkOrderDetailsDialogProps) {
@@ -86,6 +128,22 @@ export function WorkOrderDetailsDialog({ workOrderId, open, onOpenChange }: Work
     queryFn: async () => {
       if (!workOrderId) throw new Error("No work order ID");
       const response = await apiRequest("GET", `/api/work-orders/${workOrderId}/details`);
+      return response.json();
+    },
+    enabled: !!workOrderId && open,
+  });
+
+  // Fetch cost data separately
+  const { data: costData } = useQuery<{ 
+    summary: CostSummary;
+    laborEntries: LaborEntry[];
+    lubricantEntries: LubricantEntry[];
+    outsourceEntries: OutsourceEntry[];
+  }>({
+    queryKey: ["/api/work-orders", workOrderId, "costs"],
+    queryFn: async () => {
+      if (!workOrderId) throw new Error("No work order ID");
+      const response = await apiRequest("GET", `/api/work-orders/${workOrderId}/costs`);
       return response.json();
     },
     enabled: !!workOrderId && open,
@@ -100,6 +158,14 @@ export function WorkOrderDetailsDialog({ workOrderId, open, onOpenChange }: Work
     ?.filter(req => req.status === "approved" || req.status === "fulfilled")
     .flatMap(req => req.lines)
     .filter(line => line.status === "approved" || line.status === "fulfilled") || [];
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'ETB',
+      minimumFractionDigits: 2,
+    }).format(amount).replace('ETB', 'ETB ');
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -180,6 +246,248 @@ export function WorkOrderDetailsDialog({ workOrderId, open, onOpenChange }: Work
                       )}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Cost Breakdown Card */}
+            {costData?.summary && (costData.summary.totalActualCost > 0 || costData.summary.totalPlannedCost > 0) && (
+              <Card data-testid="card-cost-breakdown">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    Cost Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Total Cost Summary */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground text-sm">Planned Total</Label>
+                      <p className="text-3xl font-bold" data-testid="text-planned-total">
+                        {formatCurrency(costData.summary.totalPlannedCost)}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-muted-foreground text-sm">Actual Total</Label>
+                      <p className="text-3xl font-bold text-primary" data-testid="text-actual-total">
+                        {formatCurrency(costData.summary.totalActualCost)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Cost Breakdown by Category */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-semibold">Cost Details</Label>
+                    
+                    {/* Labor Costs */}
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Labor (Planned)</p>
+                        <p className="font-medium">{formatCurrency(costData.summary.plannedLaborCost)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Labor (Actual)</p>
+                        <p className="font-medium text-primary">{formatCurrency(costData.summary.actualLaborCost)}</p>
+                      </div>
+                    </div>
+
+                    {/* Lubricant Costs */}
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Lubricants (Planned)</p>
+                        <p className="font-medium">{formatCurrency(costData.summary.plannedLubricantCost)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Lubricants (Actual)</p>
+                        <p className="font-medium text-primary">{formatCurrency(costData.summary.actualLubricantCost)}</p>
+                      </div>
+                    </div>
+
+                    {/* Outsource Costs */}
+                    <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Outsource (Planned)</p>
+                        <p className="font-medium">{formatCurrency(costData.summary.plannedOutsourceCost)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Outsource (Actual)</p>
+                        <p className="font-medium text-primary">{formatCurrency(costData.summary.actualOutsourceCost)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cost Variance */}
+                  {costData.summary.totalPlannedCost > 0 && (
+                    <div className="pt-3 border-t">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          {costData.summary.costVariance > 0 ? (
+                            <TrendingUp className="h-5 w-5 text-destructive" data-testid="icon-variance-over" />
+                          ) : costData.summary.costVariance < 0 ? (
+                            <TrendingDown className="h-5 w-5 text-green-600" data-testid="icon-variance-under" />
+                          ) : null}
+                          <Label className="font-semibold">Cost Variance</Label>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-xl font-bold ${
+                            costData.summary.costVariance > 0 ? 'text-destructive' :
+                            costData.summary.costVariance < 0 ? 'text-green-600' : ''
+                          }`} data-testid="text-cost-variance">
+                            {costData.summary.costVariance > 0 ? '+' : ''}
+                            {formatCurrency(costData.summary.costVariance)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {costData.summary.costVariance > 0 ? 'Over Budget' :
+                             costData.summary.costVariance < 0 ? 'Under Budget' : 'On Budget'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Itemized Cost Entries - Show if any entries exist */}
+                  {costData && (costData.laborEntries.length > 0 || costData.lubricantEntries.length > 0 || costData.outsourceEntries.length > 0) && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="space-y-4">
+                        <Label className="text-sm font-semibold">Itemized Cost Entries</Label>
+                        
+                        <Tabs defaultValue={
+                          costData.laborEntries.length > 0 ? "labor" :
+                          costData.lubricantEntries.length > 0 ? "lubricants" : "outsource"
+                        } className="w-full">
+                          <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="labor" data-testid="tab-cost-labor">
+                              Labor ({costData.laborEntries.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="lubricants" data-testid="tab-cost-lubricants">
+                              Lubricants ({costData.lubricantEntries.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="outsource" data-testid="tab-cost-outsource">
+                              Outsource ({costData.outsourceEntries.length})
+                            </TabsTrigger>
+                          </TabsList>
+
+                          <TabsContent value="labor" className="space-y-2 mt-4">
+                            {costData.laborEntries.length > 0 ? (
+                              <div className="space-y-2">
+                                {costData.laborEntries.map((entry) => (
+                                  <div key={entry.id} className="p-3 rounded-lg border" data-testid={`labor-entry-${entry.id}`}>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Employee</p>
+                                        <p className="font-medium text-sm">{entry.employeeName}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Hours</p>
+                                        <p className="font-medium text-sm">{entry.hoursWorked.toFixed(2)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Rate</p>
+                                        <p className="font-medium text-sm">{formatCurrency(entry.hourlyRate)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Total</p>
+                                        <p className="font-bold text-sm text-primary">{formatCurrency(entry.totalCost)}</p>
+                                      </div>
+                                    </div>
+                                    {entry.description && (
+                                      <p className="text-xs text-muted-foreground mt-2">{entry.description}</p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {new Date(entry.workDate).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground text-center py-4">No labor entries</p>
+                            )}
+                          </TabsContent>
+
+                          <TabsContent value="lubricants" className="space-y-2 mt-4">
+                            {costData.lubricantEntries.length > 0 ? (
+                              <div className="space-y-2">
+                                {costData.lubricantEntries.map((entry) => (
+                                  <div key={entry.id} className="p-3 rounded-lg border" data-testid={`lubricant-entry-${entry.id}`}>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Type</p>
+                                        <Badge variant="outline" className="text-xs">
+                                          {entry.lubricantType.replace(/_/g, ' ')}
+                                        </Badge>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Quantity</p>
+                                        <p className="font-medium text-sm">{entry.quantity.toFixed(2)} L</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Unit Cost</p>
+                                        <p className="font-medium text-sm">{formatCurrency(entry.unitCost)}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Total</p>
+                                        <p className="font-bold text-sm text-primary">{formatCurrency(entry.totalCost)}</p>
+                                      </div>
+                                    </div>
+                                    {entry.description && (
+                                      <p className="text-xs text-muted-foreground mt-2">{entry.description}</p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {new Date(entry.usedDate).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground text-center py-4">No lubricant entries</p>
+                            )}
+                          </TabsContent>
+
+                          <TabsContent value="outsource" className="space-y-2 mt-4">
+                            {costData.outsourceEntries.length > 0 ? (
+                              <div className="space-y-2">
+                                {costData.outsourceEntries.map((entry) => (
+                                  <div key={entry.id} className="p-3 rounded-lg border" data-testid={`outsource-entry-${entry.id}`}>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Vendor</p>
+                                        <p className="font-medium text-sm">{entry.vendorName}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Invoice #</p>
+                                        {entry.invoiceNumber ? (
+                                          <Badge variant="outline" className="text-xs">{entry.invoiceNumber}</Badge>
+                                        ) : (
+                                          <p className="text-sm text-muted-foreground">-</p>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Cost</p>
+                                        <p className="font-bold text-sm text-primary">{formatCurrency(entry.cost)}</p>
+                                      </div>
+                                    </div>
+                                    <div className="mt-2">
+                                      <p className="text-xs text-muted-foreground">Service</p>
+                                      <p className="text-sm">{entry.serviceDescription}</p>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {new Date(entry.serviceDate).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground text-center py-4">No outsource entries</p>
+                            )}
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}

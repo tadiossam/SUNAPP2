@@ -30,14 +30,10 @@ export default function Garages() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isWorkshopDialogOpen, setIsWorkshopDialogOpen] = useState(false);
   const [selectedGarageForWorkshop, setSelectedGarageForWorkshop] = useState<GarageWithDetails | null>(null);
-  const [editingWorkshop, setEditingWorkshop] = useState<any | null>(null);
-  const [isEditWorkshopDialogOpen, setIsEditWorkshopDialogOpen] = useState(false);
   
-  // Employee search dialog states
+  // Employee search dialog states for Add Workshop
   const [isForemanSearchOpen, setIsForemanSearchOpen] = useState(false);
   const [isMemberSearchOpen, setIsMemberSearchOpen] = useState(false);
-  const [isEditForemanSearchOpen, setIsEditForemanSearchOpen] = useState(false);
-  const [isEditMemberSearchOpen, setIsEditMemberSearchOpen] = useState(false);
   
 
   const { data: garages, isLoading } = useQuery<GarageWithDetails[]>({
@@ -132,21 +128,6 @@ export default function Garages() {
     },
   });
 
-  const updateWorkshopMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return await apiRequest("PUT", `/api/workshops/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/garages"] });
-      setIsEditWorkshopDialogOpen(false);
-      setEditingWorkshop(null);
-      editWorkshopForm.reset();
-      toast({
-        title: "Workshop updated",
-        description: "Workshop has been successfully updated.",
-      });
-    },
-  });
 
   const deleteWorkshopMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -202,20 +183,6 @@ export default function Garages() {
     },
   });
 
-  const editWorkshopForm = useForm({
-    defaultValues: {
-      name: "",
-      foremanId: "",
-      description: "",
-      memberIds: [] as string[],
-      monthlyTarget: undefined as number | undefined,
-      q1Target: undefined as number | undefined,
-      q2Target: undefined as number | undefined,
-      q3Target: undefined as number | undefined,
-      q4Target: undefined as number | undefined,
-      annualTarget: undefined as number | undefined,
-    },
-  });
 
   const onSubmit = (data: InsertGarage) => {
     createMutation.mutate(data);
@@ -238,18 +205,6 @@ export default function Garages() {
     }
   };
 
-  const onEditWorkshopSubmit = (data: any) => {
-    if (editingWorkshop) {
-      const { memberIds, ...workshopData } = data;
-      updateWorkshopMutation.mutate({
-        id: editingWorkshop.id,
-        data: {
-          ...workshopData,
-          memberIds: memberIds || [],
-        },
-      });
-    }
-  };
 
   const handleEdit = (garage: GarageWithDetails) => {
     setEditingGarage(garage);
@@ -271,21 +226,8 @@ export default function Garages() {
   };
 
   const handleEditWorkshop = (workshop: any) => {
-    setEditingWorkshop(workshop);
-    const memberIds = workshop.membersList?.map((m: any) => m.id) || [];
-    editWorkshopForm.reset({
-      name: workshop.name,
-      foremanId: workshop.foremanId || "",
-      description: workshop.description || "",
-      memberIds: memberIds,
-      monthlyTarget: workshop.monthlyTarget || undefined,
-      q1Target: workshop.q1Target || undefined,
-      q2Target: workshop.q2Target || undefined,
-      q3Target: workshop.q3Target || undefined,
-      q4Target: workshop.q4Target || undefined,
-      annualTarget: workshop.annualTarget || undefined,
-    });
-    setIsEditWorkshopDialogOpen(true);
+    // Navigate to edit workshop page
+    setLocation(`/garages/${workshop.garageId}/workshops/${workshop.id}/edit`);
   };
 
   const handleDeleteWorkshop = (workshopId: string) => {
@@ -808,253 +750,6 @@ export default function Garages() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Workshop Dialog */}
-      <Dialog open={isEditWorkshopDialogOpen} onOpenChange={setIsEditWorkshopDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Workshop</DialogTitle>
-            <DialogDescription>
-              Update workshop details, foreman, team members, and planning targets.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...editWorkshopForm}>
-            <form onSubmit={editWorkshopForm.handleSubmit(onEditWorkshopSubmit)} className="space-y-4">
-              <FormField
-                control={editWorkshopForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Workshop Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        data-testid="input-edit-workshop-name"
-                        placeholder="Workshop name"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editWorkshopForm.control}
-                name="foremanId"
-                render={({ field }) => {
-                  const selectedForeman = employees?.find(e => e.id === field.value);
-                  return (
-                    <FormItem>
-                      <FormLabel>Foreman (Boss) *</FormLabel>
-                      <FormControl>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full justify-start"
-                          onClick={() => setIsEditForemanSearchOpen(true)}
-                          data-testid="button-edit-select-foreman"
-                        >
-                          <UserCheck className="h-4 w-4 mr-2" />
-                          {selectedForeman ? `${selectedForeman.fullName} - ${selectedForeman.role}` : "Select foreman"}
-                        </Button>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
-              <FormField
-                control={editWorkshopForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (Optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        data-testid="input-edit-workshop-description"
-                        placeholder="Workshop description"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Workshop Members Section */}
-              <div className="space-y-2">
-                <FormLabel>Workshop Members *</FormLabel>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => setIsEditMemberSearchOpen(true)}
-                  data-testid="button-edit-select-members"
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  {editWorkshopForm.watch('memberIds')?.length 
-                    ? `${editWorkshopForm.watch('memberIds')?.length} member(s) selected`
-                    : "Select team members"}
-                </Button>
-              </div>
-
-              {/* Planning Targets Section */}
-              <div className="border-t pt-4 space-y-3">
-                <h3 className="text-sm font-medium">Planning Targets (Optional)</h3>
-                <p className="text-xs text-muted-foreground">Set planned work order targets for dashboard reporting</p>
-                
-                {planningTargetsLocked && (
-                  <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
-                    <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
-                      Planning targets are locked for the current Ethiopian year. They can only be edited when a new year starts through the Year Closure process in Admin Settings.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="monthlyTarget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Monthly Target</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            data-testid="input-edit-monthly-target"
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="annualTarget"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Annual Target</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            data-testid="input-edit-annual-target"
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q1Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Q1 Target (Jan-Mar)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            data-testid="input-edit-q1-target"
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q2Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Q2 Target (Apr-Jun)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            data-testid="input-edit-q2-target"
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q3Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Q3 Target (Jul-Sep)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            data-testid="input-edit-q3-target"
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={editWorkshopForm.control}
-                    name="q4Target"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Q4 Target (Oct-Dec)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            data-testid="input-edit-q4-target"
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            disabled={planningTargetsLocked}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  type="submit"
-                  data-testid="button-submit-edit-workshop"
-                  disabled={updateWorkshopMutation.isPending}
-                >
-                  {updateWorkshopMutation.isPending ? t("loading") : t("save")}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
       {/* Employee Search Dialogs for Create Workshop */}
       <EmployeeSearchDialog
         open={isForemanSearchOpen}
@@ -1083,33 +778,6 @@ export default function Garages() {
         }}
       />
 
-      {/* Employee Search Dialogs for Edit Workshop */}
-      <EmployeeSearchDialog
-        open={isEditForemanSearchOpen}
-        onOpenChange={setIsEditForemanSearchOpen}
-        mode="single"
-        title="Select Foreman"
-        description="Choose a foreman/boss for this workshop"
-        selectedIds={editWorkshopForm.watch('foremanId') ? [editWorkshopForm.watch('foremanId')] : []}
-        onSelect={(ids) => {
-          if (ids.length > 0) {
-            editWorkshopForm.setValue('foremanId', ids[0]);
-          }
-        }}
-      />
-
-      <EmployeeSearchDialog
-        open={isEditMemberSearchOpen}
-        onOpenChange={setIsEditMemberSearchOpen}
-        mode="multiple"
-        title="Select Team Members"
-        description="Choose team members for this workshop"
-        selectedIds={editWorkshopForm.watch('memberIds') || []}
-        excludeIds={editWorkshopForm.watch('foremanId') ? [editWorkshopForm.watch('foremanId')] : []}
-        onSelect={(ids) => {
-          editWorkshopForm.setValue('memberIds', ids);
-        }}
-      />
       </div>
     </div>
   );

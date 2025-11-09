@@ -1822,8 +1822,6 @@ export const appCustomizations = pgTable("app_customizations", {
   logoUrl: text("logo_url"), // Path to uploaded logo image
   primaryColor: text("primary_color").default("#0ea5e9"), // Primary theme color (hex)
   themeMode: text("theme_mode").notNull().default("light"), // light, dark, or auto
-  fiscalYearStartMonth: integer("fiscal_year_start_month").notNull().default(1), // Fiscal year start month (1-12), defaults to January
-  fiscalYearStartDay: integer("fiscal_year_start_day").notNull().default(1), // Fiscal year start day (1-31), defaults to 1st
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: varchar("updated_by").references(() => employees.id), // Employee who made the change (Admin/CEO)
 });

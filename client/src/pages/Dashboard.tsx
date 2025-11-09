@@ -23,6 +23,7 @@ import {
 import { TrendingUp, DollarSign, CheckCircle, AlertCircle, Users, Wrench, Calendar, Filter } from "lucide-react";
 import { format } from "date-fns";
 import CostDrilldownDialog from "@/components/CostDrilldownDialog";
+import { getFiscalQuarterRange } from "@shared/fiscal";
 
 const COLORS = ["#2563eb", "#7c3aed", "#dc2626", "#f59e0b", "#10b981", "#f97316", "#8b5cf6"];
 

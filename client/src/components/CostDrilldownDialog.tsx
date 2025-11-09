@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, Calendar, Wrench } from "lucide-react";
 import { format } from "date-fns";
+import { getFiscalQuarterRange } from "@shared/fiscal";
 
 interface CostDrilldownDialogProps {
   open: boolean;
@@ -108,17 +109,21 @@ export default function CostDrilldownDialog({
         filterEnd = new Date(endDate);
         filterEnd.setHours(23, 59, 59, 999);
       } else if (timePeriod === 'q1') {
-        filterStart = new Date(year, 0, 1);
-        filterEnd = new Date(year, 2, 31, 23, 59, 59);
+        const { start, end } = getFiscalQuarterRange(1, year);
+        filterStart = start;
+        filterEnd = end;
       } else if (timePeriod === 'q2') {
-        filterStart = new Date(year, 3, 1);
-        filterEnd = new Date(year, 5, 30, 23, 59, 59);
+        const { start, end } = getFiscalQuarterRange(2, year);
+        filterStart = start;
+        filterEnd = end;
       } else if (timePeriod === 'q3') {
-        filterStart = new Date(year, 6, 1);
-        filterEnd = new Date(year, 8, 30, 23, 59, 59);
+        const { start, end } = getFiscalQuarterRange(3, year);
+        filterStart = start;
+        filterEnd = end;
       } else if (timePeriod === 'q4') {
-        filterStart = new Date(year, 9, 1);
-        filterEnd = new Date(year, 11, 31, 23, 59, 59);
+        const { start, end } = getFiscalQuarterRange(4, year);
+        filterStart = start;
+        filterEnd = end;
       } else if (timePeriod === 'monthly') {
         // For monthly mode, dashboard aggregates the FULL YEAR (all 12 months)
         // NOT a single month - use year range to match dashboard analytics

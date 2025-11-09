@@ -58,6 +58,7 @@ import express from "express";
 import bcrypt from "bcrypt";
 import { calculateWorkOrderElapsedTime } from "./work-timer-utils";
 import { parseEquipmentDescription } from "./parse-equipment-description";
+import { getFiscalQuarterRange } from "../shared/fiscal";
 import {
   generateExcelTemplate,
   parseExcelFile,
@@ -7436,25 +7437,17 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         customEnd.setHours(23, 59, 59, 999); // Set to end of day
         dateFilter = { start: customStart, end: customEnd };
       } else if (timePeriod === 'q1') {
-        dateFilter = {
-          start: new Date(year, 0, 1),
-          end: new Date(year, 2, 31, 23, 59, 59)
-        };
+        const { start, end } = getFiscalQuarterRange(1, year);
+        dateFilter = { start, end };
       } else if (timePeriod === 'q2') {
-        dateFilter = {
-          start: new Date(year, 3, 1),
-          end: new Date(year, 5, 30, 23, 59, 59)
-        };
+        const { start, end } = getFiscalQuarterRange(2, year);
+        dateFilter = { start, end };
       } else if (timePeriod === 'q3') {
-        dateFilter = {
-          start: new Date(year, 6, 1),
-          end: new Date(year, 8, 30, 23, 59, 59)
-        };
+        const { start, end } = getFiscalQuarterRange(3, year);
+        dateFilter = { start, end };
       } else if (timePeriod === 'q4') {
-        dateFilter = {
-          start: new Date(year, 9, 1),
-          end: new Date(year, 11, 31, 23, 59, 59)
-        };
+        const { start, end } = getFiscalQuarterRange(4, year);
+        dateFilter = { start, end };
       } else if (timePeriod === 'monthly') {
         const month = parseInt(req.query.month as string) || new Date().getMonth();
         const lastDay = new Date(year, month + 1, 0).getDate();
@@ -7720,13 +7713,13 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         // Continue with default empty costCharts structure
       }
       
-      // Calculate quarterly data for the year
+      // Calculate quarterly data for the year (fiscal quarters based on Ethiopian calendar)
       const quarterlyData = [];
       const quarters = [
-        { name: 'Q1', start: new Date(year, 0, 1), end: new Date(year, 2, 31, 23, 59, 59), months: [0, 1, 2] },
-        { name: 'Q2', start: new Date(year, 3, 1), end: new Date(year, 5, 30, 23, 59, 59), months: [3, 4, 5] },
-        { name: 'Q3', start: new Date(year, 6, 1), end: new Date(year, 8, 30, 23, 59, 59), months: [6, 7, 8] },
-        { name: 'Q4', start: new Date(year, 9, 1), end: new Date(year, 11, 31, 23, 59, 59), months: [9, 10, 11] },
+        { name: 'FY Q1', ...getFiscalQuarterRange(1, year) },
+        { name: 'FY Q2', ...getFiscalQuarterRange(2, year) },
+        { name: 'FY Q3', ...getFiscalQuarterRange(3, year) },
+        { name: 'FY Q4', ...getFiscalQuarterRange(4, year) },
       ];
       
       for (const quarter of quarters) {

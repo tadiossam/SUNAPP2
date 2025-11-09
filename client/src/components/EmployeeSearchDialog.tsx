@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, UserCheck, Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, UserCheck, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
 interface EmployeeSearchDialogProps {
@@ -20,6 +21,8 @@ interface EmployeeSearchDialogProps {
   onSelect: (employeeIds: string[]) => void;
 }
 
+const EMPLOYEES_PER_PAGE = 30;
+
 export function EmployeeSearchDialog({
   open,
   onOpenChange,
@@ -32,14 +35,21 @@ export function EmployeeSearchDialog({
 }: EmployeeSearchDialogProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>(selectedIds);
+  const [currentPage, setCurrentPage] = useState(0);
 
   // Sync internal state when dialog opens or selectedIds changes
   useEffect(() => {
     if (open) {
       setInternalSelectedIds(selectedIds);
       setSearchTerm(""); // Reset search for fresh experience
+      setCurrentPage(0); // Reset to first page
     }
   }, [open, selectedIds]);
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm]);
 
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
@@ -55,6 +65,33 @@ export function EmployeeSearchDialog({
           emp.role.toLowerCase().includes(searchTerm.toLowerCase())
       );
   }, [employees, excludeIds, searchTerm]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredEmployees.length / EMPLOYEES_PER_PAGE);
+  const startIndex = currentPage * EMPLOYEES_PER_PAGE;
+  const endIndex = startIndex + EMPLOYEES_PER_PAGE;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  // Clamp current page when filtered list shrinks (e.g., excludeIds changes)
+  useEffect(() => {
+    if (filteredEmployees.length > 0 && paginatedEmployees.length === 0) {
+      // Current page is beyond available pages, reset to last valid page
+      const maxPage = Math.max(totalPages - 1, 0);
+      setCurrentPage(maxPage);
+    }
+  }, [filteredEmployees.length, paginatedEmployees.length, totalPages]);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
 
   const handleSelect = (employeeId: string) => {
     if (mode === "single") {
@@ -114,7 +151,7 @@ export function EmployeeSearchDialog({
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredEmployees.map((employee) => (
+                {paginatedEmployees.map((employee) => (
                   <div
                     key={employee.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover-elevate ${
@@ -153,6 +190,41 @@ export function EmployeeSearchDialog({
             )}
           </ScrollArea>
 
+          {/* Pagination Controls */}
+          {filteredEmployees.length > EMPLOYEES_PER_PAGE && (
+            <div className="flex items-center justify-between pt-3 border-t flex-shrink-0">
+              <div className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(endIndex, filteredEmployees.length)} of {filteredEmployees.length}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 0}
+                  data-testid="button-previous-page"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <Badge variant="secondary" className="px-3">
+                  Page {currentPage + 1} of {totalPages}
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={currentPage >= totalPages - 1}
+                  data-testid="button-next-page"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
           <div className="flex items-center justify-between pt-4 border-t flex-shrink-0">
             <div className="text-sm text-muted-foreground">
               {mode === "multiple" && `${internalSelectedIds.length} selected`}

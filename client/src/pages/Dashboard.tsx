@@ -149,7 +149,7 @@ export default function Dashboard() {
 
                     {/* Workshop Filter */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Maintenance Workshop</label>
+                      <label className="text-sm font-medium">Workshop</label>
                       <Select value={workshopId} onValueChange={setWorkshopId}>
                         <SelectTrigger data-testid="select-workshop">
                           <SelectValue />
@@ -210,7 +210,7 @@ export default function Dashboard() {
 
                     {/* Workshop Filter */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Maintenance Workshop</label>
+                      <label className="text-sm font-medium">Workshop</label>
                       <Select value={workshopId} onValueChange={setWorkshopId}>
                         <SelectTrigger data-testid="select-workshop">
                           <SelectValue />

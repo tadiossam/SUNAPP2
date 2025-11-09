@@ -140,7 +140,7 @@ export function EmployeeSearchDialog({
             />
           </div>
 
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 min-h-[400px] pr-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 Loading employees...

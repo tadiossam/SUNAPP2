@@ -355,6 +355,7 @@ export const employees = pgTable("employees", {
   canApprove: boolean("can_approve").default(false), // Can approve work orders and parts requests
   approvalLimit: decimal("approval_limit", { precision: 12, scale: 2 }), // Maximum amount they can approve (in currency)
   supervisorId: varchar("supervisor_id").references((): any => employees.id), // Their supervisor/department head
+  hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }), // Hourly rate in ETB for labor cost calculation
   isActive: boolean("is_active").default(true).notNull(),
   hireDate: timestamp("hire_date"),
   certifications: text("certifications").array(), // List of certifications
@@ -375,12 +376,32 @@ export const workOrders = pgTable("work_orders", {
   description: text("description").notNull(),
   status: text("status").notNull().default("pending_allocation"), // pending_allocation, pending_foreman_assignment, pending_team_acceptance, active, awaiting_parts, waiting_purchase, in_progress, pending_verification, pending_supervisor, completed, rejected, cancelled
   actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
-  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // Actual total cost (auto-calculated from breakdown)
-  // Cost breakdown for dashboard analytics
-  directMaintenanceCost: decimal("direct_maintenance_cost", { precision: 12, scale: 2 }), // Labor + direct costs
-  overtimeCost: decimal("overtime_cost", { precision: 12, scale: 2 }), // Overtime labor costs
-  outsourceCost: decimal("outsource_cost", { precision: 12, scale: 2 }), // External contractor costs
-  overheadCost: decimal("overhead_cost", { precision: 12, scale: 2 }), // Auto-calculated as 30% of maintenance cost
+  
+  // DEPRECATED cost fields (kept for backward compatibility - read-only)
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // DEPRECATED: Use totalActualCost instead
+  directMaintenanceCost: decimal("direct_maintenance_cost", { precision: 12, scale: 2 }), // DEPRECATED: Use actualLaborCost instead
+  overtimeCost: decimal("overtime_cost", { precision: 12, scale: 2 }), // DEPRECATED: Included in actualLaborCost
+  outsourceCost: decimal("outsource_cost", { precision: 12, scale: 2 }), // DEPRECATED: Use actualOutsourceCost instead
+  overheadCost: decimal("overhead_cost", { precision: 12, scale: 2 }), // DEPRECATED: Use actualOverheadCost instead
+  
+  // NEW comprehensive cost tracking system
+  // Planned costs (entered during work order creation/approval)
+  plannedLaborCost: decimal("planned_labor_cost", { precision: 12, scale: 2 }),
+  plannedLubricantCost: decimal("planned_lubricant_cost", { precision: 12, scale: 2 }),
+  plannedOutsourceCost: decimal("planned_outsource_cost", { precision: 12, scale: 2 }),
+  totalPlannedCost: decimal("total_planned_cost", { precision: 12, scale: 2 }), // Sum of all planned costs
+  
+  // Actual costs (auto-calculated from itemized entries)
+  actualLaborCost: decimal("actual_labor_cost", { precision: 12, scale: 2 }), // Calculated from labor entries
+  actualLubricantCost: decimal("actual_lubricant_cost", { precision: 12, scale: 2 }), // Calculated from lubricant entries
+  actualOutsourceCost: decimal("actual_outsource_cost", { precision: 12, scale: 2 }), // Calculated from outsource entries
+  actualOverheadCost: decimal("actual_overhead_cost", { precision: 12, scale: 2 }), // Auto-calculated as % of labor
+  totalActualCost: decimal("total_actual_cost", { precision: 12, scale: 2 }), // Sum of all actual costs
+  
+  // Cost variance tracking
+  costVariance: decimal("cost_variance", { precision: 12, scale: 2 }), // totalActualCost - totalPlannedCost
+  costVariancePercent: decimal("cost_variance_percent", { precision: 5, scale: 2 }), // Percentage variance
+  
   isOutsourced: boolean("is_outsourced").default(false), // Flag for outsourced work
   approvalStatus: text("approval_status").default("not_required"), // not_required, pending, approved, rejected
   approvedById: varchar("approved_by_id").references(() => employees.id), // Supervisor who approved
@@ -465,6 +486,75 @@ export const workOrderTimeTracking = pgTable("work_order_time_tracking", {
   triggeredById: varchar("triggered_by_id").references(() => employees.id),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
+
+// ============ COST TRACKING SYSTEM ============
+
+// Work Order Labor Entries - Itemized labor cost tracking
+export const workOrderLaborEntries = pgTable("work_order_labor_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  employeeId: varchar("employee_id").notNull().references(() => employees.id, { onDelete: "restrict" }),
+  entryType: text("entry_type").notNull().default("actual"), // "planned", "actual"
+  timeSource: text("time_source").notNull().default("manual"), // "timer", "manual" - how hours were captured
+  hoursWorked: decimal("hours_worked", { precision: 5, scale: 2 }).notNull(), // Hours worked
+  hourlyRateSnapshot: decimal("hourly_rate_snapshot", { precision: 10, scale: 2 }).notNull(), // Rate at time of entry (prevents historical drift)
+  overtimeFactor: decimal("overtime_factor", { precision: 3, scale: 2 }).default("1.00"), // 1.0 = regular, 1.5 = time-and-half, 2.0 = double-time
+  totalCost: decimal("total_cost", { precision: 12, scale: 2 }).notNull(), // hoursWorked × hourlyRate × overtimeFactor
+  description: text("description"), // What work was performed
+  workDate: timestamp("work_date"), // When the work was performed
+  enteredById: varchar("entered_by_id").references(() => employees.id), // Who entered this record
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Index for efficient work order lookup
+  workOrderIdx: uniqueIndex("work_order_labor_entries_work_order_idx").on(table.workOrderId),
+}));
+
+// Work Order Lubricant/Materials Entries - Itemized lubricant and materials cost tracking
+export const workOrderLubricantEntries = pgTable("work_order_lubricant_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  entryType: text("entry_type").notNull().default("actual"), // "planned", "actual"
+  sparePartId: varchar("spare_part_id").references(() => spareParts.id, { onDelete: "set null" }), // Optional link to parts catalog
+  itemName: text("item_name").notNull(), // Lubricant/material name (denormalized for history)
+  itemNumber: text("item_number"), // Part/item number
+  category: text("category").default("lubricant"), // "lubricant", "oil", "grease", "filter", "material"
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(), // Amount used
+  unit: text("unit").default("liter"), // "liter", "kg", "piece", "gallon", etc.
+  unitCostSnapshot: decimal("unit_cost_snapshot", { precision: 12, scale: 2 }).notNull(), // Price per unit at time of use
+  totalCost: decimal("total_cost", { precision: 12, scale: 2 }).notNull(), // quantity × unitCost
+  supplier: text("supplier"), // Where it was purchased/sourced from
+  description: text("description"), // Additional notes
+  usedDate: timestamp("used_date"), // When it was used
+  enteredById: varchar("entered_by_id").references(() => employees.id), // Who entered this record
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Index for efficient work order lookup
+  workOrderIdx: uniqueIndex("work_order_lubricant_entries_work_order_idx").on(table.workOrderId),
+}));
+
+// Work Order Outsource Entries - Itemized outsource/contractor cost tracking
+export const workOrderOutsourceEntries = pgTable("work_order_outsource_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => workOrders.id, { onDelete: "cascade" }),
+  entryType: text("entry_type").notNull().default("actual"), // "planned", "actual"
+  vendorName: text("vendor_name").notNull(), // Contractor/vendor name
+  vendorContact: text("vendor_contact"), // Phone/email
+  serviceDescription: text("service_description").notNull(), // What service was provided
+  serviceCategory: text("service_category"), // "welding", "painting", "machining", "towing", "fabrication", etc.
+  plannedCost: decimal("planned_cost", { precision: 12, scale: 2 }), // Original quote/estimate
+  actualCost: decimal("actual_cost", { precision: 12, scale: 2 }).notNull(), // Final amount paid
+  invoiceNumber: text("invoice_number"), // Vendor invoice reference
+  invoiceDate: timestamp("invoice_date"), // Invoice date
+  paymentStatus: text("payment_status").default("pending"), // "pending", "paid", "partial"
+  paymentDate: timestamp("payment_date"), // When payment was made
+  remarks: text("remarks"), // Notes about the service
+  serviceDate: timestamp("service_date"), // When service was performed
+  enteredById: varchar("entered_by_id").references(() => employees.id), // Who entered this record
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Index for efficient work order lookup
+  workOrderIdx: uniqueIndex("work_order_outsource_entries_work_order_idx").on(table.workOrderId),
+}));
 
 // Approval Stages - Define multi-level approval workflow stages
 export const approvalStages = pgTable("approval_stages", {
@@ -1238,6 +1328,34 @@ export const insertWorkOrderTimeTrackingSchema = createInsertSchema(workOrderTim
   timestamp: true,
 });
 
+// Cost tracking insert schemas
+export const insertWorkOrderLaborEntrySchema = createInsertSchema(workOrderLaborEntries).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  hoursWorked: z.coerce.number().min(0, "Hours worked must be positive"),
+  hourlyRateSnapshot: z.coerce.number().min(0, "Hourly rate must be positive"),
+  overtimeFactor: z.coerce.number().min(1, "Overtime factor must be at least 1.0").default(1.0),
+  totalCost: z.coerce.number().min(0, "Total cost must be positive"),
+});
+
+export const insertWorkOrderLubricantEntrySchema = createInsertSchema(workOrderLubricantEntries).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  quantity: z.coerce.number().min(0, "Quantity must be positive"),
+  unitCostSnapshot: z.coerce.number().min(0, "Unit cost must be positive"),
+  totalCost: z.coerce.number().min(0, "Total cost must be positive"),
+});
+
+export const insertWorkOrderOutsourceEntrySchema = createInsertSchema(workOrderOutsourceEntries).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  plannedCost: z.coerce.number().min(0, "Planned cost must be positive").optional(),
+  actualCost: z.coerce.number().min(0, "Actual cost must be positive"),
+});
+
 export const insertApprovalStageSchema = createInsertSchema(approvalStages).omit({
   id: true,
   createdAt: true,
@@ -1313,6 +1431,15 @@ export type WorkOrderStatusHistory = typeof workOrderStatusHistory.$inferSelect;
 export type InsertWorkOrderStatusHistory = z.infer<typeof insertWorkOrderStatusHistorySchema>;
 export type WorkOrderTimeTracking = typeof workOrderTimeTracking.$inferSelect;
 export type InsertWorkOrderTimeTracking = z.infer<typeof insertWorkOrderTimeTrackingSchema>;
+
+// Cost tracking types
+export type WorkOrderLaborEntry = typeof workOrderLaborEntries.$inferSelect;
+export type InsertWorkOrderLaborEntry = z.infer<typeof insertWorkOrderLaborEntrySchema>;
+export type WorkOrderLubricantEntry = typeof workOrderLubricantEntries.$inferSelect;
+export type InsertWorkOrderLubricantEntry = z.infer<typeof insertWorkOrderLubricantEntrySchema>;
+export type WorkOrderOutsourceEntry = typeof workOrderOutsourceEntries.$inferSelect;
+export type InsertWorkOrderOutsourceEntry = z.infer<typeof insertWorkOrderOutsourceEntrySchema>;
+
 export type ApprovalStage = typeof approvalStages.$inferSelect;
 export type InsertApprovalStage = z.infer<typeof insertApprovalStageSchema>;
 export type WorkOrderApproval = typeof workOrderApprovals.$inferSelect;

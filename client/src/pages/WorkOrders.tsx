@@ -95,20 +95,15 @@ export default function WorkOrdersPage() {
     queryKey: ["/api/work-orders"],
   });
 
+  // Only fetch equipment and garages when dialogs are open (lazy loading for performance)
   const { data: equipment } = useQuery<Equipment[]>({
     queryKey: ["/api/equipment"],
+    enabled: isDialogOpen || isInspectionSelectOpen,
   });
 
   const { data: garages } = useQuery<Garage[]>({
     queryKey: ["/api/garages"],
-  });
-
-  const { data: employees } = useQuery<Employee[]>({
-    queryKey: ["/api/employees"],
-  });
-
-  const { data: spareParts } = useQuery<SparePart[]>({
-    queryKey: ["/api/parts"],
+    enabled: isDialogOpen || isInspectionSelectOpen,
   });
 
   // Use equipment models hook

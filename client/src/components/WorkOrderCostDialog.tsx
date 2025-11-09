@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DollarSign, Plus, Trash2, User, Droplet, Briefcase, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Employee } from "@shared/schema";
 
 type WorkOrderCostDialogProps = {
   workOrderId: string | null;
@@ -25,9 +30,11 @@ type WorkOrderCostDialogProps = {
 
 type LaborEntry = {
   id: string;
-  employeeName: string;
+  employeeId: string;
+  employeeName?: string;
   hoursWorked: number;
-  hourlyRate: number;
+  hourlyRateSnapshot: number;
+  overtimeFactor: number;
   totalCost: number;
   description?: string;
   workDate: string;
@@ -35,9 +42,11 @@ type LaborEntry = {
 
 type LubricantEntry = {
   id: string;
-  lubricantType: string;
+  itemName: string;
+  category: string;
   quantity: number;
-  unitCost: number;
+  unit: string;
+  unitCostSnapshot: number;
   totalCost: number;
   description?: string;
   usedDate: string;
@@ -47,7 +56,8 @@ type OutsourceEntry = {
   id: string;
   vendorName: string;
   serviceDescription: string;
-  cost: number;
+  plannedCost?: number;
+  actualCost: number;
   invoiceNumber?: string;
   serviceDate: string;
 };
@@ -71,6 +81,39 @@ type CostData = {
   summary: CostSummary;
 };
 
+// Client-side form schemas extending insert schemas
+const laborFormSchema = z.object({
+  employeeId: z.string().min(1, "Please select an employee"),
+  hoursWorked: z.coerce.number().min(0.1, "Hours must be at least 0.1"),
+  hourlyRateSnapshot: z.coerce.number().min(0, "Hourly rate must be positive"),
+  overtimeFactor: z.coerce.number().min(1, "Overtime factor must be at least 1.0").default(1.0),
+  description: z.string().optional(),
+  workDate: z.string().min(1, "Work date is required"),
+});
+
+const lubricantFormSchema = z.object({
+  itemName: z.string().min(1, "Item name is required"),
+  category: z.string().min(1, "Category is required"),
+  quantity: z.coerce.number().min(0.1, "Quantity must be at least 0.1"),
+  unit: z.string().min(1, "Unit is required"),
+  unitCostSnapshot: z.coerce.number().min(0, "Unit cost must be positive"),
+  description: z.string().optional(),
+  usedDate: z.string().min(1, "Used date is required"),
+});
+
+const outsourceFormSchema = z.object({
+  vendorName: z.string().min(1, "Vendor name is required"),
+  serviceDescription: z.string().min(1, "Service description is required"),
+  plannedCost: z.coerce.number().min(0, "Planned cost must be positive").optional(),
+  actualCost: z.coerce.number().min(0, "Actual cost must be positive"),
+  invoiceNumber: z.string().optional(),
+  serviceDate: z.string().min(1, "Service date is required"),
+});
+
+type LaborFormValues = z.infer<typeof laborFormSchema>;
+type LubricantFormValues = z.infer<typeof lubricantFormSchema>;
+type OutsourceFormValues = z.infer<typeof outsourceFormSchema>;
+
 export function WorkOrderCostDialog({ 
   workOrderId, 
   open, 
@@ -81,26 +124,11 @@ export function WorkOrderCostDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("summary");
 
-  // Labor form state
-  const [laborEmployeeName, setLaborEmployeeName] = useState("");
-  const [laborHours, setLaborHours] = useState("");
-  const [laborRate, setLaborRate] = useState("");
-  const [laborDescription, setLaborDescription] = useState("");
-  const [laborDate, setLaborDate] = useState(new Date().toISOString().split('T')[0]);
-
-  // Lubricant form state
-  const [lubricantType, setLubricantType] = useState("");
-  const [lubricantQuantity, setLubricantQuantity] = useState("");
-  const [lubricantUnitCost, setLubricantUnitCost] = useState("");
-  const [lubricantDescription, setLubricantDescription] = useState("");
-  const [lubricantDate, setLubricantDate] = useState(new Date().toISOString().split('T')[0]);
-
-  // Outsource form state
-  const [outsourceVendor, setOutsourceVendor] = useState("");
-  const [outsourceService, setOutsourceService] = useState("");
-  const [outsourceCost, setOutsourceCost] = useState("");
-  const [outsourceInvoice, setOutsourceInvoice] = useState("");
-  const [outsourceDate, setOutsourceDate] = useState(new Date().toISOString().split('T')[0]);
+  // Fetch employees for labor entry
+  const { data: employees = [] } = useQuery<Employee[]>({
+    queryKey: ["/api/employees"],
+    enabled: open,
+  });
 
   // Fetch cost data
   const { data: costData, isLoading } = useQuery<CostData>({
@@ -113,10 +141,64 @@ export function WorkOrderCostDialog({
     enabled: !!workOrderId && open,
   });
 
+  // Labor form
+  const laborForm = useForm<LaborFormValues>({
+    resolver: zodResolver(laborFormSchema),
+    defaultValues: {
+      employeeId: "",
+      hoursWorked: 0,
+      hourlyRateSnapshot: 0,
+      overtimeFactor: 1.0,
+      description: "",
+      workDate: new Date().toISOString().split('T')[0],
+    },
+  });
+
+  // Lubricant form
+  const lubricantForm = useForm<LubricantFormValues>({
+    resolver: zodResolver(lubricantFormSchema),
+    defaultValues: {
+      itemName: "",
+      category: "lubricant",
+      quantity: 0,
+      unit: "liter",
+      unitCostSnapshot: 0,
+      description: "",
+      usedDate: new Date().toISOString().split('T')[0],
+    },
+  });
+
+  // Outsource form
+  const outsourceForm = useForm<OutsourceFormValues>({
+    resolver: zodResolver(outsourceFormSchema),
+    defaultValues: {
+      vendorName: "",
+      serviceDescription: "",
+      plannedCost: undefined,
+      actualCost: 0,
+      invoiceNumber: "",
+      serviceDate: new Date().toISOString().split('T')[0],
+    },
+  });
+
   // Add labor entry mutation
   const addLaborMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", `/api/work-orders/${workOrderId}/labor`, data);
+    mutationFn: async (data: LaborFormValues) => {
+      const totalCost = data.hoursWorked * data.hourlyRateSnapshot * data.overtimeFactor;
+      const payload = {
+        employeeId: data.employeeId,
+        hoursWorked: data.hoursWorked,
+        hourlyRateSnapshot: data.hourlyRateSnapshot,
+        overtimeFactor: data.overtimeFactor,
+        totalCost,
+        description: data.description || undefined,
+        workDate: data.workDate,
+      };
+      const response = await apiRequest("POST", `/api/work-orders/${workOrderId}/labor`, payload);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add labor entry");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -126,17 +208,12 @@ export function WorkOrderCostDialog({
         title: "Labor entry added",
         description: "Labor cost has been recorded successfully",
       });
-      // Reset form
-      setLaborEmployeeName("");
-      setLaborHours("");
-      setLaborRate("");
-      setLaborDescription("");
-      setLaborDate(new Date().toISOString().split('T')[0]);
+      laborForm.reset();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to add labor entry",
+        description: error.message || "Failed to add labor entry",
         variant: "destructive",
       });
     },
@@ -144,8 +221,23 @@ export function WorkOrderCostDialog({
 
   // Add lubricant entry mutation
   const addLubricantMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", `/api/work-orders/${workOrderId}/lubricants`, data);
+    mutationFn: async (data: LubricantFormValues) => {
+      const totalCost = data.quantity * data.unitCostSnapshot;
+      const payload = {
+        itemName: data.itemName,
+        category: data.category,
+        quantity: data.quantity,
+        unit: data.unit,
+        unitCostSnapshot: data.unitCostSnapshot,
+        totalCost,
+        description: data.description || undefined,
+        usedDate: data.usedDate,
+      };
+      const response = await apiRequest("POST", `/api/work-orders/${workOrderId}/lubricants`, payload);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add lubricant entry");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -155,17 +247,12 @@ export function WorkOrderCostDialog({
         title: "Lubricant entry added",
         description: "Lubricant cost has been recorded successfully",
       });
-      // Reset form
-      setLubricantType("");
-      setLubricantQuantity("");
-      setLubricantUnitCost("");
-      setLubricantDescription("");
-      setLubricantDate(new Date().toISOString().split('T')[0]);
+      lubricantForm.reset();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to add lubricant entry",
+        description: error.message || "Failed to add lubricant entry",
         variant: "destructive",
       });
     },
@@ -173,8 +260,20 @@ export function WorkOrderCostDialog({
 
   // Add outsource entry mutation
   const addOutsourceMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", `/api/work-orders/${workOrderId}/outsource`, data);
+    mutationFn: async (data: OutsourceFormValues) => {
+      const payload = {
+        vendorName: data.vendorName,
+        serviceDescription: data.serviceDescription,
+        plannedCost: typeof data.plannedCost === 'number' && !Number.isNaN(data.plannedCost) ? data.plannedCost : undefined,
+        actualCost: data.actualCost,
+        invoiceNumber: data.invoiceNumber || undefined,
+        serviceDate: data.serviceDate,
+      };
+      const response = await apiRequest("POST", `/api/work-orders/${workOrderId}/outsource`, payload);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to add outsource entry");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -184,17 +283,12 @@ export function WorkOrderCostDialog({
         title: "Outsource entry added",
         description: "Outsource cost has been recorded successfully",
       });
-      // Reset form
-      setOutsourceVendor("");
-      setOutsourceService("");
-      setOutsourceCost("");
-      setOutsourceInvoice("");
-      setOutsourceDate(new Date().toISOString().split('T')[0]);
+      outsourceForm.reset();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to add outsource entry",
+        description: error.message || "Failed to add outsource entry",
         variant: "destructive",
       });
     },
@@ -243,64 +337,12 @@ export function WorkOrderCostDialog({
     },
   });
 
-  const handleAddLabor = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!laborEmployeeName || !laborHours || !laborRate) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+  // Update hourly rate when employee changes
+  const handleEmployeeChange = (employeeId: string) => {
+    const selectedEmployee = employees.find(e => e.id === employeeId);
+    if (selectedEmployee && selectedEmployee.hourlyRate) {
+      laborForm.setValue("hourlyRateSnapshot", parseFloat(selectedEmployee.hourlyRate));
     }
-
-    addLaborMutation.mutate({
-      employeeName: laborEmployeeName,
-      hoursWorked: parseFloat(laborHours),
-      hourlyRate: parseFloat(laborRate),
-      description: laborDescription || undefined,
-      workDate: laborDate,
-    });
-  };
-
-  const handleAddLubricant = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lubricantType || !lubricantQuantity || !lubricantUnitCost) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    addLubricantMutation.mutate({
-      lubricantType,
-      quantity: parseFloat(lubricantQuantity),
-      unitCost: parseFloat(lubricantUnitCost),
-      description: lubricantDescription || undefined,
-      usedDate: lubricantDate,
-    });
-  };
-
-  const handleAddOutsource = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!outsourceVendor || !outsourceService || !outsourceCost) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    addOutsourceMutation.mutate({
-      vendorName: outsourceVendor,
-      serviceDescription: outsourceService,
-      cost: parseFloat(outsourceCost),
-      invoiceNumber: outsourceInvoice || undefined,
-      serviceDate: outsourceDate,
-    });
   };
 
   const formatCurrency = (amount: number) => {
@@ -309,6 +351,10 @@ export function WorkOrderCostDialog({
       currency: 'ETB',
       minimumFractionDigits: 2,
     }).format(amount).replace('ETB', 'ETB ');
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -361,13 +407,13 @@ export function WorkOrderCostDialog({
                     <div className="space-y-2">
                       <div>
                         <p className="text-xs text-muted-foreground">Actual</p>
-                        <p className="text-2xl font-bold text-primary">
+                        <p className="text-2xl font-bold text-primary" data-testid="text-labor-cost">
                           {formatCurrency(costData?.summary.actualLaborCost || 0)}
                         </p>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Entries:</span>
-                        <Badge variant="secondary">{costData?.laborEntries.length || 0}</Badge>
+                        <Badge variant="secondary" data-testid="badge-labor-entries">{costData?.laborEntries.length || 0}</Badge>
                       </div>
                     </div>
                   </CardContent>
@@ -385,13 +431,13 @@ export function WorkOrderCostDialog({
                     <div className="space-y-2">
                       <div>
                         <p className="text-xs text-muted-foreground">Actual</p>
-                        <p className="text-2xl font-bold text-primary">
+                        <p className="text-2xl font-bold text-primary" data-testid="text-lubricant-cost">
                           {formatCurrency(costData?.summary.actualLubricantCost || 0)}
                         </p>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Entries:</span>
-                        <Badge variant="secondary">{costData?.lubricantEntries.length || 0}</Badge>
+                        <Badge variant="secondary" data-testid="badge-lubricant-entries">{costData?.lubricantEntries.length || 0}</Badge>
                       </div>
                     </div>
                   </CardContent>
@@ -409,13 +455,13 @@ export function WorkOrderCostDialog({
                     <div className="space-y-2">
                       <div>
                         <p className="text-xs text-muted-foreground">Actual</p>
-                        <p className="text-2xl font-bold text-primary">
+                        <p className="text-2xl font-bold text-primary" data-testid="text-outsource-cost">
                           {formatCurrency(costData?.summary.actualOutsourceCost || 0)}
                         </p>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Entries:</span>
-                        <Badge variant="secondary">{costData?.outsourceEntries.length || 0}</Badge>
+                        <Badge variant="secondary" data-testid="badge-outsource-entries">{costData?.outsourceEntries.length || 0}</Badge>
                       </div>
                     </div>
                   </CardContent>
@@ -434,7 +480,7 @@ export function WorkOrderCostDialog({
                     <div className="space-y-4">
                       <div>
                         <p className="text-sm text-muted-foreground mb-2">Planned Total</p>
-                        <p className="text-3xl font-bold">
+                        <p className="text-3xl font-bold" data-testid="text-planned-total">
                           {formatCurrency(costData?.summary.totalPlannedCost || 0)}
                         </p>
                       </div>
@@ -457,7 +503,7 @@ export function WorkOrderCostDialog({
                     <div className="space-y-4">
                       <div>
                         <p className="text-sm text-muted-foreground mb-2">Actual Total</p>
-                        <p className="text-3xl font-bold text-primary">
+                        <p className="text-3xl font-bold text-primary" data-testid="text-actual-total">
                           {formatCurrency(costData?.summary.totalActualCost || 0)}
                         </p>
                       </div>
@@ -492,7 +538,7 @@ export function WorkOrderCostDialog({
                           <span className={`text-lg font-bold ${
                             costData.summary.costVariance > 0 ? 'text-destructive' :
                             costData.summary.costVariance < 0 ? 'text-green-600' : ''
-                          }`}>
+                          }`} data-testid="text-cost-variance">
                             {formatCurrency(Math.abs(costData.summary.costVariance || 0))}
                             {costData.summary.costVariance > 0 ? ' over' : costData.summary.costVariance < 0 ? ' under' : ''}
                           </span>
@@ -511,88 +557,155 @@ export function WorkOrderCostDialog({
                   <CardTitle className="text-lg">Add Labor Entry</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAddLabor} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="labor-employee">Employee Name *</Label>
-                        <Input
-                          id="labor-employee"
-                          value={laborEmployeeName}
-                          onChange={(e) => setLaborEmployeeName(e.target.value)}
-                          placeholder="Enter employee name"
-                          data-testid="input-labor-employee"
+                  <Form {...laborForm}>
+                    <form onSubmit={laborForm.handleSubmit((data) => addLaborMutation.mutate(data))} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={laborForm.control}
+                          name="employeeId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Employee *</FormLabel>
+                              <Select 
+                                value={field.value} 
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  handleEmployeeChange(value);
+                                }}
+                              >
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-labor-employee">
+                                    <SelectValue placeholder="Select employee" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {employees.map((emp) => (
+                                    <SelectItem key={emp.id} value={emp.id}>
+                                      {emp.firstName} {emp.lastName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={laborForm.control}
+                          name="workDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Work Date *</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} data-testid="input-labor-date" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={laborForm.control}
+                          name="hoursWorked"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Hours Worked *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.1" 
+                                  min="0" 
+                                  placeholder="0.0" 
+                                  {...field} 
+                                  data-testid="input-labor-hours"
+                                />
+                              </FormControl>
+                              {workOrderElapsedHours > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                  Work order elapsed: {workOrderElapsedHours.toFixed(2)} hours
+                                </p>
+                              )}
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={laborForm.control}
+                          name="hourlyRateSnapshot"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Hourly Rate (ETB) *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.01" 
+                                  min="0" 
+                                  placeholder="0.00" 
+                                  {...field} 
+                                  data-testid="input-labor-rate"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={laborForm.control}
+                          name="overtimeFactor"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Overtime Factor</FormLabel>
+                              <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(parseFloat(value))}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-overtime-factor">
+                                    <SelectValue placeholder="Select factor" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="1.0">Regular (1.0x)</SelectItem>
+                                  <SelectItem value="1.5">Time-and-Half (1.5x)</SelectItem>
+                                  <SelectItem value="2.0">Double-Time (2.0x)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={laborForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Optional notes about the labor work" 
+                                  {...field} 
+                                  data-testid="textarea-labor-description"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="labor-date">Work Date *</Label>
-                        <Input
-                          id="labor-date"
-                          type="date"
-                          value={laborDate}
-                          onChange={(e) => setLaborDate(e.target.value)}
-                          data-testid="input-labor-date"
-                        />
+
+                      <div className="flex justify-end">
+                        <Button 
+                          type="submit" 
+                          disabled={addLaborMutation.isPending}
+                          data-testid="button-add-labor"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          {addLaborMutation.isPending ? "Adding..." : "Add Labor Entry"}
+                        </Button>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="labor-hours">Hours Worked *</Label>
-                        <Input
-                          id="labor-hours"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          value={laborHours}
-                          onChange={(e) => setLaborHours(e.target.value)}
-                          placeholder="0.0"
-                          data-testid="input-labor-hours"
-                        />
-                        {workOrderElapsedHours > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Work order elapsed: {workOrderElapsedHours.toFixed(2)} hours
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="labor-rate">Hourly Rate (ETB) *</Label>
-                        <Input
-                          id="labor-rate"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={laborRate}
-                          onChange={(e) => setLaborRate(e.target.value)}
-                          placeholder="0.00"
-                          data-testid="input-labor-rate"
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="labor-description">Description</Label>
-                        <Textarea
-                          id="labor-description"
-                          value={laborDescription}
-                          onChange={(e) => setLaborDescription(e.target.value)}
-                          placeholder="Optional notes about the labor work"
-                          data-testid="input-labor-description"
-                        />
-                      </div>
-                    </div>
-                    {laborHours && laborRate && (
-                      <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                        <p className="text-sm text-muted-foreground">Total Labor Cost:</p>
-                        <p className="text-2xl font-bold text-primary">
-                          {formatCurrency(parseFloat(laborHours) * parseFloat(laborRate))}
-                        </p>
-                      </div>
-                    )}
-                    <Button 
-                      type="submit" 
-                      className="w-full"
-                      disabled={addLaborMutation.isPending}
-                      data-testid="button-add-labor"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      {addLaborMutation.isPending ? "Adding..." : "Add Labor Entry"}
-                    </Button>
-                  </form>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
 
@@ -606,23 +719,25 @@ export function WorkOrderCostDialog({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Date</TableHead>
                           <TableHead>Employee</TableHead>
+                          <TableHead>Date</TableHead>
                           <TableHead>Hours</TableHead>
                           <TableHead>Rate</TableHead>
-                          <TableHead>Total</TableHead>
+                          <TableHead>Overtime</TableHead>
+                          <TableHead>Total Cost</TableHead>
                           <TableHead>Description</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead className="w-[80px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {costData.laborEntries.map((entry) => (
                           <TableRow key={entry.id} data-testid={`row-labor-${entry.id}`}>
-                            <TableCell>{new Date(entry.workDate).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-medium">{entry.employeeName}</TableCell>
+                            <TableCell>{entry.employeeName || "Unknown"}</TableCell>
+                            <TableCell>{formatDate(entry.workDate)}</TableCell>
                             <TableCell>{entry.hoursWorked.toFixed(2)}</TableCell>
-                            <TableCell>{formatCurrency(entry.hourlyRate)}</TableCell>
-                            <TableCell className="font-bold">{formatCurrency(entry.totalCost)}</TableCell>
+                            <TableCell>{formatCurrency(entry.hourlyRateSnapshot)}</TableCell>
+                            <TableCell>{entry.overtimeFactor}x</TableCell>
+                            <TableCell className="font-medium">{formatCurrency(entry.totalCost)}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {entry.description || "-"}
                             </TableCell>
@@ -653,91 +768,159 @@ export function WorkOrderCostDialog({
                   <CardTitle className="text-lg">Add Lubricant Entry</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAddLubricant} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="lubricant-type">Lubricant Type *</Label>
-                        <Select value={lubricantType} onValueChange={setLubricantType}>
-                          <SelectTrigger id="lubricant-type" data-testid="select-lubricant-type">
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="engine_oil">Engine Oil</SelectItem>
-                            <SelectItem value="hydraulic_oil">Hydraulic Oil</SelectItem>
-                            <SelectItem value="transmission_fluid">Transmission Fluid</SelectItem>
-                            <SelectItem value="grease">Grease</SelectItem>
-                            <SelectItem value="coolant">Coolant</SelectItem>
-                            <SelectItem value="brake_fluid">Brake Fluid</SelectItem>
-                            <SelectItem value="gear_oil">Gear Oil</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lubricant-date">Date Used *</Label>
-                        <Input
-                          id="lubricant-date"
-                          type="date"
-                          value={lubricantDate}
-                          onChange={(e) => setLubricantDate(e.target.value)}
-                          data-testid="input-lubricant-date"
+                  <Form {...lubricantForm}>
+                    <form onSubmit={lubricantForm.handleSubmit((data) => addLubricantMutation.mutate(data))} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={lubricantForm.control}
+                          name="itemName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Item Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 15W-40 Engine Oil" {...field} data-testid="input-lubricant-name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={lubricantForm.control}
+                          name="category"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Category *</FormLabel>
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-lubricant-category">
+                                    <SelectValue placeholder="Select category" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="lubricant">Lubricant</SelectItem>
+                                  <SelectItem value="oil">Oil</SelectItem>
+                                  <SelectItem value="grease">Grease</SelectItem>
+                                  <SelectItem value="filter">Filter</SelectItem>
+                                  <SelectItem value="material">Material</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={lubricantForm.control}
+                          name="quantity"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Quantity *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.1" 
+                                  min="0" 
+                                  placeholder="0.0" 
+                                  {...field} 
+                                  data-testid="input-lubricant-quantity"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={lubricantForm.control}
+                          name="unit"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Unit *</FormLabel>
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-lubricant-unit">
+                                    <SelectValue placeholder="Select unit" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="liter">Liter</SelectItem>
+                                  <SelectItem value="gallon">Gallon</SelectItem>
+                                  <SelectItem value="kg">Kilogram</SelectItem>
+                                  <SelectItem value="piece">Piece</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={lubricantForm.control}
+                          name="unitCostSnapshot"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Unit Cost (ETB) *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.01" 
+                                  min="0" 
+                                  placeholder="0.00" 
+                                  {...field} 
+                                  data-testid="input-lubricant-cost"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={lubricantForm.control}
+                          name="usedDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Date Used *</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} data-testid="input-lubricant-date" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={lubricantForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Optional notes about the lubricant" 
+                                  {...field} 
+                                  data-testid="textarea-lubricant-description"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lubricant-quantity">Quantity (Liters) *</Label>
-                        <Input
-                          id="lubricant-quantity"
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          value={lubricantQuantity}
-                          onChange={(e) => setLubricantQuantity(e.target.value)}
-                          placeholder="0.0"
-                          data-testid="input-lubricant-quantity"
-                        />
+
+                      <div className="flex justify-end">
+                        <Button 
+                          type="submit" 
+                          disabled={addLubricantMutation.isPending}
+                          data-testid="button-add-lubricant"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          {addLubricantMutation.isPending ? "Adding..." : "Add Lubricant Entry"}
+                        </Button>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="lubricant-cost">Unit Cost (ETB) *</Label>
-                        <Input
-                          id="lubricant-cost"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={lubricantUnitCost}
-                          onChange={(e) => setLubricantUnitCost(e.target.value)}
-                          placeholder="0.00"
-                          data-testid="input-lubricant-cost"
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="lubricant-description">Description</Label>
-                        <Textarea
-                          id="lubricant-description"
-                          value={lubricantDescription}
-                          onChange={(e) => setLubricantDescription(e.target.value)}
-                          placeholder="Optional notes about the lubricant"
-                          data-testid="input-lubricant-description"
-                        />
-                      </div>
-                    </div>
-                    {lubricantQuantity && lubricantUnitCost && (
-                      <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                        <p className="text-sm text-muted-foreground">Total Lubricant Cost:</p>
-                        <p className="text-2xl font-bold text-primary">
-                          {formatCurrency(parseFloat(lubricantQuantity) * parseFloat(lubricantUnitCost))}
-                        </p>
-                      </div>
-                    )}
-                    <Button 
-                      type="submit" 
-                      className="w-full"
-                      disabled={addLubricantMutation.isPending}
-                      data-testid="button-add-lubricant"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      {addLubricantMutation.isPending ? "Adding..." : "Add Lubricant Entry"}
-                    </Button>
-                  </form>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
 
@@ -751,25 +934,27 @@ export function WorkOrderCostDialog({
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead>Item Name</TableHead>
+                          <TableHead>Category</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead>Type</TableHead>
                           <TableHead>Quantity</TableHead>
                           <TableHead>Unit Cost</TableHead>
-                          <TableHead>Total</TableHead>
+                          <TableHead>Total Cost</TableHead>
                           <TableHead>Description</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead className="w-[80px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {costData.lubricantEntries.map((entry) => (
                           <TableRow key={entry.id} data-testid={`row-lubricant-${entry.id}`}>
-                            <TableCell>{new Date(entry.usedDate).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-medium">
-                              <Badge variant="outline">{entry.lubricantType.replace(/_/g, ' ')}</Badge>
+                            <TableCell>{entry.itemName}</TableCell>
+                            <TableCell className="capitalize">{entry.category}</TableCell>
+                            <TableCell>{formatDate(entry.usedDate)}</TableCell>
+                            <TableCell>
+                              {entry.quantity.toFixed(2)} {entry.unit}
                             </TableCell>
-                            <TableCell>{entry.quantity.toFixed(2)} L</TableCell>
-                            <TableCell>{formatCurrency(entry.unitCost)}</TableCell>
-                            <TableCell className="font-bold">{formatCurrency(entry.totalCost)}</TableCell>
+                            <TableCell>{formatCurrency(entry.unitCostSnapshot)}</TableCell>
+                            <TableCell className="font-medium">{formatCurrency(entry.totalCost)}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {entry.description || "-"}
                             </TableCell>
@@ -800,80 +985,125 @@ export function WorkOrderCostDialog({
                   <CardTitle className="text-lg">Add Outsource Entry</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleAddOutsource} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="outsource-vendor">Vendor Name *</Label>
-                        <Input
-                          id="outsource-vendor"
-                          value={outsourceVendor}
-                          onChange={(e) => setOutsourceVendor(e.target.value)}
-                          placeholder="Enter vendor name"
-                          data-testid="input-outsource-vendor"
+                  <Form {...outsourceForm}>
+                    <form onSubmit={outsourceForm.handleSubmit((data) => addOutsourceMutation.mutate(data))} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={outsourceForm.control}
+                          name="vendorName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Vendor Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter vendor name" {...field} data-testid="input-outsource-vendor" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={outsourceForm.control}
+                          name="serviceDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Service Date *</FormLabel>
+                              <FormControl>
+                                <Input type="date" {...field} data-testid="input-outsource-date" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={outsourceForm.control}
+                          name="plannedCost"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Planned Cost (ETB)</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.01" 
+                                  min="0" 
+                                  placeholder="0.00 (optional)" 
+                                  {...field}
+                                  value={field.value || ""}
+                                  data-testid="input-outsource-planned-cost"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={outsourceForm.control}
+                          name="actualCost"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Actual Cost (ETB) *</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  step="0.01" 
+                                  min="0" 
+                                  placeholder="0.00" 
+                                  {...field} 
+                                  data-testid="input-outsource-cost"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={outsourceForm.control}
+                          name="invoiceNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Invoice Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Optional invoice number" {...field} data-testid="input-outsource-invoice" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={outsourceForm.control}
+                          name="serviceDescription"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel>Service Description *</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Describe the outsourced service" 
+                                  {...field} 
+                                  data-testid="textarea-outsource-description"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="outsource-date">Service Date *</Label>
-                        <Input
-                          id="outsource-date"
-                          type="date"
-                          value={outsourceDate}
-                          onChange={(e) => setOutsourceDate(e.target.value)}
-                          data-testid="input-outsource-date"
-                        />
+
+                      <div className="flex justify-end">
+                        <Button 
+                          type="submit" 
+                          disabled={addOutsourceMutation.isPending}
+                          data-testid="button-add-outsource"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          {addOutsourceMutation.isPending ? "Adding..." : "Add Outsource Entry"}
+                        </Button>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="outsource-cost">Cost (ETB) *</Label>
-                        <Input
-                          id="outsource-cost"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={outsourceCost}
-                          onChange={(e) => setOutsourceCost(e.target.value)}
-                          placeholder="0.00"
-                          data-testid="input-outsource-cost"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="outsource-invoice">Invoice Number</Label>
-                        <Input
-                          id="outsource-invoice"
-                          value={outsourceInvoice}
-                          onChange={(e) => setOutsourceInvoice(e.target.value)}
-                          placeholder="Optional invoice number"
-                          data-testid="input-outsource-invoice"
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="outsource-service">Service Description *</Label>
-                        <Textarea
-                          id="outsource-service"
-                          value={outsourceService}
-                          onChange={(e) => setOutsourceService(e.target.value)}
-                          placeholder="Describe the outsourced service"
-                          data-testid="input-outsource-service"
-                        />
-                      </div>
-                    </div>
-                    {outsourceCost && (
-                      <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                        <p className="text-sm text-muted-foreground">Outsource Cost:</p>
-                        <p className="text-2xl font-bold text-primary">
-                          {formatCurrency(parseFloat(outsourceCost))}
-                        </p>
-                      </div>
-                    )}
-                    <Button 
-                      type="submit" 
-                      className="w-full"
-                      disabled={addOutsourceMutation.isPending}
-                      data-testid="button-add-outsource"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      {addOutsourceMutation.isPending ? "Adding..." : "Add Outsource Entry"}
-                    </Button>
-                  </form>
+                    </form>
+                  </Form>
                 </CardContent>
               </Card>
 
@@ -887,30 +1117,28 @@ export function WorkOrderCostDialog({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Date</TableHead>
                           <TableHead>Vendor</TableHead>
                           <TableHead>Service</TableHead>
-                          <TableHead>Invoice #</TableHead>
-                          <TableHead>Cost</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Planned Cost</TableHead>
+                          <TableHead>Actual Cost</TableHead>
+                          <TableHead>Invoice</TableHead>
+                          <TableHead className="w-[80px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {costData.outsourceEntries.map((entry) => (
                           <TableRow key={entry.id} data-testid={`row-outsource-${entry.id}`}>
-                            <TableCell>{new Date(entry.serviceDate).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-medium">{entry.vendorName}</TableCell>
-                            <TableCell className="max-w-xs truncate" title={entry.serviceDescription}>
-                              {entry.serviceDescription}
-                            </TableCell>
+                            <TableCell>{entry.vendorName}</TableCell>
+                            <TableCell className="max-w-xs truncate">{entry.serviceDescription}</TableCell>
+                            <TableCell>{formatDate(entry.serviceDate)}</TableCell>
                             <TableCell>
-                              {entry.invoiceNumber ? (
-                                <Badge variant="outline">{entry.invoiceNumber}</Badge>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
+                              {entry.plannedCost ? formatCurrency(entry.plannedCost) : "-"}
                             </TableCell>
-                            <TableCell className="font-bold">{formatCurrency(entry.cost)}</TableCell>
+                            <TableCell className="font-medium">{formatCurrency(entry.actualCost)}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {entry.invoiceNumber || "-"}
+                            </TableCell>
                             <TableCell>
                               <Button
                                 variant="ghost"

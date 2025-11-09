@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,10 +24,13 @@ import {
   Filter,
   ArrowRight,
   Minus,
-  BarChart3
+  BarChart3,
+  LineChart as LineChartIcon,
+  PieChart as PieChartIcon
 } from "lucide-react";
-import { format, subMonths, subQuarters, subYears, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from "date-fns";
+import { format as formatDate, subMonths, subYears, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from "date-fns";
 import { getFiscalQuarterRange, getFiscalYear, getCurrentFiscalQuarter } from "@shared/fiscal";
+import { LineChart, Line, BarChart as RechartsBarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 type Workshop = {
   id: string;
@@ -93,12 +96,12 @@ export default function CostReports() {
   // Period Comparison Filters
   const [comparisonMode, setComparisonMode] = useState<'month' | 'quarter' | 'year' | 'custom'>('month');
   const [period1, setPeriod1] = useState({
-    startDate: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-    endDate: format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+    startDate: formatDate(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+    endDate: formatDate(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
   });
   const [period2, setPeriod2] = useState({
-    startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-    endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+    startDate: formatDate(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    endDate: formatDate(endOfMonth(new Date()), 'yyyy-MM-dd'),
   });
 
   // Fetch garages
@@ -148,10 +151,10 @@ export default function CostReports() {
     return params.toString();
   };
 
-  // Fetch detailed report data
+  // Fetch detailed report data (used by both Detailed Reports and Visualizations tabs)
   const { data: workOrders = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/work-orders?${buildQueryParams(filters.startDate, filters.endDate)}`],
-    enabled: activeTab === 'detailed',
+    enabled: activeTab === 'detailed' || activeTab === 'visualizations',
   });
 
   // Fetch period 1 data for comparison
@@ -172,12 +175,12 @@ export default function CostReports() {
     
     if (mode === 'month') {
       setPeriod1({
-        startDate: format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
-        endDate: format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+        startDate: formatDate(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
+        endDate: formatDate(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'),
       });
       setPeriod2({
-        startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-        endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+        startDate: formatDate(startOfMonth(new Date()), 'yyyy-MM-dd'),
+        endDate: formatDate(endOfMonth(new Date()), 'yyyy-MM-dd'),
       });
     } else if (mode === 'quarter') {
       // Use fiscal quarters - properly calculated using Ethiopian calendar boundaries
@@ -192,21 +195,21 @@ export default function CostReports() {
       const lastQuarterRange = getFiscalQuarterRange(prevQuarter, prevFiscalYear);
       
       setPeriod1({
-        startDate: format(lastQuarterRange.start, 'yyyy-MM-dd'),
-        endDate: format(lastQuarterRange.end, 'yyyy-MM-dd'),
+        startDate: formatDate(lastQuarterRange.start, 'yyyy-MM-dd'),
+        endDate: formatDate(lastQuarterRange.end, 'yyyy-MM-dd'),
       });
       setPeriod2({
-        startDate: format(currentQuarterRange.start, 'yyyy-MM-dd'),
-        endDate: format(currentQuarterRange.end, 'yyyy-MM-dd'),
+        startDate: formatDate(currentQuarterRange.start, 'yyyy-MM-dd'),
+        endDate: formatDate(currentQuarterRange.end, 'yyyy-MM-dd'),
       });
     } else if (mode === 'year') {
       setPeriod1({
-        startDate: format(startOfYear(subYears(new Date(), 1)), 'yyyy-MM-dd'),
-        endDate: format(endOfYear(subYears(new Date(), 1)), 'yyyy-MM-dd'),
+        startDate: formatDate(startOfYear(subYears(new Date(), 1)), 'yyyy-MM-dd'),
+        endDate: formatDate(endOfYear(subYears(new Date(), 1)), 'yyyy-MM-dd'),
       });
       setPeriod2({
-        startDate: format(startOfYear(new Date()), 'yyyy-MM-dd'),
-        endDate: format(endOfYear(new Date()), 'yyyy-MM-dd'),
+        startDate: formatDate(startOfYear(new Date()), 'yyyy-MM-dd'),
+        endDate: formatDate(endOfYear(new Date()), 'yyyy-MM-dd'),
       });
     }
   };
@@ -325,7 +328,7 @@ export default function CostReports() {
       order.garageName || '',
       order.workshopName || '',
       order.status || '',
-      order.completedAt ? format(new Date(order.completedAt), 'yyyy-MM-dd') : '',
+      order.completedAt ? formatDate(new Date(order.completedAt), 'yyyy-MM-dd') : '',
       parseFloat(order.plannedLaborCost || '0').toFixed(2),
       parseFloat(order.actualLaborCost || '0').toFixed(2),
       parseFloat(order.plannedLubricantCost || '0').toFixed(2),
@@ -346,7 +349,7 @@ export default function CostReports() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `cost-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.download = `cost-report-${formatDate(new Date(), 'yyyy-MM-dd')}.csv`;
     link.click();
   };
 
@@ -358,8 +361,8 @@ export default function CostReports() {
     }).format(amount).replace('ETB', 'ETB ');
   };
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM dd, yyyy');
+  const formatDateDisplay = (dateString: string) => {
+    return formatDate(new Date(dateString), 'MMM dd, yyyy');
   };
 
   const formatPercent = (value: number) => {
@@ -455,7 +458,7 @@ export default function CostReports() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} data-testid="tabs-cost-reports">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="detailed" data-testid="tab-detailed-reports">
             <FileText className="h-4 w-4 mr-2" />
             Detailed Reports
@@ -463,6 +466,10 @@ export default function CostReports() {
           <TabsTrigger value="comparison" data-testid="tab-period-comparison">
             <BarChart3 className="h-4 w-4 mr-2" />
             Period Comparison
+          </TabsTrigger>
+          <TabsTrigger value="visualizations" data-testid="tab-visualizations">
+            <LineChartIcon className="h-4 w-4 mr-2" />
+            Visualizations
           </TabsTrigger>
         </TabsList>
 
@@ -772,7 +779,7 @@ export default function CostReports() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {order.completedAt ? formatDate(order.completedAt) : 'N/A'}
+                              {order.completedAt ? formatDateDisplay(order.completedAt) : 'N/A'}
                             </TableCell>
                             <TableCell className="text-right">
                               {formatCurrency(parseFloat(order.actualLaborCost || '0'))}
@@ -899,7 +906,7 @@ export default function CostReports() {
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-1">Period 1</p>
                   <p className="font-semibold">
-                    {format(new Date(period1.startDate), 'MMM dd, yyyy')} - {format(new Date(period1.endDate), 'MMM dd, yyyy')}
+                    {formatDate(new Date(period1.startDate), 'MMM dd, yyyy')} - {formatDate(new Date(period1.endDate), 'MMM dd, yyyy')}
                   </p>
                 </div>
               </CardContent>
@@ -909,7 +916,7 @@ export default function CostReports() {
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-1">Period 2</p>
                   <p className="font-semibold">
-                    {format(new Date(period2.startDate), 'MMM dd, yyyy')} - {format(new Date(period2.endDate), 'MMM dd, yyyy')}
+                    {formatDate(new Date(period2.startDate), 'MMM dd, yyyy')} - {formatDate(new Date(period2.endDate), 'MMM dd, yyyy')}
                   </p>
                 </div>
               </CardContent>
@@ -1025,6 +1032,400 @@ export default function CostReports() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Visualizations Tab */}
+        <TabsContent value="visualizations" className="space-y-6">
+          {/* Monthly Cost Trend */}
+          <Card data-testid="card-monthly-trend">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <LineChartIcon className="h-5 w-5" />
+                Monthly Cost Trend
+              </CardTitle>
+              <CardDescription>
+                Track cost evolution month by month for the selected period
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                // Group work orders by month
+                const monthlyData = workOrders.reduce((acc: any, order: any) => {
+                  if (!order.completedAt) return acc;
+                  
+                  const month = formatDate(parseISO(order.completedAt), 'MMM yyyy');
+                  if (!acc[month]) {
+                    acc[month] = {
+                      month,
+                      totalCost: 0,
+                      laborCost: 0,
+                      lubricantCost: 0,
+                      outsourceCost: 0,
+                      orders: 0,
+                    };
+                  }
+                  
+                  acc[month].totalCost += parseFloat(order.totalActualCost || '0');
+                  acc[month].laborCost += parseFloat(order.actualLaborCost || '0');
+                  acc[month].lubricantCost += parseFloat(order.actualLubricantCost || '0');
+                  acc[month].outsourceCost += parseFloat(order.actualOutsourceCost || '0');
+                  acc[month].orders += 1;
+                  
+                  return acc;
+                }, {});
+
+                const chartData = Object.values(monthlyData).sort((a: any, b: any) => {
+                  const dateA = new Date(a.month);
+                  const dateB = new Date(b.month);
+                  return dateA.getTime() - dateB.getTime();
+                });
+
+                return chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="month" 
+                        tick={{ fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="totalCost" 
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={3}
+                        name="Total Cost"
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="laborCost" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        name="Labor"
+                        dot={{ r: 3 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="lubricantCost" 
+                        stroke="#3b82f6" 
+                        strokeWidth={2}
+                        name="Lubricants"
+                        dot={{ r: 3 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="outsourceCost" 
+                        stroke="#f59e0b" 
+                        strokeWidth={2}
+                        name="Outsource"
+                        dot={{ r: 3 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="py-12 text-center text-muted-foreground">
+                    No data available for the selected period
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Cost Category Breakdown - Stacked Area Chart */}
+          <Card data-testid="card-cost-breakdown-area">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Cost Category Distribution Over Time
+              </CardTitle>
+              <CardDescription>
+                Visualize how cost categories contribute to total costs month by month
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const monthlyData = workOrders.reduce((acc: any, order: any) => {
+                  if (!order.completedAt) return acc;
+                  
+                  const month = formatDate(parseISO(order.completedAt), 'MMM yyyy');
+                  if (!acc[month]) {
+                    acc[month] = {
+                      month,
+                      Labor: 0,
+                      Lubricants: 0,
+                      Outsource: 0,
+                    };
+                  }
+                  
+                  acc[month].Labor += parseFloat(order.actualLaborCost || '0');
+                  acc[month].Lubricants += parseFloat(order.actualLubricantCost || '0');
+                  acc[month].Outsource += parseFloat(order.actualOutsourceCost || '0');
+                  
+                  return acc;
+                }, {});
+
+                const chartData = Object.values(monthlyData).sort((a: any, b: any) => {
+                  const dateA = new Date(a.month);
+                  const dateB = new Date(b.month);
+                  return dateA.getTime() - dateB.getTime();
+                });
+
+                return chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="month" 
+                        tick={{ fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Area 
+                        type="monotone" 
+                        dataKey="Labor" 
+                        stackId="1"
+                        stroke="#10b981" 
+                        fill="#10b981"
+                        fillOpacity={0.6}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="Lubricants" 
+                        stackId="1"
+                        stroke="#3b82f6" 
+                        fill="#3b82f6"
+                        fillOpacity={0.6}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="Outsource" 
+                        stackId="1"
+                        stroke="#f59e0b" 
+                        fill="#f59e0b"
+                        fillOpacity={0.6}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="py-12 text-center text-muted-foreground">
+                    No data available for the selected period
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Cost by Garage - Bar Chart */}
+          <Card data-testid="card-cost-by-garage">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Cost Distribution by Garage
+              </CardTitle>
+              <CardDescription>
+                Compare total costs across different garages
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const garageData = workOrders.reduce((acc: any, order: any) => {
+                  const garageName = order.garageName || 'Unknown';
+                  if (!acc[garageName]) {
+                    acc[garageName] = {
+                      garage: garageName,
+                      totalCost: 0,
+                      laborCost: 0,
+                      lubricantCost: 0,
+                      outsourceCost: 0,
+                      orders: 0,
+                    };
+                  }
+                  
+                  acc[garageName].totalCost += parseFloat(order.totalActualCost || '0');
+                  acc[garageName].laborCost += parseFloat(order.actualLaborCost || '0');
+                  acc[garageName].lubricantCost += parseFloat(order.actualLubricantCost || '0');
+                  acc[garageName].outsourceCost += parseFloat(order.actualOutsourceCost || '0');
+                  acc[garageName].orders += 1;
+                  
+                  return acc;
+                }, {});
+
+                const chartData = Object.values(garageData).sort((a: any, b: any) => b.totalCost - a.totalCost);
+
+                return chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <RechartsBarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="garage" 
+                        tick={{ fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis 
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                      />
+                      <Legend />
+                      <Bar dataKey="laborCost" fill="#10b981" name="Labor" stackId="a" />
+                      <Bar dataKey="lubricantCost" fill="#3b82f6" name="Lubricants" stackId="a" />
+                      <Bar dataKey="outsourceCost" fill="#f59e0b" name="Outsource" stackId="a" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="py-12 text-center text-muted-foreground">
+                    No data available for the selected period
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Cost Category Pie Chart */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card data-testid="card-cost-pie">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5" />
+                  Cost Breakdown by Category
+                </CardTitle>
+                <CardDescription>
+                  Overall cost distribution across categories
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const totalLabor = detailedSummary.totalLaborCost;
+                  const totalLubricant = detailedSummary.totalLubricantCost;
+                  const totalOutsource = detailedSummary.totalOutsourceCost;
+                  
+                  const pieData = [
+                    { name: 'Labor', value: totalLabor, color: '#10b981' },
+                    { name: 'Lubricants', value: totalLubricant, color: '#3b82f6' },
+                    { name: 'Outsource', value: totalOutsource, color: '#f59e0b' },
+                  ].filter(item => item.value > 0);
+
+                  return pieData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value: number) => formatCurrency(value)}
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="py-12 text-center text-muted-foreground">
+                      No cost data available
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+
+            {/* Top Workshops by Cost */}
+            <Card data-testid="card-top-workshops">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Wrench className="h-5 w-5" />
+                  Top Workshops by Cost
+                </CardTitle>
+                <CardDescription>
+                  Workshops with highest maintenance costs
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const workshopData = workOrders.reduce((acc: any, order: any) => {
+                    const workshopName = order.workshopName || 'Unknown';
+                    if (!acc[workshopName]) {
+                      acc[workshopName] = {
+                        workshop: workshopName,
+                        totalCost: 0,
+                        orders: 0,
+                      };
+                    }
+                    
+                    acc[workshopName].totalCost += parseFloat(order.totalActualCost || '0');
+                    acc[workshopName].orders += 1;
+                    
+                    return acc;
+                  }, {});
+
+                  const sortedWorkshops = Object.values(workshopData)
+                    .sort((a: any, b: any) => b.totalCost - a.totalCost)
+                    .slice(0, 10);
+
+                  return sortedWorkshops.length > 0 ? (
+                    <div className="space-y-4">
+                      {sortedWorkshops.map((workshop: any, index) => (
+                        <div key={index} className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                              #{index + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{workshop.workshop}</p>
+                              <p className="text-xs text-muted-foreground">{workshop.orders} orders</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{formatCurrency(workshop.totalCost)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center text-muted-foreground">
+                      No workshop data available
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

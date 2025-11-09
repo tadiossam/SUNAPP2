@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { TrendingUp, DollarSign, CheckCircle, AlertCircle, Users, Wrench, Calendar, Filter } from "lucide-react";
 import { format } from "date-fns";
+import CostDrilldownDialog from "@/components/CostDrilldownDialog";
 
 const COLORS = ["#2563eb", "#7c3aed", "#dc2626", "#f59e0b", "#10b981", "#f97316", "#8b5cf6"];
 
@@ -30,6 +31,18 @@ export default function Dashboard() {
   const [timePeriod, setTimePeriod] = useState<string>("annual");
   const [workshopId, setWorkshopId] = useState<string>("all");
   const [year, setYear] = useState<number>(new Date().getFullYear());
+  
+  // Cost drill-down state
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [drilldownContext, setDrilldownContext] = useState<{
+    type: 'month' | 'equipmentType' | 'garage' | 'costType' | null;
+    value: string | null;
+    label: string | null;
+  }>({
+    type: null,
+    value: null,
+    label: null,
+  });
   
   // Date range state
   const [startDate, setStartDate] = useState<string>("");
@@ -88,6 +101,13 @@ export default function Dashboard() {
     avgCostPerWorkOrder: 0,
     costVariancePct: 0,
     costVarianceAmount: 0,
+  };
+
+  const costCharts = analyticsData?.costCharts || {
+    monthlyTrends: [],
+    breakdown: { labor: 0, lubricants: 0, outsource: 0 },
+    byEquipmentType: [],
+    byGarage: [],
   };
 
   const costBreakdown = analyticsData?.costBreakdown
@@ -457,6 +477,229 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+            {/* Cost Charts - Task 8 */}
+            <div className="mt-6">
+              <h2 className="text-lg font-semibold mb-4">Cost Trends & Analysis</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Monthly Cost Trends */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Monthly Cost Trends</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart 
+                        data={costCharts.monthlyTrends}
+                        onClick={(data) => {
+                          if (data && data.activePayload && data.activePayload[0]) {
+                            const month = data.activePayload[0].payload.month;
+                            setDrilldownContext({
+                              type: 'month',
+                              value: month,
+                              label: `Costs for ${month}`,
+                            });
+                            setDrilldownOpen(true);
+                          }
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis 
+                          dataKey="month" 
+                          className="text-xs"
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis className="text-xs" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--background))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "var(--radius)",
+                          }}
+                        />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="laborActual" 
+                          stroke="#2563eb" 
+                          name="Labor" 
+                          strokeWidth={2}
+                          data-testid="line-labor-trend"
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="lubricantActual" 
+                          stroke="#10b981" 
+                          name="Lubricants" 
+                          strokeWidth={2}
+                          data-testid="line-lubricant-trend"
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="outsourceActual" 
+                          stroke="#f59e0b" 
+                          name="Outsource" 
+                          strokeWidth={2}
+                          data-testid="line-outsource-trend"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Cost Breakdown Pie Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Cost Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Labor', value: costCharts.breakdown.labor },
+                            { name: 'Lubricants', value: costCharts.breakdown.lubricants },
+                            { name: 'Outsource', value: costCharts.breakdown.outsource },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => 
+                            percent > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : null
+                          }
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          data-testid="pie-cost-breakdown"
+                          onClick={(data) => {
+                            if (data && data.name) {
+                              setDrilldownContext({
+                                type: 'costType',
+                                value: data.name,
+                                label: `${data.name} cost breakdown`,
+                              });
+                              setDrilldownOpen(true);
+                            }
+                          }}
+                        >
+                          <Cell fill="#2563eb" key="cell-0" />
+                          <Cell fill="#10b981" key="cell-1" />
+                          <Cell fill="#f59e0b" key="cell-2" />
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--background))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "var(--radius)",
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Cost by Equipment Type */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Cost by Equipment Type</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart 
+                        data={costCharts.byEquipmentType}
+                        layout="vertical"
+                        margin={{ left: 100 }}
+                        onClick={(data) => {
+                          if (data && data.activePayload && data.activePayload[0]) {
+                            const equipmentType = data.activePayload[0].payload.name;
+                            setDrilldownContext({
+                              type: 'equipmentType',
+                              value: equipmentType,
+                              label: `Costs for ${equipmentType}`,
+                            });
+                            setDrilldownOpen(true);
+                          }
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" className="text-xs" />
+                        <YAxis 
+                          dataKey="name" 
+                          type="category" 
+                          className="text-xs"
+                          width={90}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--background))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "var(--radius)",
+                          }}
+                        />
+                        <Bar 
+                          dataKey="value" 
+                          fill="#2563eb" 
+                          name="Total Cost (ETB)"
+                          data-testid="bar-equipment-type"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Cost by Garage */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Cost by Garage</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart 
+                        data={costCharts.byGarage}
+                        layout="vertical"
+                        margin={{ left: 100 }}
+                        onClick={(data) => {
+                          if (data && data.activePayload && data.activePayload[0]) {
+                            const garageName = data.activePayload[0].payload.name;
+                            setDrilldownContext({
+                              type: 'garage',
+                              value: garageName,
+                              label: `Costs for ${garageName}`,
+                            });
+                            setDrilldownOpen(true);
+                          }
+                        }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis type="number" className="text-xs" />
+                        <YAxis 
+                          dataKey="name" 
+                          type="category" 
+                          className="text-xs"
+                          width={90}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--background))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "var(--radius)",
+                          }}
+                        />
+                        <Bar 
+                          dataKey="value" 
+                          fill="#10b981" 
+                          name="Total Cost (ETB)"
+                          data-testid="bar-garage"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
             {/* Show message if no data */}
             {kpis.totalPlanned === 0 && (
               <Card className="border-dashed">
@@ -668,6 +911,21 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {/* Cost Drilldown Dialog */}
+      <CostDrilldownDialog
+        open={drilldownOpen}
+        onOpenChange={setDrilldownOpen}
+        context={drilldownContext}
+        workshopId={workshopId}
+        timePeriod={timePeriod}
+        startDate={startDate}
+        endDate={endDate}
+        year={year}
+        useCustomRange={useCustomRange}
+        weekStartDate={weekStartDate}
+        dailyDate={dailyDate}
+      />
     </div>
   );
 }

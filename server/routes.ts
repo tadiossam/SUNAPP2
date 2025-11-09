@@ -7607,6 +7607,119 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       const costVarianceAmount = totalActualCostNew - totalPlannedCostNew;
       const costVariancePct = totalPlannedCostNew > 0 ? (costVarianceAmount / totalPlannedCostNew) * 100 : 0;
       
+      // Task 8: Cost Charts Data - SQL aggregation with CTEs
+      const { equipment, equipmentCategories, garages, workOrderGarages } = await import("@shared/schema");
+      let costCharts: any = {
+        monthlyTrends: [],
+        breakdown: { labor: 0, lubricants: 0, outsource: 0 },
+        byEquipmentType: [],
+        byGarage: [],
+      };
+      
+      try {
+        // Build workshop filter clause for SQL
+        const workshopFilterSQL = workshopId && workshopId !== 'all'
+          ? sql`AND EXISTS (SELECT 1 FROM work_order_workshops WHERE work_order_workshops.work_order_id = wo.id AND work_order_workshops.workshop_id = ${workshopId})`
+          : sql``;
+        
+        // Execute single SQL query with CTEs for all cost chart aggregations
+        const costChartsQuery = sql`
+          WITH monthly_series AS (
+            SELECT generate_series(
+              date_trunc('month', ${dateFilter.start}::timestamp),
+              date_trunc('month', ${dateFilter.end}::timestamp),
+              '1 month'::interval
+            )::timestamp AS month
+          ),
+          monthly_costs AS (
+            SELECT 
+              date_trunc('month', COALESCE(wo.completed_at, wo.scheduled_completion_date))::timestamp AS month,
+              COALESCE(SUM(wo.actual_labor_cost), 0) AS labor_actual,
+              COALESCE(SUM(wo.actual_lubricant_cost), 0) AS lubricant_actual,
+              COALESCE(SUM(wo.actual_outsource_cost), 0) AS outsource_actual,
+              COALESCE(SUM(wo.total_actual_cost), 0) AS total_actual
+            FROM work_orders wo
+            WHERE wo.status = 'completed'
+              AND wo.completed_at >= ${dateFilter.start}
+              AND wo.completed_at <= ${dateFilter.end}
+              ${workshopFilterSQL}
+            GROUP BY date_trunc('month', COALESCE(wo.completed_at, wo.scheduled_completion_date))
+          ),
+          equipment_costs AS (
+            SELECT 
+              COALESCE(ec.name, 'Unassigned') AS equipment_type,
+              COALESCE(SUM(wo.total_actual_cost), 0) AS total_cost
+            FROM work_orders wo
+            LEFT JOIN equipment e ON wo.equipment_id = e.id
+            LEFT JOIN equipment_categories ec ON e.category_id = ec.id
+            WHERE wo.status = 'completed'
+              AND wo.completed_at >= ${dateFilter.start}
+              AND wo.completed_at <= ${dateFilter.end}
+              ${workshopFilterSQL}
+            GROUP BY ec.id, ec.name
+            ORDER BY total_cost DESC
+          ),
+          garage_costs AS (
+            SELECT 
+              COALESCE(g.name, 'Unassigned') AS garage_name,
+              COALESCE(SUM(wo.total_actual_cost), 0) AS total_cost
+            FROM work_orders wo
+            LEFT JOIN work_order_garages wog ON wo.id = wog.work_order_id
+            LEFT JOIN garages g ON wog.garage_id = g.id
+            WHERE wo.status = 'completed'
+              AND wo.completed_at >= ${dateFilter.start}
+              AND wo.completed_at <= ${dateFilter.end}
+              ${workshopFilterSQL}
+            GROUP BY g.id, g.name
+            ORDER BY total_cost DESC
+          )
+          SELECT 
+            json_build_object(
+              'monthlyTrends', COALESCE((
+                SELECT json_agg(json_build_object(
+                  'month', to_char(ms.month, 'YYYY-MM'),
+                  'laborActual', COALESCE(mc.labor_actual, 0),
+                  'lubricantActual', COALESCE(mc.lubricant_actual, 0),
+                  'outsourceActual', COALESCE(mc.outsource_actual, 0),
+                  'totalActual', COALESCE(mc.total_actual, 0)
+                ))
+                FROM monthly_series ms
+                LEFT JOIN monthly_costs mc ON ms.month = mc.month
+                ORDER BY ms.month
+              ), '[]'::json),
+              'breakdown', json_build_object(
+                'labor', COALESCE((SELECT SUM(labor_actual) FROM monthly_costs), 0),
+                'lubricants', COALESCE((SELECT SUM(lubricant_actual) FROM monthly_costs), 0),
+                'outsource', COALESCE((SELECT SUM(outsource_actual) FROM monthly_costs), 0)
+              ),
+              'byEquipmentType', COALESCE((
+                SELECT json_agg(json_build_object(
+                  'name', equipment_type,
+                  'value', total_cost
+                ))
+                FROM equipment_costs
+                WHERE total_cost > 0
+              ), '[]'::json),
+              'byGarage', COALESCE((
+                SELECT json_agg(json_build_object(
+                  'name', garage_name,
+                  'value', total_cost
+                ))
+                FROM garage_costs
+                WHERE total_cost > 0
+              ), '[]'::json)
+            ) AS cost_charts
+        `;
+        
+        const costChartsResult = await db.execute(costChartsQuery);
+        if (costChartsResult.rows && costChartsResult.rows.length > 0) {
+          costCharts = costChartsResult.rows[0].cost_charts || costCharts;
+        }
+      } catch (error: any) {
+        console.error("Error calculating cost charts:", error);
+        // Continue with default empty costCharts structure
+      }
+      
       // Calculate quarterly data for the year
       const quarterlyData = [];
       const quarters = [
@@ -7794,6 +7907,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           costVariancePct: parseFloat(costVariancePct.toFixed(2)),
           costVarianceAmount: parseFloat(costVarianceAmount.toFixed(2)),
         },
+        costCharts,
         quarterlyData,
         workshopPerformance,
         workshops: workshopsData.filter((w: any) => w.isActive).map((w: any) => ({

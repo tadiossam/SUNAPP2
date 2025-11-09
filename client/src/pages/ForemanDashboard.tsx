@@ -17,6 +17,8 @@ import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { useEquipmentModels } from "@/hooks/useEquipmentModels";
+import { EquipmentModelFilter } from "@/components/EquipmentModelFilter";
 
 type WorkOrder = {
   id: string;
@@ -95,10 +97,14 @@ export default function ForemanDashboard() {
   // Date range filtering state
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [equipmentModelFilter, setEquipmentModelFilter] = useState<string>("all");
   
   // Per-line approval state
   const [lineRemarks, setLineRemarks] = useState<{ [lineId: string]: string }>({});
   const [lineApprovedQty, setLineApprovedQty] = useState<{ [lineId: string]: number }>({});
+
+  // Use equipment models hook
+  const { models, isLoading: isLoadingModels } = useEquipmentModels();
 
   const { data: pendingWorkOrders = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/foreman/pending"],
@@ -129,8 +135,30 @@ export default function ForemanDashboard() {
     queryKey: ["/api/work-orders/foreman/approved-completions"],
   });
 
-  // Filter approved completions by date range
+  // Apply equipment model filter to work orders
+  const filteredPendingWorkOrders = pendingWorkOrders.filter((wo) => {
+    if (equipmentModelFilter === "all") return true;
+    return wo.equipmentModel === equipmentModelFilter;
+  });
+
+  const filteredActiveWorkOrders = activeWorkOrders.filter((wo) => {
+    if (equipmentModelFilter === "all") return true;
+    return wo.equipmentModel === equipmentModelFilter;
+  });
+
+  const filteredPendingCompletions = pendingCompletions.filter((wo) => {
+    if (equipmentModelFilter === "all") return true;
+    return wo.equipmentModel === equipmentModelFilter;
+  });
+
+  // Filter approved completions by date range and equipment model
   const filteredApprovedCompletions = approvedCompletions.filter((wo) => {
+    // Equipment model filter
+    if (equipmentModelFilter !== "all" && wo.equipmentModel !== equipmentModelFilter) {
+      return false;
+    }
+
+    // Date range filter
     if (!startDate && !endDate) return true;
     
     const completedDate = wo.completedAt ? new Date(wo.completedAt) : null;
@@ -465,24 +493,92 @@ export default function ForemanDashboard() {
           </div>
 
           <TabsContent value="pending" className="space-y-4">
-            {pendingWorkOrders && pendingWorkOrders.length > 0 ? (
-              pendingWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
+            {/* Equipment Model Filter */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium whitespace-nowrap">
+                    Filter by Equipment Model:
+                  </span>
+                  <EquipmentModelFilter
+                    models={models}
+                    value={equipmentModelFilter}
+                    onChange={setEquipmentModelFilter}
+                    isLoading={isLoadingModels}
+                  />
+                  {equipmentModelFilter !== "all" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEquipmentModelFilter("all")}
+                      data-testid="button-clear-model-filter"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {equipmentModelFilter !== "all" && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Showing {filteredPendingWorkOrders.length} of {pendingWorkOrders.length} work orders
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {filteredPendingWorkOrders && filteredPendingWorkOrders.length > 0 ? (
+              filteredPendingWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
             ) : (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No pending work orders requiring team assignment
+                  {equipmentModelFilter !== "all" 
+                    ? "No pending work orders for this model"
+                    : "No pending work orders requiring team assignment"}
                 </CardContent>
               </Card>
             )}
           </TabsContent>
 
           <TabsContent value="active" className="space-y-4">
-            {activeWorkOrders && activeWorkOrders.length > 0 ? (
-              activeWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
+            {/* Equipment Model Filter */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium whitespace-nowrap">
+                    Filter by Equipment Model:
+                  </span>
+                  <EquipmentModelFilter
+                    models={models}
+                    value={equipmentModelFilter}
+                    onChange={setEquipmentModelFilter}
+                    isLoading={isLoadingModels}
+                  />
+                  {equipmentModelFilter !== "all" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEquipmentModelFilter("all")}
+                      data-testid="button-clear-model-filter"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                {equipmentModelFilter !== "all" && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Showing {filteredActiveWorkOrders.length} of {activeWorkOrders.length} work orders
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {filteredActiveWorkOrders && filteredActiveWorkOrders.length > 0 ? (
+              filteredActiveWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
             ) : (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No active work orders
+                  {equipmentModelFilter !== "all" 
+                    ? "No active work orders for this model"
+                    : "No active work orders"}
                 </CardContent>
               </Card>
             )}
@@ -504,8 +600,40 @@ export default function ForemanDashboard() {
               </div>
 
               <TabsContent value="pending" className="space-y-4">
-                {pendingCompletions.length > 0 ? (
-                  pendingCompletions.map((workOrder) => (
+                {/* Equipment Model Filter */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium whitespace-nowrap">
+                        Filter by Equipment Model:
+                      </span>
+                      <EquipmentModelFilter
+                        models={models}
+                        value={equipmentModelFilter}
+                        onChange={setEquipmentModelFilter}
+                        isLoading={isLoadingModels}
+                      />
+                      {equipmentModelFilter !== "all" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEquipmentModelFilter("all")}
+                          data-testid="button-clear-model-filter"
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    {equipmentModelFilter !== "all" && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Showing {filteredPendingCompletions.length} of {pendingCompletions.length} work orders
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {filteredPendingCompletions.length > 0 ? (
+                  filteredPendingCompletions.map((workOrder) => (
                     <Card key={workOrder.id} className="hover-elevate" data-testid={`completion-card-${workOrder.id}`}>
                       <CardHeader>
                         <div className="flex items-center justify-between">
@@ -550,61 +678,90 @@ export default function ForemanDashboard() {
                 ) : (
                   <Card>
                     <CardContent className="py-12 text-center text-muted-foreground">
-                      No work orders pending completion approval
+                      {equipmentModelFilter !== "all" 
+                        ? "No pending completions for this model"
+                        : "No work orders pending completion approval"}
                     </CardContent>
                   </Card>
                 )}
               </TabsContent>
 
               <TabsContent value="approved" className="space-y-4">
-                {/* Date Range Filters */}
+                {/* Filters Card */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                       <Filter className="h-4 w-4" />
-                      Filter by Date Range
+                      Filters
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <div className="flex-1">
-                        <Label htmlFor="start-date">Start Date</Label>
-                        <Input
-                          id="start-date"
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          data-testid="input-start-date"
+                  <CardContent className="space-y-4">
+                    {/* Equipment Model Filter */}
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Filter by Equipment Model</Label>
+                      <div className="flex items-center gap-3">
+                        <EquipmentModelFilter
+                          models={models}
+                          value={equipmentModelFilter}
+                          onChange={setEquipmentModelFilter}
+                          isLoading={isLoadingModels}
                         />
-                      </div>
-                      <div className="flex-1">
-                        <Label htmlFor="end-date">End Date</Label>
-                        <Input
-                          id="end-date"
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          data-testid="input-end-date"
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setStartDate("");
-                            setEndDate("");
-                          }}
-                          data-testid="button-clear-filters"
-                        >
-                          Clear Filters
-                        </Button>
+                        {equipmentModelFilter !== "all" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEquipmentModelFilter("all")}
+                            data-testid="button-clear-model-filter"
+                          >
+                            Clear
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    {(startDate || endDate) && (
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Showing {filteredApprovedCompletions.length} of {approvedCompletions.length} work orders
-                      </p>
-                    )}
+
+                    {/* Date Range Filter */}
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Filter by Date Range</Label>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <Label htmlFor="start-date" className="text-xs">Start Date</Label>
+                          <Input
+                            id="start-date"
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            data-testid="input-start-date"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor="end-date" className="text-xs">End Date</Label>
+                          <Input
+                            id="end-date"
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            data-testid="input-end-date"
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setStartDate("");
+                              setEndDate("");
+                            }}
+                            data-testid="button-clear-filters"
+                          >
+                            Clear Filters
+                          </Button>
+                        </div>
+                      </div>
+                      {(startDate || endDate) && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Showing {filteredApprovedCompletions.length} of {approvedCompletions.length} work orders
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 

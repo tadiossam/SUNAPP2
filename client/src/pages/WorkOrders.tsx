@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Equipment, Garage, Employee, SparePart } from "@shared/schema";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
+import { useEquipmentModels } from "@/hooks/useEquipmentModels";
+import { EquipmentModelFilter } from "@/components/EquipmentModelFilter";
 
 type WorkOrderRequiredPart = {
   id: string;
@@ -30,6 +32,7 @@ type WorkOrder = {
   id: string;
   workOrderNumber: string;
   equipmentId: string;
+  equipmentModel?: string; // Populated from equipment table
   garageId?: string | null;
   assignedToIds?: string[] | null; // Array of employee IDs for team assignment
   assignedToList?: Employee[]; // Populated assigned employees
@@ -55,6 +58,7 @@ export default function WorkOrdersPage() {
   const [activeTab, setActiveTab] = useState("pending");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [equipmentModelFilter, setEquipmentModelFilter] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -106,6 +110,9 @@ export default function WorkOrdersPage() {
   const { data: spareParts } = useQuery<SparePart[]>({
     queryKey: ["/api/parts"],
   });
+
+  // Use equipment models hook
+  const { models, isLoading: isLoadingModels } = useEquipmentModels();
 
   // Fetch completed inspections for selection
   const { data: allCompletedInspections = [] } = useQuery<any[]>({
@@ -388,7 +395,11 @@ export default function WorkOrdersPage() {
                          wo.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || wo.status === statusFilter;
     const matchesPriority = priorityFilter === "all" || wo.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
+    
+    // Equipment model filter - use equipmentModel field from work order
+    const matchesEquipmentModel = equipmentModelFilter === "all" || wo.equipmentModel === equipmentModelFilter;
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesEquipmentModel;
   });
 
   const getStatusColor = (status: string) => {
@@ -491,6 +502,12 @@ export default function WorkOrdersPage() {
                     <SelectItem value="urgent">Urgent</SelectItem>
                   </SelectContent>
                 </Select>
+                <EquipmentModelFilter
+                  models={models}
+                  value={equipmentModelFilter}
+                  onChange={setEquipmentModelFilter}
+                  isLoading={isLoadingModels}
+                />
                 <Button onClick={() => setIsInspectionSelectOpen(true)} data-testid="button-add-work-order">
                   <Plus className="h-4 w-4 mr-2" />
                   {t("addWorkOrder")}

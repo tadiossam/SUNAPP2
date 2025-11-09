@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, XCircle, ClipboardCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useEquipmentModels } from "@/hooks/useEquipmentModels";
+import { EquipmentModelFilter } from "@/components/EquipmentModelFilter";
 
 type WorkOrder = {
   id: string;
@@ -28,17 +30,37 @@ export default function VerifierDashboard() {
   const [verificationRemarks, setVerificationRemarks] = useState("");
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [verificationDecision, setVerificationDecision] = useState<"approve" | "reject" | null>(null);
+  const [equipmentModelFilter, setEquipmentModelFilter] = useState<string>("all");
 
-  const { data: pendingVerification } = useQuery<WorkOrder[]>({
+  // Use equipment models hook
+  const { models, isLoading: isLoadingModels } = useEquipmentModels();
+
+  const { data: pendingVerification = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/verifier/pending"],
   });
 
-  const { data: verifiedWorkOrders } = useQuery<WorkOrder[]>({
+  const { data: verifiedWorkOrders = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/verifier/verified"],
   });
 
-  const { data: rejectedWorkOrders } = useQuery<WorkOrder[]>({
+  const { data: rejectedWorkOrders = [] } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/verifier/rejected"],
+  });
+
+  // Apply equipment model filter
+  const filteredPendingVerification = pendingVerification.filter((wo) => {
+    if (equipmentModelFilter === "all") return true;
+    return wo.equipmentModel === equipmentModelFilter;
+  });
+
+  const filteredVerifiedWorkOrders = verifiedWorkOrders.filter((wo) => {
+    if (equipmentModelFilter === "all") return true;
+    return wo.equipmentModel === equipmentModelFilter;
+  });
+
+  const filteredRejectedWorkOrders = rejectedWorkOrders.filter((wo) => {
+    if (equipmentModelFilter === "all") return true;
+    return wo.equipmentModel === equipmentModelFilter;
   });
 
   const approveMutation = useMutation({
@@ -227,12 +249,46 @@ export default function VerifierDashboard() {
 
           <TabsContent value="pending">
             <div className="space-y-4">
-              {pendingVerification && pendingVerification.length > 0 ? (
-                pendingVerification.map((workOrder) => renderWorkOrderCard(workOrder, true))
+              {/* Equipment Model Filter */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      Filter by Equipment Model:
+                    </span>
+                    <EquipmentModelFilter
+                      models={models}
+                      value={equipmentModelFilter}
+                      onChange={setEquipmentModelFilter}
+                      isLoading={isLoadingModels}
+                    />
+                    {equipmentModelFilter !== "all" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEquipmentModelFilter("all")}
+                        data-testid="button-clear-model-filter"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  {equipmentModelFilter !== "all" && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Showing {filteredPendingVerification.length} of {pendingVerification.length} work orders
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {filteredPendingVerification && filteredPendingVerification.length > 0 ? (
+                filteredPendingVerification.map((workOrder) => renderWorkOrderCard(workOrder, true))
               ) : (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
-                    No work orders pending verification
+                    {equipmentModelFilter !== "all" 
+                      ? "No pending verifications for this model"
+                      : "No work orders pending verification"}
                   </CardContent>
                 </Card>
               )}
@@ -241,12 +297,46 @@ export default function VerifierDashboard() {
 
           <TabsContent value="verified">
             <div className="space-y-4">
-              {verifiedWorkOrders && verifiedWorkOrders.length > 0 ? (
-                verifiedWorkOrders.map((workOrder) => renderWorkOrderCard(workOrder, false))
+              {/* Equipment Model Filter */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      Filter by Equipment Model:
+                    </span>
+                    <EquipmentModelFilter
+                      models={models}
+                      value={equipmentModelFilter}
+                      onChange={setEquipmentModelFilter}
+                      isLoading={isLoadingModels}
+                    />
+                    {equipmentModelFilter !== "all" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEquipmentModelFilter("all")}
+                        data-testid="button-clear-model-filter"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  {equipmentModelFilter !== "all" && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Showing {filteredVerifiedWorkOrders.length} of {verifiedWorkOrders.length} work orders
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {filteredVerifiedWorkOrders && filteredVerifiedWorkOrders.length > 0 ? (
+                filteredVerifiedWorkOrders.map((workOrder) => renderWorkOrderCard(workOrder, false))
               ) : (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
-                    No verified work orders
+                    {equipmentModelFilter !== "all" 
+                      ? "No verified work orders for this model"
+                      : "No verified work orders"}
                   </CardContent>
                 </Card>
               )}
@@ -255,12 +345,46 @@ export default function VerifierDashboard() {
 
           <TabsContent value="rejected">
             <div className="space-y-4">
-              {rejectedWorkOrders && rejectedWorkOrders.length > 0 ? (
-                rejectedWorkOrders.map((workOrder) => renderWorkOrderCard(workOrder, false))
+              {/* Equipment Model Filter */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium whitespace-nowrap">
+                      Filter by Equipment Model:
+                    </span>
+                    <EquipmentModelFilter
+                      models={models}
+                      value={equipmentModelFilter}
+                      onChange={setEquipmentModelFilter}
+                      isLoading={isLoadingModels}
+                    />
+                    {equipmentModelFilter !== "all" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEquipmentModelFilter("all")}
+                        data-testid="button-clear-model-filter"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                  {equipmentModelFilter !== "all" && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Showing {filteredRejectedWorkOrders.length} of {rejectedWorkOrders.length} work orders
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {filteredRejectedWorkOrders && filteredRejectedWorkOrders.length > 0 ? (
+                filteredRejectedWorkOrders.map((workOrder) => renderWorkOrderCard(workOrder, false))
               ) : (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
-                    No rejected work orders
+                    {equipmentModelFilter !== "all" 
+                      ? "No rejected work orders for this model"
+                      : "No rejected work orders"}
                   </CardContent>
                 </Card>
               )}

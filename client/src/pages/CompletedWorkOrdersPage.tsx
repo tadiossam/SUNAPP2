@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, CheckCircle, Filter } from "lucide-react";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useEquipmentModels } from "@/hooks/useEquipmentModels";
+import { EquipmentModelFilter } from "@/components/EquipmentModelFilter";
 
 type WorkOrder = {
   id: string;
@@ -39,12 +41,16 @@ export default function CompletedWorkOrdersPage() {
   // Date range filtering state
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [equipmentModelFilter, setEquipmentModelFilter] = useState<string>("all");
 
   const { data: myWorkOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/my-assignments"],
   });
 
   const safeWorkOrders = myWorkOrders ?? [];
+
+  // Use equipment models hook
+  const { models, isLoading: isLoadingModels } = useEquipmentModels();
   
   const completedWorkOrders = safeWorkOrders.filter(
     (wo) =>
@@ -53,20 +59,25 @@ export default function CompletedWorkOrdersPage() {
       wo.status === "completed"
   );
 
-  // Filter completed work orders by date range
+  // Filter completed work orders by date range and equipment model
   const filteredCompletedWorkOrders = completedWorkOrders.filter((wo) => {
-    if (!startDate && !endDate) return true;
-    
-    // Use completedAt if available, otherwise use the work order creation date
-    const workOrderDate = wo.completedAt || wo.startedAt;
-    if (!workOrderDate) return false;
-    
-    const woDate = new Date(workOrderDate);
-    const start = startDate ? new Date(startDate) : null;
-    const end = endDate ? new Date(endDate + "T23:59:59") : null;
-    
-    if (start && woDate < start) return false;
-    if (end && woDate > end) return false;
+    // Date range filter
+    if (startDate || endDate) {
+      const workOrderDate = wo.completedAt || wo.startedAt;
+      if (!workOrderDate) return false;
+      
+      const woDate = new Date(workOrderDate);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate + "T23:59:59") : null;
+      
+      if (start && woDate < start) return false;
+      if (end && woDate > end) return false;
+    }
+
+    // Equipment model filter
+    if (equipmentModelFilter !== "all" && wo.equipmentModel !== equipmentModelFilter) {
+      return false;
+    }
     
     return true;
   });
@@ -135,55 +146,88 @@ export default function CompletedWorkOrdersPage() {
         </div>
       </div>
 
-      {/* Date Range Filter */}
+      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Filter className="h-4 w-4" />
-            {language === "am" ? "በቀን ክልል ያጣራ" : "Filter by Date Range"}
+            {language === "am" ? "ማጣሪያዎች" : "Filters"}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Label htmlFor="start-date">
-                {language === "am" ? "የመጀመሪያ ቀን" : "Start Date"}
-              </Label>
-              <Input
-                id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                data-testid="input-start-date"
+        <CardContent className="space-y-4">
+          {/* Equipment Model Filter */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              {language === "am" ? "በእቃ ሞዴል ያጣራ" : "Filter by Equipment Model"}
+            </Label>
+            <div className="flex items-center gap-3">
+              <EquipmentModelFilter
+                models={models}
+                value={equipmentModelFilter}
+                onChange={setEquipmentModelFilter}
+                isLoading={isLoadingModels}
               />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="end-date">
-                {language === "am" ? "የመጨረሻ ቀን" : "End Date"}
-              </Label>
-              <Input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                data-testid="input-end-date"
-              />
-            </div>
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setStartDate("");
-                  setEndDate("");
-                }}
-                data-testid="button-clear-filters"
-              >
-                {language === "am" ? "አጥራ" : "Clear Filters"}
-              </Button>
+              {equipmentModelFilter !== "all" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEquipmentModelFilter("all")}
+                  data-testid="button-clear-model-filter"
+                >
+                  {language === "am" ? "አጽዳ" : "Clear"}
+                </Button>
+              )}
             </div>
           </div>
-          {(startDate || endDate) && (
-            <p className="text-sm text-muted-foreground mt-2">
+
+          {/* Date Range Filter */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              {language === "am" ? "በቀን ክልል ያጣራ" : "Filter by Date Range"}
+            </Label>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Label htmlFor="start-date" className="text-xs">
+                  {language === "am" ? "የመጀመሪያ ቀን" : "Start Date"}
+                </Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  data-testid="input-start-date"
+                />
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="end-date" className="text-xs">
+                  {language === "am" ? "የመጨረሻ ቀን" : "End Date"}
+                </Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  data-testid="input-end-date"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  data-testid="button-clear-date-filters"
+                >
+                  {language === "am" ? "አጥራ" : "Clear Dates"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Summary */}
+          {(startDate || endDate || equipmentModelFilter !== "all") && (
+            <p className="text-sm text-muted-foreground pt-2 border-t">
               {language === "am" 
                 ? `${filteredCompletedWorkOrders.length} ከ ${completedWorkOrders.length} የስራ ትእዛዞች` 
                 : `Showing ${filteredCompletedWorkOrders.length} of ${completedWorkOrders.length} work orders`}

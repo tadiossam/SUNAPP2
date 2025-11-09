@@ -14,6 +14,8 @@ import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useEquipmentModels } from "@/hooks/useEquipmentModels";
+import { EquipmentModelFilter } from "@/components/EquipmentModelFilter";
 
 type WorkOrder = {
   id: string;
@@ -64,6 +66,7 @@ export default function TeamDashboard() {
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
   const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [equipmentModelFilter, setEquipmentModelFilter] = useState<string>("all");
 
   const { data: myWorkOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/my-assignments"],
@@ -76,6 +79,9 @@ export default function TeamDashboard() {
   // Ensure arrays are never null (defaults don't work with null, only undefined)
   const safeWorkOrders = myWorkOrders ?? [];
   const safeRequisitions = myRequisitions ?? [];
+
+  // Use equipment models hook
+  const { models, isLoading: isLoadingModels } = useEquipmentModels();
 
   const { data: inspectionDetails, isLoading: isLoadingInspection } = useQuery<any>({
     queryKey: ["/api/inspections", viewingInspectionId],
@@ -166,6 +172,12 @@ export default function TeamDashboard() {
       wo.status === "awaiting_parts" ||
       wo.status === "waiting_purchase"
   );
+
+  // Apply equipment model filter to active work orders
+  const filteredActiveWorkOrders = activeWorkOrders.filter((wo) => {
+    if (equipmentModelFilter === "all") return true;
+    return wo.equipmentModel === equipmentModelFilter;
+  });
 
   const completedWorkOrders = safeWorkOrders.filter(
     (wo) =>
@@ -436,12 +448,48 @@ export default function TeamDashboard() {
         </TabsList>
 
         <TabsContent value="active" className="space-y-4">
-          {activeWorkOrders.length > 0 ? (
-            activeWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
+          {/* Equipment Model Filter */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium whitespace-nowrap">
+                  {language === "am" ? "በእቃ ሞዴል ያጣራ" : "Filter by Equipment Model"}:
+                </span>
+                <EquipmentModelFilter
+                  models={models}
+                  value={equipmentModelFilter}
+                  onChange={setEquipmentModelFilter}
+                  isLoading={isLoadingModels}
+                />
+                {equipmentModelFilter !== "all" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEquipmentModelFilter("all")}
+                    data-testid="button-clear-model-filter"
+                  >
+                    {language === "am" ? "አጽዳ" : "Clear"}
+                  </Button>
+                )}
+              </div>
+              {equipmentModelFilter !== "all" && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {language === "am" 
+                    ? `${filteredActiveWorkOrders.length} ከ ${activeWorkOrders.length} የስራ ትእዛዞች` 
+                    : `Showing ${filteredActiveWorkOrders.length} of ${activeWorkOrders.length} work orders`}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {filteredActiveWorkOrders.length > 0 ? (
+            filteredActiveWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
           ) : (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
-                {language === "am" ? "ምንም ንቁ የስራ ትእዛዞች የሉም" : "No active work orders"}
+                {equipmentModelFilter !== "all" 
+                  ? (language === "am" ? "ለዚህ ሞዴል ምንም ንቁ የስራ ትእዛዞች የሉም" : "No active work orders for this model")
+                  : (language === "am" ? "ምንም ንቁ የስራ ትእዛዞች የሉም" : "No active work orders")}
               </CardContent>
             </Card>
           )}

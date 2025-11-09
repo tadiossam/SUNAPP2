@@ -1098,10 +1098,12 @@ export default function ForemanDashboard() {
       <EmployeeSearchDialog
         open={isAssignDialogOpen}
         onOpenChange={(open) => {
-          setIsAssignDialogOpen(open);
-          if (!open) {
-            setSelectedTeamMembers([]);
-            setSelectedWorkOrder(null);
+          if (!assignTeamMutation.isPending) {
+            setIsAssignDialogOpen(open);
+            if (!open) {
+              setSelectedTeamMembers([]);
+              setSelectedWorkOrder(null);
+            }
           }
         }}
         mode="multiple"
@@ -1115,6 +1117,7 @@ export default function ForemanDashboard() {
           }
           setSelectedTeamMembers(teamMemberIds);
         }}
+        isLoading={assignTeamMutation.isPending}
         title="Assign Team Members"
         description="Select one or more team members to assign to this work order"
       />

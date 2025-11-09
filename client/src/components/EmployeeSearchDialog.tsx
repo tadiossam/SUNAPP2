@@ -19,6 +19,7 @@ interface EmployeeSearchDialogProps {
   selectedIds?: string[];
   excludeIds?: string[];
   onSelect: (employeeIds: string[]) => void;
+  isLoading?: boolean;
 }
 
 const EMPLOYEES_PER_PAGE = 30;
@@ -32,6 +33,7 @@ export function EmployeeSearchDialog({
   selectedIds = [],
   excludeIds = [],
   onSelect,
+  isLoading = false,
 }: EmployeeSearchDialogProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>(selectedIds);
@@ -44,6 +46,8 @@ export function EmployeeSearchDialog({
       setSearchTerm(""); // Reset search for fresh experience
       setCurrentPage(0); // Reset to first page
     }
+    // Don't reset state when closing - let it happen naturally when dialog opens next time
+    // This prevents state resets from interfering with loading states
   }, [open, selectedIds]);
 
   // Reset to first page when search term changes
@@ -51,7 +55,7 @@ export function EmployeeSearchDialog({
     setCurrentPage(0);
   }, [searchTerm]);
 
-  const { data: employees = [], isLoading } = useQuery<Employee[]>({
+  const { data: employees = [], isLoading: isLoadingEmployees } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
   });
 
@@ -107,18 +111,20 @@ export function EmployeeSearchDialog({
 
   const handleConfirm = () => {
     onSelect(internalSelectedIds);
-    onOpenChange(false);
-    setSearchTerm("");
+    // Don't close dialog here - let parent's mutation onSuccess handler close it
+    // This allows loading state to be visible during mutation
   };
 
   const handleCancel = () => {
-    setInternalSelectedIds(selectedIds);
-    onOpenChange(false);
-    setSearchTerm("");
+    if (!isLoading) {
+      setInternalSelectedIds(selectedIds);
+      onOpenChange(false);
+      setSearchTerm("");
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(open) => !isLoading && onOpenChange(open)}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" data-testid="dialog-employee-search">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -141,7 +147,7 @@ export function EmployeeSearchDialog({
           </div>
 
           <ScrollArea className="flex-1 min-h-[400px] pr-4">
-            {isLoading ? (
+            {isLoadingEmployees ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 Loading employees...
               </div>
@@ -226,23 +232,41 @@ export function EmployeeSearchDialog({
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-4 border-t flex-shrink-0">
-            <div className="text-sm text-muted-foreground">
-              {mode === "multiple" && `${internalSelectedIds.length} selected`}
+            <div className="text-sm">
+              {mode === "multiple" && internalSelectedIds.length > 0 && (
+                <Badge variant="secondary" className="text-sm">
+                  {internalSelectedIds.length} {internalSelectedIds.length === 1 ? 'member' : 'members'} selected
+                </Badge>
+              )}
+              {mode === "single" && internalSelectedIds.length > 0 && (
+                <span className="text-muted-foreground">1 member selected</span>
+              )}
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={handleCancel}
+                disabled={isLoading}
                 data-testid="button-cancel-selection"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleConfirm}
-                disabled={internalSelectedIds.length === 0}
+                disabled={internalSelectedIds.length === 0 || isLoading}
                 data-testid="button-confirm-selection"
               >
-                Confirm {mode === "multiple" ? "Selection" : ""}
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Assigning...
+                  </>
+                ) : (
+                  <>Confirm {mode === "multiple" ? "Selection" : ""}</>
+                )}
               </Button>
             </div>
           </div>

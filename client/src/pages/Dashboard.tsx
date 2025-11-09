@@ -80,6 +80,16 @@ export default function Dashboard() {
     activeWorkshops: 0,
   };
 
+  const costAnalytics = analyticsData?.costAnalytics || {
+    labor: { planned: 0, actual: 0 },
+    lubricants: { planned: 0, actual: 0 },
+    outsource: { planned: 0, actual: 0 },
+    totalMaintenanceCost: 0,
+    avgCostPerWorkOrder: 0,
+    costVariancePct: 0,
+    costVarianceAmount: 0,
+  };
+
   const costBreakdown = analyticsData?.costBreakdown
     ? [
         { name: "Direct Maintenance", value: analyticsData.costBreakdown.directMaintenance, color: "#2563eb" },
@@ -358,6 +368,94 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Cost Analytics Cards */}
+            <div className="mt-6">
+              <h2 className="text-lg font-semibold mb-4">Cost Analytics</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Labor Cost</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-primary" data-testid="text-labor-cost">
+                          ETB {(costAnalytics.labor.actual / 1000).toFixed(1)}K
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Planned: ETB {(costAnalytics.labor.planned / 1000).toFixed(1)}K
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Lubricant Cost</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-primary" data-testid="text-lubricant-cost">
+                          ETB {(costAnalytics.lubricants.actual / 1000).toFixed(1)}K
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Planned: ETB {(costAnalytics.lubricants.planned / 1000).toFixed(1)}K
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Outsource Cost</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-primary" data-testid="text-outsource-cost">
+                          ETB {(costAnalytics.outsource.actual / 1000).toFixed(1)}K
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Planned: ETB {(costAnalytics.outsource.planned / 1000).toFixed(1)}K
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Avg Cost/Order</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold" data-testid="text-avg-cost-per-order">
+                          ETB {(costAnalytics.avgCostPerWorkOrder / 1000).toFixed(1)}K
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Per completed order
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Cost Variance</CardTitle>
+                        {costAnalytics.costVariancePct > 0 ? (
+                          <TrendingUp className="h-4 w-4 text-destructive" data-testid="icon-variance-up" />
+                        ) : (
+                          <TrendingUp className="h-4 w-4 text-green-600" data-testid="icon-variance-down" />
+                        )}
+                      </CardHeader>
+                      <CardContent>
+                        <div className={`text-2xl font-bold ${
+                          costAnalytics.costVariancePct > 0 ? 'text-destructive' : 'text-green-600'
+                        }`} data-testid="text-cost-variance">
+                          {costAnalytics.costVariancePct > 0 ? '+' : ''}
+                          {costAnalytics.costVariancePct.toFixed(1)}%
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {costAnalytics.costVariancePct > 0 ? 'Over' : 'Under'} budget
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
 
             {/* Show message if no data */}
             {kpis.totalPlanned === 0 && (

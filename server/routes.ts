@@ -7571,6 +7571,42 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       // Active workshops count
       const activeWorkshops = workshopsData.filter((w: any) => w.isActive).length;
       
+      // Calculate cost analytics using NEW cost tracking fields
+      let totalPlannedLaborCost = 0;
+      let totalActualLaborCost = 0;
+      let totalPlannedLubricantCost = 0;
+      let totalActualLubricantCost = 0;
+      let totalPlannedOutsourceCost = 0;
+      let totalActualOutsourceCost = 0;
+      let totalPlannedCostNew = 0;
+      let totalActualCostNew = 0;
+      
+      for (const order of completedOrders) {
+        const plannedLabor = parseFloat(order.plannedLaborCost || '0');
+        const actualLabor = parseFloat(order.actualLaborCost || '0');
+        const plannedLubricant = parseFloat(order.plannedLubricantCost || '0');
+        const actualLubricant = parseFloat(order.actualLubricantCost || '0');
+        const plannedOutsource = parseFloat(order.plannedOutsourceCost || '0');
+        const actualOutsource = parseFloat(order.actualOutsourceCost || '0');
+        const totalPlanned = parseFloat(order.totalPlannedCost || '0');
+        const totalActual = parseFloat(order.totalActualCost || '0');
+        
+        totalPlannedLaborCost += plannedLabor;
+        totalActualLaborCost += actualLabor;
+        totalPlannedLubricantCost += plannedLubricant;
+        totalActualLubricantCost += actualLubricant;
+        totalPlannedOutsourceCost += plannedOutsource;
+        totalActualOutsourceCost += actualOutsource;
+        totalPlannedCostNew += totalPlanned;
+        totalActualCostNew += totalActual;
+      }
+      
+      // Calculate derived metrics
+      const totalMaintenanceCost = totalActualLaborCost + totalActualLubricantCost + totalActualOutsourceCost;
+      const avgCostPerWorkOrder = totalCompleted > 0 ? totalActualCostNew / totalCompleted : 0;
+      const costVarianceAmount = totalActualCostNew - totalPlannedCostNew;
+      const costVariancePct = totalPlannedCostNew > 0 ? (costVarianceAmount / totalPlannedCostNew) * 100 : 0;
+      
       // Calculate quarterly data for the year
       const quarterlyData = [];
       const quarters = [
@@ -7739,6 +7775,24 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           overtime: parseFloat(totalOvertimeCost.toFixed(2)),
           outsource: parseFloat(totalOutsourceCost.toFixed(2)),
           overhead: parseFloat(totalOverheadCost.toFixed(2)),
+        },
+        costAnalytics: {
+          labor: {
+            planned: parseFloat(totalPlannedLaborCost.toFixed(2)),
+            actual: parseFloat(totalActualLaborCost.toFixed(2)),
+          },
+          lubricants: {
+            planned: parseFloat(totalPlannedLubricantCost.toFixed(2)),
+            actual: parseFloat(totalActualLubricantCost.toFixed(2)),
+          },
+          outsource: {
+            planned: parseFloat(totalPlannedOutsourceCost.toFixed(2)),
+            actual: parseFloat(totalActualOutsourceCost.toFixed(2)),
+          },
+          totalMaintenanceCost: parseFloat(totalMaintenanceCost.toFixed(2)),
+          avgCostPerWorkOrder: parseFloat(avgCostPerWorkOrder.toFixed(2)),
+          costVariancePct: parseFloat(costVariancePct.toFixed(2)),
+          costVarianceAmount: parseFloat(costVarianceAmount.toFixed(2)),
         },
         quarterlyData,
         workshopPerformance,

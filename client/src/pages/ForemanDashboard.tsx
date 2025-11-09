@@ -296,6 +296,14 @@ export default function ForemanDashboard() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/foreman"] });
     },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to approve line item";
+      toast({
+        title: "Approval Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
   });
 
   const rejectLineMutation = useMutation({
@@ -310,6 +318,14 @@ export default function ForemanDashboard() {
         description: "Requisition line item has been rejected.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/item-requisitions/foreman"] });
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to reject line item";
+      toast({
+        title: "Rejection Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     },
   });
 

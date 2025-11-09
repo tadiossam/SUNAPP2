@@ -1485,7 +1485,7 @@ export default function AdminSettings() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-background flex-shrink-0">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("adminSettings")}</h1>
           <p className="text-sm text-muted-foreground">
@@ -1495,9 +1495,9 @@ export default function AdminSettings() {
       </div>
 
       {/* Content with Tabs */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <Tabs defaultValue="biometric" className="h-full flex flex-col">
-          <div className="border-b px-6 overflow-x-auto">
+          <div className="sticky top-0 z-10 bg-background border-b px-6 overflow-x-auto flex-shrink-0">
             <TabsList className="inline-flex w-full min-w-max h-12">
               <TabsTrigger value="biometric" className="gap-2" data-testid="tab-biometric">
                 <Users className="h-4 w-4" />
@@ -1543,21 +1543,21 @@ export default function AdminSettings() {
           </div>
 
           {/* Sample Data Tab */}
-          <TabsContent value="sampleData" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="sampleData" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               <SampleDataManagement />
             </AdminTabSection>
           </TabsContent>
 
           {/* Ethiopian Year Management Tab */}
-          <TabsContent value="ethiopianYear" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="ethiopianYear" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               <EthiopianYearManagement />
             </AdminTabSection>
           </TabsContent>
 
           {/* Biometric Device Tab */}
-          <TabsContent value="biometric" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="biometric" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               {/* Device Management Card */}
               <Card>
@@ -1934,7 +1934,7 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* Dynamics 365 Tab */}
-          <TabsContent value="dynamics" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="dynamics" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               <Card>
                 <CardHeader>
@@ -2118,7 +2118,7 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* Fleet Management Tab */}
-          <TabsContent value="fleet" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="fleet" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               <Card>
                 <CardHeader>
@@ -2243,7 +2243,7 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* Deployment Tool Tab */}
-          <TabsContent value="deployment" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="deployment" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               <Card>
                 <CardHeader>
@@ -2405,7 +2405,7 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* Customisations Tab */}
-          <TabsContent value="customisations" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="customisations" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               <Card>
                 <CardHeader>
@@ -2586,7 +2586,7 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* User Control Tab */}
-          <TabsContent value="userControl" className="flex-1 overflow-auto p-6 m-0">
+          <TabsContent value="userControl" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
             <AdminTabSection>
               <Card>
                 <CardHeader>

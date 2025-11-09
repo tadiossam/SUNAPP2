@@ -98,27 +98,34 @@ export default function EditWorkshop() {
   // Update form when draft changes (from SelectEmployees or sessionStorage)
   useEffect(() => {
     if (draft && workshop) {
-      // Reset entire form with draft data to ensure validation state is updated
-      form.reset({
-        name: draft.name || "",
-        foremanId: draft.foremanId || undefined,
-        description: draft.description || "",
-        garageId: draft.garageId,
-        memberIds: draft.memberIds || [],
-        monthlyTarget: draft.monthlyTarget,
-        q1Target: draft.q1Target,
-        q2Target: draft.q2Target,
-        q3Target: draft.q3Target,
-        q4Target: draft.q4Target,
-        annualTarget: draft.annualTarget,
-      }, { keepDefaultValues: false });
+      const currentValues = form.getValues();
+      const needsUpdate = 
+        currentValues.foremanId !== draft.foremanId ||
+        currentValues.name !== draft.name ||
+        JSON.stringify(currentValues.memberIds) !== JSON.stringify(draft.memberIds);
       
-      // Trigger validation after reset
-      form.trigger(['foremanId', 'memberIds']);
+      if (needsUpdate) {
+        form.reset({
+          name: draft.name || "",
+          foremanId: draft.foremanId || undefined,
+          description: draft.description || "",
+          garageId: draft.garageId,
+          memberIds: draft.memberIds || [],
+          monthlyTarget: draft.monthlyTarget,
+          q1Target: draft.q1Target,
+          q2Target: draft.q2Target,
+          q3Target: draft.q3Target,
+          q4Target: draft.q4Target,
+          annualTarget: draft.annualTarget,
+        }, { keepDefaultValues: false });
+        
+        // Trigger validation after reset
+        form.trigger(['foremanId', 'memberIds']);
+      }
     }
-  }, [draft, workshop, form]);
+  }, [draft, workshop]); // Only depend on draft and workshop, not form
 
-  // Sync form changes to draft
+  // Sync form changes to draft (with debounce to prevent loops)
   useEffect(() => {
     const subscription = form.watch((value) => {
       if (draft) {
@@ -126,7 +133,7 @@ export default function EditWorkshop() {
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, draft, updateDraft]);
+  }, [draft, updateDraft]); // Removed form from dependencies
 
   const updateWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {

@@ -212,6 +212,7 @@ export interface IStorage {
   // Repair Bays
   getAllWorkshops(): Promise<WorkshopWithDetails[]>;
   getWorkshopsByGarage(garageId: string): Promise<WorkshopWithDetails[]>;
+  getWorkshopById(id: string): Promise<Workshop | undefined>;
   createWorkshop(data: InsertWorkshop): Promise<Workshop>;
   updateWorkshop(id: string, data: Partial<InsertWorkshop>): Promise<Workshop>;
   deleteWorkshop(id: string): Promise<void>;
@@ -1088,6 +1089,13 @@ export class DatabaseStorage implements IStorage {
     );
     
     return workshopsWithDetails;
+  }
+
+  async getWorkshopById(id: string): Promise<Workshop | undefined> {
+    const workshop = await db.query.workshops.findFirst({
+      where: eq(workshops.id, id),
+    });
+    return workshop;
   }
 
   async createWorkshop(data: InsertWorkshop): Promise<Workshop> {

@@ -1410,6 +1410,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single workshop by ID with members list
+  app.get("/api/workshops/:id", async (req, res) => {
+    try {
+      const workshop = await storage.getWorkshopById(req.params.id);
+      if (!workshop) {
+        return res.status(404).json({ error: "Workshop not found" });
+      }
+      
+      // Get workshop members
+      const membersList = await storage.getWorkshopMembers(req.params.id);
+      
+      res.json({
+        ...workshop,
+        membersList,
+      });
+    } catch (error) {
+      console.error("Error fetching workshop:", error);
+      res.status(500).json({ error: "Failed to fetch workshop" });
+    }
+  });
+
   app.get("/api/workshops/:workshopId/members", async (req, res) => {
     try {
       const members = await storage.getWorkshopMembers(req.params.workshopId);

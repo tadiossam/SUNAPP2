@@ -7232,8 +7232,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         const now = new Date();
         const day = now.getDay();
         const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-        const monday = new Date(now.setDate(diff));
-        monday.setHours(0, 0, 0, 0);
+        const monday = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0);
         return monday;
       };
       
@@ -7277,19 +7276,19 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         };
       } else if (timePeriod === 'weekly') {
         // Week starts on the date specified, or defaults to current week (Monday)
-        const weekStart = req.query.weekStart ? new Date(req.query.weekStart as string) : getCurrentWeekStart();
-        weekStart.setHours(0, 0, 0, 0);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        weekEnd.setHours(23, 59, 59, 999);
+        const weekStartInput = req.query.weekStart ? new Date(req.query.weekStart as string) : getCurrentWeekStart();
+        const weekStart = new Date(weekStartInput.getFullYear(), weekStartInput.getMonth(), weekStartInput.getDate(), 0, 0, 0, 0);
+        const weekEnd = new Date(weekStartInput.getFullYear(), weekStartInput.getMonth(), weekStartInput.getDate() + 6, 23, 59, 59, 999);
         dateFilter = { start: weekStart, end: weekEnd };
       } else if (timePeriod === 'daily') {
         // Day specified or defaults to today
-        const day = req.query.date ? new Date(req.query.date as string) : new Date();
-        day.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(day);
-        dayEnd.setHours(23, 59, 59, 999);
-        dateFilter = { start: day, end: dayEnd };
+        console.log('[DEBUG] Daily period - req.query.date:', req.query.date);
+        const dayInput = req.query.date ? new Date(req.query.date as string) : new Date();
+        console.log('[DEBUG] dayInput:', dayInput, 'ISO:', dayInput.toISOString());
+        const dayStart = new Date(dayInput.getFullYear(), dayInput.getMonth(), dayInput.getDate(), 0, 0, 0, 0);
+        const dayEnd = new Date(dayInput.getFullYear(), dayInput.getMonth(), dayInput.getDate(), 23, 59, 59, 999);
+        console.log('[DEBUG] dayStart:', dayStart.toISOString(), 'dayEnd:', dayEnd.toISOString());
+        dateFilter = { start: dayStart, end: dayEnd };
       } else {
         // Annual
         dateFilter = { start: startOfYear, end: endOfYear };

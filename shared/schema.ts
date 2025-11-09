@@ -1440,6 +1440,37 @@ export type InsertWorkOrderLubricantEntry = z.infer<typeof insertWorkOrderLubric
 export type WorkOrderOutsourceEntry = typeof workOrderOutsourceEntries.$inferSelect;
 export type InsertWorkOrderOutsourceEntry = z.infer<typeof insertWorkOrderOutsourceEntrySchema>;
 
+// Enriched view types for cost entries (extends base types with joins and aliases)
+export type WorkOrderLaborEntryView = Omit<WorkOrderLaborEntry, 'hoursWorked' | 'hourlyRateSnapshot' | 'overtimeFactor' | 'totalCost'> & {
+  // Parsed decimal fields (database stores as decimal, we convert to number)
+  hoursWorked: number;
+  hourlyRateSnapshot: number;
+  overtimeFactor: number;
+  totalCost: number;
+  // Enriched field from JOIN
+  employeeName: string | null;
+  // Backwards-compat alias
+  hourlyRate: number;
+};
+
+export type WorkOrderLubricantEntryView = Omit<WorkOrderLubricantEntry, 'quantity' | 'unitCostSnapshot' | 'totalCost'> & {
+  // Parsed decimal fields
+  quantity: number;
+  unitCostSnapshot: number;
+  totalCost: number;
+  // Backwards-compat aliases
+  lubricantType: string;
+  unitCost: number;
+};
+
+export type WorkOrderOutsourceEntryView = Omit<WorkOrderOutsourceEntry, 'plannedCost' | 'actualCost'> & {
+  // Parsed decimal fields
+  plannedCost: number | null;
+  actualCost: number;
+  // Backwards-compat alias
+  cost: number;
+};
+
 export type ApprovalStage = typeof approvalStages.$inferSelect;
 export type InsertApprovalStage = z.infer<typeof insertApprovalStageSchema>;
 export type WorkOrderApproval = typeof workOrderApprovals.$inferSelect;

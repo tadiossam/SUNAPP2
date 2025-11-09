@@ -273,9 +273,9 @@ export interface IStorage {
   resumeWorkOrderTimer(workOrderId: string, triggeredById?: string): Promise<void>;
 
   // Work Order Cost Tracking
-  getWorkOrderLaborEntries(workOrderId: string): Promise<WorkOrderLaborEntry[]>;
-  getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntry[]>;
-  getWorkOrderOutsourceEntries(workOrderId: string): Promise<WorkOrderOutsourceEntry[]>;
+  getWorkOrderLaborEntries(workOrderId: string): Promise<WorkOrderLaborEntryView[]>;
+  getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntryView[]>;
+  getWorkOrderOutsourceEntries(workOrderId: string): Promise<WorkOrderOutsourceEntryView[]>;
   addLaborEntry(data: InsertWorkOrderLaborEntry): Promise<WorkOrderLaborEntry>;
   addLubricantEntry(data: InsertWorkOrderLubricantEntry): Promise<WorkOrderLubricantEntry>;
   addOutsourceEntry(data: InsertWorkOrderOutsourceEntry): Promise<WorkOrderOutsourceEntry>;
@@ -1868,28 +1868,77 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Order Cost Tracking
-  async getWorkOrderLaborEntries(workOrderId: string): Promise<WorkOrderLaborEntry[]> {
-    return await db
-      .select()
+  async getWorkOrderLaborEntries(workOrderId: string): Promise<WorkOrderLaborEntryView[]> {
+    const entries = await db
+      .select({
+        // All base columns
+        id: workOrderLaborEntries.id,
+        workOrderId: workOrderLaborEntries.workOrderId,
+        employeeId: workOrderLaborEntries.employeeId,
+        entryType: workOrderLaborEntries.entryType,
+        timeSource: workOrderLaborEntries.timeSource,
+        hoursWorked: workOrderLaborEntries.hoursWorked,
+        hourlyRateSnapshot: workOrderLaborEntries.hourlyRateSnapshot,
+        overtimeFactor: workOrderLaborEntries.overtimeFactor,
+        totalCost: workOrderLaborEntries.totalCost,
+        description: workOrderLaborEntries.description,
+        workDate: workOrderLaborEntries.workDate,
+        enteredById: workOrderLaborEntries.enteredById,
+        createdAt: workOrderLaborEntries.createdAt,
+        // Enriched field from JOIN
+        employeeName: sql<string>`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+      })
       .from(workOrderLaborEntries)
+      .leftJoin(employees, eq(workOrderLaborEntries.employeeId, employees.id))
       .where(eq(workOrderLaborEntries.workOrderId, workOrderId))
       .orderBy(desc(workOrderLaborEntries.createdAt));
+    
+    return entries.map(entry => ({
+      ...entry,
+      // Parse all decimal fields to numbers
+      hoursWorked: parseFloat(entry.hoursWorked as any),
+      hourlyRateSnapshot: parseFloat(entry.hourlyRateSnapshot as any),
+      overtimeFactor: parseFloat(entry.overtimeFactor as any),
+      totalCost: parseFloat(entry.totalCost as any),
+      // Add backwards-compat alias
+      hourlyRate: parseFloat(entry.hourlyRateSnapshot as any),
+    }));
   }
 
-  async getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntry[]> {
-    return await db
+  async getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntryView[]> {
+    const entries = await db
       .select()
       .from(workOrderLubricantEntries)
       .where(eq(workOrderLubricantEntries.workOrderId, workOrderId))
       .orderBy(desc(workOrderLubricantEntries.createdAt));
+    
+    return entries.map(entry => ({
+      ...entry,
+      // Parse all decimal fields to numbers
+      quantity: parseFloat(entry.quantity as any),
+      unitCostSnapshot: parseFloat(entry.unitCostSnapshot as any),
+      totalCost: parseFloat(entry.totalCost as any),
+      // Add backwards-compat aliases
+      lubricantType: entry.itemName,
+      unitCost: parseFloat(entry.unitCostSnapshot as any),
+    }));
   }
 
-  async getWorkOrderOutsourceEntries(workOrderId: string): Promise<WorkOrderOutsourceEntry[]> {
-    return await db
+  async getWorkOrderOutsourceEntries(workOrderId: string): Promise<WorkOrderOutsourceEntryView[]> {
+    const entries = await db
       .select()
       .from(workOrderOutsourceEntries)
       .where(eq(workOrderOutsourceEntries.workOrderId, workOrderId))
       .orderBy(desc(workOrderOutsourceEntries.createdAt));
+    
+    return entries.map(entry => ({
+      ...entry,
+      // Parse all decimal fields to numbers
+      plannedCost: entry.plannedCost ? parseFloat(entry.plannedCost as any) : null,
+      actualCost: parseFloat(entry.actualCost as any),
+      // Add backwards-compat alias
+      cost: parseFloat(entry.actualCost as any),
+    }));
   }
 
   async addLaborEntry(data: InsertWorkOrderLaborEntry): Promise<WorkOrderLaborEntry> {

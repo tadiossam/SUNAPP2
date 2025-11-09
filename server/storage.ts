@@ -2778,11 +2778,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getItemRequisitionsByStoreManager(): Promise<any[]> {
-    // Get requisitions that have been approved by foreman and are pending store review
+    // Get all requisitions (not just pending_store) so store manager can see approved/rejected/backordered tabs
+    // Frontend filters by requisition status for different tabs (pending_store, approved, rejected, waiting_purchase)
     const requisitions = await db
       .select()
       .from(itemRequisitions)
-      .where(eq(itemRequisitions.status, 'pending_store'))
       .orderBy(desc(itemRequisitions.createdAt));
     
     // Get lines, requester, and work order for each requisition

@@ -121,6 +121,15 @@ type ImportLog = {
   createdAt: string;
 };
 
+// Helper component for consistent tab layout with max-width container
+function AdminTabSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-6">
+      {children}
+    </div>
+  );
+}
+
 export default function AdminSettings() {
   const { t } = useLanguage();
   const { toast } = useToast();
@@ -1527,17 +1536,21 @@ export default function AdminSettings() {
 
           {/* Sample Data Tab */}
           <TabsContent value="sampleData" className="flex-1 overflow-auto p-6 m-0">
-            <SampleDataManagement />
+            <AdminTabSection>
+              <SampleDataManagement />
+            </AdminTabSection>
           </TabsContent>
 
           {/* Ethiopian Year Management Tab */}
           <TabsContent value="ethiopianYear" className="flex-1 overflow-auto p-6 m-0">
-            <EthiopianYearManagement />
+            <AdminTabSection>
+              <EthiopianYearManagement />
+            </AdminTabSection>
           </TabsContent>
 
           {/* Biometric Device Tab */}
           <TabsContent value="biometric" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-7xl mx-auto space-y-6">
+            <AdminTabSection>
               {/* Device Management Card */}
               <Card>
                 <CardHeader>
@@ -1909,12 +1922,12 @@ export default function AdminSettings() {
                   )}
                 </CardContent>
               </Card>
-            </div>
+            </AdminTabSection>
           </TabsContent>
 
           {/* Dynamics 365 Tab */}
           <TabsContent value="dynamics" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-5xl mx-auto space-y-6">
+            <AdminTabSection>
               <Card>
                 <CardHeader>
                   <CardTitle className="text-center text-2xl">
@@ -2093,12 +2106,12 @@ export default function AdminSettings() {
                 </CardContent>
 
               </Card>
-            </div>
+            </AdminTabSection>
           </TabsContent>
 
           {/* Fleet Management Tab */}
           <TabsContent value="fleet" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-7xl mx-auto space-y-6">
+            <AdminTabSection>
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2218,12 +2231,12 @@ export default function AdminSettings() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            </AdminTabSection>
           </TabsContent>
 
           {/* Deployment Tool Tab */}
           <TabsContent value="deployment" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-2xl mx-auto space-y-6">
+            <AdminTabSection>
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
@@ -2380,12 +2393,12 @@ export default function AdminSettings() {
                   </Alert>
                 </CardContent>
               </Card>
-            </div>
+            </AdminTabSection>
           </TabsContent>
 
           {/* Customisations Tab */}
           <TabsContent value="customisations" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-2xl mx-auto space-y-6">
+            <AdminTabSection>
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
@@ -2561,12 +2574,12 @@ export default function AdminSettings() {
                   </Alert>
                 </CardContent>
               </Card>
-            </div>
+            </AdminTabSection>
           </TabsContent>
 
           {/* User Control Tab */}
           <TabsContent value="userControl" className="flex-1 overflow-auto p-6 m-0">
-            <div className="max-w-4xl mx-auto space-y-6">
+            <AdminTabSection>
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2699,7 +2712,7 @@ export default function AdminSettings() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            </AdminTabSection>
           </TabsContent>
         </Tabs>
       </div>

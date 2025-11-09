@@ -1,4 +1,4 @@
-import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store, Trophy, UserCheck, ClipboardSignature, Briefcase, Navigation, Archive } from "lucide-react";
+import { Home, Wrench, Box, Upload, ClipboardList, Building2, Users, FileText, BookOpen, MapPin, CheckCircle, Truck, Settings, ClipboardCheck, Search, Package, BarChart3, Store, Trophy, UserCheck, ClipboardSignature, Briefcase, Navigation, Archive, DollarSign } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -179,6 +179,12 @@ export function AppSidebar() {
       url: "/fleet-tracking",
       icon: Navigation,
       testId: "link-fleet-tracking",
+    },
+    {
+      title: "Cost Reports",
+      url: "/cost-reports",
+      icon: DollarSign,
+      testId: "link-cost-reports",
     },
     {
       title: t("adminSettings"),

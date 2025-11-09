@@ -39,6 +39,7 @@ import AwaitingPartsPage from "@/pages/AwaitingPartsPage";
 import CompletedWorkOrdersPage from "@/pages/CompletedWorkOrdersPage";
 import FleetTracking from "@/pages/FleetTracking";
 import ArchivedWorkOrders from "@/pages/ArchivedWorkOrders";
+import CostReports from "@/pages/CostReports";
 import AddWorkshop from "@/pages/AddWorkshop";
 import EditWorkshop from "@/pages/EditWorkshop";
 import SelectEmployees from "@/pages/SelectEmployees";
@@ -84,6 +85,7 @@ function Router() {
       <Route path="/team-performance" component={TeamPerformance} />
       <Route path="/fleet-tracking" component={FleetTracking} />
       <Route path="/archived-work-orders" component={ArchivedWorkOrders} />
+      <Route path="/cost-reports" component={CostReports} />
       <Route path="/admin" component={AdminPage} />
       <Route path="/admin-settings" component={AdminSettingsPage} />
       <Route component={NotFound} />

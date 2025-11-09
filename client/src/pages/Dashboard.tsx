@@ -35,6 +35,17 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [useCustomRange, setUseCustomRange] = useState<boolean>(false);
+  
+  // Daily/Weekly specific date selectors
+  const [dailyDate, setDailyDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [weekStartDate, setWeekStartDate] = useState<string>(() => {
+    // Get current Monday
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return format(monday, "yyyy-MM-dd");
+  });
 
   // Build query params based on whether using custom range or predefined period
   const buildQueryParams = () => {
@@ -44,6 +55,13 @@ export default function Dashboard() {
       params += `&startDate=${startDate}&endDate=${endDate}&timePeriod=custom`;
     } else {
       params += `&timePeriod=${timePeriod}&year=${year}`;
+      
+      // Add date-specific params for daily/weekly
+      if (timePeriod === 'daily') {
+        params += `&date=${dailyDate}`;
+      } else if (timePeriod === 'weekly') {
+        params += `&weekStart=${weekStartDate}`;
+      }
     }
     
     return params;
@@ -126,61 +144,98 @@ export default function Dashboard() {
 
                 {/* Conditional Filter Display */}
                 {!useCustomRange ? (
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {/* Time Period Filter */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Time Period</label>
-                      <Select value={timePeriod} onValueChange={setTimePeriod}>
-                        <SelectTrigger data-testid="select-time-period">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="q1">Q1 (Jan-Mar)</SelectItem>
-                          <SelectItem value="q2">Q2 (Apr-Jun)</SelectItem>
-                          <SelectItem value="q3">Q3 (Jul-Sep)</SelectItem>
-                          <SelectItem value="q4">Q4 (Oct-Dec)</SelectItem>
-                          <SelectItem value="annual">Annual</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {/* Time Period Filter */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Time Period</label>
+                        <Select value={timePeriod} onValueChange={setTimePeriod}>
+                          <SelectTrigger data-testid="select-time-period">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="q1">Q1 (Jan-Mar)</SelectItem>
+                            <SelectItem value="q2">Q2 (Apr-Jun)</SelectItem>
+                            <SelectItem value="q3">Q3 (Jul-Sep)</SelectItem>
+                            <SelectItem value="q4">Q4 (Oct-Dec)</SelectItem>
+                            <SelectItem value="annual">Annual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Workshop Filter */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Workshop</label>
+                        <Select value={workshopId} onValueChange={setWorkshopId}>
+                          <SelectTrigger data-testid="select-workshop">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Workshops</SelectItem>
+                            {workshops.map((workshop: any) => (
+                              <SelectItem key={workshop.id} value={workshop.id}>
+                                {workshop.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Year Filter - only show for non-daily/weekly periods */}
+                      {timePeriod !== 'daily' && timePeriod !== 'weekly' && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Year</label>
+                          <Select value={year.toString()} onValueChange={(val) => setYear(parseInt(val))}>
+                            <SelectTrigger data-testid="select-year">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {yearOptions.map((y) => (
+                                <SelectItem key={y} value={y.toString()}>
+                                  {y}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Workshop Filter */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Workshop</label>
-                      <Select value={workshopId} onValueChange={setWorkshopId}>
-                        <SelectTrigger data-testid="select-workshop">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Workshops</SelectItem>
-                          {workshops.map((workshop: any) => (
-                            <SelectItem key={workshop.id} value={workshop.id}>
-                              {workshop.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {/* Daily Date Selector */}
+                    {timePeriod === 'daily' && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Select Date</label>
+                        <Input
+                          type="date"
+                          value={dailyDate}
+                          onChange={(e) => setDailyDate(e.target.value)}
+                          data-testid="input-daily-date"
+                          className="w-full md:w-64"
+                        />
+                      </div>
+                    )}
 
-                    {/* Year Filter */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Year</label>
-                      <Select value={year.toString()} onValueChange={(val) => setYear(parseInt(val))}>
-                        <SelectTrigger data-testid="select-year">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {yearOptions.map((y) => (
-                            <SelectItem key={y} value={y.toString()}>
-                              {y}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {/* Weekly Start Date Selector */}
+                    {timePeriod === 'weekly' && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Week Starting (Monday)</label>
+                        <Input
+                          type="date"
+                          value={weekStartDate}
+                          onChange={(e) => setWeekStartDate(e.target.value)}
+                          data-testid="input-week-start"
+                          className="w-full md:w-64"
+                        />
+                        {weekStartDate && (
+                          <p className="text-xs text-muted-foreground">
+                            Selected week: {format(new Date(weekStartDate), "MMM dd")} - {format(new Date(new Date(weekStartDate).setDate(new Date(weekStartDate).getDate() + 6)), "MMM dd, yyyy")}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-3">

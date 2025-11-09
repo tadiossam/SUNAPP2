@@ -7217,8 +7217,8 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   // Dashboard analytics endpoint - dynamic data with filters
   app.get("/api/dashboard/analytics", isAuthenticated, async (req, res) => {
     try {
-      const { workOrders, workshops, workOrderRequiredParts, spareParts } = await import("@shared/schema");
-      const { sql: drizzleSql, and, gte, lte, between } = await import("drizzle-orm");
+      const { workOrders, workshops, workOrderRequiredParts, spareParts, workOrderWorkshops } = await import("@shared/schema");
+      const { sql: drizzleSql, and, gte, lte, between, eq, inArray } = await import("drizzle-orm");
       
       // Parse query parameters
       const timePeriod = req.query.timePeriod as string || 'annual'; // daily, weekly, monthly, q1, q2, q3, q4, annual, custom
@@ -7226,6 +7226,16 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       const year = parseInt(req.query.year as string) || new Date().getFullYear();
       const startDateParam = req.query.startDate as string | undefined;
       const endDateParam = req.query.endDate as string | undefined;
+      
+      // Helper function to get current week start (Monday)
+      const getCurrentWeekStart = () => {
+        const now = new Date();
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+        const monday = new Date(now.setDate(diff));
+        monday.setHours(0, 0, 0, 0);
+        return monday;
+      };
       
       // Build date filter based on time period
       let dateFilter: any = {};
@@ -7266,16 +7276,19 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           end: new Date(year, month, lastDay, 23, 59, 59)
         };
       } else if (timePeriod === 'weekly') {
-        // Week starts on the date specified
-        const weekStart = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
+        // Week starts on the date specified, or defaults to current week (Monday)
+        const weekStart = req.query.weekStart ? new Date(req.query.weekStart as string) : getCurrentWeekStart();
+        weekStart.setHours(0, 0, 0, 0);
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
-        weekEnd.setHours(23, 59, 59);
+        weekEnd.setHours(23, 59, 59, 999);
         dateFilter = { start: weekStart, end: weekEnd };
       } else if (timePeriod === 'daily') {
+        // Day specified or defaults to today
         const day = req.query.date ? new Date(req.query.date as string) : new Date();
+        day.setHours(0, 0, 0, 0);
         const dayEnd = new Date(day);
-        dayEnd.setHours(23, 59, 59);
+        dayEnd.setHours(23, 59, 59, 999);
         dateFilter = { start: day, end: dayEnd };
       } else {
         // Annual
@@ -7285,10 +7298,16 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       // Build filters array
       const filters: any[] = [];
       
-      // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
-      // if (workshopId && workshopId !== 'all') {
-      //   // Need to join with work_order_workshops table for multi-workshop filtering
-      // }
+      // Workshop filtering using EXISTS subquery
+      if (workshopId && workshopId !== 'all') {
+        filters.push(
+          drizzleSql`EXISTS (
+            SELECT 1 FROM ${workOrderWorkshops}
+            WHERE ${workOrderWorkshops.workOrderId} = ${workOrders.id}
+            AND ${workOrderWorkshops.workshopId} = ${workshopId}
+          )`
+        );
+      }
       
       // Add date filter for completed work orders
       if (dateFilter.start && dateFilter.end) {
@@ -7305,10 +7324,18 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       
       // Fetch all work orders in the date range (for planned count)
       const allOrdersFilters: any[] = [];
-      // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
-      // if (workshopId && workshopId !== 'all') {
-      //   // Need to join with work_order_workshops table for multi-workshop filtering
-      // }
+      
+      // Workshop filtering for all orders
+      if (workshopId && workshopId !== 'all') {
+        allOrdersFilters.push(
+          drizzleSql`EXISTS (
+            SELECT 1 FROM ${workOrderWorkshops}
+            WHERE ${workOrderWorkshops.workOrderId} = ${workOrders.id}
+            AND ${workOrderWorkshops.workshopId} = ${workshopId}
+          )`
+        );
+      }
+      
       if (dateFilter.start && dateFilter.end) {
         allOrdersFilters.push(gte(workOrders.createdAt, dateFilter.start));
         allOrdersFilters.push(lte(workOrders.createdAt, dateFilter.end));
@@ -7368,10 +7395,18 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       
       for (const quarter of quarters) {
         const qFilters: any[] = [];
-        // Note: Workshop filtering removed - should be reimplemented using work_order_workshops table
-        // if (workshopId && workshopId !== 'all') {
-        //   // Need to join with work_order_workshops table for multi-workshop filtering
-        // }
+        
+        // Workshop filtering for quarterly data
+        if (workshopId && workshopId !== 'all') {
+          qFilters.push(
+            drizzleSql`EXISTS (
+              SELECT 1 FROM ${workOrderWorkshops}
+              WHERE ${workOrderWorkshops.workOrderId} = ${workOrders.id}
+              AND ${workOrderWorkshops.workshopId} = ${workshopId}
+            )`
+          );
+        }
+        
         qFilters.push(gte(workOrders.createdAt, quarter.start));
         qFilters.push(lte(workOrders.createdAt, quarter.end));
         
@@ -7419,14 +7454,35 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         });
       }
       
+      // Build workshop→order mapping once (efficient approach per architect guidance)
+      // This handles multi-workshop assignments: each workshop gets full metrics for all assigned orders
+      const allWorkOrderIds = allOrders.map((o: any) => o.id);
+      const workshopOrderMappings = await db
+        .select({
+          workshopId: workOrderWorkshops.workshopId,
+          workOrderId: workOrderWorkshops.workOrderId,
+        })
+        .from(workOrderWorkshops)
+        .where(inArray(workOrderWorkshops.workOrderId, allWorkOrderIds));
+      
+      // Build Map<workshopId, Set<workOrderId>> for efficient lookups
+      const workshopToOrdersMap = new Map<string, Set<string>>();
+      for (const mapping of workshopOrderMappings) {
+        if (!workshopToOrdersMap.has(mapping.workshopId)) {
+          workshopToOrdersMap.set(mapping.workshopId, new Set());
+        }
+        workshopToOrdersMap.get(mapping.workshopId)!.add(mapping.workOrderId);
+      }
+      
       // Calculate workshop/department performance
       const workshopPerformance = [];
       for (const workshop of workshopsData) {
         if (!workshop.isActive) continue;
         
-        // Get work orders for this workshop
-        const workshopOrders = allOrders.filter((o: any) => o.workshopId === workshop.id);
-        const workshopCompleted = completedOrders.filter((o: any) => o.workshopId === workshop.id);
+        // Get work orders for this workshop using pre-built mapping
+        const workshopWorkOrderIds = workshopToOrdersMap.get(workshop.id) || new Set();
+        const workshopOrders = allOrders.filter((o: any) => workshopWorkOrderIds.has(o.id));
+        const workshopCompleted = completedOrders.filter((o: any) => workshopWorkOrderIds.has(o.id));
         
         // Calculate quarterly accomplishment for this workshop
         const q1Orders = workshopOrders.filter((o: any) => {

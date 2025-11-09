@@ -1042,14 +1042,17 @@ export class DatabaseStorage implements IStorage {
 
     // Check for dependencies that don't have cascade delete
     const employeesList = await db.select().from(employees).where(eq(employees.garageId, id));
-    const workOrdersList = await db.select().from(workOrders).where(eq(workOrders.garageId, id));
+    
+    // Check work orders via junction table
+    const garageWorkOrderLinks = await db.select().from(workOrderGarages).where(eq(workOrderGarages.garageId, id));
+    
     const storageLocations = await db.select().from(partsStorageLocations).where(eq(partsStorageLocations.garageId, id));
     const equipmentLocationsList = await db.select().from(equipmentLocations).where(eq(equipmentLocations.garageId, id));
 
     if (employeesList.length > 0) {
       throw new Error("Cannot delete garage: has assigned employees");
     }
-    if (workOrdersList.length > 0) {
+    if (garageWorkOrderLinks.length > 0) {
       throw new Error("Cannot delete garage: has active work orders");
     }
     if (storageLocations.length > 0) {
@@ -1059,7 +1062,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Cannot delete garage: has equipment locations");
     }
 
-    // Delete the garage (repair bays will be cascade deleted)
+    // Delete the garage (workshops will be cascade deleted)
     await db.delete(garages).where(eq(garages.id, id));
   }
 

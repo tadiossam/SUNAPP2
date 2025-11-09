@@ -2129,6 +2129,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Work Order Cost Tracking Routes
+  
+  // Get all cost entries for a work order
+  app.get("/api/work-orders/:id/costs", isAuthenticated, async (req, res) => {
+    try {
+      const workOrderId = req.params.id;
+      
+      const [laborEntries, lubricantEntries, outsourceEntries, workOrder] = await Promise.all([
+        storage.getWorkOrderLaborEntries(workOrderId),
+        storage.getWorkOrderLubricantEntries(workOrderId),
+        storage.getWorkOrderOutsourceEntries(workOrderId),
+        storage.getWorkOrderById(workOrderId)
+      ]);
+
+      if (!workOrder) {
+        return res.status(404).json({ error: "Work order not found" });
+      }
+
+      res.json({
+        laborEntries,
+        lubricantEntries,
+        outsourceEntries,
+        summary: {
+          plannedLaborCost: workOrder.plannedLaborCost,
+          actualLaborCost: workOrder.actualLaborCost,
+          plannedLubricantCost: workOrder.plannedLubricantCost,
+          actualLubricantCost: workOrder.actualLubricantCost,
+          plannedOutsourceCost: workOrder.plannedOutsourceCost,
+          actualOutsourceCost: workOrder.actualOutsourceCost,
+          totalPlannedCost: workOrder.totalPlannedCost,
+          totalActualCost: workOrder.totalActualCost,
+          costVariance: workOrder.costVariance,
+          costVariancePercent: workOrder.costVariancePercent,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching work order costs:", error);
+      res.status(500).json({ error: "Failed to fetch work order costs" });
+    }
+  });
+
+  // Labor entries
+  app.get("/api/work-orders/:id/labor", isAuthenticated, async (req, res) => {
+    try {
+      const entries = await storage.getWorkOrderLaborEntries(req.params.id);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching labor entries:", error);
+      res.status(500).json({ error: "Failed to fetch labor entries" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/labor", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { insertWorkOrderLaborEntrySchema } = await import("@shared/schema");
+      const validated = insertWorkOrderLaborEntrySchema.parse({
+        ...req.body,
+        workOrderId: req.params.id,
+        enteredById: req.user.id,
+      });
+
+      const entry = await storage.addLaborEntry(validated);
+      res.json(entry);
+    } catch (error: any) {
+      console.error("Error adding labor entry:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid labor entry data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to add labor entry" });
+    }
+  });
+
+  app.delete("/api/work-orders/:workOrderId/labor/:entryId", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      await storage.deleteLaborEntry(req.params.entryId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting labor entry:", error);
+      res.status(500).json({ error: "Failed to delete labor entry" });
+    }
+  });
+
+  // Lubricant entries
+  app.get("/api/work-orders/:id/lubricants", isAuthenticated, async (req, res) => {
+    try {
+      const entries = await storage.getWorkOrderLubricantEntries(req.params.id);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching lubricant entries:", error);
+      res.status(500).json({ error: "Failed to fetch lubricant entries" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/lubricants", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { insertWorkOrderLubricantEntrySchema } = await import("@shared/schema");
+      const validated = insertWorkOrderLubricantEntrySchema.parse({
+        ...req.body,
+        workOrderId: req.params.id,
+        enteredById: req.user.id,
+      });
+
+      const entry = await storage.addLubricantEntry(validated);
+      res.json(entry);
+    } catch (error: any) {
+      console.error("Error adding lubricant entry:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid lubricant entry data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to add lubricant entry" });
+    }
+  });
+
+  app.delete("/api/work-orders/:workOrderId/lubricants/:entryId", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      await storage.deleteLubricantEntry(req.params.entryId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting lubricant entry:", error);
+      res.status(500).json({ error: "Failed to delete lubricant entry" });
+    }
+  });
+
+  // Outsource entries
+  app.get("/api/work-orders/:id/outsource", isAuthenticated, async (req, res) => {
+    try {
+      const entries = await storage.getWorkOrderOutsourceEntries(req.params.id);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching outsource entries:", error);
+      res.status(500).json({ error: "Failed to fetch outsource entries" });
+    }
+  });
+
+  app.post("/api/work-orders/:id/outsource", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { insertWorkOrderOutsourceEntrySchema } = await import("@shared/schema");
+      const validated = insertWorkOrderOutsourceEntrySchema.parse({
+        ...req.body,
+        workOrderId: req.params.id,
+        enteredById: req.user.id,
+      });
+
+      const entry = await storage.addOutsourceEntry(validated);
+      res.json(entry);
+    } catch (error: any) {
+      console.error("Error adding outsource entry:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid outsource entry data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to add outsource entry" });
+    }
+  });
+
+  app.delete("/api/work-orders/:workOrderId/outsource/:entryId", isCEOOrAdmin, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      await storage.deleteOutsourceEntry(req.params.entryId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting outsource entry:", error);
+      res.status(500).json({ error: "Failed to delete outsource entry" });
+    }
+  });
+
   app.get("/api/work-orders/:id/assignments", async (req, res) => {
     try {
       const workOrderId = req.params.id;

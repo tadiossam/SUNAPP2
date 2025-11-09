@@ -1495,41 +1495,49 @@ export default function AdminSettings() {
       </div>
 
       {/* Content with Tabs */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-hidden">
         <Tabs defaultValue="biometric" className="h-full flex flex-col">
-          <div className="border-b px-6">
-            <TabsList className="h-12">
+          <div className="border-b px-6 overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max h-12">
               <TabsTrigger value="biometric" className="gap-2" data-testid="tab-biometric">
                 <Users className="h-4 w-4" />
-                Biometric Device INT
+                <span className="hidden sm:inline">Biometric Device INT</span>
+                <span className="sm:hidden">Biometric</span>
               </TabsTrigger>
               <TabsTrigger value="dynamics" className="gap-2" data-testid="tab-dynamics">
                 <Database className="h-4 w-4" />
-                Dynamics 365 IN
+                <span className="hidden sm:inline">Dynamics 365 IN</span>
+                <span className="sm:hidden">D365</span>
               </TabsTrigger>
               <TabsTrigger value="fleet" className="gap-2" data-testid="tab-fleet">
                 <Truck className="h-4 w-4" />
-                Fleet Management INT
+                <span className="hidden sm:inline">Fleet Management INT</span>
+                <span className="sm:hidden">Fleet</span>
               </TabsTrigger>
               <TabsTrigger value="deployment" className="gap-2" data-testid="tab-deployment">
                 <Rocket className="h-4 w-4" />
-                Deployment Tool
+                <span className="hidden sm:inline">Deployment Tool</span>
+                <span className="sm:hidden">Deploy</span>
               </TabsTrigger>
               <TabsTrigger value="customisations" className="gap-2" data-testid="tab-customisations">
                 <Palette className="h-4 w-4" />
-                Customisations
+                <span className="hidden sm:inline">Customisations</span>
+                <span className="sm:hidden">Custom</span>
               </TabsTrigger>
               <TabsTrigger value="userControl" className="gap-2" data-testid="tab-user-control">
                 <Shield className="h-4 w-4" />
-                User Control
+                <span className="hidden sm:inline">User Control</span>
+                <span className="sm:hidden">Users</span>
               </TabsTrigger>
               <TabsTrigger value="ethiopianYear" className="gap-2" data-testid="tab-ethiopian-year">
                 <Calendar className="h-4 w-4" />
-                Ethiopian Year
+                <span className="hidden sm:inline">Ethiopian Year</span>
+                <span className="sm:hidden">Year</span>
               </TabsTrigger>
               <TabsTrigger value="sampleData" className="gap-2" data-testid="tab-sample-data">
                 <Sparkles className="h-4 w-4" />
-                Sample Data
+                <span className="hidden sm:inline">Sample Data</span>
+                <span className="sm:hidden">Sample</span>
               </TabsTrigger>
             </TabsList>
           </div>

@@ -557,13 +557,17 @@ export class DatabaseStorage implements IStorage {
   // Spare parts operations
   async getAllParts(): Promise<SparePartWithCompatibility[]> {
     const parts = await db.select().from(spareParts);
-    return await Promise.all(parts.map((p) => this.enrichPartWithCompatibility(p)));
+    // Ensure correct stock status based on quantity
+    const partsWithCorrectStatus = parts.map(p => this.ensureCorrectStockStatus(p));
+    return await Promise.all(partsWithCorrectStatus.map((p) => this.enrichPartWithCompatibility(p)));
   }
 
   async getPartById(id: string): Promise<SparePartWithCompatibility | undefined> {
     const [result] = await db.select().from(spareParts).where(eq(spareParts.id, id));
     if (!result) return undefined;
-    return await this.enrichPartWithCompatibility(result);
+    // Ensure correct stock status based on quantity
+    const partWithCorrectStatus = this.ensureCorrectStockStatus(result);
+    return await this.enrichPartWithCompatibility(partWithCorrectStatus);
   }
 
   async getPartByPartNumber(partNumber: string): Promise<SparePartWithCompatibility | undefined> {
@@ -572,19 +576,15 @@ export class DatabaseStorage implements IStorage {
       .from(spareParts)
       .where(eq(spareParts.partNumber, partNumber));
     if (!result) return undefined;
-    return await this.enrichPartWithCompatibility(result);
+    // Ensure correct stock status based on quantity
+    const partWithCorrectStatus = this.ensureCorrectStockStatus(result);
+    return await this.enrichPartWithCompatibility(partWithCorrectStatus);
   }
 
   async createPart(data: InsertSparePart, compatibility?: InsertPartCompatibility[]): Promise<SparePart> {
-    // Auto-calculate stockStatus based on stockQuantity
+    // Auto-calculate stockStatus based on stockQuantity using centralized helper
     if (data.stockQuantity !== undefined && data.stockQuantity !== null) {
-      if (data.stockQuantity === 0) {
-        data.stockStatus = "out_of_stock";
-      } else if (data.stockQuantity > 0 && data.stockQuantity <= 5) {
-        data.stockStatus = "low_stock";
-      } else {
-        data.stockStatus = "in_stock";
-      }
+      data.stockStatus = this.calculateStockStatus(data.stockQuantity);
     }
     
     const [result] = await db.insert(spareParts).values(data).returning();
@@ -597,15 +597,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePart(id: string, data: Partial<InsertSparePart>): Promise<SparePart | undefined> {
-    // Auto-calculate stockStatus if stockQuantity is being updated
+    // Auto-calculate stockStatus if stockQuantity is being updated using centralized helper
     if (data.stockQuantity !== undefined && data.stockQuantity !== null) {
-      if (data.stockQuantity === 0) {
-        data.stockStatus = "out_of_stock";
-      } else if (data.stockQuantity > 0 && data.stockQuantity <= 5) {
-        data.stockStatus = "low_stock";
-      } else {
-        data.stockStatus = "in_stock";
-      }
+      data.stockStatus = this.calculateStockStatus(data.stockQuantity);
     }
     
     const [result] = await db
@@ -671,6 +665,26 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
+  // Helper function to calculate stock status from quantity
+  private calculateStockStatus(quantity: number | null | undefined): string {
+    if (quantity === null || quantity === undefined || quantity === 0) {
+      return "out_of_stock";
+    } else if (quantity > 0 && quantity <= 5) {
+      return "low_stock";
+    } else {
+      return "in_stock";
+    }
+  }
+
+  // Helper function to ensure correct stock status on parts
+  private ensureCorrectStockStatus<T extends SparePart>(part: T): T {
+    const correctStatus = this.calculateStockStatus(part.stockQuantity);
+    return {
+      ...part,
+      stockStatus: correctStatus
+    };
+  }
+
   async searchParts(params: {
     searchTerm?: string;
     category?: string;
@@ -695,23 +709,37 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(spareParts.category, params.category));
     }
 
+    // Filter by computed stock status using SQL CASE statement
     if (params.stockStatus) {
-      conditions.push(eq(spareParts.stockStatus, params.stockStatus));
+      const stockStatusCase = sql`
+        CASE 
+          WHEN ${spareParts.stockQuantity} IS NULL OR ${spareParts.stockQuantity} = 0 THEN 'out_of_stock'
+          WHEN ${spareParts.stockQuantity} > 0 AND ${spareParts.stockQuantity} <= 5 THEN 'low_stock'
+          ELSE 'in_stock'
+        END
+      `;
+      conditions.push(sql`${stockStatusCase} = ${params.stockStatus}`);
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
+    // Get total count
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(spareParts)
       .where(whereClause);
 
+    // Fetch items with pagination
     const items = await db
       .select()
       .from(spareParts)
-      .where(whereClause);
+      .where(whereClause)
+      .limit(params.limit || 1000)
+      .offset(params.offset || 0);
 
-    const enrichedItems = await Promise.all(items.map((p) => this.enrichPartWithCompatibility(p)));
+    // Ensure correct stock status based on quantity before enriching
+    const itemsWithCorrectStatus = items.map(p => this.ensureCorrectStockStatus(p));
+    const enrichedItems = await Promise.all(itemsWithCorrectStatus.map((p) => this.enrichPartWithCompatibility(p)));
 
     return {
       items: enrichedItems,

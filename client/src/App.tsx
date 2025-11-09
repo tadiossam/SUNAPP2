@@ -21,8 +21,7 @@ import UploadModelPage from "@/pages/UploadModel";
 import MaintenancePage from "@/pages/Maintenance";
 import LoginPage from "@/pages/Login";
 import GaragesPage from "@/pages/Garages";
-import GarageDetailsPage from "@/pages/GarageDetails";
-import GarageDetailPage from "@/pages/GarageDetail";
+import GarageDetailPage from "@/pages/GarageDetails";
 import WorkshopDetailPage from "@/pages/WorkshopDetail";
 import EmployeesPage from "@/pages/Employees";
 import ApprovalsPage from "@/pages/Approvals";
@@ -66,7 +65,6 @@ function Router() {
       <Route path="/garages/:garageId/workshops/new" component={AddWorkshop} />
       <Route path="/garages/:garageId/workshops/:workshopId/edit" component={EditWorkshop} />
       <Route path="/garages/:garageId/workshops/select-employees" component={SelectEmployees} />
-      <Route path="/garages/:id/old" component={GarageDetailsPage} />
       <Route path="/garages/:id" component={GarageDetailPage} />
       <Route path="/garages" component={GaragesPage} />
       <Route path="/workshops/:id" component={WorkshopDetailPage} />

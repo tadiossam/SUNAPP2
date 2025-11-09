@@ -53,6 +53,11 @@ export default function GarageDetails() {
     queryKey: [`/api/garages/${id}`],
   });
 
+  // Fetch all employees (needed for foreman name lookup)
+  const { data: employees = [] } = useQuery<Employee[]>({
+    queryKey: ["/api/employees"],
+  });
+
   // Fetch work orders for selected workshop
   const { data: workshopWorkOrders = [] } = useQuery<WorkOrder[]>({
     queryKey: [`/api/work-orders`, { workshopId: selectedWorkshopForDetails?.id }],
@@ -206,67 +211,86 @@ export default function GarageDetails() {
         <CardContent>
           {garage.workshops && garage.workshops.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {garage.workshops.map((workshop) => (
-                <Card key={workshop.id} className="p-4 hover-elevate" data-testid={`workshop-card-${workshop.id}`}>
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-lg">{workshop.name}</h4>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleEditWorkshop(workshop)}
-                          data-testid={`button-edit-workshop-${workshop.id}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleDeleteWorkshop(workshop.id, workshop.name)}
-                          data-testid={`button-delete-workshop-${workshop.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+              {garage.workshops.map((workshop) => {
+                // Fallback for foreman name if not embedded
+                const foremanName = workshop.foreman?.fullName || 
+                  employees.find(e => e.id === workshop.foremanId)?.fullName || 
+                  "Not assigned";
+                
+                return (
+                  <Card 
+                    key={workshop.id} 
+                    className="p-4 hover-elevate cursor-pointer" 
+                    data-testid={`workshop-card-${workshop.id}`}
+                    onClick={() => setLocation(`/workshops/${workshop.id}`)}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-semibold text-lg">{workshop.name}</h4>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditWorkshop(workshop);
+                            }}
+                            data-testid={`button-edit-workshop-${workshop.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteWorkshop(workshop.id, workshop.name);
+                            }}
+                            data-testid={`button-delete-workshop-${workshop.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {workshop.foreman && (
+                      
+                      <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm">
                           <Users className="h-4 w-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Foreman:</span>
-                          <span className="font-medium">{workshop.foreman.fullName}</span>
+                          <span className="font-medium">{foremanName}</span>
                         </div>
-                      )}
-                      <div className="flex items-center gap-2 text-sm">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Members:</span>
-                        <Badge variant="secondary">{workshop.membersList?.length || 0}</Badge>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Members:</span>
+                          <Badge variant="secondary">{workshop.membersList?.length || 0}</Badge>
+                        </div>
                       </div>
+
+                      {workshop.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {workshop.description}
+                        </p>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewWorkshopDetails(workshop);
+                        }}
+                        data-testid={`button-view-workshop-details-${workshop.id}`}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Work Orders
+                      </Button>
                     </div>
-
-                    {workshop.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {workshop.description}
-                      </p>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2"
-                      onClick={() => handleViewWorkshopDetails(workshop)}
-                      data-testid={`button-view-workshop-details-${workshop.id}`}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

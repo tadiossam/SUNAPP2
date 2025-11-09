@@ -69,13 +69,17 @@ export default function TeamDashboard() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  const { data: myWorkOrders = [], isLoading } = useQuery<WorkOrder[]>({
+  const { data: myWorkOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders/my-assignments"],
   });
 
-  const { data: myRequisitions = [] } = useQuery<ItemRequisition[]>({
+  const { data: myRequisitions } = useQuery<ItemRequisition[]>({
     queryKey: ["/api/item-requisitions"],
   });
+  
+  // Ensure arrays are never null (defaults don't work with null, only undefined)
+  const safeWorkOrders = myWorkOrders ?? [];
+  const safeRequisitions = myRequisitions ?? [];
 
   const { data: inspectionDetails, isLoading: isLoadingInspection } = useQuery<any>({
     queryKey: ["/api/inspections", viewingInspectionId],
@@ -159,7 +163,7 @@ export default function TeamDashboard() {
     setIsRequestPartsOpen(true);
   };
 
-  const activeWorkOrders = myWorkOrders.filter(
+  const activeWorkOrders = safeWorkOrders.filter(
     (wo) =>
       wo.status === "active" ||
       wo.status === "in_progress" ||
@@ -167,7 +171,7 @@ export default function TeamDashboard() {
       wo.status === "waiting_purchase"
   );
 
-  const completedWorkOrders = myWorkOrders.filter(
+  const completedWorkOrders = safeWorkOrders.filter(
     (wo) =>
       wo.status === "pending_verification" ||
       wo.status === "pending_supervisor" ||
@@ -192,7 +196,7 @@ export default function TeamDashboard() {
     return true;
   });
 
-  const approvedRequisitions = myRequisitions.filter(
+  const approvedRequisitions = safeRequisitions.filter(
     (req) => req.status === "approved"
   );
 
@@ -408,7 +412,7 @@ export default function TeamDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {myWorkOrders.filter((wo) => wo.status === "awaiting_parts" || wo.status === "waiting_purchase").length}
+              {safeWorkOrders.filter((wo) => wo.status === "awaiting_parts" || wo.status === "waiting_purchase").length}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {language === "am" ? "ይመልከቱ" : "View purchase orders"}
@@ -438,7 +442,7 @@ export default function TeamDashboard() {
           </TabsTrigger>
           <TabsTrigger value="item-requested" data-testid="tab-item-requested">
             <Package className="h-4 w-4 mr-2" />
-            {language === "am" ? "የተጠየቁ እቃዎች" : "Item Requested"} ({myRequisitions.length})
+            {language === "am" ? "የተጠየቁ እቃዎች" : "Item Requested"} ({safeRequisitions.length})
           </TabsTrigger>
           <TabsTrigger value="parts-receipt" data-testid="tab-parts-receipt">
             <PackageCheck className="h-4 w-4 mr-2" />
@@ -463,8 +467,8 @@ export default function TeamDashboard() {
         </TabsContent>
 
         <TabsContent value="item-requested" className="space-y-4">
-          {myRequisitions.length > 0 ? (
-            myRequisitions.map((requisition) => {
+          {safeRequisitions.length > 0 ? (
+            safeRequisitions.map((requisition) => {
               const getApprovalBadge = (status: string) => {
                 if (status === "approved") {
                   return <Badge variant="default" data-testid={`badge-approved-${requisition.id}`}>{language === "am" ? "ፀድቋል" : "Approved"}</Badge>;

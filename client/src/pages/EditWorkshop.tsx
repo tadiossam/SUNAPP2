@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,7 +30,8 @@ export default function EditWorkshop() {
   const { garageId, workshopId } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { draft, setDraft, updateDraft, clearDraft, initDraft } = useWorkshopDraft();
+  const { draft, isReady, version, loadDraft, replaceDraft, patchDraft, clearDraft } = useWorkshopDraft();
+  const lastVersionSynced = useRef(0);
 
   const { data: workshop, isLoading } = useQuery<Workshop & { membersList?: Employee[] }>({
     queryKey: [`/api/workshops/${workshopId}`],
@@ -52,7 +53,7 @@ export default function EditWorkshop() {
         memberIds: z.array(z.string()).min(1, "At least one team member is required"),
       })
     ),
-    defaultValues: draft || {
+    defaultValues: {
       name: "",
       foremanId: undefined,
       description: "",
@@ -67,16 +68,16 @@ export default function EditWorkshop() {
     },
   });
 
-  // Initialize scoped draft on mount and load workshop data
+  // Load draft on mount
   useEffect(() => {
-    initDraft(garageId!, workshopId);
-  }, [garageId, workshopId]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadDraft(garageId!, workshopId);
+  }, [garageId, workshopId, loadDraft]);
 
   // Initialize draft from workshop data when workshop loads
   useEffect(() => {
-    if (workshop && !draft) {
+    if (workshop && isReady && !draft) {
       const memberIds = workshop.membersList?.map((m: Employee) => m.id) || [];
-      const initialDraft = {
+      replaceDraft({
         name: workshop.name,
         foremanId: workshop.foremanId || undefined,
         description: workshop.description || "",
@@ -89,51 +90,29 @@ export default function EditWorkshop() {
         q4Target: workshop.q4Target ?? undefined,
         annualTarget: workshop.annualTarget ?? undefined,
         workshopId: workshopId,
-      };
-      setDraft(initialDraft);
-      form.reset(initialDraft);
+      });
     }
-  }, [workshop, draft]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [workshop, draft, isReady, workshopId, replaceDraft]);
 
-  // Update form when draft changes (from SelectEmployees or sessionStorage)
+  // Sync draft to form only when version changes (from SelectEmployees navigation)
   useEffect(() => {
-    if (draft && workshop) {
-      const currentValues = form.getValues();
-      const needsUpdate = 
-        currentValues.foremanId !== draft.foremanId ||
-        currentValues.name !== draft.name ||
-        JSON.stringify(currentValues.memberIds) !== JSON.stringify(draft.memberIds);
-      
-      if (needsUpdate) {
-        form.reset({
-          name: draft.name || "",
-          foremanId: draft.foremanId || undefined,
-          description: draft.description || "",
-          garageId: draft.garageId,
-          memberIds: draft.memberIds || [],
-          monthlyTarget: draft.monthlyTarget,
-          q1Target: draft.q1Target,
-          q2Target: draft.q2Target,
-          q3Target: draft.q3Target,
-          q4Target: draft.q4Target,
-          annualTarget: draft.annualTarget,
-        }, { keepDefaultValues: false });
-        
-        // Trigger validation after reset
-        form.trigger(['foremanId', 'memberIds']);
-      }
+    if (draft && version !== lastVersionSynced.current) {
+      form.reset({
+        name: draft.name || "",
+        foremanId: draft.foremanId || undefined,
+        description: draft.description || "",
+        garageId: draft.garageId,
+        memberIds: draft.memberIds || [],
+        monthlyTarget: draft.monthlyTarget,
+        q1Target: draft.q1Target,
+        q2Target: draft.q2Target,
+        q3Target: draft.q3Target,
+        q4Target: draft.q4Target,
+        annualTarget: draft.annualTarget,
+      });
+      lastVersionSynced.current = version;
     }
-  }, [draft, workshop]); // Only depend on draft and workshop, not form
-
-  // Sync form changes to draft (with debounce to prevent loops)
-  useEffect(() => {
-    const subscription = form.watch((value) => {
-      if (draft) {
-        updateDraft(value as any);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [draft, updateDraft]); // Removed form from dependencies
+  }, [draft, version, form]);
 
   const updateWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -162,9 +141,24 @@ export default function EditWorkshop() {
     updateWorkshopMutation.mutate(data);
   };
 
+  const commitFormToDraft = () => {
+    const formValues = form.getValues();
+    patchDraft(formValues as any);
+  };
+
   const handleCancel = () => {
     clearDraft();
     setLocation(`/garages/${garageId}`);
+  };
+
+  const handleSelectForeman = () => {
+    commitFormToDraft();
+    setLocation(`/garages/${garageId}/workshops/select-employees?mode=foreman&returnTo=edit&workshopId=${workshopId}`);
+  };
+
+  const handleSelectMembers = () => {
+    commitFormToDraft();
+    setLocation(`/garages/${garageId}/workshops/select-employees?mode=members&returnTo=edit&workshopId=${workshopId}`);
   };
 
   const selectedForeman = employees.find((e) => e.id === draft?.foremanId);
@@ -285,11 +279,7 @@ export default function EditWorkshop() {
                               type="button"
                               variant="outline"
                               className="w-full justify-start"
-                              onClick={() =>
-                                setLocation(
-                                  `/garages/${garageId}/workshops/select-employees?mode=foreman&returnTo=edit&workshopId=${workshopId}`
-                                )
-                              }
+                              onClick={handleSelectForeman}
                               data-testid="button-select-foreman"
                             >
                               <Users className="h-4 w-4 mr-2" />
@@ -320,11 +310,7 @@ export default function EditWorkshop() {
                               type="button"
                               variant="outline"
                               className="w-full justify-start"
-                              onClick={() =>
-                                setLocation(
-                                  `/garages/${garageId}/workshops/select-employees?mode=members&returnTo=edit&workshopId=${workshopId}`
-                                )
-                              }
+                              onClick={handleSelectMembers}
                               data-testid="button-select-members"
                             >
                               <Users className="h-4 w-4 mr-2" />

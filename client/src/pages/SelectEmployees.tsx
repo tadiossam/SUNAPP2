@@ -17,7 +17,7 @@ const EMPLOYEES_PER_PAGE = 30;
 export default function SelectEmployees() {
   const { garageId } = useParams();
   const [, setLocation] = useLocation();
-  const { draft, setForemanId, setMemberIds } = useWorkshopDraft();
+  const { draft, patchDraft } = useWorkshopDraft();
 
   // Get query params
   const params = new URLSearchParams(window.location.search);
@@ -88,13 +88,14 @@ export default function SelectEmployees() {
   };
 
   const handleConfirm = () => {
+    // Update draft synchronously using patchDraft
     if (mode === "foreman" && selectedIds.length > 0) {
-      setForemanId(selectedIds[0]);
+      patchDraft({ foremanId: selectedIds[0] });
     } else if (mode === "members") {
-      setMemberIds(selectedIds);
+      patchDraft({ memberIds: selectedIds });
     }
 
-    // Navigate back
+    // Navigate immediately - no timeout needed with synchronous persistence
     if (returnTo === "add") {
       setLocation(`/garages/${garageId}/workshops/new`);
     } else {

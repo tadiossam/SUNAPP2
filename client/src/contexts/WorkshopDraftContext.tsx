@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useLayoutEffect, ReactNode } from "react";
 
 interface WorkshopDraft {
   name: string;
@@ -17,13 +17,12 @@ interface WorkshopDraft {
 
 interface WorkshopDraftContextType {
   draft: WorkshopDraft | null;
-  setDraft: (draft: WorkshopDraft | null) => void;
-  updateDraft: (updates: Partial<WorkshopDraft>) => void;
+  isReady: boolean;
+  version: number;
+  loadDraft: (garageId: string, workshopId?: string) => void;
+  replaceDraft: (draft: WorkshopDraft) => void;
+  patchDraft: (updates: Partial<WorkshopDraft>) => void;
   clearDraft: () => void;
-  setForemanId: (foremanId: string) => void;
-  setMemberIds: (memberIds: string[]) => void;
-  getStorageKey: (garageId: string, workshopId?: string) => string;
-  initDraft: (garageId: string, workshopId?: string) => void;
 }
 
 const getStorageKey = (garageId: string, workshopId?: string) => {
@@ -33,72 +32,72 @@ const getStorageKey = (garageId: string, workshopId?: string) => {
 const WorkshopDraftContext = createContext<WorkshopDraftContextType | undefined>(undefined);
 
 export function WorkshopDraftProvider({ children }: { children: ReactNode }) {
-  const [draft, setDraftState] = useState<WorkshopDraft | null>(null);
+  const [draft, setDraft] = useState<WorkshopDraft | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [version, setVersion] = useState(0);
   const [currentStorageKey, setCurrentStorageKey] = useState<string | null>(null);
 
-  // Persist to sessionStorage whenever draft changes
-  useEffect(() => {
-    if (currentStorageKey) {
-      if (draft) {
-        sessionStorage.setItem(currentStorageKey, JSON.stringify(draft));
-      } else {
-        sessionStorage.removeItem(currentStorageKey);
-      }
+  // Synchronous persistence using useLayoutEffect
+  useLayoutEffect(() => {
+    if (currentStorageKey && draft) {
+      sessionStorage.setItem(currentStorageKey, JSON.stringify({ draft, version }));
     }
-  }, [draft, currentStorageKey]);
+  }, [draft, version, currentStorageKey]);
 
-  const initDraft = (garageId: string, workshopId?: string) => {
+  const loadDraft = (garageId: string, workshopId?: string) => {
     const key = getStorageKey(garageId, workshopId);
     setCurrentStorageKey(key);
+    setIsReady(false);
     
-    // Load from sessionStorage if exists
+    // Load from sessionStorage synchronously
     try {
       const stored = sessionStorage.getItem(key);
       if (stored) {
-        setDraftState(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setDraft(parsed.draft || parsed); // Support old format
+        setVersion(parsed.version || 0);
       } else {
-        setDraftState(null);
+        setDraft(null);
+        setVersion(0);
       }
     } catch {
-      setDraftState(null);
+      setDraft(null);
+      setVersion(0);
     }
+    
+    setIsReady(true);
   };
 
-  const setDraft = (newDraft: WorkshopDraft | null) => {
-    setDraftState(newDraft);
+  const replaceDraft = (newDraft: WorkshopDraft) => {
+    setDraft(newDraft);
+    setVersion((v) => v + 1);
   };
 
-  const updateDraft = (updates: Partial<WorkshopDraft>) => {
-    setDraftState((prev) => (prev ? { ...prev, ...updates } : null));
+  const patchDraft = (updates: Partial<WorkshopDraft>) => {
+    setDraft((prev) => (prev ? { ...prev, ...updates } : null));
+    setVersion((v) => v + 1);
   };
 
   const clearDraft = () => {
     if (currentStorageKey) {
       sessionStorage.removeItem(currentStorageKey);
     }
-    setDraftState(null);
+    setDraft(null);
+    setVersion(0);
     setCurrentStorageKey(null);
-  };
-
-  const setForemanId = (foremanId: string) => {
-    updateDraft({ foremanId });
-  };
-
-  const setMemberIds = (memberIds: string[]) => {
-    updateDraft({ memberIds });
+    setIsReady(false);
   };
 
   return (
     <WorkshopDraftContext.Provider
       value={{ 
-        draft, 
-        setDraft, 
-        updateDraft, 
-        clearDraft, 
-        setForemanId, 
-        setMemberIds,
-        getStorageKey,
-        initDraft
+        draft,
+        isReady,
+        version,
+        loadDraft,
+        replaceDraft,
+        patchDraft,
+        clearDraft,
       }}
     >
       {children}

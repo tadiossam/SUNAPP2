@@ -68,7 +68,9 @@ export default function AddWorkshop() {
     
     // If no draft exists after init, create a fresh one
     const timer = setTimeout(() => {
-      if (!draft) {
+      const key = `workshop_draft_${garageId}_new`;
+      const stored = sessionStorage.getItem(key);
+      if (!stored) {
         setDraft({
           name: "",
           foremanId: "",
@@ -77,13 +79,31 @@ export default function AddWorkshop() {
           memberIds: [],
         });
       }
-    }, 0);
+    }, 50);
     
-    return () => {
-      clearTimeout(timer);
-      // Don't clear draft on unmount - preserve it for back navigation
-    };
-  }, [garageId, initDraft]);
+    return () => clearTimeout(timer);
+  }, [garageId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update form when draft changes (from SelectEmployees or sessionStorage)
+  useEffect(() => {
+    if (draft) {
+      // Sync foreman and member IDs from draft to form
+      const currentValues = form.getValues();
+      if (currentValues.foremanId !== draft.foremanId) {
+        form.setValue("foremanId", draft.foremanId);
+      }
+      if (JSON.stringify(currentValues.memberIds) !== JSON.stringify(draft.memberIds)) {
+        form.setValue("memberIds", draft.memberIds);
+      }
+      // Sync other fields too
+      if (currentValues.name !== draft.name) {
+        form.setValue("name", draft.name);
+      }
+      if (currentValues.description !== draft.description) {
+        form.setValue("description", draft.description || "");
+      }
+    }
+  }, [draft, form]);
 
   // Sync form changes to draft
   useEffect(() => {
@@ -94,13 +114,6 @@ export default function AddWorkshop() {
     });
     return () => subscription.unsubscribe();
   }, [form, draft, updateDraft]);
-
-  // Update form when draft changes (from SelectEmployees navigation)
-  useEffect(() => {
-    if (draft) {
-      form.reset(draft);
-    }
-  }, [draft?.foremanId, draft?.memberIds]);
 
   const createWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {

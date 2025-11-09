@@ -67,18 +67,14 @@ export default function EditWorkshop() {
     },
   });
 
-  // Initialize scoped draft on mount
+  // Initialize scoped draft on mount and load workshop data
   useEffect(() => {
     initDraft(garageId!, workshopId);
-    
-    return () => {
-      // Don't clear draft on unmount - preserve it for back navigation
-    };
-  }, [garageId, workshopId, initDraft]);
+  }, [garageId, workshopId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize draft from workshop data when workshop loads
   useEffect(() => {
-    if (workshop && (!draft || draft.workshopId !== workshopId)) {
+    if (workshop && !draft) {
       const memberIds = workshop.membersList?.map((m: Employee) => m.id) || [];
       const initialDraft = {
         name: workshop.name,
@@ -97,7 +93,27 @@ export default function EditWorkshop() {
       setDraft(initialDraft);
       form.reset(initialDraft);
     }
-  }, [workshop, draft, setDraft, workshopId, form]);
+  }, [workshop, draft]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update form when draft changes (from SelectEmployees or sessionStorage)
+  useEffect(() => {
+    if (draft && workshop) {
+      // Sync all fields from draft to form
+      const currentValues = form.getValues();
+      if (currentValues.foremanId !== draft.foremanId) {
+        form.setValue("foremanId", draft.foremanId);
+      }
+      if (JSON.stringify(currentValues.memberIds) !== JSON.stringify(draft.memberIds)) {
+        form.setValue("memberIds", draft.memberIds);
+      }
+      if (currentValues.name !== draft.name) {
+        form.setValue("name", draft.name);
+      }
+      if (currentValues.description !== draft.description) {
+        form.setValue("description", draft.description || "");
+      }
+    }
+  }, [draft, workshop, form]);
 
   // Sync form changes to draft
   useEffect(() => {
@@ -108,13 +124,6 @@ export default function EditWorkshop() {
     });
     return () => subscription.unsubscribe();
   }, [form, draft, updateDraft]);
-
-  // Update form when draft changes (from SelectEmployees navigation)
-  useEffect(() => {
-    if (draft) {
-      form.reset(draft);
-    }
-  }, [draft?.foremanId, draft?.memberIds]);
 
   const updateWorkshopMutation = useMutation({
     mutationFn: async (data: any) => {

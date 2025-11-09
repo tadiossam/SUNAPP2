@@ -2712,12 +2712,11 @@ export class DatabaseStorage implements IStorage {
   async getItemRequisitionsByForeman(foremanId: string, isAdmin?: boolean): Promise<any[]> {
     let requisitions;
     
-    // If admin, return all requisitions with pending foreman approval
+    // If admin, return all requisitions (not just pending) so they can see approved/rejected tabs
     if (isAdmin) {
       requisitions = await db
         .select()
         .from(itemRequisitions)
-        .where(eq(itemRequisitions.foremanApprovalStatus, 'pending'))
         .orderBy(desc(itemRequisitions.createdAt));
     } else {
       // Get workshops where this employee is the foreman
@@ -2744,16 +2743,11 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
       
-      // Get requisitions for these work orders with pending foreman approval
+      // Get all requisitions for these work orders (not just pending) so foreman can see approved/rejected tabs
       requisitions = await db
         .select()
         .from(itemRequisitions)
-        .where(
-          and(
-            inArray(itemRequisitions.workOrderId, woIds),
-            eq(itemRequisitions.foremanApprovalStatus, 'pending')
-          )
-        )
+        .where(inArray(itemRequisitions.workOrderId, woIds))
         .orderBy(desc(itemRequisitions.createdAt));
     }
     

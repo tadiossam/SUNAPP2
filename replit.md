@@ -10,6 +10,9 @@ I prefer iterative development with clear communication at each stage. Please as
 
 ## System Architecture
 
+### Fiscal Year & Quarters
+The system uses **Ethiopian calendar-based fiscal year** for quarterly reporting and analytics. Fiscal year starts on Ethiopian New Year (Enkutatash), which falls on **September 11** in normal Gregorian years or **September 12** in leap years. Fiscal quarters (FY Q1-Q4) are 3-month periods calculated from this start date. Dashboard analytics, quarterly filters (q1, q2, q3, q4), and cost drill-downs all use fiscal quarters instead of calendar quarters. Fiscal utilities are centralized in `shared/fiscal.ts` with functions `getFiscalQuarterRange()`, `getFiscalYearBounds()`, and helpers for fiscal year calculations.
+
 ### UI/UX Decisions
 The system utilizes an Industrial Material Design 3 theme with light/dark modes, professional blue primary colors, and Inter/JetBrains Mono typography. It features sidebar navigation, responsive data-dense layouts, comprehensive accessibility, and an interactive 3D viewer for technical engineering drawings with millimeter-accurate dimensions, ISO 2768 tolerance standards, SVG annotations, and CAD export badges. Logo customization allows for company logo display on login and in the sidebar.
 

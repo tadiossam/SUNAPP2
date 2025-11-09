@@ -188,10 +188,10 @@ export default function Dashboard() {
                             <SelectItem value="daily">Daily</SelectItem>
                             <SelectItem value="weekly">Weekly</SelectItem>
                             <SelectItem value="monthly">Monthly</SelectItem>
-                            <SelectItem value="q1">Q1 (Jan-Mar)</SelectItem>
-                            <SelectItem value="q2">Q2 (Apr-Jun)</SelectItem>
-                            <SelectItem value="q3">Q3 (Jul-Sep)</SelectItem>
-                            <SelectItem value="q4">Q4 (Oct-Dec)</SelectItem>
+                            <SelectItem value="q1">FY Q1 (Sep-Dec)</SelectItem>
+                            <SelectItem value="q2">FY Q2 (Dec-Mar)</SelectItem>
+                            <SelectItem value="q3">FY Q3 (Mar-Jun)</SelectItem>
+                            <SelectItem value="q4">FY Q4 (Jun-Sep)</SelectItem>
                             <SelectItem value="annual">Annual</SelectItem>
                           </SelectContent>
                         </Select>

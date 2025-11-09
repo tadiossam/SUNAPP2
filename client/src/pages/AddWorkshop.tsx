@@ -211,7 +211,7 @@ export default function AddWorkshop() {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
                             {...field}
@@ -311,18 +311,7 @@ export default function AddWorkshop() {
 
                 {/* Planning Targets */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Planning Targets (Optional)</h3>
-
-                  {planningTargetsLocked && (
-                    <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
-                      <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
-                        Planning targets are locked for the current Ethiopian year. They can only be
-                        edited when a new year starts through the Year Closure process in Admin
-                        Settings.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                  <h3 className="text-lg font-semibold">Planning Targets</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
@@ -341,7 +330,6 @@ export default function AddWorkshop() {
                                 field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
                               }
                               data-testid="input-monthly-target"
-                              disabled={planningTargetsLocked}
                             />
                           </FormControl>
                           <FormMessage />
@@ -365,7 +353,6 @@ export default function AddWorkshop() {
                                 field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
                               }
                               data-testid="input-annual-target"
-                              disabled={planningTargetsLocked}
                             />
                           </FormControl>
                           <FormMessage />
@@ -389,7 +376,6 @@ export default function AddWorkshop() {
                                 field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
                               }
                               data-testid="input-q1-target"
-                              disabled={planningTargetsLocked}
                             />
                           </FormControl>
                           <FormMessage />
@@ -413,7 +399,6 @@ export default function AddWorkshop() {
                                 field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
                               }
                               data-testid="input-q2-target"
-                              disabled={planningTargetsLocked}
                             />
                           </FormControl>
                           <FormMessage />
@@ -437,7 +422,6 @@ export default function AddWorkshop() {
                                 field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
                               }
                               data-testid="input-q3-target"
-                              disabled={planningTargetsLocked}
                             />
                           </FormControl>
                           <FormMessage />
@@ -461,7 +445,6 @@ export default function AddWorkshop() {
                                 field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
                               }
                               data-testid="input-q4-target"
-                              disabled={planningTargetsLocked}
                             />
                           </FormControl>
                           <FormMessage />

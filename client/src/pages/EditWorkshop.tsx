@@ -177,8 +177,8 @@ export default function EditWorkshop() {
         <div className="container mx-auto p-6 max-w-4xl">
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-muted-foreground">Workshop not found</h2>
-            <Button onClick={() => setLocation(`/garages/${garageId}`)} className="mt-4">
-              Back to Garage
+            <Button onClick={() => setLocation(`/garages`)} className="mt-4" data-testid="button-back-garages">
+              Back to Garages
             </Button>
           </div>
         </div>
@@ -245,7 +245,7 @@ export default function EditWorkshop() {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Description (Optional)</FormLabel>
+                        <FormLabel>Description</FormLabel>
                         <FormControl>
                           <Textarea
                             {...field}
@@ -345,7 +345,7 @@ export default function EditWorkshop() {
 
                 {/* Planning Targets */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Planning Targets (Optional)</h3>
+                  <h3 className="text-lg font-semibold">Planning Targets</h3>
 
                   {planningTargetsLocked && (
                     <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">

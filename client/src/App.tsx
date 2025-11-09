@@ -36,6 +36,7 @@ import ForemanDashboard from "@/pages/ForemanDashboard";
 import VerifierDashboard from "@/pages/VerifierDashboard";
 import TeamDashboard from "@/pages/TeamDashboard";
 import AwaitingPartsPage from "@/pages/AwaitingPartsPage";
+import CompletedWorkOrdersPage from "@/pages/CompletedWorkOrdersPage";
 import FleetTracking from "@/pages/FleetTracking";
 import ArchivedWorkOrders from "@/pages/ArchivedWorkOrders";
 import AddWorkshop from "@/pages/AddWorkshop";
@@ -79,6 +80,7 @@ function Router() {
       <Route path="/verifier" component={VerifierDashboard} />
       <Route path="/my-work" component={TeamDashboard} />
       <Route path="/awaiting-parts" component={AwaitingPartsPage} />
+      <Route path="/completed-work-orders" component={CompletedWorkOrdersPage} />
       <Route path="/team-performance" component={TeamPerformance} />
       <Route path="/fleet-tracking" component={FleetTracking} />
       <Route path="/archived-work-orders" component={ArchivedWorkOrders} />

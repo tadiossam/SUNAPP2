@@ -119,6 +119,16 @@ import {
   type InsertYearClosureLog,
   type WorkOrderArchiveWithParts,
   type PartUsedInfo,
+  workOrderLaborEntries,
+  workOrderLubricantEntries,
+  workOrderOutsourceEntries,
+  type WorkOrderLaborEntry,
+  type InsertWorkOrderLaborEntry,
+  type WorkOrderLubricantEntry,
+  type InsertWorkOrderLubricantEntry,
+  type WorkOrderOutsourceEntry,
+  type InsertWorkOrderOutsourceEntry,
+  type WorkOrderTimeTracking,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, ilike, or, and, sql, desc, inArray, isNull } from "drizzle-orm";
@@ -261,6 +271,18 @@ export interface IStorage {
   createTimeTrackingEvent(workOrderId: string, event: string, reason?: string, triggeredById?: string): Promise<void>;
   pauseWorkOrderTimer(workOrderId: string, reason: string, triggeredById?: string): Promise<void>;
   resumeWorkOrderTimer(workOrderId: string, triggeredById?: string): Promise<void>;
+
+  // Work Order Cost Tracking
+  getWorkOrderLaborEntries(workOrderId: string): Promise<WorkOrderLaborEntry[]>;
+  getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntry[]>;
+  getWorkOrderOutsourceEntries(workOrderId: string): Promise<WorkOrderOutsourceEntry[]>;
+  addLaborEntry(data: InsertWorkOrderLaborEntry): Promise<WorkOrderLaborEntry>;
+  addLubricantEntry(data: InsertWorkOrderLubricantEntry): Promise<WorkOrderLubricantEntry>;
+  addOutsourceEntry(data: InsertWorkOrderOutsourceEntry): Promise<WorkOrderOutsourceEntry>;
+  deleteLaborEntry(id: string): Promise<void>;
+  deleteLubricantEntry(id: string): Promise<void>;
+  deleteOutsourceEntry(id: string): Promise<void>;
+  updateWorkOrderCosts(workOrderId: string): Promise<void>;
 
   // Standard Operating Procedures
   getAllSOPs(filters?: { category?: string; targetRole?: string; language?: string }): Promise<StandardOperatingProcedure[]>;
@@ -1843,6 +1865,150 @@ export class DatabaseStorage implements IStorage {
 
   async resumeWorkOrderTimer(workOrderId: string, triggeredById?: string): Promise<void> {
     await this.createTimeTrackingEvent(workOrderId, "resume", undefined, triggeredById);
+  }
+
+  // Work Order Cost Tracking
+  async getWorkOrderLaborEntries(workOrderId: string): Promise<WorkOrderLaborEntry[]> {
+    return await db
+      .select()
+      .from(workOrderLaborEntries)
+      .where(eq(workOrderLaborEntries.workOrderId, workOrderId))
+      .orderBy(desc(workOrderLaborEntries.createdAt));
+  }
+
+  async getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntry[]> {
+    return await db
+      .select()
+      .from(workOrderLubricantEntries)
+      .where(eq(workOrderLubricantEntries.workOrderId, workOrderId))
+      .orderBy(desc(workOrderLubricantEntries.createdAt));
+  }
+
+  async getWorkOrderOutsourceEntries(workOrderId: string): Promise<WorkOrderOutsourceEntry[]> {
+    return await db
+      .select()
+      .from(workOrderOutsourceEntries)
+      .where(eq(workOrderOutsourceEntries.workOrderId, workOrderId))
+      .orderBy(desc(workOrderOutsourceEntries.createdAt));
+  }
+
+  async addLaborEntry(data: InsertWorkOrderLaborEntry): Promise<WorkOrderLaborEntry> {
+    const [entry] = await db
+      .insert(workOrderLaborEntries)
+      .values(data)
+      .returning();
+    
+    await this.updateWorkOrderCosts(data.workOrderId);
+    return entry;
+  }
+
+  async addLubricantEntry(data: InsertWorkOrderLubricantEntry): Promise<WorkOrderLubricantEntry> {
+    const [entry] = await db
+      .insert(workOrderLubricantEntries)
+      .values(data)
+      .returning();
+    
+    await this.updateWorkOrderCosts(data.workOrderId);
+    return entry;
+  }
+
+  async addOutsourceEntry(data: InsertWorkOrderOutsourceEntry): Promise<WorkOrderOutsourceEntry> {
+    const [entry] = await db
+      .insert(workOrderOutsourceEntries)
+      .values(data)
+      .returning();
+    
+    await this.updateWorkOrderCosts(data.workOrderId);
+    return entry;
+  }
+
+  async deleteLaborEntry(id: string): Promise<void> {
+    const [entry] = await db
+      .select()
+      .from(workOrderLaborEntries)
+      .where(eq(workOrderLaborEntries.id, id));
+    
+    if (entry) {
+      await db.delete(workOrderLaborEntries).where(eq(workOrderLaborEntries.id, id));
+      await this.updateWorkOrderCosts(entry.workOrderId);
+    }
+  }
+
+  async deleteLubricantEntry(id: string): Promise<void> {
+    const [entry] = await db
+      .select()
+      .from(workOrderLubricantEntries)
+      .where(eq(workOrderLubricantEntries.id, id));
+    
+    if (entry) {
+      await db.delete(workOrderLubricantEntries).where(eq(workOrderLubricantEntries.id, id));
+      await this.updateWorkOrderCosts(entry.workOrderId);
+    }
+  }
+
+  async deleteOutsourceEntry(id: string): Promise<void> {
+    const [entry] = await db
+      .select()
+      .from(workOrderOutsourceEntries)
+      .where(eq(workOrderOutsourceEntries.id, id));
+    
+    if (entry) {
+      await db.delete(workOrderOutsourceEntries).where(eq(workOrderOutsourceEntries.id, id));
+      await this.updateWorkOrderCosts(entry.workOrderId);
+    }
+  }
+
+  async updateWorkOrderCosts(workOrderId: string): Promise<void> {
+    const laborEntries = await this.getWorkOrderLaborEntries(workOrderId);
+    const lubricantEntries = await this.getWorkOrderLubricantEntries(workOrderId);
+    const outsourceEntries = await this.getWorkOrderOutsourceEntries(workOrderId);
+
+    const plannedLaborCost = laborEntries
+      .filter(e => e.entryType === 'planned')
+      .reduce((sum, e) => sum + Number(e.totalCost), 0);
+    
+    const actualLaborCost = laborEntries
+      .filter(e => e.entryType === 'actual')
+      .reduce((sum, e) => sum + Number(e.totalCost), 0);
+
+    const plannedLubricantCost = lubricantEntries
+      .filter(e => e.entryType === 'planned')
+      .reduce((sum, e) => sum + Number(e.totalCost), 0);
+    
+    const actualLubricantCost = lubricantEntries
+      .filter(e => e.entryType === 'actual')
+      .reduce((sum, e) => sum + Number(e.totalCost), 0);
+
+    const plannedOutsourceCost = outsourceEntries
+      .filter(e => e.entryType === 'planned')
+      .reduce((sum, e) => sum + (Number(e.plannedCost) || 0), 0);
+    
+    const actualOutsourceCost = outsourceEntries
+      .filter(e => e.entryType === 'actual')
+      .reduce((sum, e) => sum + Number(e.actualCost), 0);
+
+    const totalPlannedCost = plannedLaborCost + plannedLubricantCost + plannedOutsourceCost;
+    const totalActualCost = actualLaborCost + actualLubricantCost + actualOutsourceCost;
+    const costVariance = totalActualCost - totalPlannedCost;
+    const costVariancePercent = totalPlannedCost > 0 
+      ? ((costVariance / totalPlannedCost) * 100) 
+      : 0;
+
+    await db
+      .update(workOrders)
+      .set({
+        plannedLaborCost: plannedLaborCost.toString(),
+        actualLaborCost: actualLaborCost.toString(),
+        plannedLubricantCost: plannedLubricantCost.toString(),
+        actualLubricantCost: actualLubricantCost.toString(),
+        plannedOutsourceCost: plannedOutsourceCost.toString(),
+        actualOutsourceCost: actualOutsourceCost.toString(),
+        totalPlannedCost: totalPlannedCost.toString(),
+        totalActualCost: totalActualCost.toString(),
+        costVariance: costVariance.toString(),
+        costVariancePercent: costVariancePercent.toString(),
+      })
+      .where(eq(workOrders.id, workOrderId));
   }
 
   // Standard Operating Procedures

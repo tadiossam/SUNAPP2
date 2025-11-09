@@ -1497,8 +1497,8 @@ export default function AdminSettings() {
       {/* Content with Tabs */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <Tabs defaultValue="biometric" className="h-full flex flex-col">
-          <div className="sticky top-0 z-10 bg-background border-b px-6 overflow-x-auto flex-shrink-0">
-            <TabsList className="inline-flex w-full min-w-max h-12">
+          <div className="sticky top-0 z-10 bg-background border-b px-6 flex-shrink-0">
+            <TabsList className="flex w-full max-w-full flex-wrap py-2">
               <TabsTrigger value="biometric" className="gap-2" data-testid="tab-biometric">
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">Biometric Device INT</span>
@@ -1706,7 +1706,7 @@ export default function AdminSettings() {
                                   </Badge>
                                 )}
                               </div>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-muted-foreground">
                                 {device.deviceModel && <div><strong>Model:</strong> {device.deviceModel}</div>}
                                 {device.serialNumber && <div><strong>Serial:</strong> {device.serialNumber}</div>}
                                 <div><strong>IP:</strong> {device.ipAddress}:{device.port}</div>
@@ -2496,7 +2496,7 @@ export default function AdminSettings() {
                   {/* Theme Mode */}
                   <div className="space-y-2">
                     <Label>Theme Mode</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Button
                         type="button"
                         variant={customizationsForm.themeMode === "light" ? "default" : "outline"}
@@ -2662,7 +2662,7 @@ export default function AdminSettings() {
                       <>
                         <div className="border rounded-lg p-4">
                           <h3 className="font-semibold mb-3">Available Pages</h3>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {[
                               { path: "/", name: "Dashboard" },
                               { path: "/my-work", name: "My Work" },
@@ -2799,7 +2799,7 @@ export default function AdminSettings() {
                         onCheckedChange={() => toggleUserSelection(user.userId)}
                         data-testid={`checkbox-user-${user.userId}`}
                       />
-                      <div className="flex-1 grid grid-cols-2 gap-4">
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label className="text-xs text-muted-foreground">User ID</Label>
                           <p className="font-medium">{user.userId}</p>

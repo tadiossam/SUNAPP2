@@ -1799,12 +1799,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Work Orders
   app.get("/api/work-orders", async (req, res) => {
     try {
-      const { status, assignedToId, garageId, workshopId } = req.query;
+      const { status, assignedToId, garageId, workshopId, equipmentModel } = req.query;
       const workOrders = await storage.getAllWorkOrders({
         status: status as string | undefined,
         assignedToId: assignedToId as string | undefined,
         garageId: garageId as string | undefined,
         workshopId: workshopId as string | undefined,
+        equipmentModel: equipmentModel as string | undefined,
       });
       res.json(workOrders);
     } catch (error) {

@@ -43,9 +43,11 @@ type Garage = {
   name: string;
 };
 
-type EquipmentCategory = {
+type Equipment = {
   id: string;
-  name: string;
+  model: string;
+  make: string;
+  equipmentType: string;
 };
 
 type CostSummary = {
@@ -88,7 +90,7 @@ export default function CostReports() {
     endDate: `${currentYear}-12-31`,
     garageId: 'all',
     workshopId: 'all',
-    equipmentCategoryId: 'all',
+    equipmentModel: 'all',
     costType: 'all',
     status: 'completed',
   });
@@ -114,10 +116,21 @@ export default function CostReports() {
     queryKey: ["/api/workshops"],
   });
 
-  // Fetch equipment categories
-  const { data: equipmentCategories = [] } = useQuery<EquipmentCategory[]>({
-    queryKey: ["/api/equipment-categories"],
+  // Fetch equipment list
+  const { data: equipmentList = [] } = useQuery<Equipment[]>({
+    queryKey: ["/api/equipment"],
   });
+
+  // Get unique equipment models for filter dropdown
+  const uniqueEquipmentModels = useMemo(() => {
+    const modelSet = new Set<string>();
+    equipmentList.forEach(eq => {
+      if (eq.model) {
+        modelSet.add(eq.model);
+      }
+    });
+    return Array.from(modelSet).sort();
+  }, [equipmentList]);
 
   // Build query parameters
   const buildQueryParams = (startDate: string, endDate: string) => {
@@ -144,8 +157,8 @@ export default function CostReports() {
       params.append('workshopId', filters.workshopId);
     }
     
-    if (filters.equipmentCategoryId && filters.equipmentCategoryId !== 'all') {
-      params.append('equipmentCategory', filters.equipmentCategoryId);
+    if (filters.equipmentModel && filters.equipmentModel !== 'all') {
+      params.append('equipmentModel', filters.equipmentModel);
     }
     
     return params.toString();
@@ -302,8 +315,8 @@ export default function CostReports() {
     const headers = [
       'Work Order',
       'Description',
-      'Equipment',
-      'Category',
+      'Equipment Model',
+      'Equipment Make',
       'Garage',
       'Workshop',
       'Status',
@@ -324,7 +337,7 @@ export default function CostReports() {
       order.workOrderNumber || '',
       (order.description || '').replace(/,/g, ';'),
       order.equipmentModel || '',
-      order.equipmentCategoryName || '',
+      order.equipmentMake || '',
       order.garageName || '',
       order.workshopName || '',
       order.status || '',
@@ -552,21 +565,21 @@ export default function CostReports() {
                   </Select>
                 </div>
 
-                {/* Equipment Category Filter */}
+                {/* Equipment Model Filter */}
                 <div className="space-y-2">
-                  <Label htmlFor="equipment-category">Equipment Category</Label>
+                  <Label htmlFor="equipment-model">Equipment Model</Label>
                   <Select
-                    value={filters.equipmentCategoryId}
-                    onValueChange={(value) => setFilters({ ...filters, equipmentCategoryId: value })}
+                    value={filters.equipmentModel}
+                    onValueChange={(value) => setFilters({ ...filters, equipmentModel: value })}
                   >
-                    <SelectTrigger id="equipment-category" data-testid="select-equipment-category">
-                      <SelectValue placeholder="All Categories" />
+                    <SelectTrigger id="equipment-model" data-testid="select-equipment-model">
+                      <SelectValue placeholder="All Models" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {equipmentCategories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
+                      <SelectItem value="all">All Models</SelectItem>
+                      {uniqueEquipmentModels.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -742,7 +755,7 @@ export default function CostReports() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Work Order</TableHead>
-                        <TableHead>Equipment</TableHead>
+                        <TableHead>Equipment Model</TableHead>
                         <TableHead>Garage/Workshop</TableHead>
                         <TableHead>Completed</TableHead>
                         <TableHead className="text-right">Labor</TableHead>
@@ -769,7 +782,7 @@ export default function CostReports() {
                             <TableCell>
                               <div className="text-sm">{order.equipmentModel || 'N/A'}</div>
                               <div className="text-xs text-muted-foreground">
-                                {order.equipmentCategoryName || 'Unknown'}
+                                {order.equipmentModel || 'Unknown'}
                               </div>
                             </TableCell>
                             <TableCell>

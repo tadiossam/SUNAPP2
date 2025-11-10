@@ -1275,7 +1275,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Orders
-  async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string }): Promise<WorkOrderWithDetails[]> {
+  async getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string; equipmentModel?: string }): Promise<WorkOrderWithDetails[]> {
     const conditions = [];
     
     if (filters?.status) {
@@ -1291,14 +1291,49 @@ export class DatabaseStorage implements IStorage {
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     
-    // If filtering by workshopId, join through work_order_workshops junction table
+    // Determine if we need to join with equipment table for filtering
+    const needsEquipmentJoin = !!filters?.equipmentModel;
+    const needsWorkshopJoin = !!filters?.workshopId;
+    
     let orders;
-    if (filters?.workshopId) {
-      // Build combined where clause safely (handle case when whereClause is undefined)
+    
+    if (needsEquipmentJoin && needsWorkshopJoin) {
+      // Join with both equipment and workshop tables
+      const equipmentCondition = eq(equipment.model, filters.equipmentModel!);
+      const workshopCondition = eq(workOrderWorkshops.workshopId, filters.workshopId!);
+      const combinedWhere = whereClause 
+        ? and(whereClause, equipmentCondition, workshopCondition)
+        : and(equipmentCondition, workshopCondition);
+      
+      const ordersWithJoins = await db
+        .select({ workOrder: workOrders })
+        .from(workOrders)
+        .innerJoin(equipment, eq(workOrders.equipmentId, equipment.id))
+        .innerJoin(workOrderWorkshops, eq(workOrders.id, workOrderWorkshops.workOrderId))
+        .where(combinedWhere)
+        .orderBy(desc(workOrders.createdAt));
+      
+      orders = ordersWithJoins.map(row => row.workOrder);
+    } else if (needsEquipmentJoin) {
+      // Join with equipment table only
+      const equipmentCondition = eq(equipment.model, filters.equipmentModel!);
+      const combinedWhere = whereClause 
+        ? and(whereClause, equipmentCondition)
+        : equipmentCondition;
+      
+      const ordersWithEquipment = await db
+        .select({ workOrder: workOrders })
+        .from(workOrders)
+        .innerJoin(equipment, eq(workOrders.equipmentId, equipment.id))
+        .where(combinedWhere)
+        .orderBy(desc(workOrders.createdAt));
+      
+      orders = ordersWithEquipment.map(row => row.workOrder);
+    } else if (needsWorkshopJoin) {
+      // Join with workshop table only (existing logic)
       const workshopCondition = eq(workOrderWorkshops.workshopId, filters.workshopId);
       const combinedWhere = whereClause ? and(whereClause, workshopCondition) : workshopCondition;
       
-      // Join with work_order_workshops to filter by workshop
       const ordersWithWorkshop = await db
         .select({ workOrder: workOrders })
         .from(workOrders)
@@ -1308,6 +1343,7 @@ export class DatabaseStorage implements IStorage {
       
       orders = ordersWithWorkshop.map(row => row.workOrder);
     } else {
+      // No joins needed
       orders = await db.select().from(workOrders).where(whereClause).orderBy(desc(workOrders.createdAt));
     }
     
@@ -1393,9 +1429,15 @@ export class DatabaseStorage implements IStorage {
       const orderWorkshops = workshopAssignmentsMap.get(order.id) || [];
       const primaryWorkshop = orderWorkshops.find(w => w.isPrimary) || orderWorkshops[0];
       
+      // Get equipment data for this order
+      const equipmentData = equipmentMap.get(order.equipmentId);
+      
       return {
         ...order,
-        equipment: equipmentMap.get(order.equipmentId),
+        equipment: equipmentData,
+        // Add equipment model and make as top-level properties for easier access in frontend
+        equipmentModel: equipmentData?.model,
+        equipmentMake: equipmentData?.make,
         garage: order.garageId ? garageMap.get(order.garageId) : undefined,
         workshop: primaryWorkshop ? workshopMap.get(primaryWorkshop.workshopId) : undefined,
         assignedToList: employeesMap.get(order.id) || [],
@@ -1436,6 +1478,9 @@ export class DatabaseStorage implements IStorage {
     return {
       ...order,
       equipment: equipmentData,
+      // Add equipment model and make as top-level properties for consistency with getAllWorkOrders
+      equipmentModel: equipmentData?.model,
+      equipmentMake: equipmentData?.make,
       garage,
       workshop,
       assignedToList,

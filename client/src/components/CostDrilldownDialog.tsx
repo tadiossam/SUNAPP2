@@ -88,7 +88,7 @@ export default function CostDrilldownDialog({
       params.append('completedAfter', monthStart.toISOString());
       params.append('completedBefore', monthEnd.toISOString());
     } else if (context.type === 'equipmentType') {
-      params.append('equipmentCategory', context.value);
+      params.append('equipmentModel', context.value);
     } else if (context.type === 'garage') {
       params.append('garage', context.value);
     } else if (context.type === 'costType') {
@@ -215,7 +215,7 @@ export default function CostDrilldownDialog({
                         <div>
                           <div className="flex items-center gap-1 text-muted-foreground mb-1">
                             <Wrench className="h-3 w-3" />
-                            <span>Equipment</span>
+                            <span>Equipment Model</span>
                           </div>
                           <p className="font-medium truncate">{order.equipmentModel || "N/A"}</p>
                         </div>

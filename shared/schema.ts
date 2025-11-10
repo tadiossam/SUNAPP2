@@ -1340,6 +1340,7 @@ export const insertWorkOrderLaborEntrySchema = createInsertSchema(workOrderLabor
   hourlyRateSnapshot: z.coerce.number().min(0, "Hourly rate must be positive"),
   overtimeFactor: z.coerce.number().min(1, "Overtime factor must be at least 1.0").default(1.0),
   totalCost: z.coerce.number().min(0, "Total cost must be positive"),
+  workDate: z.coerce.date().optional(),
 });
 
 export const insertWorkOrderLubricantEntrySchema = createInsertSchema(workOrderLubricantEntries).omit({
@@ -1349,6 +1350,7 @@ export const insertWorkOrderLubricantEntrySchema = createInsertSchema(workOrderL
   quantity: z.coerce.number().min(0, "Quantity must be positive"),
   unitCostSnapshot: z.coerce.number().min(0, "Unit cost must be positive"),
   totalCost: z.coerce.number().min(0, "Total cost must be positive"),
+  usedDate: z.coerce.date().optional(),
 });
 
 export const insertWorkOrderOutsourceEntrySchema = createInsertSchema(workOrderOutsourceEntries).omit({
@@ -1357,6 +1359,7 @@ export const insertWorkOrderOutsourceEntrySchema = createInsertSchema(workOrderO
 }).extend({
   plannedCost: z.coerce.number().min(0, "Planned cost must be positive").optional(),
   actualCost: z.coerce.number().min(0, "Actual cost must be positive"),
+  serviceDate: z.coerce.date().optional(),
 });
 
 export const insertApprovalStageSchema = createInsertSchema(approvalStages).omit({

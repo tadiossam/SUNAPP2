@@ -1844,9 +1844,14 @@ export class DatabaseStorage implements IStorage {
         .map(id => employeeMap.get(id))
         .filter((e): e is typeof employees.$inferSelect => e !== undefined);
       
+      const equipmentData = equipmentMap.get(order.equipmentId);
+      
       return {
         ...order,
-        equipment: equipmentMap.get(order.equipmentId),
+        equipment: equipmentData,
+        // Add equipment model and make as top-level properties for easier access in frontend
+        equipmentModel: equipmentData?.model,
+        equipmentMake: equipmentData?.make,
         garage: order.garageId ? garageMap.get(order.garageId) : undefined,
         workshop: order.workshopId ? workshopMap.get(order.workshopId) : undefined,
         assignedToList,

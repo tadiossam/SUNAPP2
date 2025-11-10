@@ -1876,9 +1876,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workOrderLaborEntries.workOrderId, workOrderId))
       .orderBy(desc(workOrderLaborEntries.createdAt));
     
-    return entries.map(row => {
+    return entries.map((row: any) => {
+      // Drizzle returns joined data with table names as keys
       const entry = row.work_order_labor_entries;
       const employee = row.employees;
+      
+      // Get employee name from joined data (using fullName or full_name)
+      const employeeName = employee?.fullName || employee?.full_name || null;
+      
       return {
         ...entry,
         // Parse all decimal fields to numbers
@@ -1888,10 +1893,8 @@ export class DatabaseStorage implements IStorage {
         totalCost: parseFloat(entry.totalCost as any),
         // Add backwards-compat alias
         hourlyRate: parseFloat(entry.hourlyRateSnapshot as any),
-        // Combine employee name from joined data
-        employeeName: employee && employee.firstName && employee.lastName 
-          ? `${employee.firstName} ${employee.lastName}` 
-          : null,
+        // Add employee name
+        employeeName,
       };
     });
   }

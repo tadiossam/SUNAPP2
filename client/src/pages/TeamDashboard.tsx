@@ -351,7 +351,7 @@ export default function TeamDashboard() {
             )}
           </div>
 
-          {workOrder.status === "in_progress" && (
+          {(workOrder.status === "active" || workOrder.status === "in_progress") && (
             <div className="pt-2 border-t">
               <Button
                 onClick={() => markCompleteMutation.mutate(workOrder.id)}

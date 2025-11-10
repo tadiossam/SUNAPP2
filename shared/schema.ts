@@ -1290,6 +1290,9 @@ export const insertWorkshopMemberSchema = createInsertSchema(workshopMembers).om
 export const insertEmployeeSchema = createInsertSchema(employees).omit({
   id: true,
   createdAt: true,
+}).extend({
+  hourlyRate: z.coerce.number().min(0, "Hourly rate must be positive").optional(),
+  approvalLimit: z.coerce.number().min(0, "Approval limit must be positive").optional(),
 });
 
 export const insertWorkOrderSchema = createInsertSchema(workOrders).omit({

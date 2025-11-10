@@ -561,12 +561,13 @@ export function WorkOrderCostDialog({
 
             {/* Labor Tab */}
             <TabsContent value="labor" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Add Labor Entry</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Form {...laborForm}>
+              {!readOnly && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Add Labor Entry</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...laborForm}>
                     <form onSubmit={laborForm.handleSubmit((data) => addLaborMutation.mutate(data))} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
@@ -717,6 +718,7 @@ export function WorkOrderCostDialog({
                   </Form>
                 </CardContent>
               </Card>
+              )}
 
               {/* Labor Entries Table */}
               {costData && costData.laborEntries.length > 0 && (
@@ -751,15 +753,17 @@ export function WorkOrderCostDialog({
                               {entry.description || "-"}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteLaborMutation.mutate(entry.id)}
-                                disabled={deleteLaborMutation.isPending}
-                                data-testid={`button-delete-labor-${entry.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {!readOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deleteLaborMutation.mutate(entry.id)}
+                                  disabled={deleteLaborMutation.isPending}
+                                  data-testid={`button-delete-labor-${entry.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -772,12 +776,13 @@ export function WorkOrderCostDialog({
 
             {/* Lubricants Tab */}
             <TabsContent value="lubricants" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Add Lubricant Entry</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Form {...lubricantForm}>
+              {!readOnly && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Add Lubricant Entry</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...lubricantForm}>
                     <form onSubmit={lubricantForm.handleSubmit((data) => addLubricantMutation.mutate(data))} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
@@ -932,6 +937,7 @@ export function WorkOrderCostDialog({
                   </Form>
                 </CardContent>
               </Card>
+              )}
 
               {/* Lubricant Entries Table */}
               {costData && costData.lubricantEntries.length > 0 && (
@@ -968,15 +974,17 @@ export function WorkOrderCostDialog({
                               {entry.description || "-"}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteLubricantMutation.mutate(entry.id)}
-                                disabled={deleteLubricantMutation.isPending}
-                                data-testid={`button-delete-lubricant-${entry.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {!readOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deleteLubricantMutation.mutate(entry.id)}
+                                  disabled={deleteLubricantMutation.isPending}
+                                  data-testid={`button-delete-lubricant-${entry.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -989,12 +997,13 @@ export function WorkOrderCostDialog({
 
             {/* Outsource Tab */}
             <TabsContent value="outsource" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Add Outsource Entry</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Form {...outsourceForm}>
+              {!readOnly && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Add Outsource Entry</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...outsourceForm}>
                     <form onSubmit={outsourceForm.handleSubmit((data) => addOutsourceMutation.mutate(data))} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
@@ -1115,6 +1124,7 @@ export function WorkOrderCostDialog({
                   </Form>
                 </CardContent>
               </Card>
+              )}
 
               {/* Outsource Entries Table */}
               {costData && costData.outsourceEntries.length > 0 && (
@@ -1149,15 +1159,17 @@ export function WorkOrderCostDialog({
                               {entry.invoiceNumber || "-"}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteOutsourceMutation.mutate(entry.id)}
-                                disabled={deleteOutsourceMutation.isPending}
-                                data-testid={`button-delete-outsource-${entry.id}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {!readOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deleteOutsourceMutation.mutate(entry.id)}
+                                  disabled={deleteOutsourceMutation.isPending}
+                                  data-testid={`button-delete-outsource-${entry.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}

@@ -1440,7 +1440,7 @@ export default function WorkOrdersPage() {
         onOpenChange={setIsDetailsDialogOpen}
       />
 
-      {/* Work Order Cost Tracking Dialog */}
+      {/* Work Order Cost Tracking Dialog - Read-Only */}
       <WorkOrderCostDialog
         workOrderId={costDialogWorkOrderId}
         open={isCostDialogOpen}
@@ -1450,6 +1450,7 @@ export default function WorkOrdersPage() {
             ? parseFloat(workOrders.find(wo => wo.id === costDialogWorkOrderId)!.actualHours!)
             : 0
         }
+        readOnly={true}
       />
     </div>
   );

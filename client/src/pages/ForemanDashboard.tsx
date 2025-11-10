@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EmployeeSearchDialog } from "@/components/EmployeeSearchDialog";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
+import { WorkOrderCostDialog } from "@/components/WorkOrderCostDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -93,6 +94,10 @@ export default function ForemanDashboard() {
   const [actionRemarks, setActionRemarks] = useState("");
   const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  
+  // Cost tracking dialog
+  const [costDialogWorkOrderId, setCostDialogWorkOrderId] = useState<string | null>(null);
+  const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
   
   // Date range filtering state
   const [startDate, setStartDate] = useState<string>("");

@@ -1505,6 +1505,12 @@ export type GarageWithDetails = Garage & {
 export type WorkOrderWithDetails = WorkOrder & {
   equipment?: Equipment;
   createdBy?: Employee;
+  // Equipment denormalized fields (populated from equipment join)
+  equipmentModel?: string;
+  equipmentMake?: string;
+  // Convenience fields
+  garage?: Garage;
+  workshop?: Workshop;
   // New workflow relations
   garageAssignments?: (WorkOrderGarage & { garage?: Garage })[];
   workshopAssignments?: (WorkOrderWorkshop & { workshop?: Workshop; foreman?: Employee })[];

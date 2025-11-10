@@ -33,8 +33,12 @@ type WorkOrder = {
   id: string;
   workOrderNumber: string;
   equipmentId: string;
+  equipment?: Equipment; // Populated equipment object
   equipmentModel?: string; // Populated from equipment table
+  equipmentMake?: string; // Populated from equipment table
   garageId?: string | null;
+  garage?: Garage; // Populated garage object
+  workshop?: any; // Populated workshop object
   assignedToIds?: string[] | null; // Array of employee IDs for team assignment
   assignedToList?: Employee[]; // Populated assigned employees
   priority: string;

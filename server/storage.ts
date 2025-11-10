@@ -1886,7 +1886,7 @@ export class DatabaseStorage implements IStorage {
         enteredById: workOrderLaborEntries.enteredById,
         createdAt: workOrderLaborEntries.createdAt,
         // Enriched field from JOIN
-        employeeName: sql<string>`CONCAT(${employees.firstName}, ' ', ${employees.lastName})`,
+        employeeName: sql<string>`${employees.firstName} || ' ' || ${employees.lastName}`,
       })
       .from(workOrderLaborEntries)
       .leftJoin(employees, eq(workOrderLaborEntries.employeeId, employees.id))

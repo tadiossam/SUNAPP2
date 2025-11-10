@@ -277,6 +277,7 @@ export interface IStorage {
   getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntryView[]>;
   getWorkOrderOutsourceEntries(workOrderId: string): Promise<WorkOrderOutsourceEntryView[]>;
   addLaborEntry(data: InsertWorkOrderLaborEntry): Promise<WorkOrderLaborEntry>;
+  updateLaborEntry(id: string, data: Partial<InsertWorkOrderLaborEntry>): Promise<WorkOrderLaborEntry>;
   addLubricantEntry(data: InsertWorkOrderLubricantEntry): Promise<WorkOrderLubricantEntry>;
   addOutsourceEntry(data: InsertWorkOrderOutsourceEntry): Promise<WorkOrderOutsourceEntry>;
   deleteLaborEntry(id: string): Promise<void>;
@@ -1804,6 +1805,56 @@ export class DatabaseStorage implements IStorage {
       await db.insert(workOrderMemberships).values(teamMemberValues);
     }
     
+    // Auto-populate labor entries for assigned team members
+    if (teamMemberIds.length > 0) {
+      // Check which employees already have labor entries for this work order
+      const existingEntries = await db
+        .select({ employeeId: workOrderLaborEntries.employeeId })
+        .from(workOrderLaborEntries)
+        .where(
+          and(
+            eq(workOrderLaborEntries.workOrderId, workOrderId),
+            inArray(workOrderLaborEntries.employeeId, teamMemberIds)
+          )
+        );
+      
+      const existingEmployeeIds = new Set(existingEntries.map(e => e.employeeId));
+      
+      // Only create entries for employees who don't have any labor entries yet
+      const newEmployeeIds = teamMemberIds.filter(id => !existingEmployeeIds.has(id));
+      
+      if (newEmployeeIds.length > 0) {
+        // Get employee details including hourly rates for new employees only
+        const assignedEmployees = await db
+          .select({
+            id: employees.id,
+            fullName: employees.fullName,
+            hourlyRate: employees.hourlyRate,
+          })
+          .from(employees)
+          .where(inArray(employees.id, newEmployeeIds));
+        
+        // Create labor entries for each new team member with numeric defaults
+        const laborEntries = assignedEmployees.map(employee => {
+          const hourlyRate = employee.hourlyRate ? parseFloat(employee.hourlyRate as any) : 0;
+          return {
+            workOrderId,
+            employeeId: employee.id,
+            workDate: new Date(),
+            hoursWorked: 0,
+            hourlyRateSnapshot: hourlyRate,
+            overtimeFactor: 1.0, // Default 1x, foreman can adjust
+            totalCost: 0,
+            description: null, // Foreman can add description
+          };
+        });
+        
+        if (laborEntries.length > 0) {
+          await db.insert(workOrderLaborEntries).values(laborEntries);
+        }
+      }
+    }
+    
     // Update work order status to active and set startedAt timestamp
     const now = new Date();
     await db
@@ -1943,6 +1994,67 @@ export class DatabaseStorage implements IStorage {
     
     await this.updateWorkOrderCosts(data.workOrderId);
     return entry;
+  }
+
+  async updateLaborEntry(id: string, data: Partial<InsertWorkOrderLaborEntry>): Promise<WorkOrderLaborEntry> {
+    // Get the existing entry to retrieve the workOrderId for cost update
+    const [existingEntry] = await db
+      .select()
+      .from(workOrderLaborEntries)
+      .where(eq(workOrderLaborEntries.id, id));
+    
+    if (!existingEntry) {
+      throw new Error("Labor entry not found");
+    }
+    
+    // Only allow updating editable fields, with proper numeric coercion
+    const updateData: any = {};
+    
+    if (data.hoursWorked !== undefined) {
+      updateData.hoursWorked = typeof data.hoursWorked === 'number' 
+        ? data.hoursWorked 
+        : parseFloat(data.hoursWorked as any);
+    }
+    
+    if (data.overtimeFactor !== undefined) {
+      updateData.overtimeFactor = typeof data.overtimeFactor === 'number'
+        ? data.overtimeFactor
+        : parseFloat(data.overtimeFactor as any);
+    }
+    
+    if (data.description !== undefined) {
+      updateData.description = data.description;
+    }
+    
+    if (data.totalCost !== undefined) {
+      updateData.totalCost = typeof data.totalCost === 'number'
+        ? data.totalCost
+        : parseFloat(data.totalCost as any);
+    }
+    
+    if (data.workDate !== undefined) {
+      updateData.workDate = data.workDate;
+    }
+    
+    if (data.hourlyRateSnapshot !== undefined) {
+      updateData.hourlyRateSnapshot = typeof data.hourlyRateSnapshot === 'number'
+        ? data.hourlyRateSnapshot
+        : parseFloat(data.hourlyRateSnapshot as any);
+    }
+    
+    // Prevent changing workOrderId or employeeId (immutable for security)
+    // These are intentionally omitted from the updateData
+    
+    // Update the entry
+    const [updatedEntry] = await db
+      .update(workOrderLaborEntries)
+      .set(updateData)
+      .where(eq(workOrderLaborEntries.id, id))
+      .returning();
+    
+    // Update work order costs
+    await this.updateWorkOrderCosts(existingEntry.workOrderId);
+    return updatedEntry;
   }
 
   async addLubricantEntry(data: InsertWorkOrderLubricantEntry): Promise<WorkOrderLubricantEntry> {

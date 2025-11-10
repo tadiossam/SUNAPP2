@@ -2207,6 +2207,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH /api/work-orders/:workOrderId/labor/:entryId - Supervisors, Admin, and CEO can update labor costs
+  app.patch("/api/work-orders/:workOrderId/labor/:entryId", isSupervisorOrCEO, async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only allow updating specific fields
+      const updateData: any = {};
+      if (req.body.hoursWorked !== undefined) updateData.hoursWorked = req.body.hoursWorked;
+      if (req.body.overtimeFactor !== undefined) updateData.overtimeFactor = req.body.overtimeFactor;
+      if (req.body.description !== undefined) updateData.description = req.body.description;
+      if (req.body.totalCost !== undefined) updateData.totalCost = req.body.totalCost;
+      if (req.body.workDate !== undefined) updateData.workDate = req.body.workDate;
+      if (req.body.hourlyRateSnapshot !== undefined) updateData.hourlyRateSnapshot = req.body.hourlyRateSnapshot;
+
+      const entry = await storage.updateLaborEntry(req.params.entryId, updateData);
+      res.json(entry);
+    } catch (error: any) {
+      console.error("Error updating labor entry:", error);
+      res.status(500).json({ error: error.message || "Failed to update labor entry" });
+    }
+  });
+
   // DELETE /api/work-orders/:workOrderId/labor/:entryId - Supervisors, Admin, and CEO can delete labor costs
   app.delete("/api/work-orders/:workOrderId/labor/:entryId", isSupervisorOrCEO, async (req, res) => {
     try {

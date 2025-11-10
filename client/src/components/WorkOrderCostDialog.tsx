@@ -169,8 +169,15 @@ export function WorkOrderCostDialog({
   const watchedRate = useWatch({ control: laborForm.control, name: "hourlyRateSnapshot", defaultValue: 0 });
   const watchedOvertimeFactor = useWatch({ control: laborForm.control, name: "overtimeFactor", defaultValue: 1.0 });
   
-  // Calculate live cost
-  const liveLaborCost = (Number(watchedHours) || 0) * (Number(watchedRate) || 0) * (Number(watchedOvertimeFactor) || 1.0);
+  // Calculate live cost - use actual entry values when editing (since disabled fields return 0)
+  const liveLaborCost = editingLaborEntry
+    ? (editingLaborEntry.hoursWorked || 0) * (editingLaborEntry.hourlyRateSnapshot || 0) * (Number(watchedOvertimeFactor) || 1.0)
+    : (Number(watchedHours) || 0) * (Number(watchedRate) || 0) * (Number(watchedOvertimeFactor) || 1.0);
+  
+  // Values for display in calculation preview
+  const displayHours = editingLaborEntry ? editingLaborEntry.hoursWorked : watchedHours;
+  const displayRate = editingLaborEntry ? editingLaborEntry.hourlyRateSnapshot : watchedRate;
+  const displayOvertimeFactor = watchedOvertimeFactor;
 
   // Lubricant form
   const lubricantForm = useForm<LubricantFormValues>({
@@ -238,18 +245,13 @@ export function WorkOrderCostDialog({
     },
   });
 
-  // Update labor entry mutation
+  // Update labor entry mutation (only overtime factor and description are editable)
   const updateLaborMutation = useMutation({
     mutationFn: async (data: LaborFormValues & { entryId: string }) => {
-      const totalCost = data.hoursWorked * data.hourlyRateSnapshot * data.overtimeFactor;
+      // Only send overtimeFactor and description (backend will recalculate totalCost)
       const payload = {
-        employeeId: data.employeeId,
-        hoursWorked: data.hoursWorked,
-        hourlyRateSnapshot: data.hourlyRateSnapshot,
         overtimeFactor: data.overtimeFactor,
-        totalCost,
         description: data.description || undefined,
-        workDate: data.workDate,
       };
       const response = await apiRequest("PATCH", `/api/work-orders/${workOrderId}/labor/${data.entryId}`, payload);
       if (!response.ok) {
@@ -780,7 +782,7 @@ export function WorkOrderCostDialog({
                           <div>
                             <p className="text-sm font-medium">Calculated Labor Cost</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {watchedHours} hrs × {watchedRate} ETB × {watchedOvertimeFactor}x
+                              {displayHours} hrs × {displayRate} ETB × {displayOvertimeFactor}x
                             </p>
                           </div>
                           <div className="text-right">

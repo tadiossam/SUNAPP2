@@ -2007,42 +2007,30 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Labor entry not found");
     }
     
-    // Only allow updating editable fields, with proper numeric coercion
+    // Only allow updating overtimeFactor and description
     const updateData: any = {};
-    
-    if (data.hoursWorked !== undefined) {
-      updateData.hoursWorked = typeof data.hoursWorked === 'number' 
-        ? data.hoursWorked 
-        : parseFloat(data.hoursWorked as any);
-    }
     
     if (data.overtimeFactor !== undefined) {
       updateData.overtimeFactor = typeof data.overtimeFactor === 'number'
         ? data.overtimeFactor
         : parseFloat(data.overtimeFactor as any);
+      
+      // Recalculate totalCost based on existing hours and rate with new overtime factor
+      const existingHours = typeof existingEntry.hoursWorked === 'number' 
+        ? existingEntry.hoursWorked 
+        : parseFloat(existingEntry.hoursWorked as any);
+      const existingRate = typeof existingEntry.hourlyRateSnapshot === 'number'
+        ? existingEntry.hourlyRateSnapshot
+        : parseFloat(existingEntry.hourlyRateSnapshot as any);
+      
+      updateData.totalCost = existingHours * existingRate * updateData.overtimeFactor;
     }
     
     if (data.description !== undefined) {
       updateData.description = data.description;
     }
     
-    if (data.totalCost !== undefined) {
-      updateData.totalCost = typeof data.totalCost === 'number'
-        ? data.totalCost
-        : parseFloat(data.totalCost as any);
-    }
-    
-    if (data.workDate !== undefined) {
-      updateData.workDate = data.workDate;
-    }
-    
-    if (data.hourlyRateSnapshot !== undefined) {
-      updateData.hourlyRateSnapshot = typeof data.hourlyRateSnapshot === 'number'
-        ? data.hourlyRateSnapshot
-        : parseFloat(data.hourlyRateSnapshot as any);
-    }
-    
-    // Prevent changing workOrderId or employeeId (immutable for security)
+    // Prevent changing workOrderId, employeeId, hours, rate, date (immutable for security and data integrity)
     // These are intentionally omitted from the updateData
     
     // Update the entry

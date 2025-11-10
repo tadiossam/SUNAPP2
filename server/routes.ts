@@ -2214,14 +2214,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      // Only allow updating specific fields
+      // Only allow updating overtimeFactor and description
+      // Storage layer will automatically recalculate totalCost when overtimeFactor changes
       const updateData: any = {};
-      if (req.body.hoursWorked !== undefined) updateData.hoursWorked = req.body.hoursWorked;
       if (req.body.overtimeFactor !== undefined) updateData.overtimeFactor = req.body.overtimeFactor;
       if (req.body.description !== undefined) updateData.description = req.body.description;
-      if (req.body.totalCost !== undefined) updateData.totalCost = req.body.totalCost;
-      if (req.body.workDate !== undefined) updateData.workDate = req.body.workDate;
-      if (req.body.hourlyRateSnapshot !== undefined) updateData.hourlyRateSnapshot = req.body.hourlyRateSnapshot;
 
       const entry = await storage.updateLaborEntry(req.params.entryId, updateData);
       res.json(entry);

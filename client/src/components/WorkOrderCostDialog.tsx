@@ -613,7 +613,14 @@ export function WorkOrderCostDialog({
               {!readOnly && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Add Labor Entry</CardTitle>
+                    <CardTitle className="text-lg">
+                      {editingLaborEntry ? "Edit Labor Entry" : "Add Labor Entry"}
+                    </CardTitle>
+                    {editingLaborEntry && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Only Overtime Factor and Description can be edited
+                      </p>
+                    )}
                   </CardHeader>
                   <CardContent>
                     <Form {...laborForm}>
@@ -637,6 +644,7 @@ export function WorkOrderCostDialog({
                                   field.onChange(value);
                                   handleEmployeeChange(value);
                                 }}
+                                disabled={!!editingLaborEntry}
                               >
                                 <FormControl>
                                   <SelectTrigger data-testid="select-labor-employee">
@@ -663,7 +671,12 @@ export function WorkOrderCostDialog({
                             <FormItem>
                               <FormLabel>Work Date *</FormLabel>
                               <FormControl>
-                                <Input type="date" {...field} data-testid="input-labor-date" />
+                                <Input 
+                                  type="date" 
+                                  {...field} 
+                                  disabled={!!editingLaborEntry}
+                                  data-testid="input-labor-date" 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -683,6 +696,7 @@ export function WorkOrderCostDialog({
                                   min="0" 
                                   placeholder="0.0" 
                                   {...field} 
+                                  disabled={!!editingLaborEntry}
                                   data-testid="input-labor-hours"
                                 />
                               </FormControl>
@@ -709,6 +723,7 @@ export function WorkOrderCostDialog({
                                   min="0" 
                                   placeholder="0.00" 
                                   {...field} 
+                                  disabled={!!editingLaborEntry}
                                   data-testid="input-labor-rate"
                                 />
                               </FormControl>

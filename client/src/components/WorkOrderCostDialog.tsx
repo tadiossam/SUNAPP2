@@ -177,15 +177,14 @@ export function WorkOrderCostDialog({
   const watchedRate = useWatch({ control: laborForm.control, name: "hourlyRateSnapshot", defaultValue: 0 });
   const watchedOvertimeFactor = useWatch({ control: laborForm.control, name: "overtimeFactor", defaultValue: 1.0 });
   
-  // Calculate live cost - use per-minute formula: (minutes / 60) * hourlyRate * overtimeFactor
-  const liveLaborCost = editingLaborEntry
-    ? (editingLaborEntry.hoursWorked || 0) * (editingLaborEntry.hourlyRateSnapshot || 0) * (Number(watchedOvertimeFactor) || 1.0)
-    : ((Number(watchedMinutes) || 0) / 60) * (Number(watchedRate) || 0) * (Number(watchedOvertimeFactor) || 1.0);
+  // Calculate live cost - ALWAYS use current form values (minutes / 60) * hourlyRate * overtimeFactor
+  // This ensures the preview updates in real-time as the user edits the form
+  const liveLaborCost = ((Number(watchedMinutes) || 0) / 60) * (Number(watchedRate) || 0) * (Number(watchedOvertimeFactor) || 1.0);
   
-  // Values for display in calculation preview
-  const displayMinutes = editingLaborEntry ? Math.round(editingLaborEntry.hoursWorked * 60) : watchedMinutes;
-  const displayRate = editingLaborEntry ? editingLaborEntry.hourlyRateSnapshot : watchedRate;
-  const displayOvertimeFactor = watchedOvertimeFactor;
+  // Values for display in calculation preview - always use current form values
+  const displayMinutes = Number(watchedMinutes) || 0;
+  const displayRate = Number(watchedRate) || 0;
+  const displayOvertimeFactor = Number(watchedOvertimeFactor) || 1.0;
 
   // Lubricant form
   const lubricantForm = useForm<LubricantFormValues>({

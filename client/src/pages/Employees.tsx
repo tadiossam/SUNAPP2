@@ -361,8 +361,10 @@ export default function Employees() {
 
   const onSubmit = (data: InsertEmployee) => {
     // Convert hourlyRate number back to string for decimal field
+    // Convert empty username to null (unique constraint allows multiple nulls but not multiple empty strings)
     const submissionData = {
       ...data,
+      username: data.username?.trim() || null,
       hourlyRate: data.hourlyRate !== undefined ? data.hourlyRate.toString() : undefined,
     };
     createMutation.mutate(submissionData as InsertEmployee);
@@ -371,8 +373,10 @@ export default function Employees() {
   const onEditSubmit = (data: InsertEmployee) => {
     if (selectedEmployee) {
       // Convert hourlyRate number back to string for decimal field
+      // Convert empty username to null (unique constraint allows multiple nulls but not multiple empty strings)
       const submissionData = {
         ...data,
+        username: data.username?.trim() || null,
         hourlyRate: data.hourlyRate !== undefined ? data.hourlyRate.toString() : undefined,
       };
       updateMutation.mutate({ id: selectedEmployee.id, data: submissionData as InsertEmployee });

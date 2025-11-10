@@ -149,7 +149,7 @@ export function WorkOrderCostDialog({
     enabled: open,
   });
 
-  // Fetch cost data
+  // Fetch cost data with automatic refresh every 30 seconds to show progressive labor costs
   const { data: costData, isLoading } = useQuery<CostData>({
     queryKey: ["/api/work-orders", workOrderId, "costs"],
     queryFn: async () => {
@@ -158,6 +158,8 @@ export function WorkOrderCostDialog({
       return response.json();
     },
     enabled: !!workOrderId && open,
+    refetchInterval: open ? 30000 : false, // Refetch every 30 seconds when dialog is open
+    refetchIntervalInBackground: false, // Only refetch when tab is active
   });
 
   // Labor form

@@ -874,10 +874,18 @@ export function WorkOrderCostDialog({
                                     size="icon"
                                     onClick={() => {
                                       setEditingLaborEntry(entry);
+                                      // Parse numeric values properly from database
+                                      const hours = typeof entry.hoursWorked === 'number' 
+                                        ? entry.hoursWorked 
+                                        : parseFloat(entry.hoursWorked as any) || 0;
+                                      const rate = typeof entry.hourlyRateSnapshot === 'number'
+                                        ? entry.hourlyRateSnapshot
+                                        : parseFloat(entry.hourlyRateSnapshot as any) || 0;
+                                      
                                       laborForm.reset({
                                         employeeId: entry.employeeId,
-                                        hoursWorked: entry.hoursWorked,
-                                        hourlyRateSnapshot: entry.hourlyRateSnapshot,
+                                        hoursWorked: hours,
+                                        hourlyRateSnapshot: rate,
                                         overtimeFactor: entry.overtimeFactor,
                                         description: entry.description || "",
                                         workDate: new Date(entry.workDate).toISOString().split('T')[0],

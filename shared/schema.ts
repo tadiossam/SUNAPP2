@@ -1347,6 +1347,9 @@ export const insertWorkOrderLubricantEntrySchema = createInsertSchema(workOrderL
   id: true,
   createdAt: true,
 }).extend({
+  entryType: z.enum(["planned", "actual"], {
+    errorMap: () => ({ message: "Entry type must be either 'planned' or 'actual'" })
+  }),
   quantity: z.coerce.number().min(0, "Quantity must be positive"),
   unitCostSnapshot: z.coerce.number().min(0, "Unit cost must be positive"),
   totalCost: z.coerce.number().min(0, "Total cost must be positive"),

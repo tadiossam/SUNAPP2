@@ -51,7 +51,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
 import { spawn } from "child_process";
-import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken, hasRole, requireRole, isSupervisorOrCEO } from "./auth";
+import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken, hasRole, requireRole, isSupervisorOrCEO, authenticateToken } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import express from "express";
@@ -2254,11 +2254,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/work-orders/:id/lubricants - Supervisors, Admin, and CEO can add lubricant costs
-  app.post("/api/work-orders/:id/lubricants", isSupervisorOrCEO, async (req, res) => {
+  // POST /api/work-orders/:id/lubricants - Supervisors, Admin, CEO, and assigned team members can add lubricant costs
+  app.post("/api/work-orders/:id/lubricants", authenticateToken, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Check if user is supervisor/CEO/admin OR assigned to this work order
+      const isSupervisorOrAdmin = hasRole(req.user, 'supervisor', 'admin', 'ceo');
+      
+      if (!isSupervisorOrAdmin) {
+        // Check if user is assigned to this work order as a team member or foreman
+        const assignment = await storage.getWorkOrderTeamMember(req.params.id, req.user.id);
+        if (!assignment || !assignment.isActive) {
+          return res.status(403).json({ error: "You must be assigned to this work order to add lubricant entries" });
+        }
       }
 
       const { insertWorkOrderLubricantEntrySchema } = await import("@shared/schema");

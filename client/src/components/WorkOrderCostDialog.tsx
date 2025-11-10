@@ -27,6 +27,7 @@ type WorkOrderCostDialogProps = {
   workOrderElapsedHours?: number;
   isCompleted?: boolean;
   readOnly?: boolean; // If true, disable all editing functions
+  userRole?: "foreman" | "team"; // foreman = planned entries, team = actual entries
 };
 
 type LaborEntry = {
@@ -43,6 +44,7 @@ type LaborEntry = {
 
 type LubricantEntry = {
   id: string;
+  entryType: "planned" | "actual";
   itemName: string;
   category: string;
   quantity: number;
@@ -93,6 +95,7 @@ const laborFormSchema = z.object({
 });
 
 const lubricantFormSchema = z.object({
+  entryType: z.enum(["planned", "actual"]).default("actual"),
   itemName: z.string().min(1, "Item name is required"),
   category: z.string().min(1, "Category is required"),
   quantity: z.coerce.number().min(0.1, "Quantity must be at least 0.1"),
@@ -121,11 +124,15 @@ export function WorkOrderCostDialog({
   onOpenChange,
   workOrderElapsedHours = 0,
   isCompleted = false,
-  readOnly = false
+  readOnly = false,
+  userRole = "team" // Default to team member
 }: WorkOrderCostDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("summary");
   const [editingLaborEntry, setEditingLaborEntry] = useState<LaborEntry | null>(null);
+  
+  // Determine entry type based on user role
+  const lubricantEntryType: "planned" | "actual" = userRole === "foreman" ? "planned" : "actual";
 
   // Reset hours when dialog opens with work order elapsed hours (including 0 to avoid stale values)
   useEffect(() => {
@@ -183,6 +190,7 @@ export function WorkOrderCostDialog({
   const lubricantForm = useForm<LubricantFormValues>({
     resolver: zodResolver(lubricantFormSchema),
     defaultValues: {
+      entryType: lubricantEntryType,
       itemName: "",
       category: "lubricant",
       quantity: 0,
@@ -284,6 +292,7 @@ export function WorkOrderCostDialog({
     mutationFn: async (data: LubricantFormValues) => {
       const totalCost = data.quantity * data.unitCostSnapshot;
       const payload = {
+        entryType: data.entryType, // Include entry type (planned or actual)
         itemName: data.itemName,
         category: data.category,
         quantity: data.quantity,
@@ -303,11 +312,13 @@ export function WorkOrderCostDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders", workOrderId, "costs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      const entryTypeLabel = lubricantEntryType === "planned" ? "Planned" : "Actual";
       toast({
-        title: "Lubricant entry added",
+        title: `${entryTypeLabel} lubricant entry added`,
         description: "Lubricant cost has been recorded successfully",
       });
-      lubricantForm.reset();
+      // Reset form and restore entryType
+      lubricantForm.reset({ entryType: lubricantEntryType });
     },
     onError: (error: any) => {
       toast({
@@ -496,16 +507,37 @@ export function WorkOrderCostDialog({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div>
-                        <p className="text-xs text-muted-foreground">Actual</p>
-                        <p className="text-2xl font-bold text-primary" data-testid="text-lubricant-cost">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <TrendingDown className="h-3 w-3 text-blue-500" />
+                          Planned (Foreman)
+                        </p>
+                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-planned-lubricant-cost">
+                          {formatCurrency(costData?.summary.plannedLubricantCost || 0)}
+                        </p>
+                        <div className="flex items-center justify-between text-xs mt-1">
+                          <span className="text-muted-foreground">Entries:</span>
+                          <Badge variant="secondary" data-testid="badge-planned-lubricant-entries">
+                            {costData?.lubricantEntries.filter(e => e.entryType === "planned").length || 0}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <TrendingUp className="h-3 w-3 text-green-500" />
+                          Actual (Team)
+                        </p>
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-actual-lubricant-cost">
                           {formatCurrency(costData?.summary.actualLubricantCost || 0)}
                         </p>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Entries:</span>
-                        <Badge variant="secondary" data-testid="badge-lubricant-entries">{costData?.lubricantEntries.length || 0}</Badge>
+                        <div className="flex items-center justify-between text-xs mt-1">
+                          <span className="text-muted-foreground">Entries:</span>
+                          <Badge variant="secondary" data-testid="badge-actual-lubricant-entries">
+                            {costData?.lubricantEntries.filter(e => e.entryType === "actual").length || 0}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -1086,11 +1118,14 @@ export function WorkOrderCostDialog({
               </Card>
               )}
 
-              {/* Lubricant Entries Table */}
-              {costData && costData.lubricantEntries.length > 0 && (
+              {/* Planned Lubricant Entries (Foreman) */}
+              {costData && costData.lubricantEntries.filter(e => e.entryType === "planned").length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Lubricant Entries</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <TrendingDown className="h-5 w-5 text-blue-500" />
+                      Planned Lubricant Entries (Foreman)
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <Table>
@@ -1107,8 +1142,66 @@ export function WorkOrderCostDialog({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {costData.lubricantEntries.map((entry) => (
-                          <TableRow key={entry.id} data-testid={`row-lubricant-${entry.id}`}>
+                        {costData.lubricantEntries.filter(e => e.entryType === "planned").map((entry) => (
+                          <TableRow key={entry.id} data-testid={`row-lubricant-planned-${entry.id}`}>
+                            <TableCell>{entry.itemName}</TableCell>
+                            <TableCell className="capitalize">{entry.category}</TableCell>
+                            <TableCell>{formatDate(entry.usedDate)}</TableCell>
+                            <TableCell>
+                              {entry.quantity.toFixed(2)} {entry.unit}
+                            </TableCell>
+                            <TableCell>{formatCurrency(entry.unitCostSnapshot)}</TableCell>
+                            <TableCell className="font-medium">{formatCurrency(entry.totalCost)}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {entry.description || "-"}
+                            </TableCell>
+                            <TableCell>
+                              {!readOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deleteLubricantMutation.mutate(entry.id)}
+                                  disabled={deleteLubricantMutation.isPending}
+                                  data-testid={`button-delete-lubricant-${entry.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Actual Lubricant Entries (Team Members) */}
+              {costData && costData.lubricantEntries.filter(e => e.entryType === "actual").length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                      Actual Lubricant Entries (Team Members)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Item Name</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Quantity</TableHead>
+                          <TableHead>Unit Cost</TableHead>
+                          <TableHead>Total Cost</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="w-[80px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {costData.lubricantEntries.filter(e => e.entryType === "actual").map((entry) => (
+                          <TableRow key={entry.id} data-testid={`row-lubricant-actual-${entry.id}`}>
                             <TableCell>{entry.itemName}</TableCell>
                             <TableCell className="capitalize">{entry.category}</TableCell>
                             <TableCell>{formatDate(entry.usedDate)}</TableCell>

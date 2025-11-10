@@ -949,7 +949,7 @@ export default function TeamDashboard() {
         onOpenChange={setIsDetailsDialogOpen}
       />
 
-      {/* Work Order Cost Tracking Dialog - For team members to add lubricants */}
+      {/* Work Order Cost Tracking Dialog - For team members to add actual lubricants */}
       <WorkOrderCostDialog
         workOrderId={costDialogWorkOrderId}
         open={isCostDialogOpen}
@@ -957,6 +957,7 @@ export default function TeamDashboard() {
         workOrderElapsedHours={
           safeWorkOrders.find(wo => wo.id === costDialogWorkOrderId)?.elapsedHours || 0
         }
+        userRole="team"
       />
     </div>
   );

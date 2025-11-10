@@ -1462,6 +1462,7 @@ export default function ForemanDashboard() {
         workOrderElapsedHours={
           [...activeWorkOrders, ...pendingCompletions].find(wo => wo.id === costDialogWorkOrderId)?.elapsedHours || 0
         }
+        userRole="foreman"
       />
     </div>
   );

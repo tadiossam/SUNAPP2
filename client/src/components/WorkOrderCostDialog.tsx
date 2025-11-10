@@ -417,6 +417,14 @@ export function WorkOrderCostDialog({
     return new Date(dateString).toLocaleDateString();
   };
 
+  const formatWorkTime = (hours: number) => {
+    if (hours < 1 && hours > 0) {
+      const minutes = Math.round(hours * 60);
+      return `${minutes}m`;
+    }
+    return `${hours.toFixed(2)} hours`;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="dialog-work-order-costs">
@@ -704,7 +712,7 @@ export function WorkOrderCostDialog({
                               </FormControl>
                               {workOrderElapsedHours > 0 && (
                                 <p className="text-xs text-muted-foreground">
-                                  Work order elapsed: {workOrderElapsedHours.toFixed(2)} hours
+                                  Work order elapsed: {formatWorkTime(workOrderElapsedHours)}
                                 </p>
                               )}
                               <FormMessage />

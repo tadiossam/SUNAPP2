@@ -1885,8 +1885,9 @@ export class DatabaseStorage implements IStorage {
         workDate: workOrderLaborEntries.workDate,
         enteredById: workOrderLaborEntries.enteredById,
         createdAt: workOrderLaborEntries.createdAt,
-        // Enriched field from JOIN
-        employeeName: sql<string>`${employees.firstName} || ' ' || ${employees.lastName}`,
+        // Enriched field from JOIN - get individual fields and combine in JavaScript
+        employeeFirstName: employees.firstName,
+        employeeLastName: employees.lastName,
       })
       .from(workOrderLaborEntries)
       .leftJoin(employees, eq(workOrderLaborEntries.employeeId, employees.id))
@@ -1902,6 +1903,10 @@ export class DatabaseStorage implements IStorage {
       totalCost: parseFloat(entry.totalCost as any),
       // Add backwards-compat alias
       hourlyRate: parseFloat(entry.hourlyRateSnapshot as any),
+      // Combine employee name from separate fields
+      employeeName: entry.employeeFirstName && entry.employeeLastName 
+        ? `${entry.employeeFirstName} ${entry.employeeLastName}` 
+        : null,
     }));
   }
 

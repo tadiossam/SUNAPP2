@@ -473,24 +473,22 @@ export default function ForemanDashboard() {
           </Button>
         )}
 
-        {/* Cost Tracking Button - Available after team assignment */}
-        {workOrder.teamMembers && workOrder.teamMembers.length > 0 && (
-          <div className="pt-2 border-t">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setCostDialogWorkOrderId(workOrder.id);
-                setIsCostDialogOpen(true);
-              }}
-              className="w-full"
-              data-testid={`button-cost-tracking-${workOrder.id}`}
-            >
-              <FileText className="h-3.5 w-3.5 mr-1.5" />
-              Manage Cost Tracking
-            </Button>
-          </div>
-        )}
+        {/* Cost Tracking Button - Always available for foreman */}
+        <div className="pt-2 border-t">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setCostDialogWorkOrderId(workOrder.id);
+              setIsCostDialogOpen(true);
+            }}
+            className="w-full"
+            data-testid={`button-cost-tracking-${workOrder.id}`}
+          >
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+            Manage Cost Tracking
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

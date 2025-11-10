@@ -8322,49 +8322,65 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   });
 
   // Database Management endpoints (Admin only)
-  // Safe schema sync endpoint - adds missing tables and columns without foreign key violations
+  // Safe schema sync endpoint - updates database schema to match code
   app.post("/api/admin/sync-schema", isCEOOrAdmin, async (req, res) => {
     try {
-      // Execute drizzle-kit push to safely add missing schema elements
       const { spawn } = await import('child_process');
       
-      const process = spawn('npm', ['run', 'db:push', '--', '--force'], {
+      // Use db:push --force as recommended by the system
+      // This safely syncs the schema without manual migrations
+      // The --force flag bypasses interactive prompts in development
+      const pushProcess = spawn('npm', ['run', 'db:push', '--', '--force'], {
         stdio: 'pipe',
-        shell: true
+        shell: true,
+        env: { ...process.env, FORCE_COLOR: '0' }
       });
       
-      let output = '';
-      let errorOutput = '';
+      let pushOutput = '';
+      let pushError = '';
       
-      process.stdout.on('data', (data) => {
-        output += data.toString();
+      pushProcess.stdout.on('data', (data) => {
+        const text = data.toString();
+        pushOutput += text;
+        console.log('[Schema Sync]', text);
       });
       
-      process.stderr.on('data', (data) => {
-        errorOutput += data.toString();
+      pushProcess.stderr.on('data', (data) => {
+        const text = data.toString();
+        pushError += text;
+        console.error('[Schema Sync]', text);
       });
       
-      process.on('close', (code) => {
-        if (code === 0) {
-          res.json({ 
-            success: true, 
-            message: 'Database schema synced successfully - added missing tables and columns',
-            output: output
-          });
-        } else {
-          res.status(500).json({ 
-            success: false, 
-            message: 'Failed to sync database schema',
-            error: errorOutput || output
-          });
-        }
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          pushProcess.kill();
+          reject(new Error('Schema sync timed out after 60 seconds'));
+        }, 60000);
+        
+        pushProcess.on('close', (code) => {
+          clearTimeout(timeout);
+          
+          if (code === 0) {
+            resolve();
+          } else {
+            const allOutput = pushOutput + pushError;
+            reject(new Error(`Schema sync failed: ${allOutput.substring(0, 500)}`));
+          }
+        });
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'Database schema synced successfully',
+        output: pushOutput,
+        info: 'Schema has been updated to match your code. Review the changes above.'
       });
     } catch (error: any) {
       console.error('Schema sync error:', error);
       res.status(500).json({ 
         success: false, 
-        message: 'Failed to sync database schema',
-        error: error.message 
+        message: error.message || 'Failed to sync database schema',
+        error: error.message
       });
     }
   });

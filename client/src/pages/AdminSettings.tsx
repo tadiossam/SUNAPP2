@@ -3072,7 +3072,7 @@ function DatabaseManagement() {
               Database Schema Management
             </CardTitle>
             <CardDescription>
-              Safely update your database schema without foreign key violations
+              Update your local database schema to match your code changes
             </CardDescription>
           </div>
         </div>
@@ -3082,8 +3082,8 @@ function DatabaseManagement() {
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            This tool safely syncs your database schema by adding missing tables and columns only.
-            It will not delete existing tables or columns, preventing foreign key violations.
+            This tool syncs your database schema to match your code. Use it when you pull new code changes that include schema updates.
+            Always backup important data before syncing.
           </AlertDescription>
         </Alert>
 

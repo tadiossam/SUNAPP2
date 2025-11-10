@@ -87,7 +87,7 @@ type CostData = {
 // Client-side form schemas extending insert schemas
 const laborFormSchema = z.object({
   employeeId: z.string().min(1, "Please select an employee"),
-  hoursWorked: z.coerce.number().min(0.1, "Hours must be at least 0.1"),
+  minutesWorked: z.coerce.number().min(1, "Minutes must be at least 1"),
   hourlyRateSnapshot: z.coerce.number().min(0, "Hourly rate must be positive"),
   overtimeFactor: z.coerce.number().min(1, "Overtime factor must be at least 1.0").default(1.0),
   description: z.string().optional(),
@@ -134,10 +134,11 @@ export function WorkOrderCostDialog({
   // Determine entry type based on user role
   const lubricantEntryType: "planned" | "actual" = userRole === "foreman" ? "planned" : "actual";
 
-  // Reset hours when dialog opens with work order elapsed hours (including 0 to avoid stale values)
+  // Reset minutes when dialog opens with work order elapsed hours (including 0 to avoid stale values)
   useEffect(() => {
     if (open) {
-      laborForm.setValue("hoursWorked", workOrderElapsedHours);
+      // Convert hours to minutes for the form
+      laborForm.setValue("minutesWorked", Math.round(workOrderElapsedHours * 60));
     }
   }, [open, workOrderElapsedHours]);
 
@@ -163,7 +164,7 @@ export function WorkOrderCostDialog({
     resolver: zodResolver(laborFormSchema),
     defaultValues: {
       employeeId: "",
-      hoursWorked: workOrderElapsedHours || 0, // Auto-fill from work order timer
+      minutesWorked: Math.round((workOrderElapsedHours || 0) * 60), // Auto-fill from work order timer (convert hours to minutes)
       hourlyRateSnapshot: 0,
       overtimeFactor: 1.0,
       description: "",
@@ -172,17 +173,17 @@ export function WorkOrderCostDialog({
   });
 
   // Watch form values for live cost calculation
-  const watchedHours = useWatch({ control: laborForm.control, name: "hoursWorked", defaultValue: 0 });
+  const watchedMinutes = useWatch({ control: laborForm.control, name: "minutesWorked", defaultValue: 0 });
   const watchedRate = useWatch({ control: laborForm.control, name: "hourlyRateSnapshot", defaultValue: 0 });
   const watchedOvertimeFactor = useWatch({ control: laborForm.control, name: "overtimeFactor", defaultValue: 1.0 });
   
-  // Calculate live cost - use actual entry values when editing (since disabled fields return 0)
+  // Calculate live cost - use per-minute formula: (minutes / 60) * hourlyRate * overtimeFactor
   const liveLaborCost = editingLaborEntry
     ? (editingLaborEntry.hoursWorked || 0) * (editingLaborEntry.hourlyRateSnapshot || 0) * (Number(watchedOvertimeFactor) || 1.0)
-    : (Number(watchedHours) || 0) * (Number(watchedRate) || 0) * (Number(watchedOvertimeFactor) || 1.0);
+    : ((Number(watchedMinutes) || 0) / 60) * (Number(watchedRate) || 0) * (Number(watchedOvertimeFactor) || 1.0);
   
   // Values for display in calculation preview
-  const displayHours = editingLaborEntry ? editingLaborEntry.hoursWorked : watchedHours;
+  const displayMinutes = editingLaborEntry ? Math.round(editingLaborEntry.hoursWorked * 60) : watchedMinutes;
   const displayRate = editingLaborEntry ? editingLaborEntry.hourlyRateSnapshot : watchedRate;
   const displayOvertimeFactor = watchedOvertimeFactor;
 
@@ -217,10 +218,13 @@ export function WorkOrderCostDialog({
   // Add labor entry mutation
   const addLaborMutation = useMutation({
     mutationFn: async (data: LaborFormValues) => {
-      const totalCost = data.hoursWorked * data.hourlyRateSnapshot * data.overtimeFactor;
+      // Convert minutes to hours for storage
+      const hoursWorked = data.minutesWorked / 60;
+      // Calculate total cost using per-minute formula
+      const totalCost = hoursWorked * data.hourlyRateSnapshot * data.overtimeFactor;
       const payload = {
         employeeId: data.employeeId,
-        hoursWorked: data.hoursWorked,
+        hoursWorked: hoursWorked.toFixed(2), // Store as decimal hours (2 decimal places)
         hourlyRateSnapshot: data.hourlyRateSnapshot,
         overtimeFactor: data.overtimeFactor,
         totalCost,
@@ -727,24 +731,24 @@ export function WorkOrderCostDialog({
 
                         <FormField
                           control={laborForm.control}
-                          name="hoursWorked"
+                          name="minutesWorked"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Hours Worked *</FormLabel>
+                              <FormLabel>Minutes Worked *</FormLabel>
                               <FormControl>
                                 <Input 
                                   type="number" 
-                                  step="0.1" 
-                                  min="0" 
-                                  placeholder="0.0" 
+                                  step="1" 
+                                  min="1" 
+                                  placeholder="30" 
                                   {...field} 
                                   disabled={!!editingLaborEntry}
-                                  data-testid="input-labor-hours"
+                                  data-testid="input-labor-minutes"
                                 />
                               </FormControl>
                               {workOrderElapsedHours > 0 && (
                                 <p className="text-xs text-muted-foreground">
-                                  Work order elapsed: {formatWorkTime(workOrderElapsedHours)}
+                                  Work order elapsed: {formatWorkTime(workOrderElapsedHours)} ({Math.round(workOrderElapsedHours * 60)} minutes)
                                 </p>
                               )}
                               <FormMessage />
@@ -822,7 +826,10 @@ export function WorkOrderCostDialog({
                           <div>
                             <p className="text-sm font-medium">Calculated Labor Cost</p>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              {displayHours} hrs × {displayRate} ETB × {displayOvertimeFactor}x
+                              {displayMinutes} min × {displayRate ? (displayRate / 60).toFixed(2) : '0.00'} ETB/min × {displayOvertimeFactor}x
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              ({(displayMinutes / 60).toFixed(2)} hrs × {displayRate} ETB/hr)
                             </p>
                           </div>
                           <div className="text-right">
@@ -878,8 +885,8 @@ export function WorkOrderCostDialog({
                         <TableRow>
                           <TableHead>Employee</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead>Hours</TableHead>
-                          <TableHead>Rate</TableHead>
+                          <TableHead>Minutes</TableHead>
+                          <TableHead>Rate (ETB/hr)</TableHead>
                           <TableHead>Overtime</TableHead>
                           <TableHead>Total Cost</TableHead>
                           <TableHead>Description</TableHead>
@@ -891,7 +898,7 @@ export function WorkOrderCostDialog({
                           <TableRow key={entry.id} data-testid={`row-labor-${entry.id}`}>
                             <TableCell>{entry.employeeName || "Unknown"}</TableCell>
                             <TableCell>{formatDate(entry.workDate)}</TableCell>
-                            <TableCell>{entry.hoursWorked.toFixed(2)}</TableCell>
+                            <TableCell>{Math.round(entry.hoursWorked * 60)} min</TableCell>
                             <TableCell>{formatCurrency(entry.hourlyRateSnapshot)}</TableCell>
                             <TableCell>{entry.overtimeFactor}x</TableCell>
                             <TableCell className="font-medium">{formatCurrency(entry.totalCost)}</TableCell>
@@ -910,13 +917,14 @@ export function WorkOrderCostDialog({
                                       const hours = typeof entry.hoursWorked === 'number' 
                                         ? entry.hoursWorked 
                                         : parseFloat(entry.hoursWorked as any) || 0;
+                                      const minutes = Math.round(hours * 60); // Convert hours to minutes for the form
                                       const rate = typeof entry.hourlyRateSnapshot === 'number'
                                         ? entry.hourlyRateSnapshot
                                         : parseFloat(entry.hourlyRateSnapshot as any) || 0;
                                       
                                       laborForm.reset({
                                         employeeId: entry.employeeId,
-                                        hoursWorked: hours,
+                                        minutesWorked: minutes,
                                         hourlyRateSnapshot: rate,
                                         overtimeFactor: entry.overtimeFactor,
                                         description: entry.description || "",

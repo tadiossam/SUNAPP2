@@ -2196,7 +2196,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         enteredById: req.user.id,
       });
 
-      const entry = await storage.addLaborEntry(validated);
+      // Recalculate totalCost server-side to avoid trusting client calculation
+      const hoursWorked = typeof validated.hoursWorked === 'number' 
+        ? validated.hoursWorked 
+        : parseFloat(validated.hoursWorked as any);
+      const hourlyRate = typeof validated.hourlyRateSnapshot === 'number'
+        ? validated.hourlyRateSnapshot
+        : parseFloat(validated.hourlyRateSnapshot as any);
+      const overtimeFactor = typeof validated.overtimeFactor === 'number'
+        ? validated.overtimeFactor
+        : parseFloat(validated.overtimeFactor as any);
+      
+      const recalculatedTotalCost = hoursWorked * hourlyRate * overtimeFactor;
+
+      const entry = await storage.addLaborEntry({
+        ...validated,
+        totalCost: recalculatedTotalCost.toFixed(2),
+      });
       res.json(entry);
     } catch (error: any) {
       console.error("Error adding labor entry:", error);

@@ -1288,22 +1288,49 @@ export class DatabaseStorage implements IStorage {
     if (filters?.garageId) {
       conditions.push(eq(workOrders.garageId, filters.garageId));
     }
-    if (filters?.workshopId) {
-      conditions.push(eq(workOrders.workshopId, filters.workshopId));
-    }
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     
-    const orders = await db.select().from(workOrders).where(whereClause).orderBy(desc(workOrders.createdAt));
+    // If filtering by workshopId, join through work_order_workshops junction table
+    let orders;
+    if (filters?.workshopId) {
+      // Build combined where clause safely (handle case when whereClause is undefined)
+      const workshopCondition = eq(workOrderWorkshops.workshopId, filters.workshopId);
+      const combinedWhere = whereClause ? and(whereClause, workshopCondition) : workshopCondition;
+      
+      // Join with work_order_workshops to filter by workshop
+      const ordersWithWorkshop = await db
+        .select({ workOrder: workOrders })
+        .from(workOrders)
+        .innerJoin(workOrderWorkshops, eq(workOrders.id, workOrderWorkshops.workOrderId))
+        .where(combinedWhere)
+        .orderBy(desc(workOrders.createdAt));
+      
+      orders = ordersWithWorkshop.map(row => row.workOrder);
+    } else {
+      orders = await db.select().from(workOrders).where(whereClause).orderBy(desc(workOrders.createdAt));
+    }
     
     if (orders.length === 0) return [];
 
     // Collect all unique IDs for batch fetching (performance optimization)
     const equipmentIds = Array.from(new Set(orders.map((o: any) => o.equipmentId).filter(Boolean))) as string[];
     const garageIds = Array.from(new Set(orders.map((o: any) => o.garageId).filter(Boolean))) as string[];
-    const workshopIds = Array.from(new Set(orders.map((o: any) => o.workshopId).filter(Boolean))) as string[];
     const userIds = Array.from(new Set(orders.map((o: any) => o.createdById).filter(Boolean))) as string[];
     const workOrderIds = orders.map((o: any) => o.id);
+
+    // Fetch workshop assignments from work_order_workshops junction table
+    const workshopAssignments = await db
+      .select({
+        workOrderId: workOrderWorkshops.workOrderId,
+        workshopId: workOrderWorkshops.workshopId,
+        isPrimary: workOrderWorkshops.isPrimary,
+      })
+      .from(workOrderWorkshops)
+      .where(inArray(workOrderWorkshops.workOrderId, workOrderIds));
+
+    // Collect unique workshop IDs from assignments
+    const workshopIds = Array.from(new Set(workshopAssignments.map(a => a.workshopId).filter(Boolean))) as string[];
 
     // Batch fetch all related data in parallel instead of N queries per order
     const [equipmentList, garageList, workshopList, userList, requiredPartsList, memberships] = await Promise.all([
@@ -1326,6 +1353,15 @@ export class DatabaseStorage implements IStorage {
     const garageMap = new Map(garageList.map((g: any) => [g.id, g]));
     const workshopMap = new Map(workshopList.map((w: any) => [w.id, w]));
     const userMap = new Map(userList.map((u: any) => [u.id, u]));
+    
+    // Group workshop assignments by work order ID
+    const workshopAssignmentsMap = new Map<string, typeof workshopAssignments>();
+    for (const assignment of workshopAssignments) {
+      if (!workshopAssignmentsMap.has(assignment.workOrderId)) {
+        workshopAssignmentsMap.set(assignment.workOrderId, []);
+      }
+      workshopAssignmentsMap.get(assignment.workOrderId)!.push(assignment);
+    }
     
     // Group required parts by work order ID
     const requiredPartsMap = new Map<string, typeof requiredPartsList>();
@@ -1352,15 +1388,21 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Map related data back to work orders
-    return orders.map((order: any) => ({
-      ...order,
-      equipment: equipmentMap.get(order.equipmentId),
-      garage: order.garageId ? garageMap.get(order.garageId) : undefined,
-      workshop: order.workshopId ? workshopMap.get(order.workshopId) : undefined,
-      assignedToList: employeesMap.get(order.id) || [],
-      createdBy: order.createdById ? userMap.get(order.createdById) : undefined,
-      requiredParts: requiredPartsMap.get(order.id) || [],
-    }));
+    return orders.map((order: any) => {
+      // Get primary workshop (or first workshop if no primary)
+      const orderWorkshops = workshopAssignmentsMap.get(order.id) || [];
+      const primaryWorkshop = orderWorkshops.find(w => w.isPrimary) || orderWorkshops[0];
+      
+      return {
+        ...order,
+        equipment: equipmentMap.get(order.equipmentId),
+        garage: order.garageId ? garageMap.get(order.garageId) : undefined,
+        workshop: primaryWorkshop ? workshopMap.get(primaryWorkshop.workshopId) : undefined,
+        assignedToList: employeesMap.get(order.id) || [],
+        createdBy: order.createdById ? userMap.get(order.createdById) : undefined,
+        requiredParts: requiredPartsMap.get(order.id) || [],
+      };
+    });
   }
 
   async getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined> {

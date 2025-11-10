@@ -1919,6 +1919,7 @@ export class DatabaseStorage implements IStorage {
           .where(inArray(employees.id, newEmployeeIds));
         
         // Create labor entries with minimum 1 minute (0.0167 hours) to show non-zero cost
+        // Mark as "auto" so they can be automatically updated based on elapsed time
         const laborEntries = assignedEmployees.map(employee => {
           const hourlyRate = employee.hourlyRate ? parseFloat(employee.hourlyRate as any) : 0;
           const minHours = 1 / 60; // 1 minute = 0.0167 hours
@@ -1931,6 +1932,7 @@ export class DatabaseStorage implements IStorage {
             overtimeFactor: 1.0,
             totalCost: minHours * hourlyRate * 1.0,
             description: null,
+            timeSource: "auto", // Mark for automatic updates
           };
         });
         

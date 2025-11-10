@@ -3322,6 +3322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 overtimeFactor: "1.0",
                 totalCost: (minHours * hourlyRateNum * 1.0).toFixed(2),
                 workDate: new Date().toISOString().split('T')[0],
+                timeSource: "auto", // Mark for automatic updates
               });
               existingEmployeeIds.add(employeeId);
             }

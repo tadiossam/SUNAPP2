@@ -16,6 +16,8 @@ The frontend is built with React 18, TypeScript, Vite, Shadcn UI, Tailwind CSS, 
 
 **Labor Cost Calculation**: Minute-based entry system where users enter time in minutes (UI), which is converted to hours for storage (database stores decimal hours). Server-side recalculates totalCost using formula: `(minutesWorked / 60) × hourlyRateSnapshot × overtimeFactor`. Per-minute rate is 250 ETB/hour ÷ 60 = 4.17 ETB/minute. This ensures accurate cost tracking and prevents client-side calculation manipulation.
 
+**Auto-Labor Entry Updates**: When team members are assigned to a work order, labor entries are automatically created with `timeSource: "auto"` and initialized with 1 minute (to show non-zero cost). A background scheduler (node-cron) runs every 5 minutes to update these auto-created entries based on actual work order elapsed time, distributing hours evenly among team members. This keeps labor costs in sync with real work time without manual intervention.
+
 **Workshop Filtering**: Dashboard analytics properly filter work orders through the `work_order_workshops` junction table (multi-workshop assignments). Queries safely handle undefined predicates and fetch the primary workshop for display.
 
 ### Feature Specifications

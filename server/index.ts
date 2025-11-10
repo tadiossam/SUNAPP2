@@ -48,6 +48,10 @@ app.use((req, res, next) => {
   // Seed production users on startup (only creates if they don't exist)
   await seedProductionUsers();
 
+  // Start automatic labor entry update scheduler
+  const { startAutoLaborUpdateScheduler } = await import("./auto-labor-update");
+  startAutoLaborUpdateScheduler();
+
   // Load deployment settings from database
   let deploymentHost = process.env.HOST || "0.0.0.0";
   let deploymentPort = parseInt(process.env.PORT || '5000', 10);

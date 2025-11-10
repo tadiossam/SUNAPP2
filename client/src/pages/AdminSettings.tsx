@@ -1539,8 +1539,20 @@ export default function AdminSettings() {
                 <span className="hidden sm:inline">Sample Data</span>
                 <span className="sm:hidden">Sample</span>
               </TabsTrigger>
+              <TabsTrigger value="database" className="gap-2" data-testid="tab-database">
+                <Terminal className="h-4 w-4" />
+                <span className="hidden sm:inline">Database Management</span>
+                <span className="sm:hidden">Database</span>
+              </TabsTrigger>
             </TabsList>
           </div>
+
+          {/* Database Management Tab */}
+          <TabsContent value="database" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
+            <AdminTabSection>
+              <DatabaseManagement />
+            </AdminTabSection>
+          </TabsContent>
 
           {/* Sample Data Tab */}
           <TabsContent value="sampleData" className="flex-1 min-h-0 overflow-y-auto p-6 m-0">
@@ -2995,5 +3007,157 @@ export default function AdminSettings() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Database Management Component
+function DatabaseManagement() {
+  const { toast } = useToast();
+  const [syncing, setSyncing] = useState(false);
+  const [syncOutput, setSyncOutput] = useState("");
+
+  // Fetch schema info
+  const { data: schemaInfo, isLoading: loadingSchema } = useQuery<{
+    success: boolean;
+    tables: Array<{ table_name: string; column_count: string }>;
+  }>({
+    queryKey: ["/api/admin/schema-info"],
+  });
+
+  // Sync schema mutation
+  const syncSchemaMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/sync-schema");
+      return res.json();
+    },
+    onMutate: () => {
+      setSyncing(true);
+      setSyncOutput("");
+    },
+    onSuccess: (data) => {
+      setSyncing(false);
+      setSyncOutput(data.output || "");
+      
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: data.message || "Database schema synced successfully",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/schema-info"] });
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: data.message || "Failed to sync database schema",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      setSyncing(false);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync database schema",
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              Database Schema Management
+            </CardTitle>
+            <CardDescription>
+              Safely update your database schema without foreign key violations
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Info Alert */}
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            This tool safely syncs your database schema by adding missing tables and columns only.
+            It will not delete existing tables or columns, preventing foreign key violations.
+          </AlertDescription>
+        </Alert>
+
+        {/* Current Schema Info */}
+        {loadingSchema ? (
+          <div className="text-center py-8">
+            <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading schema info...</p>
+          </div>
+        ) : schemaInfo?.tables ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Current Database Tables</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {schemaInfo.tables.map((table: any) => (
+                <div
+                  key={table.table_name}
+                  className="flex items-center justify-between p-2 rounded-md border bg-card"
+                >
+                  <span className="text-sm font-mono">{table.table_name}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {table.column_count} cols
+                  </Badge>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total: {schemaInfo.tables.length} tables
+            </p>
+          </div>
+        ) : null}
+
+        {/* Sync Button */}
+        <div className="flex flex-col gap-3">
+          <Button
+            onClick={() => syncSchemaMutation.mutate()}
+            disabled={syncing}
+            className="w-full md:w-auto"
+            data-testid="button-sync-schema"
+          >
+            {syncing ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Syncing Schema...
+              </>
+            ) : (
+              <>
+                <Database className="mr-2 h-4 w-4" />
+                Update Database Schema
+              </>
+            )}
+          </Button>
+          
+          {syncOutput && (
+            <div className="mt-4 p-4 bg-muted rounded-md">
+              <h4 className="text-sm font-medium mb-2">Sync Output:</h4>
+              <pre className="text-xs whitespace-pre-wrap font-mono overflow-x-auto">
+                {syncOutput}
+              </pre>
+            </div>
+          )}
+        </div>
+
+        {/* Instructions */}
+        <div className="space-y-2 p-4 bg-muted rounded-md">
+          <h4 className="text-sm font-medium">How to use:</h4>
+          <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+            <li>Click "Update Database Schema" button above</li>
+            <li>The system will check for missing tables and columns</li>
+            <li>Only missing elements will be added safely</li>
+            <li>Existing data will not be affected</li>
+            <li>No foreign key violations will occur</li>
+          </ol>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

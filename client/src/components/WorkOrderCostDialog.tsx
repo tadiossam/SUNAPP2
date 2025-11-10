@@ -779,7 +779,10 @@ export function WorkOrderCostDialog({
               {!readOnly && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Add Lubricant Entry</CardTitle>
+                    <CardTitle className="text-lg">Add Planned Lubricant Entry</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Record planned lubricants for this work order
+                    </p>
                   </CardHeader>
                   <CardContent>
                     <Form {...lubricantForm}>

@@ -214,13 +214,15 @@ export default function ForemanDashboard() {
     mutationFn: async (data: { workOrderId: string; teamMemberIds: string[] }) => {
       return await apiRequest("POST", `/api/work-orders/${data.workOrderId}/assign-team`, data);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
         title: "Team Assigned",
         description: "Team members have been assigned to the work order.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders/foreman/active"] });
+      // Invalidate cost data so labor entries show up immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders", variables.workOrderId, "costs"] });
       setIsAssignDialogOpen(false);
       setSelectedWorkOrder(null);
       setSelectedTeamMembers([]);

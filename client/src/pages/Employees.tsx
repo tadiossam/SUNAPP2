@@ -360,12 +360,22 @@ export default function Employees() {
   });
 
   const onSubmit = (data: InsertEmployee) => {
-    createMutation.mutate(data);
+    // Convert hourlyRate number back to string for decimal field
+    const submissionData = {
+      ...data,
+      hourlyRate: data.hourlyRate !== undefined ? data.hourlyRate.toString() : undefined,
+    };
+    createMutation.mutate(submissionData as InsertEmployee);
   };
 
   const onEditSubmit = (data: InsertEmployee) => {
     if (selectedEmployee) {
-      updateMutation.mutate({ id: selectedEmployee.id, data });
+      // Convert hourlyRate number back to string for decimal field
+      const submissionData = {
+        ...data,
+        hourlyRate: data.hourlyRate !== undefined ? data.hourlyRate.toString() : undefined,
+      };
+      updateMutation.mutate({ id: selectedEmployee.id, data: submissionData as InsertEmployee });
     }
   };
 
@@ -379,7 +389,7 @@ export default function Employees() {
       role: employee.role,
       phoneNumber: employee.phoneNumber || "",
       email: employee.email || "",
-      hourlyRate: employee.hourlyRate || undefined,
+      hourlyRate: employee.hourlyRate ? parseFloat(employee.hourlyRate as string) : undefined,
     });
     setIsEditDialogOpen(true);
   };

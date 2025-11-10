@@ -481,15 +481,22 @@ export default function WorkOrdersPage() {
                   </div>
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[160px]" data-testid="select-status-filter">
+                  <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
                     <SelectValue placeholder={t("allStatuses")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t("allStatuses")}</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="pending_allocation">Pending Allocation</SelectItem>
+                    <SelectItem value="pending_foreman_assignment">Pending Foreman</SelectItem>
+                    <SelectItem value="pending_team_acceptance">Pending Team</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
+                    <SelectItem value="waiting_purchase">Waiting Purchase</SelectItem>
+                    <SelectItem value="pending_verification">Pending Verification</SelectItem>
+                    <SelectItem value="pending_supervisor">Pending Supervisor</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>

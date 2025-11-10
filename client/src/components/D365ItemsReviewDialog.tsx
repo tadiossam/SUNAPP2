@@ -70,6 +70,12 @@ export function D365ItemsReviewDialog({
     await onImport(syncId, selectedIds);
   };
 
+  const handleInsertAll = async () => {
+    const allIds = previewItems.map(i => i.id);
+    setSelectedItems(new Set(allIds));
+    await onImport(syncId, allIds);
+  };
+
   const newItems = previewItems.filter(i => !i.alreadyExists);
   const existingItems = previewItems.filter(i => i.alreadyExists);
 
@@ -175,6 +181,19 @@ export function D365ItemsReviewDialog({
               data-testid="button-cancel-import"
             >
               Cancel
+            </Button>
+            <Button 
+              variant="secondary"
+              onClick={handleInsertAll}
+              disabled={isImporting || previewItems.length === 0}
+              data-testid="button-insert-all"
+            >
+              {isImporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Insert All ({previewItems.length})
             </Button>
             <Button 
               onClick={handleImport}

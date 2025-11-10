@@ -74,6 +74,12 @@ export function D365EquipmentReviewDialog({
     await onImport(equipmentToImport, defaultCategoryId);
   };
 
+  const handleInsertAll = async () => {
+    const allEquipmentNos = equipment.map(e => e.No);
+    setSelectedEquipment(new Set(allEquipmentNos));
+    await onImport(equipment, defaultCategoryId);
+  };
+
   const newEquipment = equipment.filter(e => !e.existsInDb);
   const existingEquipment = equipment.filter(e => e.existsInDb);
 
@@ -188,6 +194,19 @@ export function D365EquipmentReviewDialog({
               data-testid="button-cancel-import"
             >
               Cancel
+            </Button>
+            <Button 
+              variant="secondary"
+              onClick={handleInsertAll}
+              disabled={isImporting || equipment.length === 0}
+              data-testid="button-insert-all"
+            >
+              {isImporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Insert All ({equipment.length})
             </Button>
             <Button 
               onClick={handleImport}

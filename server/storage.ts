@@ -1892,55 +1892,9 @@ export class DatabaseStorage implements IStorage {
       await db.insert(workOrderMemberships).values(teamMemberValues);
     }
     
-    // Auto-populate labor entries for assigned team members
-    if (teamMemberIds.length > 0) {
-      // Check which employees already have labor entries for this work order
-      const existingEntries = await db
-        .select({ employeeId: workOrderLaborEntries.employeeId })
-        .from(workOrderLaborEntries)
-        .where(
-          and(
-            eq(workOrderLaborEntries.workOrderId, workOrderId),
-            inArray(workOrderLaborEntries.employeeId, teamMemberIds)
-          )
-        );
-      
-      const existingEmployeeIds = new Set(existingEntries.map(e => e.employeeId));
-      
-      // Only create entries for employees who don't have any labor entries yet
-      const newEmployeeIds = teamMemberIds.filter(id => !existingEmployeeIds.has(id));
-      
-      if (newEmployeeIds.length > 0) {
-        // Get employee details including hourly rates for new employees only
-        const assignedEmployees = await db
-          .select({
-            id: employees.id,
-            fullName: employees.fullName,
-            hourlyRate: employees.hourlyRate,
-          })
-          .from(employees)
-          .where(inArray(employees.id, newEmployeeIds));
-        
-        // Create labor entries for each new team member with numeric defaults
-        const laborEntries = assignedEmployees.map(employee => {
-          const hourlyRate = employee.hourlyRate ? parseFloat(employee.hourlyRate as any) : 0;
-          return {
-            workOrderId,
-            employeeId: employee.id,
-            workDate: new Date(),
-            hoursWorked: 0,
-            hourlyRateSnapshot: hourlyRate,
-            overtimeFactor: 1.0, // Default 1x, foreman can adjust
-            totalCost: 0,
-            description: null, // Foreman can add description
-          };
-        });
-        
-        if (laborEntries.length > 0) {
-          await db.insert(workOrderLaborEntries).values(laborEntries);
-        }
-      }
-    }
+    // Note: Labor entries are no longer auto-created for team members.
+    // Team members or foreman must manually add labor entries when actual work is done.
+    // This prevents creation of 0-hour labor entries that display ETB 0.00 costs.
     
     // Update work order status to active and set startedAt timestamp
     const now = new Date();

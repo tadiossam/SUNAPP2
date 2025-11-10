@@ -3294,43 +3294,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.replaceWorkOrderRequiredParts(req.params.id, partsToInsert);
       }
 
-      // Auto-create labor entries for newly assigned team members
-      const { teamMembers } = workOrderData;
-      if (Array.isArray(teamMembers) && teamMembers.length > 0) {
-        // Get existing labor entries for this work order
-        const existingLaborEntries = await storage.getWorkOrderLaborEntries(req.params.id);
-        const existingEmployeeIds = new Set(
-          existingLaborEntries.map(entry => entry.employeeId)
-        );
-
-        // Get employee details to fetch hourly rates
-        const employeePromises = teamMembers.map(id => storage.getEmployeeById(id));
-        const employeeResults = await Promise.all(employeePromises);
-        const employees = employeeResults.filter((emp): emp is Employee => emp !== undefined);
-        const employeeMap = new Map(employees.map(emp => [emp.id, emp]));
-
-        // Create labor entries only for team members who don't already have one
-        for (const employeeId of teamMembers) {
-          if (!existingEmployeeIds.has(employeeId)) {
-            const employee = employeeMap.get(employeeId);
-            if (employee) {
-              // Parse hourly rate safely, default to 0 if not set
-              const hourlyRate = employee.hourlyRate || "0";
-              await storage.addLaborEntry({
-                workOrderId: req.params.id,
-                employeeId,
-                hoursWorked: "0",
-                hourlyRateSnapshot: hourlyRate,
-                overtimeFactor: "1.0",
-                totalCost: "0",
-                workDate: new Date().toISOString().split('T')[0],
-              });
-              // Add to set to prevent duplicates within the same assignment request
-              existingEmployeeIds.add(employeeId);
-            }
-          }
-        }
-      }
+      // Note: Labor entries are no longer auto-created for team members.
+      // Team members or foreman must manually add labor entries when actual work is done.
+      // This prevents creation of 0-hour labor entries that display ETB 0.00 costs.
       
       res.json(workOrder);
     } catch (error) {

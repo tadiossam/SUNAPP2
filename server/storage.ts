@@ -4027,6 +4027,89 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Work order completion is not pending approval");
     }
 
+    // Auto-calculate labor hours from elapsed time
+    const elapsedHours = workOrder[0].elapsedHours || 0;
+    if (elapsedHours > 0) {
+      // Get all team members assigned to this work order
+      const teamMemberships = await db
+        .select({
+          employeeId: workOrderMemberships.employeeId,
+          fullName: employees.fullName,
+          hourlyRate: employees.hourlyRate,
+        })
+        .from(workOrderMemberships)
+        .innerJoin(employees, eq(employees.id, workOrderMemberships.employeeId))
+        .where(and(
+          eq(workOrderMemberships.workOrderId, workOrderId),
+          eq(workOrderMemberships.role, "team_member")
+        ));
+      
+      if (teamMemberships.length > 0) {
+        // Ensure labor entries exist for all team members
+        const existingEntries = await db
+          .select()
+          .from(workOrderLaborEntries)
+          .where(eq(workOrderLaborEntries.workOrderId, workOrderId));
+        
+        const existingEmployeeIds = new Set(existingEntries.map(e => e.employeeId));
+        
+        // Create labor entries for team members who don't have one
+        const missingMembers = teamMemberships.filter(m => !existingEmployeeIds.has(m.employeeId));
+        for (const member of missingMembers) {
+          const hourlyRate = member.hourlyRate ? parseFloat(member.hourlyRate as any) : 0;
+          await db.insert(workOrderLaborEntries).values({
+            workOrderId,
+            employeeId: member.employeeId,
+            workDate: new Date(),
+            hoursWorked: 0,
+            hourlyRateSnapshot: hourlyRate,
+            overtimeFactor: 1.0,
+            totalCost: 0,
+            description: null,
+          });
+        }
+        
+        // Get all labor entries (now including newly created ones)
+        const allLaborEntries = await db
+          .select()
+          .from(workOrderLaborEntries)
+          .where(eq(workOrderLaborEntries.workOrderId, workOrderId));
+        
+        // Count unique team members (not total entries)
+        const uniqueEmployeeIds = new Set(allLaborEntries.map(e => e.employeeId));
+        const teamMemberCount = uniqueEmployeeIds.size;
+        
+        // Distribute elapsed hours equally among unique team members
+        const hoursPerMember = elapsedHours / teamMemberCount;
+        
+        // Group entries by employee and update the first entry for each employee
+        const entriesByEmployee = new Map();
+        for (const entry of allLaborEntries) {
+          if (!entriesByEmployee.has(entry.employeeId)) {
+            entriesByEmployee.set(entry.employeeId, entry);
+          }
+        }
+        
+        // Update one labor entry per team member with calculated hours
+        for (const [, entry] of entriesByEmployee) {
+          const hourlyRate = parseFloat(entry.hourlyRateSnapshot as any) || 0;
+          const overtimeFactor = parseFloat(entry.overtimeFactor as any) || 1.0;
+          const totalCost = hoursPerMember * hourlyRate * overtimeFactor;
+          
+          await db
+            .update(workOrderLaborEntries)
+            .set({
+              hoursWorked: hoursPerMember,
+              totalCost: totalCost,
+            })
+            .where(eq(workOrderLaborEntries.id, entry.id));
+        }
+        
+        // Update total labor cost in work order
+        await this.updateWorkOrderCosts(workOrderId);
+      }
+    }
+
     await db
       .update(workOrders)
       .set({

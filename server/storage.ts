@@ -1892,9 +1892,53 @@ export class DatabaseStorage implements IStorage {
       await db.insert(workOrderMemberships).values(teamMemberValues);
     }
     
-    // Note: Labor entries are no longer auto-created for team members.
-    // Team members or foreman must manually add labor entries when actual work is done.
-    // This prevents creation of 0-hour labor entries that display ETB 0.00 costs.
+    // Auto-populate labor entries for assigned team members with minimum 1 minute
+    if (teamMemberIds.length > 0) {
+      // Check which employees already have labor entries for this work order
+      const existingEntries = await db
+        .select({ employeeId: workOrderLaborEntries.employeeId })
+        .from(workOrderLaborEntries)
+        .where(
+          and(
+            eq(workOrderLaborEntries.workOrderId, workOrderId),
+            inArray(workOrderLaborEntries.employeeId, teamMemberIds)
+          )
+        );
+      
+      const existingEmployeeIds = new Set(existingEntries.map(e => e.employeeId));
+      const newEmployeeIds = teamMemberIds.filter(id => !existingEmployeeIds.has(id));
+      
+      if (newEmployeeIds.length > 0) {
+        const assignedEmployees = await db
+          .select({
+            id: employees.id,
+            fullName: employees.fullName,
+            hourlyRate: employees.hourlyRate,
+          })
+          .from(employees)
+          .where(inArray(employees.id, newEmployeeIds));
+        
+        // Create labor entries with minimum 1 minute (0.0167 hours) to show non-zero cost
+        const laborEntries = assignedEmployees.map(employee => {
+          const hourlyRate = employee.hourlyRate ? parseFloat(employee.hourlyRate as any) : 0;
+          const minHours = 1 / 60; // 1 minute = 0.0167 hours
+          return {
+            workOrderId,
+            employeeId: employee.id,
+            workDate: new Date(),
+            hoursWorked: minHours,
+            hourlyRateSnapshot: hourlyRate,
+            overtimeFactor: 1.0,
+            totalCost: minHours * hourlyRate * 1.0,
+            description: null,
+          };
+        });
+        
+        if (laborEntries.length > 0) {
+          await db.insert(workOrderLaborEntries).values(laborEntries);
+        }
+      }
+    }
     
     // Update work order status to active and set startedAt timestamp
     const now = new Date();

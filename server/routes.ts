@@ -3294,9 +3294,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.replaceWorkOrderRequiredParts(req.params.id, partsToInsert);
       }
 
-      // Note: Labor entries are no longer auto-created for team members.
-      // Team members or foreman must manually add labor entries when actual work is done.
-      // This prevents creation of 0-hour labor entries that display ETB 0.00 costs.
+      // Auto-create labor entries for newly assigned team members with minimum 1 minute
+      const { teamMembers } = workOrderData;
+      if (Array.isArray(teamMembers) && teamMembers.length > 0) {
+        const existingLaborEntries = await storage.getWorkOrderLaborEntries(req.params.id);
+        const existingEmployeeIds = new Set(
+          existingLaborEntries.map(entry => entry.employeeId)
+        );
+
+        const employeePromises = teamMembers.map(id => storage.getEmployeeById(id));
+        const employeeResults = await Promise.all(employeePromises);
+        const employees = employeeResults.filter((emp): emp is Employee => emp !== undefined);
+        const employeeMap = new Map(employees.map(emp => [emp.id, emp]));
+
+        for (const employeeId of teamMembers) {
+          if (!existingEmployeeIds.has(employeeId)) {
+            const employee = employeeMap.get(employeeId);
+            if (employee) {
+              const hourlyRate = employee.hourlyRate || "0";
+              const hourlyRateNum = parseFloat(hourlyRate);
+              const minHours = 1 / 60; // 1 minute minimum
+              await storage.addLaborEntry({
+                workOrderId: req.params.id,
+                employeeId,
+                hoursWorked: minHours.toString(),
+                hourlyRateSnapshot: hourlyRate,
+                overtimeFactor: "1.0",
+                totalCost: (minHours * hourlyRateNum * 1.0).toFixed(2),
+                workDate: new Date().toISOString().split('T')[0],
+              });
+              existingEmployeeIds.add(employeeId);
+            }
+          }
+        }
+      }
       
       res.json(workOrder);
     } catch (error) {

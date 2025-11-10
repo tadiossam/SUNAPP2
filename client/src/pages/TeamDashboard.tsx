@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ClipboardList, Package, CheckCircle, PackageCheck, FileText, Info } from "lucide-react";
 import { RequestPartsDialog } from "@/components/RequestPartsDialog";
 import { WorkOrderDetailsDialog } from "@/components/WorkOrderDetailsDialog";
+import { WorkOrderCostDialog } from "@/components/WorkOrderCostDialog";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +67,8 @@ export default function TeamDashboard() {
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
   const [detailsWorkOrderId, setDetailsWorkOrderId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [costDialogWorkOrderId, setCostDialogWorkOrderId] = useState<string | null>(null);
+  const [isCostDialogOpen, setIsCostDialogOpen] = useState(false);
   const [equipmentModelFilter, setEquipmentModelFilter] = useState<string>("all");
 
   const { data: myWorkOrders, isLoading } = useQuery<WorkOrder[]>({
@@ -325,27 +328,45 @@ export default function TeamDashboard() {
                     workOrder.status === "pending_verification" ||
                     workOrder.status === "pending_supervisor"
                   }
+                  className="flex-1"
                   data-testid={`button-request-parts-${workOrder.id}`}
                 >
                   <Package className="h-4 w-4 mr-2" />
                   {language === "am" ? "እቃ ጠይቅ" : "Request Parts"}
                 </Button>
-                {workOrder.status === "in_progress" && (
-                  <Button
-                    onClick={() => markCompleteMutation.mutate(workOrder.id)}
-                    disabled={markCompleteMutation.isPending}
-                    size="sm"
-                    data-testid={`button-complete-work-${workOrder.id}`}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    {markCompleteMutation.isPending
-                      ? (language === "am" ? "በመላክ ላይ..." : "Submitting...")
-                      : (language === "am" ? "ስራውን አጠናቅቅ" : "Complete Work")}
-                  </Button>
-                )}
+                <Button
+                  onClick={() => {
+                    setCostDialogWorkOrderId(workOrder.id);
+                    setIsCostDialogOpen(true);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  data-testid={`button-fill-lubricants-${workOrder.id}`}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  {language === "am" ? "ሊብሪካንት ይሙሉ" : "Fill Lubricants"}
+                </Button>
               </>
             )}
           </div>
+
+          {workOrder.status === "in_progress" && (
+            <div className="pt-2 border-t">
+              <Button
+                onClick={() => markCompleteMutation.mutate(workOrder.id)}
+                disabled={markCompleteMutation.isPending}
+                size="sm"
+                className="w-full"
+                data-testid={`button-complete-work-${workOrder.id}`}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                {markCompleteMutation.isPending
+                  ? (language === "am" ? "በመላክ ላይ..." : "Submitting...")
+                  : (language === "am" ? "ስራውን አጠናቅቅ" : "Complete Work")}
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -926,6 +947,16 @@ export default function TeamDashboard() {
         workOrderId={detailsWorkOrderId}
         open={isDetailsDialogOpen}
         onOpenChange={setIsDetailsDialogOpen}
+      />
+
+      {/* Work Order Cost Tracking Dialog - For team members to add lubricants */}
+      <WorkOrderCostDialog
+        workOrderId={costDialogWorkOrderId}
+        open={isCostDialogOpen}
+        onOpenChange={setIsCostDialogOpen}
+        workOrderElapsedHours={
+          safeWorkOrders.find(wo => wo.id === costDialogWorkOrderId)?.elapsedHours || 0
+        }
       />
     </div>
   );

@@ -7593,10 +7593,10 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       
       // Fetch completed work orders with filters
       const completedOrders = await db.select().from(workOrders)
-        .where(and(
-          eq(workOrders.status, 'completed'),
-          ...filters
-        ));
+        .where(filters.length > 0 
+          ? and(eq(workOrders.status, 'completed'), ...filters)
+          : eq(workOrders.status, 'completed')
+        );
       
       // Fetch all work orders in the date range (for planned count)
       const allOrdersFilters: any[] = [];
@@ -7618,7 +7618,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
       }
       
       const allOrders = await db.select().from(workOrders)
-        .where(and(...allOrdersFilters));
+        .where(allOrdersFilters.length > 0 ? and(...allOrdersFilters) : undefined);
       
       // Fetch workshops data
       const workshopsData = await db.select().from(workshops);

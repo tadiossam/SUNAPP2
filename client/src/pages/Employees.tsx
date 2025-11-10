@@ -341,6 +341,7 @@ export default function Employees() {
       role: "wash_employee",
       phoneNumber: "",
       email: "",
+      hourlyRate: undefined,
     },
   });
 
@@ -354,6 +355,7 @@ export default function Employees() {
       role: "wash_employee",
       phoneNumber: "",
       email: "",
+      hourlyRate: undefined,
     },
   });
 
@@ -377,6 +379,7 @@ export default function Employees() {
       role: employee.role,
       phoneNumber: employee.phoneNumber || "",
       email: employee.email || "",
+      hourlyRate: employee.hourlyRate || undefined,
     });
     setIsEditDialogOpen(true);
   };
@@ -670,6 +673,27 @@ export default function Employees() {
                           type="email"
                           data-testid="input-employee-email"
                           placeholder={t("email")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="hourlyRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hourly Rate (ETB)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                          data-testid="input-employee-hourly-rate"
+                          placeholder="e.g., 250.00"
                         />
                       </FormControl>
                       <FormMessage />
@@ -1037,6 +1061,27 @@ export default function Employees() {
                         type="email"
                         data-testid="input-edit-employee-email"
                         placeholder={t("email")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="hourlyRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Hourly Rate (ETB)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                        data-testid="input-edit-employee-hourly-rate"
+                        placeholder="e.g., 250.00"
                       />
                     </FormControl>
                     <FormMessage />

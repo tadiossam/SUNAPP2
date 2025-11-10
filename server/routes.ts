@@ -51,7 +51,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { nanoid } from "nanoid";
 import { spawn } from "child_process";
-import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken, hasRole } from "./auth";
+import { isCEO, isCEOOrAdmin, isAuthenticated, canApprove, verifyCredentials, generateToken, hasRole, requireRole, isSupervisorOrCEO } from "./auth";
 import { sendCEONotification, createNotification } from "./email-service";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import express from "express";
@@ -2182,7 +2182,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/work-orders/:id/labor", isCEOOrAdmin, async (req, res) => {
+  // POST /api/work-orders/:id/labor - Foremen (supervisors) and CEOs can add labor costs (admin excluded)
+  app.post("/api/work-orders/:id/labor", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -2206,7 +2207,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/work-orders/:workOrderId/labor/:entryId", isCEOOrAdmin, async (req, res) => {
+  // DELETE /api/work-orders/:workOrderId/labor/:entryId - Foremen and CEOs can delete labor costs (admin excluded)
+  app.delete("/api/work-orders/:workOrderId/labor/:entryId", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -2231,7 +2233,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/work-orders/:id/lubricants", isCEOOrAdmin, async (req, res) => {
+  // POST /api/work-orders/:id/lubricants - Foremen (supervisors) and CEOs can add lubricant costs (admin excluded)
+  app.post("/api/work-orders/:id/lubricants", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -2255,7 +2258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/work-orders/:workOrderId/lubricants/:entryId", isCEOOrAdmin, async (req, res) => {
+  // DELETE /api/work-orders/:workOrderId/lubricants/:entryId - Foremen and CEOs can delete lubricant costs (admin excluded)
+  app.delete("/api/work-orders/:workOrderId/lubricants/:entryId", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -2280,7 +2284,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/work-orders/:id/outsource", isCEOOrAdmin, async (req, res) => {
+  // POST /api/work-orders/:id/outsource - Foremen (supervisors) and CEOs can add outsource costs (admin excluded)
+  app.post("/api/work-orders/:id/outsource", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -2304,7 +2309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/work-orders/:workOrderId/outsource/:entryId", isCEOOrAdmin, async (req, res) => {
+  // DELETE /api/work-orders/:workOrderId/outsource/:entryId - Foremen and CEOs can delete outsource costs (admin excluded)
+  app.delete("/api/work-orders/:workOrderId/outsource/:entryId", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });

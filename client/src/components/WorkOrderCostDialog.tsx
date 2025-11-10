@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -124,6 +124,13 @@ export function WorkOrderCostDialog({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("summary");
 
+  // Reset hours when dialog opens with work order elapsed hours (including 0 to avoid stale values)
+  useEffect(() => {
+    if (open) {
+      laborForm.setValue("hoursWorked", workOrderElapsedHours);
+    }
+  }, [open, workOrderElapsedHours]);
+
   // Fetch employees for labor entry
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
@@ -146,7 +153,7 @@ export function WorkOrderCostDialog({
     resolver: zodResolver(laborFormSchema),
     defaultValues: {
       employeeId: "",
-      hoursWorked: 0,
+      hoursWorked: workOrderElapsedHours || 0, // Auto-fill from work order timer
       hourlyRateSnapshot: 0,
       overtimeFactor: 1.0,
       description: "",

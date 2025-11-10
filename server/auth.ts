@@ -145,6 +145,18 @@ export function canApprove(req: any, res: Response, next: NextFunction) {
   res.status(403).json({ message: "Access denied. CEO, Admin, or Supervisor role required." });
 }
 
+// Cost entry middleware - Supervisor and CEO only (admin explicitly excluded)
+// Used for cost tracking endpoints where admin should NOT have universal access
+export function isSupervisorOrCEO(req: any, res: Response, next: NextFunction) {
+  const role = req.user?.role?.toLowerCase();
+  if (role === "supervisor" || role === "ceo") {
+    return next();
+  }
+  res.status(403).json({ 
+    message: "Access denied. Cost entry is restricted to supervisors (foremen) and CEO only." 
+  });
+}
+
 // Helper function to check if user has a specific role (case-insensitive)
 // Admin role ALWAYS returns true (full access)
 export function hasRole(user: any, ...allowedRoles: string[]): boolean {

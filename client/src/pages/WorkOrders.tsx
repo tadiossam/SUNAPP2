@@ -44,6 +44,7 @@ type WorkOrder = {
   estimatedHours: string | null;
   estimatedCost: string | null;
   scheduledDate: string | null;
+  actualHours?: string | null; // Actual hours tracked from work timer
   notes?: string | null;
   requiredParts?: WorkOrderRequiredPart[];
   inspectionId?: string | null;
@@ -90,11 +91,13 @@ export default function WorkOrdersPage() {
   const [viewingInspectionId, setViewingInspectionId] = useState<string | null>(null);
   const [viewingReceptionId, setViewingReceptionId] = useState<string | null>(null);
 
-  // Get current user
+  // Get current user for role-based access control
   const { data: authData } = useQuery({
     queryKey: ["/api/auth/me"],
   });
   const currentUser = (authData as any)?.user;
+  // Cost Tracking restricted to supervisors (foremen) only
+  const isForeman = currentUser && currentUser.role.toLowerCase() === 'supervisor';
 
   const { data: workOrders, isLoading } = useQuery<WorkOrder[]>({
     queryKey: ["/api/work-orders"],
@@ -680,8 +683,8 @@ export default function WorkOrdersPage() {
                   </div>
                 )}
 
-                {/* Cost Tracking Button - Show for in_progress, verified, and completed work orders */}
-                {(wo.status === 'in_progress' || wo.status === 'verified' || wo.status === 'completed') && (
+                {/* Cost Tracking Button - Show for in_progress, verified, and completed work orders - FOREMEN (SUPERVISORS) ONLY */}
+                {isForeman && (wo.status === 'in_progress' || wo.status === 'verified' || wo.status === 'completed') && (
                   <div className="flex gap-2 pt-2 border-t">
                     <Button 
                       size="sm" 
@@ -1442,6 +1445,11 @@ export default function WorkOrdersPage() {
         workOrderId={costDialogWorkOrderId}
         open={isCostDialogOpen}
         onOpenChange={setIsCostDialogOpen}
+        workOrderElapsedHours={
+          workOrders?.find(wo => wo.id === costDialogWorkOrderId)?.actualHours 
+            ? parseFloat(workOrders.find(wo => wo.id === costDialogWorkOrderId)!.actualHours!)
+            : 0
+        }
       />
     </div>
   );

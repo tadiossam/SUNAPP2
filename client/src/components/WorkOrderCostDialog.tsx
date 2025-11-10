@@ -26,6 +26,7 @@ type WorkOrderCostDialogProps = {
   onOpenChange: (open: boolean) => void;
   workOrderElapsedHours?: number;
   isCompleted?: boolean;
+  readOnly?: boolean; // If true, disable all editing functions
 };
 
 type LaborEntry = {
@@ -119,7 +120,8 @@ export function WorkOrderCostDialog({
   open, 
   onOpenChange,
   workOrderElapsedHours = 0,
-  isCompleted = false
+  isCompleted = false,
+  readOnly = false
 }: WorkOrderCostDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("summary");

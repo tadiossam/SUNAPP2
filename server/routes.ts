@@ -2182,7 +2182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/work-orders/:id/labor - Foremen (supervisors) and CEOs can add labor costs (admin excluded)
+  // POST /api/work-orders/:id/labor - Supervisors, Admin, and CEO can add labor costs
   app.post("/api/work-orders/:id/labor", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
@@ -2207,7 +2207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELETE /api/work-orders/:workOrderId/labor/:entryId - Foremen and CEOs can delete labor costs (admin excluded)
+  // DELETE /api/work-orders/:workOrderId/labor/:entryId - Supervisors, Admin, and CEO can delete labor costs
   app.delete("/api/work-orders/:workOrderId/labor/:entryId", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
@@ -2233,7 +2233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/work-orders/:id/lubricants - Foremen (supervisors) and CEOs can add lubricant costs (admin excluded)
+  // POST /api/work-orders/:id/lubricants - Supervisors, Admin, and CEO can add lubricant costs
   app.post("/api/work-orders/:id/lubricants", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
@@ -2258,7 +2258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELETE /api/work-orders/:workOrderId/lubricants/:entryId - Foremen and CEOs can delete lubricant costs (admin excluded)
+  // DELETE /api/work-orders/:workOrderId/lubricants/:entryId - Supervisors, Admin, and CEO can delete lubricant costs
   app.delete("/api/work-orders/:workOrderId/lubricants/:entryId", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
@@ -2284,7 +2284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/work-orders/:id/outsource - Foremen (supervisors) and CEOs can add outsource costs (admin excluded)
+  // POST /api/work-orders/:id/outsource - Supervisors, Admin, and CEO can add outsource costs
   app.post("/api/work-orders/:id/outsource", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {
@@ -2309,7 +2309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // DELETE /api/work-orders/:workOrderId/outsource/:entryId - Foremen and CEOs can delete outsource costs (admin excluded)
+  // DELETE /api/work-orders/:workOrderId/outsource/:entryId - Supervisors, Admin, and CEO can delete outsource costs
   app.delete("/api/work-orders/:workOrderId/outsource/:entryId", isSupervisorOrCEO, async (req, res) => {
     try {
       if (!req.user) {

@@ -384,7 +384,7 @@ export default function ForemanDashboard() {
     );
   };
 
-  const WorkOrderCard = ({ workOrder }: { workOrder: WorkOrder }) => (
+  const WorkOrderCard = ({ workOrder, showCostTracking = true }: { workOrder: WorkOrder; showCostTracking?: boolean }) => (
     <Card className="hover-elevate" data-testid={`work-order-card-${workOrder.id}`}>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -473,22 +473,24 @@ export default function ForemanDashboard() {
           </Button>
         )}
 
-        {/* Cost Tracking Button - Always available for foreman */}
-        <div className="pt-2 border-t">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setCostDialogWorkOrderId(workOrder.id);
-              setIsCostDialogOpen(true);
-            }}
-            className="w-full"
-            data-testid={`button-cost-tracking-${workOrder.id}`}
-          >
-            <FileText className="h-3.5 w-3.5 mr-1.5" />
-            Manage Cost Tracking
-          </Button>
-        </div>
+        {/* Cost Tracking Button - Available on Active Work and Completion Approvals */}
+        {showCostTracking && (
+          <div className="pt-2 border-t">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setCostDialogWorkOrderId(workOrder.id);
+                setIsCostDialogOpen(true);
+              }}
+              className="w-full"
+              data-testid={`button-cost-tracking-${workOrder.id}`}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Manage Cost Tracking
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -564,7 +566,7 @@ export default function ForemanDashboard() {
             </Card>
 
             {filteredPendingWorkOrders && filteredPendingWorkOrders.length > 0 ? (
-              filteredPendingWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
+              filteredPendingWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} showCostTracking={false} />)
             ) : (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
@@ -610,7 +612,7 @@ export default function ForemanDashboard() {
             </Card>
 
             {filteredActiveWorkOrders && filteredActiveWorkOrders.length > 0 ? (
-              filteredActiveWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} />)
+              filteredActiveWorkOrders.map((workOrder) => <WorkOrderCard key={workOrder.id} workOrder={workOrder} showCostTracking={true} />)
             ) : (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
@@ -701,15 +703,31 @@ export default function ForemanDashboard() {
                             </div>
                           </div>
                         )}
-                        <Button
-                          onClick={() => approveCompletionMutation.mutate({ workOrderId: workOrder.id })}
-                          disabled={approveCompletionMutation.isPending}
-                          className="w-full"
-                          data-testid={`button-approve-completion-${workOrder.id}`}
-                        >
-                          <ThumbsUp className="h-4 w-4 mr-2" />
-                          {approveCompletionMutation.isPending ? "Approving..." : "Approve Completion"}
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            onClick={() => approveCompletionMutation.mutate({ workOrderId: workOrder.id })}
+                            disabled={approveCompletionMutation.isPending}
+                            className="w-full"
+                            data-testid={`button-approve-completion-${workOrder.id}`}
+                          >
+                            <ThumbsUp className="h-4 w-4 mr-2" />
+                            {approveCompletionMutation.isPending ? "Approving..." : "Approve Completion"}
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setCostDialogWorkOrderId(workOrder.id);
+                              setIsCostDialogOpen(true);
+                            }}
+                            className="w-full"
+                            data-testid={`button-cost-tracking-${workOrder.id}`}
+                          >
+                            <FileText className="h-3.5 w-3.5 mr-1.5" />
+                            View Cost Tracking
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))

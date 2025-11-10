@@ -581,7 +581,7 @@ export function WorkOrderCostDialog({
                                 <SelectContent>
                                   {employees.map((emp) => (
                                     <SelectItem key={emp.id} value={emp.id}>
-                                      {emp.firstName} {emp.lastName}
+                                      {emp.fullName}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

@@ -7626,7 +7626,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
           ),
           monthly_costs AS (
             SELECT 
-              date_trunc('month', COALESCE(wo.completed_at, wo.scheduled_completion_date))::timestamp AS month,
+              date_trunc('month', wo.completed_at)::timestamp AS month,
               COALESCE(SUM(wo.actual_labor_cost), 0) AS labor_actual,
               COALESCE(SUM(wo.actual_lubricant_cost), 0) AS lubricant_actual,
               COALESCE(SUM(wo.actual_outsource_cost), 0) AS outsource_actual,
@@ -7636,7 +7636,7 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
               AND wo.completed_at >= ${dateFilter.start}
               AND wo.completed_at <= ${dateFilter.end}
               ${workshopFilterSQL}
-            GROUP BY date_trunc('month', COALESCE(wo.completed_at, wo.scheduled_completion_date))
+            GROUP BY date_trunc('month', wo.completed_at)
           ),
           equipment_costs AS (
             SELECT 
@@ -7675,10 +7675,9 @@ $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
                   'lubricantActual', COALESCE(mc.lubricant_actual, 0),
                   'outsourceActual', COALESCE(mc.outsource_actual, 0),
                   'totalActual', COALESCE(mc.total_actual, 0)
-                ))
+                ) ORDER BY ms.month)
                 FROM monthly_series ms
                 LEFT JOIN monthly_costs mc ON ms.month = mc.month
-                ORDER BY ms.month
               ), '[]'::json),
               'breakdown', json_build_object(
                 'labor', COALESCE((SELECT SUM(labor_actual) FROM monthly_costs), 0),

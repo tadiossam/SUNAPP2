@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { DollarSign, Plus, Trash2, User, Droplet, Briefcase, TrendingUp, TrendingDown } from "lucide-react";
+import { DollarSign, Plus, Trash2, Edit, User, Droplet, Briefcase, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Employee } from "@shared/schema";
@@ -125,6 +125,7 @@ export function WorkOrderCostDialog({
 }: WorkOrderCostDialogProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("summary");
+  const [editingLaborEntry, setEditingLaborEntry] = useState<LaborEntry | null>(null);
 
   // Reset hours when dialog opens with work order elapsed hours (including 0 to avoid stale values)
   useEffect(() => {
@@ -162,6 +163,14 @@ export function WorkOrderCostDialog({
       workDate: new Date().toISOString().split('T')[0],
     },
   });
+
+  // Watch form values for live cost calculation
+  const watchedHours = useWatch({ control: laborForm.control, name: "hoursWorked", defaultValue: 0 });
+  const watchedRate = useWatch({ control: laborForm.control, name: "hourlyRateSnapshot", defaultValue: 0 });
+  const watchedOvertimeFactor = useWatch({ control: laborForm.control, name: "overtimeFactor", defaultValue: 1.0 });
+  
+  // Calculate live cost
+  const liveLaborCost = (Number(watchedHours) || 0) * (Number(watchedRate) || 0) * (Number(watchedOvertimeFactor) || 1.0);
 
   // Lubricant form
   const lubricantForm = useForm<LubricantFormValues>({
@@ -218,11 +227,51 @@ export function WorkOrderCostDialog({
         description: "Labor cost has been recorded successfully",
       });
       laborForm.reset();
+      setEditingLaborEntry(null);
     },
     onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "Failed to add labor entry",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update labor entry mutation
+  const updateLaborMutation = useMutation({
+    mutationFn: async (data: LaborFormValues & { entryId: string }) => {
+      const totalCost = data.hoursWorked * data.hourlyRateSnapshot * data.overtimeFactor;
+      const payload = {
+        employeeId: data.employeeId,
+        hoursWorked: data.hoursWorked,
+        hourlyRateSnapshot: data.hourlyRateSnapshot,
+        overtimeFactor: data.overtimeFactor,
+        totalCost,
+        description: data.description || undefined,
+        workDate: data.workDate,
+      };
+      const response = await apiRequest("PATCH", `/api/work-orders/${workOrderId}/labor/${data.entryId}`, payload);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update labor entry");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders", workOrderId, "costs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      toast({
+        title: "Labor entry updated",
+        description: "Labor cost has been updated successfully",
+      });
+      laborForm.reset();
+      setEditingLaborEntry(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update labor entry",
         variant: "destructive",
       });
     },
@@ -568,7 +617,13 @@ export function WorkOrderCostDialog({
                   </CardHeader>
                   <CardContent>
                     <Form {...laborForm}>
-                    <form onSubmit={laborForm.handleSubmit((data) => addLaborMutation.mutate(data))} className="space-y-4">
+                    <form onSubmit={laborForm.handleSubmit((data) => {
+                      if (editingLaborEntry) {
+                        updateLaborMutation.mutate({ ...data, entryId: editingLaborEntry.id });
+                      } else {
+                        addLaborMutation.mutate(data);
+                      }
+                    })} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={laborForm.control}
@@ -704,14 +759,48 @@ export function WorkOrderCostDialog({
                         />
                       </div>
 
-                      <div className="flex justify-end">
+                      {/* Live Cost Preview */}
+                      <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">Calculated Labor Cost</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {watchedHours} hrs × {watchedRate} ETB × {watchedOvertimeFactor}x
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-primary">
+                              {formatCurrency(liveLaborCost)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">ETB</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2">
+                        {editingLaborEntry && (
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              laborForm.reset();
+                              setEditingLaborEntry(null);
+                            }}
+                            data-testid="button-cancel-labor-edit"
+                          >
+                            Cancel
+                          </Button>
+                        )}
                         <Button 
                           type="submit" 
-                          disabled={addLaborMutation.isPending}
-                          data-testid="button-add-labor"
+                          disabled={editingLaborEntry ? updateLaborMutation.isPending : addLaborMutation.isPending}
+                          data-testid={editingLaborEntry ? "button-update-labor" : "button-add-labor"}
                         >
                           <Plus className="h-4 w-4 mr-2" />
-                          {addLaborMutation.isPending ? "Adding..." : "Add Labor Entry"}
+                          {editingLaborEntry 
+                            ? (updateLaborMutation.isPending ? "Updating..." : "Update Labor Entry")
+                            : (addLaborMutation.isPending ? "Adding..." : "Add Labor Entry")
+                          }
                         </Button>
                       </div>
                     </form>
@@ -754,15 +843,37 @@ export function WorkOrderCostDialog({
                             </TableCell>
                             <TableCell>
                               {!readOnly && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => deleteLaborMutation.mutate(entry.id)}
-                                  disabled={deleteLaborMutation.isPending}
-                                  data-testid={`button-delete-labor-${entry.id}`}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setEditingLaborEntry(entry);
+                                      laborForm.reset({
+                                        employeeId: entry.employeeId,
+                                        hoursWorked: entry.hoursWorked,
+                                        hourlyRateSnapshot: entry.hourlyRateSnapshot,
+                                        overtimeFactor: entry.overtimeFactor,
+                                        description: entry.description || "",
+                                        workDate: new Date(entry.workDate).toISOString().split('T')[0],
+                                      });
+                                      // Scroll to form
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                    data-testid={`button-edit-labor-${entry.id}`}
+                                  >
+                                    <Edit className="h-4 w-4 text-primary" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => deleteLaborMutation.mutate(entry.id)}
+                                    disabled={deleteLaborMutation.isPending}
+                                    data-testid={`button-delete-labor-${entry.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
                               )}
                             </TableCell>
                           </TableRow>

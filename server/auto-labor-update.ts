@@ -3,6 +3,7 @@ import { db } from "./db";
 import { workOrders, workOrderLaborEntries, workOrderTimeTracking } from "@shared/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { calculateWorkOrderElapsedTime } from "./work-timer-utils";
+import { storage } from "./storage";
 
 let isRunning = false; // Prevent overlapping executions
 
@@ -93,6 +94,9 @@ export async function updateAutoLaborEntries() {
             })
             .where(eq(workOrderLaborEntries.id, entry.id));
         }
+
+        // Recalculate work order cost summary to keep summaries synchronized
+        await storage.updateWorkOrderCosts(workOrder.id);
 
         updatedCount += autoLaborEntries.length;
         console.log(

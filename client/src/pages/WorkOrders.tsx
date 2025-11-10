@@ -683,8 +683,8 @@ export default function WorkOrdersPage() {
                   </div>
                 )}
 
-                {/* Cost Tracking Button - Show for in_progress, verified, and completed work orders */}
-                {canAccessCostTracking && (wo.status === 'in_progress' || wo.status === 'verified' || wo.status === 'completed') && (
+                {/* Cost Tracking Button - Show for active, in_progress, verified, and completed work orders */}
+                {canAccessCostTracking && (wo.status === 'active' || wo.status === 'in_progress' || wo.status === 'verified' || wo.status === 'completed') && (
                   <div className="flex gap-2 pt-2 border-t">
                     <Button 
                       size="sm" 

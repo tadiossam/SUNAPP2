@@ -1870,44 +1870,30 @@ export class DatabaseStorage implements IStorage {
   // Work Order Cost Tracking
   async getWorkOrderLaborEntries(workOrderId: string): Promise<WorkOrderLaborEntryView[]> {
     const entries = await db
-      .select({
-        // All base columns
-        id: workOrderLaborEntries.id,
-        workOrderId: workOrderLaborEntries.workOrderId,
-        employeeId: workOrderLaborEntries.employeeId,
-        entryType: workOrderLaborEntries.entryType,
-        timeSource: workOrderLaborEntries.timeSource,
-        hoursWorked: workOrderLaborEntries.hoursWorked,
-        hourlyRateSnapshot: workOrderLaborEntries.hourlyRateSnapshot,
-        overtimeFactor: workOrderLaborEntries.overtimeFactor,
-        totalCost: workOrderLaborEntries.totalCost,
-        description: workOrderLaborEntries.description,
-        workDate: workOrderLaborEntries.workDate,
-        enteredById: workOrderLaborEntries.enteredById,
-        createdAt: workOrderLaborEntries.createdAt,
-        // Enriched field from JOIN - get individual fields and combine in JavaScript
-        employeeFirstName: employees.firstName,
-        employeeLastName: employees.lastName,
-      })
+      .select()
       .from(workOrderLaborEntries)
       .leftJoin(employees, eq(workOrderLaborEntries.employeeId, employees.id))
       .where(eq(workOrderLaborEntries.workOrderId, workOrderId))
       .orderBy(desc(workOrderLaborEntries.createdAt));
     
-    return entries.map(entry => ({
-      ...entry,
-      // Parse all decimal fields to numbers
-      hoursWorked: parseFloat(entry.hoursWorked as any),
-      hourlyRateSnapshot: parseFloat(entry.hourlyRateSnapshot as any),
-      overtimeFactor: parseFloat(entry.overtimeFactor as any),
-      totalCost: parseFloat(entry.totalCost as any),
-      // Add backwards-compat alias
-      hourlyRate: parseFloat(entry.hourlyRateSnapshot as any),
-      // Combine employee name from separate fields
-      employeeName: entry.employeeFirstName && entry.employeeLastName 
-        ? `${entry.employeeFirstName} ${entry.employeeLastName}` 
-        : null,
-    }));
+    return entries.map(row => {
+      const entry = row.work_order_labor_entries;
+      const employee = row.employees;
+      return {
+        ...entry,
+        // Parse all decimal fields to numbers
+        hoursWorked: parseFloat(entry.hoursWorked as any),
+        hourlyRateSnapshot: parseFloat(entry.hourlyRateSnapshot as any),
+        overtimeFactor: parseFloat(entry.overtimeFactor as any),
+        totalCost: parseFloat(entry.totalCost as any),
+        // Add backwards-compat alias
+        hourlyRate: parseFloat(entry.hourlyRateSnapshot as any),
+        // Combine employee name from joined data
+        employeeName: employee && employee.firstName && employee.lastName 
+          ? `${employee.firstName} ${employee.lastName}` 
+          : null,
+      };
+    });
   }
 
   async getWorkOrderLubricantEntries(workOrderId: string): Promise<WorkOrderLubricantEntryView[]> {

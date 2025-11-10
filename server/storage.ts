@@ -240,7 +240,7 @@ export interface IStorage {
   deleteEmployee(id: string): Promise<void>;
 
   // Work Orders
-  getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string }): Promise<WorkOrderWithDetails[]>;
+  getAllWorkOrders(filters?: { status?: string; assignedToId?: string; garageId?: string; workshopId?: string; equipmentModel?: string }): Promise<WorkOrderWithDetails[]>;
   getWorkOrderById(id: string): Promise<WorkOrderWithDetails | undefined>;
   getWorkOrdersByPrefix(prefix: string): Promise<WorkOrder[]>;
   createWorkOrder(data: InsertWorkOrder): Promise<WorkOrder>;

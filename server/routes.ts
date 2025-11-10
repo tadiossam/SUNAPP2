@@ -2208,6 +2208,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? validated.overtimeFactor
         : parseFloat(validated.overtimeFactor as any);
       
+      // Validate hoursWorked is positive (prevents 0-hour entries)
+      if (hoursWorked <= 0) {
+        return res.status(400).json({ error: "Hours worked must be greater than 0" });
+      }
+      
       const recalculatedTotalCost = hoursWorked * hourlyRate * overtimeFactor;
 
       const entry = await storage.addLaborEntry({

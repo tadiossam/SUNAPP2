@@ -134,11 +134,12 @@ export function WorkOrderCostDialog({
   // Determine entry type based on user role
   const lubricantEntryType: "planned" | "actual" = userRole === "foreman" ? "planned" : "actual";
 
-  // Reset minutes when dialog opens with work order elapsed hours (including 0 to avoid stale values)
+  // Reset minutes when dialog opens with work order elapsed hours (minimum 1 minute to prevent 0-hour entries)
   useEffect(() => {
     if (open) {
-      // Convert hours to minutes for the form
-      laborForm.setValue("minutesWorked", Math.round(workOrderElapsedHours * 60));
+      // Convert hours to minutes for the form, ensuring at least 1 minute
+      const minutes = Math.round(workOrderElapsedHours * 60);
+      laborForm.setValue("minutesWorked", Math.max(1, minutes));
     }
   }, [open, workOrderElapsedHours]);
 
@@ -164,7 +165,7 @@ export function WorkOrderCostDialog({
     resolver: zodResolver(laborFormSchema),
     defaultValues: {
       employeeId: "",
-      minutesWorked: Math.round((workOrderElapsedHours || 0) * 60), // Auto-fill from work order timer (convert hours to minutes)
+      minutesWorked: Math.max(1, Math.round((workOrderElapsedHours || 0) * 60)), // Auto-fill from work order timer (minimum 1 minute)
       hourlyRateSnapshot: 0,
       overtimeFactor: 1.0,
       description: "",

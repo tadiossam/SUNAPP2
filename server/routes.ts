@@ -8460,3 +8460,81 @@ async function calculateEmployeePerformance(startDate: Date, endDate: Date) {
   
   return performance;
 }
+
+// Database management endpoints
+export function registerDatabaseRoutes(app: Express) {
+  // Safe schema sync endpoint - only adds missing tables and columns
+  app.post("/api/admin/sync-schema", isCEOOrAdmin, async (req, res) => {
+    try {
+      // Execute drizzle-kit push with --force flag to safely add missing schema elements
+      const { spawn } = await import('child_process');
+      
+      const process = spawn('npm', ['run', 'db:push', '--', '--force'], {
+        stdio: 'pipe',
+        shell: true
+      });
+      
+      let output = '';
+      let errorOutput = '';
+      
+      process.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      process.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+      
+      process.on('close', (code) => {
+        if (code === 0) {
+          res.json({ 
+            success: true, 
+            message: 'Database schema synced successfully',
+            output: output
+          });
+        } else {
+          res.status(500).json({ 
+            success: false, 
+            message: 'Failed to sync database schema',
+            error: errorOutput || output
+          });
+        }
+      });
+    } catch (error: any) {
+      console.error('Schema sync error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to sync database schema',
+        error: error.message 
+      });
+    }
+  });
+  
+  // Get database schema info
+  app.get("/api/admin/schema-info", isCEOOrAdmin, async (req, res) => {
+    try {
+      // Query PostgreSQL for current schema information
+      const tablesQuery = await db.execute(sql`
+        SELECT 
+          table_name,
+          (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = t.table_name) as column_count
+        FROM information_schema.tables t
+        WHERE table_schema = 'public' 
+        AND table_type = 'BASE TABLE'
+        ORDER BY table_name
+      `);
+      
+      res.json({
+        success: true,
+        tables: tablesQuery.rows
+      });
+    } catch (error: any) {
+      console.error('Schema info error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to fetch schema info',
+        error: error.message 
+      });
+    }
+  });
+}
